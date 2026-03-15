@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; img-src 'self' data: file: http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self';">
+    <title>Settings</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="themes/warm-paper.css" id="themeSheet">
+    <style>
+        /* 窗口级覆盖：settings-panel 填满整个窗口 */
+        body {
+            background: var(--bg);
+            background-image: var(--bg-texture, none);
+            background-repeat: repeat;
+            background-size: 400px;
+            overflow: hidden;
+        }
+        .settings-panel {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            border-radius: 0;
+            box-shadow: none;
+            border: none;
+            transform: none;
+            z-index: 1;
+            padding-top: 0;
+        }
+        .settings-header {
+            -webkit-app-region: drag;
+            padding: 44px 0 var(--space-md, 12px) 20px;
+        }
+        .settings-header button,
+        .settings-header input,
+        .settings-header select,
+        .settings-header textarea {
+            -webkit-app-region: no-drag;
+        }
+        /* 隐藏返回按钮（窗口有自己的关闭按钮） */
+        .settings-back-btn { display: none; }
+        /* 加载蒙版 */
+        .settings-loading-mask {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: var(--bg);
+            background-image: var(--bg-texture, none);
+            background-repeat: repeat;
+            background-size: 400px;
+            transition: opacity 0.25s ease;
+        }
+        .settings-loading-mask.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="react-root"></div>
+
+    <script src="lib/markdown-it.min.js"></script>
+    <script src="lib/i18n.js"></script>
+    <script src="lib/theme.js"></script>
+    <script src="modules/platform.js"></script>
+    <script type="module" src="./settings-main.tsx"></script>
+</body>
+</html>

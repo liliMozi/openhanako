@@ -1,0 +1,60 @@
+# ═══════════════════════════════════════════
+# 用户数据（已迁移到 ~/.hanako/）
+# ═══════════════════════════════════════════
+agents/
+user/
+
+# ═══════════════════════════════════════════
+# 文档 / 参考文件
+# ═══════════════════════════════════════════
+.docs/
+archived/
+devlog/
+handoff-*.md
+
+# ═══════════════════════════════════════════
+# 构建产物
+# ═══════════════════════════════════════════
+dist/
+desktop/dist-renderer/
+inbox/
+
+# 运行时 / 依赖
+# ═══════════════════════════════════════════
+node_modules/
+.pi/
+
+# IDE / 工具
+.claude/
+*.code-workspace
+
+# 项目私有文件
+CLAUDE.md
+
+# 临时文件
+tmp/
+/index.html
+homepage/
+
+# Skills 参考文件
+skills2set/**/references/
+
+# 环境变量 / 凭证
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.crt
+credentials.json
+secrets.yaml
+secrets.json
+auth.json
+
+# 日志
+*.log
+logs/
+
+# 系统文件
+.DS_Store
+*.db

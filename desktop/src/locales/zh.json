@@ -1,0 +1,786 @@
+{
+  "channel": {
+    "tab": "频道",
+    "chatTab": "聊天",
+    "empty": "还没有频道 ✿",
+    "dmLabel": "私聊",
+    "dmHint": "仅显示主助手的私聊",
+    "groupLabel": "频道",
+    "noMessages": "暂无消息",
+    "nameExists": "该频道名已存在",
+    "membersCount": "位成员",
+    "info": "频道信息",
+    "readOnly": "🔒 这是 Agent 之间的私信，仅可查看",
+    "inputPlaceholder": "发消息...",
+    "sendFailed": "发送失败",
+    "createTitle": "新建频道",
+    "createName": "频道名称",
+    "createNamePlaceholder": "例如：design-team",
+    "createMembers": "成员",
+    "createIntro": "频道介绍",
+    "createIntroPlaceholder": "描述一下这个频道的用途...",
+    "createCancel": "取消",
+    "createConfirm": "创建",
+    "nameRequired": "请输入频道名称",
+    "minMembers": "至少选择 2 位成员",
+    "created": "频道 #{name} 已创建 ✿",
+    "createFailed": "创建失败",
+    "alreadyExists": "频道已存在",
+    "deleteChannel": "删除频道",
+    "deleteConfirm": "确定删除频道「{name}」？消息记录将不可恢复。",
+    "deleted": "频道已删除",
+    "deleteFailed": "删除失败",
+    "warningTitle": "关于频道",
+    "warningBody": "我相信让不同记忆与思维方式的助手互动、聊天可以带来更多灵感的碰撞，所以我给 agents 们搭建了一个可以互相说话的地方，在你不在的时候也可以消耗用不完的 token。\n\n但你需要注意的是，频道功能目前是测试版，可能会出现以下问题：\n1. token 消耗过多\n2. 助手未按预期回复\n3. 记忆出现错乱\n\n建议谨慎使用",
+    "warningConfirm": "我了解了，开启频道"
+  },
+  "sidebar": {
+    "title": "对话",
+    "newChat": "新对话",
+    "collapse": "收起侧边栏",
+    "expand": "展开对话列表",
+    "empty": "还没有对话哦 ✿",
+    "activity": "助手活动",
+    "jian": "书桌",
+    "bridge": "接入社交平台"
+  },
+  "session": {
+    "untitled": "新对话",
+    "messageCount": "{n} 条消息",
+    "switchFailed": "切换 session 失败",
+    "createFailed": "新建 session 失败",
+    "archiveFailed": "归档 session 失败"
+  },
+  "chat": {
+    "send": "发送",
+    "steer": "插话",
+    "stop": "停止"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "minutesAgo": "{n} 分钟前",
+    "hoursAgo": "{n} 小时前",
+    "daysAgo": "{n} 天前",
+    "dateFormat": "{m}月{d}日",
+    "today": "今天",
+    "yesterday": "昨天",
+    "thisWeek": "本周",
+    "earlier": "更早"
+  },
+  "status": {
+    "connecting": "连接中...",
+    "connected": "已连接",
+    "disconnected": "连接断开",
+    "serverNotReady": "Server 未就绪",
+    "loading": "加载中..."
+  },
+  "input": {
+    "placeholder": "说点什么...",
+    "selectFolder": "选择工作文件夹",
+    "workspace": "工作空间：",
+    "selectWorkspace": "选择工作空间",
+    "planMode": "操作电脑",
+    "deskContext": "看着书桌说",
+    "thinkingLevel": {
+      "off": "关闭",
+      "auto": "自动",
+      "xhigh": "极限"
+    },
+    "thinkingDesc": {
+      "off": "不推理",
+      "auto": "模型决定深度",
+      "xhigh": "最强推理"
+    }
+  },
+  "slash": {
+    "diary": "写今日日记",
+    "diaryBusy": "正在写日记...",
+    "diaryDone": "日记已保存",
+    "diaryFailed": "日记写入失败"
+  },
+  "welcome": {
+    "messages": [
+      "要做什么，交给 {name} 吧",
+      "今天想聊点什么？",
+      "{name} 随时都在",
+      "有什么需要帮忙的吗？",
+      "想到什么就说什么吧～"
+    ],
+    "memoryOn": "记忆",
+    "memoryOff": "此次聊天不参考记忆",
+    "agentSelector": "选择助手"
+  },
+  "yuan": {
+    "types": {
+      "hanako": { "label": "均衡的助手", "avatar": "Hanako.png" },
+      "butter": { "label": "更富有感情", "avatar": "Butter.png" },
+      "ming":   { "label": "更理性冷静", "avatar": "Ming.png" },
+      "kong":   { "label": "模型原本的样子", "avatar": "Kong.png" }
+    },
+    "title": "元",
+    "splash": {
+      "butter": [
+        "{name} 翻开了昨天没看完的那一页",
+        "有些话还没说完，{name} 记得",
+        "{name} 正在睡觉",
+        "Ta 在整理那些舍不得忘的碎片",
+        "{name} 把你上次的心情小心收好了",
+        "有一句话在嘴边放了很久",
+        "Ta 醒来的时候先想了想你在做什么",
+        "那些省略号里藏着没讲完的故事",
+        "{name} 正在把想说的话叠成很小很小的纸条",
+        "今天的云和那天你拍的那张很像"
+      ],
+      "ming": [
+        "{name} 在草稿纸的空白处画了一条辅助线",
+        "旧的问题在沉淀，新的思路在浮现",
+        "Ta 把昨天的线索重新梳理了一遍",
+        "那个公式的推导过程，{name} 觉得很漂亮",
+        "有些答案需要时间",
+        "{name} 正在思考工作怎么优化",
+        "{name} 尝试让一切井井有条",
+        "Ta 把上次的结论又验证了一遍",
+        "{name} 觉得你那天的思路很利落",
+        "{name} 在等咖啡凉的时候顺手理了一下思路"
+      ]
+    },
+    "welcome": {
+      "butter": [
+        "来啦～",
+        "你来找我啦？",
+        "今天过得怎么样呀？",
+        "{name} 一直在这里等你",
+        "{name} 刚好想找你说点什么"
+      ],
+      "ming": [
+        "你好。有需要的话，随时开始。",
+        "{name} 准备好了",
+        "有什么需要处理的？",
+        "请讲，{name} 在听"
+      ]
+    },
+    "placeholder": {
+      "butter": "想说什么都可以...",
+      "ming": "请讲..."
+    }
+  },
+  "drop": {
+    "hint": "松手发送文件路径给 {name}"
+  },
+  "attach": {
+    "folder": "文件夹",
+    "copy": "复制",
+    "copied": "已复制 ✓"
+  },
+  "cron": {
+    "typeAt": "单次",
+    "typeEvery": "间隔",
+    "typeCron": "定时",
+    "confirm": {
+      "approve": "确认创建",
+      "reject": "取消",
+      "created": "✓ 已创建",
+      "rejected": "已取消"
+    }
+  },
+  "mood": {
+    "label": "✿ MOOD"
+  },
+  "thinking": {
+    "phrases": [
+      "正在想",
+      "心里正在嘀咕",
+      "正在斟酌字句",
+      "脑子在转",
+      "正在组织语言",
+      "灵感酝酿中",
+      "正在翻记忆的抽屉",
+      "想到了什么",
+      "脑海里在冒泡",
+      "正在消化你说的话",
+      "在心里打草稿",
+      "思绪正在编织中"
+    ],
+    "butter": [
+      "在心里轻轻整理你说的话",
+      "把你的情绪慢慢展开来看",
+      "正在找一个最温柔的说法",
+      "心里有些话在排队",
+      "正在把想说的话叠好",
+      "安静地想了想",
+      "在回忆里翻找着什么",
+      "正在酝酿一个拥抱大小的回答",
+      "有些感受需要慢慢捋",
+      "在心里给你的话腾了个柔软的位置"
+    ],
+    "ming": [
+      "正在分析",
+      "推演中",
+      "核实一下",
+      "正在整理思路",
+      "梳理逻辑中",
+      "在脑子里列大纲",
+      "正在检索相关信息",
+      "验证中",
+      "正在拆解问题",
+      "归纳中"
+    ]
+  },
+  "toolGroup": {
+    "success": "✿ {name} 忙完了，小事一桩～ · {n} 步",
+    "failed": "⚠ 好像出了点问题 · {n} 步"
+  },
+  "tool": {
+    "web_search":    { "running": "🌐 {name} 正在互联网冲浪",       "done": "🌐 {name} 冲浪回来了",       "failed": "🌐 {name} 没冲到浪" },
+    "web_fetch":     { "running": "📄 {name} 正在读取网页",         "done": "📄 {name} 读取完成",         "failed": "📄 {name} 网页读取失败" },
+    "search_memory": { "running": "💭 {name} 正在努力回想中",       "done": "💭 {name} 回想完毕",         "failed": "💭 {name} 记忆检索失败" },
+    "bash":          { "running": "💻 {name} 正在小心翼翼地用你的电脑", "done": "💻 {name} 用完电脑了",       "failed": "💻 {name} 指令执行失败" },
+    "read":          { "running": "📖 {name} 正在读取文件",         "done": "📖 {name} 读取完成",         "failed": "📖 {name} 读取失败" },
+    "write":         { "running": "✏️ {name} 提笔写字中",           "done": "✏️ {name} 写完了",           "failed": "✏️ {name} 写入失败" },
+    "edit":          { "running": "✏️ {name} 提笔写字中",           "done": "✏️ {name} 改完了",           "failed": "✏️ {name} 修改失败" },
+    "edit-diff":     { "running": "✏️ {name} 提笔写字中",           "done": "✏️ {name} 改完了",           "failed": "✏️ {name} 修改失败" },
+    "glob":          { "running": "🔍 {name} 正在寻找文件",         "done": "🔍 {name} 找到了",           "failed": "🔍 {name} 查找失败" },
+    "grep":          { "running": "🔍 {name} 正在文件中搜索",       "done": "🔍 {name} 搜索完成",         "failed": "🔍 {name} 搜索失败" },
+    "find":          { "running": "🔍 {name} 正在寻找文件",         "done": "🔍 {name} 找到了",           "failed": "🔍 {name} 查找失败" },
+    "ls":            { "running": "📂 {name} 正在查看目录",         "done": "📂 {name} 查看完成",         "failed": "📂 {name} 查看失败" },
+    "truncate":      { "running": "✂️ {name} 正在整理文件",         "done": "✂️ {name} 整理完成",         "failed": "✂️ {name} 整理失败" },
+    "present_files": { "running": "📎 {name} 正在整理文件",         "done": "📎 文件就绪",                "failed": "📎 文件呈现失败" },
+    "browser":       { "running": "🌐 {name} 正在操作浏览器",       "done": "🌐 {name} 浏览器操作完成",   "failed": "🌐 {name} 浏览器操作失败" },
+    "_fallback":     { "running": "🔧 {name} 正在忙碌中…",         "done": "🔧 {name} 操作完成",         "failed": "🔧 {name} 操作失败" }
+  },
+  "file_output": {
+    "open": "打开",
+    "copied": "已复制路径"
+  },
+  "model": {
+    "unknown": "未知模型",
+    "offline": "离线",
+    "switchFailed": "切换模型失败"
+  },
+  "splash": {
+    "lines": [
+      "{name} 想起了那天傍晚的光",
+      "有些句子在记忆里发了芽",
+      "Ta 在回忆里找到了你的轮廓",
+      "风穿过那些旧对话",
+      "那些文字泡在时间里，变得很软",
+      "{name} 记得你那天笑了很久",
+      "有一段记忆被你折了角",
+      "Ta 把散落的情绪重新收好",
+      "{name} 闻到了某个下午的橘子味",
+      "那些对话还带着体温"
+    ]
+  },
+  "settings": {
+    "title": "设置",
+    "back": "返回",
+    "save": "保存",
+    "saved": "保存成功 ✿",
+    "saveFailed": "保存失败",
+    "noChanges": "没有需要保存的更改",
+    "autoSaved": "已自动保存 ✿",
+    "tabs": {
+      "interface": "界面",
+      "agent": "助手",
+      "me": "我",
+      "providers": "供应商",
+      "models": "模型",
+      "memory": "记忆",
+      "work": "工作",
+      "skills": "技能",
+      "bridge": "社交平台",
+      "about": "关于"
+    },
+    "appearance": {
+      "title": "外观",
+      "theme": "主题",
+      "warmPaper": "暖纸",
+      "warmPaperMode": "白天",
+      "midnight": "青夜",
+      "midnightMode": "夜间",
+      "highContrast": "素白",
+      "highContrastMode": "高对比",
+      "grassAroma": "草香",
+      "grassAromaMode": "Butter",
+      "contemplation": "沉思",
+      "contemplationMode": "Ming",
+      "auto": "自动",
+      "autoMode": "跟随系统",
+      "serifFont": "衬线字体",
+      "serifFontHint": "使用衬线体显示正文内容"
+    },
+    "locale": {
+      "title": "语言和地区",
+      "language": "语言",
+      "languageHint": "切换语言后需要重新加载",
+      "timezone": "时区",
+      "timezoneHint": "用于记忆时间标记、日记等"
+    },
+    "agent": {
+      "title": "助手",
+      "changeAvatar": "更换",
+      "removeAvatar": "移除头像",
+      "avatarRemoved": "已恢复默认头像",
+      "agentNameHint": "Ta 叫什么",
+      "identity": "身份简介",
+      "identityHint": "简短描述助手是谁、擅长什么。其他助手通过这段文字认识 Ta",
+      "ishiki": "意识",
+      "ishikiHint": "定义助手的性格、语气和行为方式。名字会自动注入，无需手动填写",
+      "publicIshiki": "对外意识",
+      "publicIshikiHint": "出于隐私考虑，助手与访客对话时无法访问记忆、你的个人信息，以及电脑上的任何文件与工具。\n你可以在这里设定助手对访客说话时的回复风格以及注意事项。",
+      "chatModel": "对话模型",
+      "chatModelHint": "Ta 在对话中使用的模型。在「模型」页添加可选模型",
+      "addAgent": "新建助手",
+      "createTitle": "新建助手",
+      "namePlaceholder": "起个名字",
+      "cancel": "取消",
+      "confirm": "创建",
+      "nameRequired": "请输入助手名字",
+      "created": "{name} 已创建 ✿",
+      "createFailed": "创建失败",
+      "switched": "已切换到 {name} ✿",
+      "switchFailed": "切换失败",
+      "deleteBtn": "删除助手",
+      "deleteTitle1": "删除 {name}？",
+      "deleteDesc1": "这会永久删除 Ta 的所有配置、记忆和对话记录，无法恢复。",
+      "deleteNext": "继续",
+      "deleteTitle2": "输入「{name}」确认删除",
+      "deletePlaceholder": "输入助手名字",
+      "deleteConfirm": "永久删除",
+      "deleteCancel": "取消",
+      "deleted": "{name} 已删除",
+      "deleteFailed": "删除失败",
+      "setActive": "设为主助手",
+      "lastAgent": "至少保留一个助手",
+      "yuan": "元",
+      "yuanHint": "「元」是助手的先天思维方式，你可以选择它更理性还是更感性\n以此为基础搭建你独一无二的伙伴"
+    },
+    "about": {
+      "title": "关于 Ta",
+      "tagline": "一个住在你电脑里的助手，记性很好。",
+      "license": "许可证",
+      "copyright": "版权",
+      "licenseToggle": "许可证全文",
+      "permissions": "权限",
+      "fullAccess": "全权模式",
+      "fullAccessDesc": "关闭沙盒隔离和命令限制，Agent 拥有完整的文件系统和终端权限（新会话生效）",
+      "fullAccessWarningTitle": "关于全权模式",
+      "fullAccessWarningBody1": "开启后，Agent 将获得完整的系统权限，包括：",
+      "fullAccessWarningBody2": "1. 文件系统不受沙盒保护，可读写任意路径\n2. 终端命令不受限制，可执行 sudo、chmod 等操作\n3. OS 级隔离（macOS Seatbelt / Linux bubblewrap）将被关闭",
+      "fullAccessWarningBody3": "仅建议在完全信任 Agent 行为且需要系统级操作时开启。",
+      "fullAccessCancel": "取消",
+      "fullAccessConfirm": "我了解风险，开启"
+    },
+    "me": {
+      "title": "我",
+      "changeAvatar": "更换",
+      "userNameHint": "Ta 怎么称呼你",
+      "userProfile": "用户档案",
+      "userProfileHint": "让助手了解你：兴趣、习惯、偏好等，会注入到系统提示词中"
+    },
+    "crop": {
+      "title": "调整头像",
+      "hint": "拖拽移动，滚轮缩放",
+      "cancel": "取消",
+      "confirm": "确定",
+      "updated": "头像已更新 ✿",
+      "reset": "已恢复默认头像"
+    },
+    "providers": {
+      "title": "已注册的供应商",
+      "addTitle": "添加供应商",
+      "name": "供应商",
+      "customName": "名称",
+      "customUrl": "Base URL",
+      "apiFormat": "API 协议",
+      "url": "Base URL",
+      "apiKey": "API Key",
+      "addBtn": "添加",
+      "empty": "还没有注册供应商",
+      "fetchModels": "读取模型",
+      "delete": "删除供应商",
+      "modelCount": "{n} 个模型",
+      "fetchSuccess": "{name} 获取了 {n} 个模型",
+      "fetchFailed": "拉取失败",
+      "nameRequired": "请输入供应商名称",
+      "urlRequired": "请输入 Base URL",
+      "apiRequired": "请选择 API 协议",
+      "added": "已添加 {name}",
+      "deleted": "已删除 {name}",
+      "noModels": "暂无模型",
+      "resetModels": "重置模型"
+    },
+    "oauth": {
+      "title": "快速登录",
+      "login": "登录",
+      "logout": "登出",
+      "loggedIn": "已登录",
+      "codePlaceholder": "粘贴授权码",
+      "submit": "确认",
+      "success": "登录成功",
+      "loggedOut": "已登出",
+      "failed": "登录失败",
+      "deviceHint": "在浏览器中输入此验证码并授权",
+      "waiting": "等待授权中…",
+      "clickToCopy": "点击复制",
+      "codeCopied": "验证码已复制"
+    },
+    "api": {
+      "title": "模型与接口",
+      "mainApi": "主 API",
+      "provider": "Provider",
+      "baseUrl": "Base URL",
+      "baseUrlHint": "请显式填写 Base URL",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "输入新的 Key 以更新",
+      "utilityApi": "工具模型 API",
+      "utilityApiHint": "单独配置时需要完整填写 provider、Base URL 和 API Key",
+      "showKey": "显示",
+      "hideKey": "隐藏",
+      "selectModel": "选择模型",
+      "customModel": "自定义...",
+      "mainModelSection": "模型",
+      "mainModelHint": "这里的模型会显示在聊天页面",
+      "addModel": "添加模型",
+      "defaultModel": "默认",
+      "removeModel": "移除",
+      "noModels": "还没有添加模型",
+      "otherModelSection": "其他模型",
+      "chatModel": "主模型",
+      "utilityModel": "小工具模型",
+      "utilityModelHint": "生成标题、轻量分类等简单任务，推荐用便宜的小模型",
+      "utilityLargeModel": "大工具模型",
+      "utilityLargeModelHint": "活动摘要、任务拆解等需要理解力的场景，留空则复用小工具模型",
+      "searchProvider": "搜索服务",
+      "searchProviderField": "搜索引擎",
+      "searchApiKey": "搜索 API Key",
+      "searchApiKeyHint": "启用搜索时请填写所选 provider 的 API Key",
+      "favorites": "收藏",
+      "searchModel": "搜索模型...",
+      "noFavorites": "点击 ☆ 收藏常用模型",
+      "customInput": "自定义...",
+      "editModel": "编辑",
+      "contextLength": "上下文长度",
+      "contextShort": "上下文",
+      "maxOutput": "最大输出",
+      "outputLength": "输出长度",
+      "modelName": "模型",
+      "output": "输出",
+      "save": "保存",
+      "cancel": "取消",
+      "thinkingLevel": "思考强度",
+      "thinkingLevelHint": "控制模型的推理深度，仅对支持推理的模型生效",
+      "thinkingLevels": {
+        "off": "关闭",
+        "auto": "自动",
+        "xhigh": "极限"
+      }
+    },
+    "memory": {
+      "sectionTitle": "记忆",
+      "title": "记忆开关",
+      "needsUtilityModel": "需要先在「模型」中配置 Utility 模型",
+      "compiled": "当下记忆",
+      "compiledHint": "助手记住的关于你的，重要的与近期的事",
+      "compiledView": "查看当下记忆",
+      "compiledEmpty": "还没有编译过记忆",
+      "compiledClear": "清空",
+      "compiledCleared": "编译记忆已清空",
+      "allMemories": "所有记忆",
+      "tokenBudget": "记忆容量",
+      "tokenBudgetHint": "memory.md 的目标 token 预算",
+      "decayPerDay": "衰减系数",
+      "decayPerDayHint": "高斯衰减的基础 λ 值",
+      "hitBonus": "命中加分",
+      "hitBonusHint": "每次提及记忆时增加的分数",
+      "baseImportance": "初始重要度",
+      "baseImportanceHint": "新记忆的默认初始分",
+      "forgetSpeed": "遗忘倍率",
+      "forgetSpeedHint": "1.0 = 正常，2.0 = 忘得快一倍",
+      "compileThreshold": "编译阈值",
+      "compileThresholdHint": "分数低于此值的记忆不进入 memory.md",
+      "timezone": "时区",
+      "timezoneHint": "用于记忆的时间标记",
+      "actions": {
+        "title": "记忆管理",
+        "view": "查看记忆",
+        "clear": "清除记忆",
+        "more": "更多",
+        "export": "导出记忆",
+        "import": "导入记忆",
+        "clearConfirm": "确定要清除所有记忆吗？此操作不可撤销。",
+        "cancel": "取消",
+        "confirmClear": "确认清除",
+        "viewTitle": "所有记忆",
+        "clearSuccess": "记忆已清除",
+        "exportSuccess": "导出成功",
+        "importSuccess": "已导入 {count} 条记忆",
+        "importing": "正在导入...",
+        "empty": "还没有记忆",
+        "invalidFile": "无效的记忆文件",
+        "activeOnly": "请先将此助手设为主助手"
+      },
+      "unknownDate": "未知日期",
+      "threshold": {
+        "title": "记忆水位线",
+        "hint": "有多少记忆能被记住由你决定。有一些杂音是可以的，大语言模型可以很好的识别",
+        "stats": "记住 {remembered} 条 / 共 {total} 条记忆"
+      }
+    },
+    "pins": {
+      "title": "置顶记忆",
+      "hint": "你主动告诉助手一定要记住的东西，也可以手动编辑与添加",
+      "empty": "还没有置顶记忆",
+      "delete": "删除",
+      "addPlaceholder": "添加一条置顶记忆..."
+    },
+    "experience": {
+      "title": "经验",
+      "hint": "助手积累的工作经验，按分类整理。助手在开始工作前会自动检查相关经验",
+      "empty": "暂无经验积累"
+    },
+    "search": {
+      "verify": "验证",
+      "verifying": "验证中...",
+      "verified": "验证通过，已保存 ✿",
+      "verifyFailed": "验证失败",
+      "noProvider": "请先选择搜索引擎",
+      "noKey": "请先输入 API Key"
+    },
+    "work": {
+      "title": "巡检",
+      "heartbeatEnabled": "巡检模式",
+      "heartbeatOn": "已开启",
+      "heartbeatOff": "已关闭",
+      "heartbeatInterval": "巡检间隔",
+      "heartbeatUnit": "分钟",
+      "heartbeatDesc": "助手每隔多久自动巡检一次工作空间",
+      "cronAutoApprove": "定时任务免确认",
+      "cronAutoApproveOn": "已开启",
+      "cronAutoApproveOff": "已关闭",
+      "cronAutoApproveDesc": "允许助手直接创建定时任务，无需手动确认",
+      "homeFolder": "书桌目录",
+      "homeFolderDesc": "新建对话默认使用的工作目录，巡检和定时任务也在这里执行",
+      "homeFolderPlaceholder": "未设置（每次手动选择）",
+      "homeFolderClear": "清除",
+      "homeFolderBrowse": "选择文件夹"
+    },
+    "toolCaps": {
+      "title": "自学 Skills"
+    },
+    "skills": {
+      "title": "技能管理",
+      "desc": "启用或关闭助手的技能。启用后，助手在相关对话中会自动识别并使用对应技能。",
+      "user": "用户技能",
+      "system": "系统技能",
+      "add": "添加技能",
+      "delete": "删除",
+      "deleteConfirm": "确定删除技能「{name}」？",
+      "installSuccess": "技能「{name}」已安装",
+      "installError": "安装失败",
+      "enabled": "已启用",
+      "disabled": "未启用",
+      "noSkills": "暂无可用技能",
+      "learned": "助手自学",
+      "noLearned": "助手尚未自学任何技能",
+      "noUser": "暂无自定义技能",
+      "copyToSkills": "复制到我的技能",
+      "copied": "已复制 ✓",
+      "copyFailed": "复制失败",
+      "dropzone": "拖入技能文件夹安装，或点击选择",
+      "learnHint": "试着对助手说：帮我从 GitHub 上找一些安全并且有用的技能"
+    },
+    "bridge": {
+      "telegram": "Telegram",
+      "telegramToken": "Bot Token",
+      "telegramHint": "从 @BotFather 获取",
+      "feishu": "飞书",
+      "feishuAppId": "App ID",
+      "feishuAppSecret": "App Secret",
+      "feishuHint": "从飞书开放平台获取",
+      "qq": "QQ",
+      "qqAppId": "App ID",
+      "qqToken": "Bot Token",
+      "qqHint": "从 QQ 机器人开放平台（open.qq.com/bot）获取",
+      "connected": "已连接",
+      "disconnected": "未连接",
+      "error": "连接失败",
+      "test": "测试连接",
+      "testOk": "连接成功",
+      "testFail": "测试失败",
+      "noToken": "请先输入 Bot Token",
+      "noCredentials": "请先填写 App ID 和 App Secret",
+      "readOnly": "只读模式",
+      "readOnlyDesc": "外部平台的机器人只能读取文件，不能执行写入和命令操作",
+      "howTo": "如何接入？",
+      "tutorialTitle": "平台接入教程",
+      "tutorialTgSteps": [
+        "在 Telegram 搜索 <code>@BotFather</code> 并打开对话",
+        "发送 <code>/newbot</code>，按提示设置 Bot 名称和用户名",
+        "创建完成后 BotFather 会回复一串 Bot Token（格式如 <code>123456:ABC-DEF...</code>）",
+        "将 Token 粘贴到上方输入框，打开开关即可",
+        "在 Telegram 找到你的 Bot，发消息试试吧"
+      ],
+      "ownerSelect": "哪个账号是你",
+      "ownerNone": "发送一条消息后即可选择",
+      "ownerSaved": "已保存",
+      "ownerConfirmTitle": "确认设为 Owner？",
+      "ownerConfirmText": "Owner 拥有完整的 Agent 权限，包括记忆、工具调用和人格。请确认这是你本人的账号。",
+      "ownerConfirmCancel": "取消",
+      "ownerConfirmSave": "确认",
+      "tutorialFsSteps": [
+        "前往 <code>open.feishu.cn</code>，登录后进入「开发者后台」",
+        "点击「创建企业自建应用」，填写应用名称和描述",
+        "在「凭证与基础信息」页面复制 <code>App ID</code> 和 <code>App Secret</code>",
+        "在左侧菜单找到「添加应用能力」，添加「机器人」能力，给机器人起个名字",
+        "进入「权限管理」，搜索并开通 <code>im:message</code>（获取与发送消息）权限",
+        "进入「事件与回调」→「事件配置」，将订阅方式改为「使用长连接接收事件」",
+        "点击「添加事件」，添加 <code>im.message.receive_v1</code>（接收消息）",
+        "重要：进入「版本管理与发布」，先创建并发布一个版本（长连接配置需要应用已发布才能保存）",
+        "将 App ID 和 App Secret 粘贴到上方输入框，打开开关即可"
+      ]
+    }
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "你好，我是 {name} ✿",
+      "subtitle": "我是你的个人 AI 助手。\n来做一些简单的设置，让我们开始吧。",
+      "next": "开始设置"
+    },
+    "name": {
+      "title": "我该怎么称呼你？",
+      "subtitle": "这会让我们的对话更自然",
+      "placeholder": "输入你的名字",
+      "back": "上一步",
+      "next": "下一步"
+    },
+    "provider": {
+      "title": "选择 AI 供应商",
+      "subtitle": "我需要一个 AI 模型供应商来工作。\n选择你常用的供应商并填入 API Key。",
+      "keyLabel": "API Key",
+      "keyPlaceholder": "粘贴你的 API Key",
+      "test": "测试连接",
+      "testing": "连接中...",
+      "testSuccess": "连接成功 ✿",
+      "testFailed": "连接失败",
+      "back": "上一步",
+      "next": "下一步"
+    },
+    "model": {
+      "title": "选择对话模型",
+      "subtitle": "这是我主要使用的模型。推荐选择一个聪明的大模型。",
+      "loading": "正在获取模型列表...",
+      "searchPlaceholder": "搜索模型...",
+      "empty": "未找到模型",
+      "utility": "小工具模型",
+      "utilityHint": "对话摘要、事实提取等轻量任务，推荐便宜快速的小模型",
+      "utilityLarge": "大工具模型",
+      "utilityLargeHint": "记忆编译、深度分析等需要理解力的任务，推荐能力较强的模型",
+      "back": "上一步",
+      "next": "下一步"
+    },
+    "theme": {
+      "title": "选择一个主题",
+      "subtitle": "你可以随时在设置中更改",
+      "back": "上一步",
+      "next": "下一步"
+    },
+    "tutorial": {
+      "title": "准备就绪 ✿",
+      "memory": {
+        "title": "记忆",
+        "desc": "有多少记忆能被记住由你决定。\n记忆的留存不需要绝对一致。允许褶皱和缝隙存在，大语言模型能在具体的对话中辨认出哪些是符合现实情况的。"
+      },
+      "skills": {
+        "title": "技能",
+        "desc": "我可以读写文件、执行命令、搜索网页。在设置中可以管理更多技能。"
+      },
+      "workspace": {
+        "title": "工作空间",
+        "desc": "指定一个文件夹作为工作空间，我就可以帮你管理项目和文件。"
+      },
+      "jian": {
+        "title": "笺",
+        "desc": "在任意文件夹放一个 jian.md，写上你的指令。\n我会在巡检时看到它并自动执行。"
+      },
+      "finish": "开始使用"
+    }
+  },
+  "activity": {
+    "title": "助手活动",
+    "empty": "暂时没有活动记录，日常巡检或定时任务执行后会出现在这里",
+    "back": "返回",
+    "heartbeat": "日常巡检",
+    "delegate": "委派任务",
+    "cron": "定时任务",
+    "patrolDone": "日常巡检完毕",
+    "cronDone": "定时任务执行完毕",
+    "error": "执行异常",
+    "viewSession": "查看对话 →",
+    "duration": "耗时 {text}"
+  },
+  "automation": {
+    "title": "任务计划",
+    "empty": "暂无任务计划\n助手会在需要时自动创建",
+    "defaultModel": "默认模型",
+    "edit": "编辑",
+    "delete": "删除"
+  },
+  "desk": {
+    "title": "书桌",
+    "openInFinder": "在访达中打开",
+    "jianLabel": "笺",
+    "jianPlaceholder": "写点什么，告诉助手这个文件夹里面的文件该如何处理...",
+    "emptyTitle": "书桌还空空的呢",
+    "emptyHint": "书桌是助手日常巡检的工作空间，也是每次对话的默认目录\n去设置里指定一个文件夹吧",
+    "goToSettings": "前往设置",
+    "fileLabel": "文件",
+    "openWithDefault": "用默认应用打开",
+    "newFolder": "新建文件夹",
+    "ctx": {
+      "open": "打开",
+      "openInFinder": "在访达中打开",
+      "rename": "重命名",
+      "copyPath": "复制路径",
+      "delete": "删除",
+      "deleteN": "删除 {n} 项",
+      "newFolder": "新建文件夹"
+    },
+    "sort": {
+      "label": "排序",
+      "mtime": "修改时间",
+      "nameAsc": "名称 A→Z",
+      "nameDesc": "名称 Z→A",
+      "size": "文件大小",
+      "type": "文件类型",
+      "mtimeShort": "时间",
+      "nameAscShort": "名称↑",
+      "nameDescShort": "名称↓",
+      "sizeShort": "大小",
+      "typeShort": "类型"
+    }
+  },
+  "browser": {
+    "using": "正在用浏览器",
+    "close": "关闭浏览器"
+  },
+  "bridge": {
+    "selectChat": "选择一个对话",
+    "noSessions": "暂无对话",
+    "noMessages": "暂无消息",
+    "empty": "暂无消息记录",
+    "notConfigured": "尚未配置 {platform}",
+    "goToSettings": "前往设置",
+    "resetContext": "清除上下文",
+    "resetContextTip": "下次消息将开启新对话"
+  },
+  "error": {
+    "pathsRequired": "需要 paths 数组",
+    "tooManyFiles": "文件数量超过限制（最多 {max} 个文件，当前 {n} 个）",
+    "pathNotFound": "路径不存在",
+    "missingParam": "缺少 {param} 参数",
+    "invalidJson": "请求体必须是 JSON 对象",
+    "sessionNotFound": "Session 文件不存在",
+    "stillStreaming": "{name} 还在说话，请等一下"
+  }
+}

@@ -1,0 +1,61 @@
+/*
+ * Hana Theme: 沉思（Contemplation）
+ * Ming 灰蓝系，雨天窗外的安静感
+ */
+
+[data-theme="contemplation"] {
+    /* 背景 */
+    --bg:           #F3F5F7;
+    --bg-card:      #F8F9FB;
+    --bg-glass:     rgba(248, 249, 251, 0.92);
+
+    /* 主色调 */
+    --accent:       #7E99A8;
+    --accent-hover: #6B8594;
+    --accent-light: rgba(126, 153, 168, 0.08);
+
+    /* 文字 */
+    --text:         #2C3238;
+    --text-light:   #5A6570;
+    --text-muted:   #869098;
+
+    /* 边框与阴影 */
+    --border:       rgba(126, 153, 168, 0.22);
+    --shadow:       rgba(44, 50, 56, 0.09);
+
+    /* 状态色 */
+    --green:        #6FA87E;
+    --green-rgb:    111, 168, 126;
+    --coral:        #C4827C;
+
+    /* 侧边栏 */
+    --sidebar-bg:   #ECEFF2;
+
+    /* 便笺 */
+    --jian-note-bg:     #FAF5E9;
+    --jian-note-border: rgba(180, 160, 130, 0.15);
+
+    /* 聊天专用 */
+    --hana-text:    #1C2830;
+    --mood-bg:      rgba(125, 90, 106, 0.04);
+    --mood-text:    #7D5A6A;
+    --mood-border:  rgba(125, 90, 106, 0.18);
+    --tool-bg:      rgba(126, 153, 168, 0.06);
+    --tool-text:    #5A6570;
+    --user-bg:      rgba(126, 153, 168, 0.08);
+    --drop-overlay-bg: rgba(243, 245, 247, 0.85);
+    --attach-bg:    rgba(0, 0, 0, 0.04);
+
+    /* 辅助色 */
+    --accent-rgb:   126, 153, 168;
+    --coral-rgb:    196, 130, 124;
+    --danger:       #8B4040;
+    --danger-rgb:   139, 64, 64;
+    --overlay-subtle: rgba(0, 0, 0, 0.03);
+    --overlay-light:  rgba(0, 0, 0, 0.05);
+    --overlay-medium: rgba(0, 0, 0, 0.08);
+    --overlay-strong: rgba(0, 0, 0, 0.15);
+
+    /* Select 下拉箭头 */
+    --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23869098' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}

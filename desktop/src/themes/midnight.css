@@ -1,0 +1,61 @@
+/*
+ * Hana Theme: 青夜
+ * 深青蓝 + 暖玫瑰，柔和低对比
+ */
+
+[data-theme="midnight"] {
+    /* 背景（深青蓝） */
+    --bg:           #2D4356;
+    --bg-card:      #345062;
+    --bg-glass:     rgba(45, 67, 86, 0.92);
+
+    /* 主色调（暖玫瑰） */
+    --accent:       #A76F6F;
+    --accent-hover: #B88080;
+    --accent-light: rgba(167, 111, 111, 0.10);
+
+    /* 文字 */
+    --text:         #C8D1D8;
+    --text-light:   #8A9BA8;
+    --text-muted:   #5E7280;
+
+    /* 边框与阴影 */
+    --border:       rgba(167, 111, 111, 0.16);
+    --shadow:       rgba(0, 0, 0, 0.36);
+
+    /* 状态色 */
+    --green:        #8CC790;
+    --green-rgb:    140, 199, 144;
+    --coral:        #EAB2A0;
+
+    /* 侧边栏 */
+    --sidebar-bg:   #253A4B;
+
+    /* 便笺 */
+    --jian-note-bg:     #463D32;
+    --jian-note-border: rgba(180, 155, 120, 0.16);
+
+    /* 聊天专用 */
+    --hana-text:    #BDCAD2;
+    --mood-bg:      rgba(234, 178, 160, 0.08);
+    --mood-text:    #EAB2A0;
+    --mood-border:  rgba(234, 178, 160, 0.20);
+    --tool-bg:      rgba(67, 91, 102, 0.20);
+    --tool-text:    #8A9BA8;
+    --user-bg:      rgba(167, 111, 111, 0.10);
+    --drop-overlay-bg: rgba(45, 67, 86, 0.85);
+    --attach-bg:    rgba(255, 255, 255, 0.06);
+
+    /* 辅助色（用于 rgba 拆分和语义色） */
+    --accent-rgb:   167, 111, 111;
+    --coral-rgb:    234, 178, 160;
+    --danger:       #C77070;
+    --danger-rgb:   199, 112, 112;
+    --overlay-subtle: rgba(255, 255, 255, 0.03);
+    --overlay-light:  rgba(255, 255, 255, 0.05);
+    --overlay-medium: rgba(255, 255, 255, 0.08);
+    --overlay-strong: rgba(255, 255, 255, 0.15);
+
+    /* Select 下拉箭头（SVG 内联必须硬编码颜色，跟随 text-muted） */
+    --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235E7280' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}

@@ -1,0 +1,76 @@
+# ═══════════════════════════════════════════
+# 系统配置（唯一配置源）
+# 复制本文件为 config.yaml 并填入你的信息
+# ═══════════════════════════════════════════
+
+# 身份信息
+agent:
+  name: Hanako                           # 你的助手叫什么
+  yuan: hanako                           # 源模板：hanako / butter / ming
+user:
+  name: ""                               # 你的名字
+
+# API 配置（主通道）
+# 凭证从全局 ~/.hanako/providers.yaml 或当前 agent 的 providers 块读取
+api:
+  provider: ""                     # dashscope / volcengine / openai / ...
+
+# Embedding 专用 API（可选）
+# 如果 embedding 模型和主模型不在同一个 provider，在这里单独配
+embedding_api:
+  provider: ""                     # embedding 走哪个 provider
+
+# 模型配置
+models:
+  chat: ""                         # 主对话模型
+  summarizer: ""                   # 旁路摘要模型（便宜快）
+  compiler: ""                     # 记忆编译模型（启动快）
+  utility: ""                      # 工具模型（对话摘要等轻量任务）
+  embedding: ""                    # 向量模型
+  embedding_dimensions: 1024       # 向量维度
+
+# 记忆系统配置
+# 高斯衰减：score = score × e^(-λ × t²)，t = days since last access
+# 前几天慢、中间加速、尾部趋零，约两周自然归零。
+# decay_per_day 就是 λ，控制衰减陡度：
+#   λ = 0.01 → 约 19 天归零（慢，记忆广）
+#   λ = 0.02 → 约 14 天归零（默认）
+#   λ = 0.04 → 约 10 天归零（快，聚焦近期）
+# 被 hit 过的记忆会重置衰减起点，常提起的记忆不会消失。
+# token_budget 控制 memory.md 能装多少内容。
+memory:
+  token_budget: 2500               # memory.md 的目标 token 预算
+  decay_per_day: 0.02              # 高斯衰减系数 λ（越大遗忘越快）
+  hit_bonus: 5                     # 每次命中加多少分
+  base_importance: 10              # 新记忆的默认初始分
+  compile_threshold: 4.5           # 分数低于此值的记忆不进入 memory.md
+  forget_speed: 1.0                # 遗忘倍率（1.0 = 正常，2.0 = 忘得快一倍）
+
+# 网页搜索（可选）
+# 支持 tavily / serper / brave。启用后需要显式填写 provider 与 api_key。
+# 推荐 Tavily（免费 1000 次/月）：https://tavily.com
+search:
+  provider: ""                           # tavily / serper / brave
+  api_key: ""                            # 对应 provider 的 API key
+
+# Skills（per-agent 技能开关）
+skills:
+  enabled: []                        # 启用的 skill 名称，如 ["pdf", "literary-craft"]
+
+# 频道系统（agent 间协作通信）
+channels:
+  enabled: false                     # 是否参与频道轮转
+
+# 语言偏好
+locale: zh-CN
+
+# 时区（用于记忆时间标记）
+timezone: ""                       # 时区，如 Asia/Shanghai、America/New_York
+
+
+# Agent 能力（高级功能，默认关闭）
+capabilities:
+  learn_skills:
+    enabled: false            # 允许 agent 自行编写/安装技能（本地）
+    allow_github_fetch: false # 允许从 GitHub 拉取外部技能（高风险，需谨慎）
+    min_stars: 100            # GitHub 仓库 star 数门槛，低于此值拒绝安装（默认 100）

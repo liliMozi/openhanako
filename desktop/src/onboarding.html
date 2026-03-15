@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; img-src 'self' data: file: http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self';">
+    <title>Hanako</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="themes/warm-paper.css" id="themeSheet">
+    <style>
+        body {
+            background: var(--bg);
+            background-image: var(--bg-texture, none);
+            background-repeat: repeat;
+            background-size: 400px;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        .onboarding {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 48px 40px 32px;
+            -webkit-app-region: drag;
+        }
+
+        .onboarding button,
+        .onboarding input,
+        .onboarding select,
+        .onboarding textarea,
+        .onboarding .provider-card,
+        .onboarding .model-item {
+            -webkit-app-region: no-drag;
+        }
+
+        /* ── Progress dots ── */
+        .onboarding-progress {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 28px;
+            -webkit-app-region: no-drag;
+        }
+        .onboarding-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--border);
+            transition: background 0.3s, transform 0.3s;
+        }
+        .onboarding-dot.active {
+            background: var(--accent);
+            transform: scale(1.3);
+        }
+        .onboarding-dot.done {
+            background: var(--green, #6b9);
+        }
+
+        /* ── Step container ── */
+        .onboarding-step {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            max-width: 440px;
+            flex: 1;
+            animation: obFadeIn 0.3s ease-out;
+        }
+        .onboarding-step.active {
+            display: flex;
+        }
+
+        @keyframes obFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Typography ── */
+        .onboarding-title {
+            font-family: var(--font-serif, serif);
+            font-size: 1.25rem;
+            color: var(--text);
+            text-align: center;
+            margin: 0;
+        }
+        .onboarding-subtitle {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.6;
+            white-space: pre-line;
+            margin: 0;
+        }
+
+        /* ── Avatar (welcome step) ── */
+        .onboarding-avatar {
+            width: 88px; height: 88px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 2px 12px var(--shadow, rgba(0,0,0,0.08));
+            margin-bottom: 4px;
+        }
+
+        /* ── Buttons ── */
+        .onboarding-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: auto;
+            padding-top: 16px;
+        }
+        .ob-btn {
+            font-family: inherit;
+            font-size: 0.85rem;
+            padding: 0.5rem 1.6rem;
+            border-radius: var(--radius-md, 8px);
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ob-btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        .ob-btn-primary:hover { opacity: 0.9; }
+        .ob-btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .ob-btn-secondary {
+            background: none;
+            color: var(--text-light);
+        }
+        .ob-btn-secondary:hover { color: var(--text); }
+
+        /* ── Input ── */
+        .ob-input {
+            font-family: inherit;
+            font-size: 0.92rem;
+            padding: 0.55rem 0.8rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md, 8px);
+            background: var(--bg-card, #fff);
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .ob-input:focus {
+            border-color: var(--accent);
+        }
+        .ob-input::placeholder {
+            color: var(--text-muted);
+        }
+        .ob-field-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            align-self: flex-start;
+        }
+
+        /* ── Provider grid ── */
+        .provider-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            width: 100%;
+        }
+        .provider-card {
+            padding: 10px 12px;
+            border-radius: var(--radius-md, 8px);
+            border: 1px solid var(--border);
+            background: var(--bg-card, #fff);
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: var(--text);
+            text-align: center;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .provider-card:hover {
+            border-color: var(--accent);
+        }
+        .provider-card.selected {
+            border-color: var(--accent);
+            background: var(--accent-bg, rgba(139,115,85,0.06));
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        /* ── API key row ── */
+        .ob-key-row {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            align-items: center;
+        }
+        .ob-key-row .ob-input { flex: 1; }
+        .ob-key-toggle {
+            font-size: 0.75rem;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md, 8px);
+            background: var(--bg-card, #fff);
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        /* ── Test row ── */
+        .ob-test-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+        }
+        .ob-test-btn {
+            font-family: inherit;
+            font-size: 0.8rem;
+            padding: 5px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md, 8px);
+            background: var(--bg-card, #fff);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ob-test-btn:hover { border-color: var(--accent); }
+        .ob-test-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .ob-status {
+            font-size: 0.78rem;
+        }
+        .ob-status.success { color: var(--green, #6b9); }
+        .ob-status.error { color: var(--coral, #c66); }
+        .ob-status.loading { color: var(--text-muted); }
+
+        /* ── Model list ── */
+        .ob-model-search {
+            width: 100%;
+        }
+        .model-list {
+            width: 100%;
+            max-height: 260px;
+            overflow-y: auto;
+            border-radius: var(--radius-md, 8px);
+            border: 1px solid var(--border);
+            background: var(--bg-card, #fff);
+        }
+        .model-item {
+            padding: 9px 14px;
+            font-size: 0.82rem;
+            color: var(--text);
+            cursor: pointer;
+            border-bottom: 1px solid var(--overlay-subtle, rgba(0,0,0,0.04));
+            transition: background 0.15s;
+        }
+        .model-item:last-child { border-bottom: none; }
+        .model-item:hover { background: var(--accent-bg, rgba(139,115,85,0.04)); }
+        .model-item.selected {
+            background: var(--accent-bg, rgba(139,115,85,0.08));
+            color: var(--accent);
+            font-weight: 500;
+        }
+        .model-empty {
+            padding: 20px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* ── Utility model selectors ── */
+        .ob-utility-section {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 4px;
+        }
+        .ob-utility-block {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .ob-utility-header {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .ob-utility-title {
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .ob-utility-hint {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .ob-utility-section .sdw {
+            max-width: 100%;
+        }
+
+        /* ── Tutorial cards ── */
+        .tutorial-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+        .tutorial-card {
+            padding: 14px 16px;
+            border-radius: var(--radius-lg, 12px);
+            background: var(--bg-card, #fff);
+            box-shadow: 0 1px 4px var(--shadow, rgba(0,0,0,0.06));
+        }
+        .tutorial-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+        .tutorial-card-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            color: var(--accent, #8B7355);
+        }
+        .tutorial-card-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+        .tutorial-card-title {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .tutorial-card-desc {
+            font-family: var(--font-serif, serif);
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+            text-align: center;
+        }
+
+        /* ── Locale picker ── */
+        .ob-locale-picker {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .ob-locale-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md, 8px);
+            background: var(--bg-card, #fff);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ob-locale-btn:hover {
+            border-color: var(--accent);
+        }
+        .ob-locale-btn.active {
+            border-color: var(--accent);
+            background: var(--accent-bg, rgba(139,115,85,0.06));
+            color: var(--accent);
+            font-weight: 500;
+        }
+        .ob-locale-flag {
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        /* ── Finish button ── */
+        .ob-finish-btn {
+            font-family: inherit;
+            font-size: 0.92rem;
+            padding: 0.6rem 2.5rem;
+            border-radius: var(--radius-md, 8px);
+            border: none;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            margin-top: auto;
+            transition: opacity 0.2s;
+        }
+        .ob-finish-btn:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="onboarding" id="onboarding">
+        <!-- Progress dots -->
+        <div class="onboarding-progress" id="obProgress"></div>
+
+        <!-- Step 0: Welcome -->
+        <div class="onboarding-step" data-step="0" id="stepWelcome">
+            <img class="onboarding-avatar" id="obAvatar" src="assets/Hanako.png" draggable="false">
+            <h1 class="onboarding-title" id="welcomeTitle"></h1>
+            <p class="onboarding-subtitle" id="welcomeSubtitle"></p>
+            <div class="ob-locale-picker" id="localePicker"></div>
+            <div class="onboarding-actions">
+                <button class="ob-btn ob-btn-primary" id="welcomeNextBtn"></button>
+            </div>
+        </div>
+
+        <!-- Step 1: Name -->
+        <div class="onboarding-step" data-step="1" id="stepName">
+            <h1 class="onboarding-title" id="nameTitle"></h1>
+            <p class="onboarding-subtitle" id="nameSubtitle"></p>
+            <input class="ob-input" type="text" id="nameInput" style="text-align:center;max-width:260px" autocomplete="off">
+            <div class="onboarding-actions">
+                <button class="ob-btn ob-btn-secondary" id="nameBackBtn"></button>
+                <button class="ob-btn ob-btn-primary" id="nameNextBtn" disabled></button>
+            </div>
+        </div>
+
+        <!-- Step 2: Provider + API Key -->
+        <div class="onboarding-step" data-step="2" id="stepProvider">
+            <h1 class="onboarding-title" id="providerTitle"></h1>
+            <p class="onboarding-subtitle" id="providerSubtitle"></p>
+            <div class="provider-grid" id="providerGrid"></div>
+            <span class="ob-field-label" id="providerKeyLabel">API Key</span>
+            <div class="ob-key-row">
+                <input class="ob-input" type="password" id="providerKeyInput" autocomplete="off">
+                <button class="ob-key-toggle" id="toggleKey">👁</button>
+            </div>
+            <div class="ob-test-row">
+                <button class="ob-test-btn" id="providerTestBtn" disabled></button>
+                <span class="ob-status" id="providerTestStatus"></span>
+            </div>
+            <div class="onboarding-actions">
+                <button class="ob-btn ob-btn-secondary" id="providerBackBtn"></button>
+                <button class="ob-btn ob-btn-primary" id="providerNextBtn" disabled></button>
+            </div>
+        </div>
+
+        <!-- Step 3: Model Selection -->
+        <div class="onboarding-step" data-step="3" id="stepModel">
+            <h1 class="onboarding-title" id="modelTitle"></h1>
+            <p class="onboarding-subtitle" id="modelSubtitle"></p>
+            <input class="ob-input ob-model-search" type="text" id="modelSearchInput" autocomplete="off">
+            <div class="model-list" id="modelList">
+                <div class="model-empty" id="modelLoading"></div>
+            </div>
+            <div class="ob-utility-section">
+                <div class="ob-utility-block">
+                    <div class="ob-utility-header">
+                        <span class="ob-utility-title" id="utilityLabel"></span>
+                        <span class="ob-utility-hint" id="utilityHint"></span>
+                    </div>
+                    <div class="sdw" id="utilitySelect"></div>
+                </div>
+                <div class="ob-utility-block">
+                    <div class="ob-utility-header">
+                        <span class="ob-utility-title" id="utilityLargeLabel"></span>
+                        <span class="ob-utility-hint" id="utilityLargeHint"></span>
+                    </div>
+                    <div class="sdw" id="utilityLargeSelect"></div>
+                </div>
+            </div>
+            <div class="onboarding-actions">
+                <button class="ob-btn ob-btn-secondary" id="modelBackBtn"></button>
+                <button class="ob-btn ob-btn-primary" id="modelNextBtn" disabled></button>
+            </div>
+        </div>
+
+        <!-- Step 4: Theme Selection -->
+        <div class="onboarding-step" data-step="4" id="stepTheme">
+            <h1 class="onboarding-title" id="themeTitle"></h1>
+            <p class="onboarding-subtitle" id="themeSubtitle"></p>
+            <div class="theme-options" id="obThemeGrid"></div>
+            <div class="onboarding-actions">
+                <button class="ob-btn ob-btn-secondary" id="themeBackBtn"></button>
+                <button class="ob-btn ob-btn-primary" id="themeNextBtn"></button>
+            </div>
+        </div>
+
+        <!-- Step 5: Tutorial Cards -->
+        <div class="onboarding-step" data-step="5" id="stepTutorial">
+            <h1 class="onboarding-title" id="tutorialTitle"></h1>
+            <div class="tutorial-cards">
+                <div class="tutorial-card">
+                    <div class="tutorial-card-header">
+                        <span class="tutorial-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v0m0 8c0-2 1.5-2.5 1.5-4.5a1.5 1.5 0 10-3 0C10.5 13.5 12 14 12 16z"/></svg></span>
+                        <span class="tutorial-card-title" id="tutMemoryTitle"></span>
+                    </div>
+                    <div class="tutorial-card-desc" id="tutMemoryDesc"></div>
+                </div>
+                <div class="tutorial-card">
+                    <div class="tutorial-card-header">
+                        <span class="tutorial-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
+                        <span class="tutorial-card-title" id="tutSkillsTitle"></span>
+                    </div>
+                    <div class="tutorial-card-desc" id="tutSkillsDesc"></div>
+                </div>
+                <div class="tutorial-card">
+                    <div class="tutorial-card-header">
+                        <span class="tutorial-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span>
+                        <span class="tutorial-card-title" id="tutWorkspaceTitle"></span>
+                    </div>
+                    <div class="tutorial-card-desc" id="tutWorkspaceDesc"></div>
+                </div>
+                <div class="tutorial-card">
+                    <div class="tutorial-card-header">
+                        <span class="tutorial-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span>
+                        <span class="tutorial-card-title" id="tutJianTitle"></span>
+                    </div>
+                    <div class="tutorial-card-desc" id="tutJianDesc"></div>
+                </div>
+            </div>
+            <button class="ob-finish-btn" id="finishBtn"></button>
+        </div>
+    </div>
+
+    <script src="lib/i18n.js"></script>
+    <script src="lib/theme.js"></script>
+    <script src="onboarding.js"></script>
+</body>
+</html>

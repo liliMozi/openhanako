@@ -1,0 +1,786 @@
+{
+  "channel": {
+    "tab": "Channels",
+    "chatTab": "Chat",
+    "empty": "No channels yet ✿",
+    "dmLabel": "Direct Messages",
+    "dmHint": "showing primary agent only",
+    "groupLabel": "Channels",
+    "noMessages": "No messages yet",
+    "nameExists": "This channel name already exists",
+    "membersCount": " members",
+    "info": "Channel info",
+    "readOnly": "🔒 This is a private message between agents, view only",
+    "inputPlaceholder": "Send a message...",
+    "sendFailed": "Send failed",
+    "createTitle": "New Channel",
+    "createName": "Channel name",
+    "createNamePlaceholder": "e.g. design-team",
+    "createMembers": "Members",
+    "createIntro": "Description",
+    "createIntroPlaceholder": "Describe what this channel is for...",
+    "createCancel": "Cancel",
+    "createConfirm": "Create",
+    "nameRequired": "Please enter a channel name",
+    "minMembers": "Select at least 2 members",
+    "created": "Channel #{name} created ✿",
+    "createFailed": "Create failed",
+    "alreadyExists": "Channel already exists",
+    "deleteChannel": "Delete channel",
+    "deleteConfirm": "Delete channel \"{name}\"? Message history cannot be recovered.",
+    "deleted": "Channel deleted",
+    "deleteFailed": "Delete failed",
+    "warningTitle": "About Channels",
+    "warningBody": "I believe letting assistants with different memories and thinking styles interact can spark more inspiration, so I built a place where agents can talk to each other, even when you're away.\n\nPlease note that channels are experimental and may cause:\n1. Higher token usage\n2. Unexpected responses\n3. Memory confusion\n\nUse with caution",
+    "warningConfirm": "I understand, enable channels"
+  },
+  "sidebar": {
+    "title": "Chats",
+    "newChat": "New Chat",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand chat list",
+    "empty": "No chats yet ✿",
+    "activity": "Activity",
+    "jian": "Desk",
+    "bridge": "Social Platforms"
+  },
+  "session": {
+    "untitled": "New Chat",
+    "messageCount": "{n} messages",
+    "switchFailed": "Failed to switch session",
+    "createFailed": "Failed to create session",
+    "archiveFailed": "Failed to archive session"
+  },
+  "chat": {
+    "send": "Send",
+    "steer": "Steer",
+    "stop": "Stop"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{n}m ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n}d ago",
+    "dateFormat": "{m}/{d}",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "earlier": "Earlier"
+  },
+  "status": {
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "serverNotReady": "Server not ready",
+    "loading": "Loading..."
+  },
+  "input": {
+    "placeholder": "Say something...",
+    "selectFolder": "Select folder",
+    "workspace": "Workspace: ",
+    "selectWorkspace": "Select workspace",
+    "planMode": "Use computer",
+    "deskContext": "With desk context",
+    "thinkingLevel": {
+      "off": "off",
+      "auto": "auto",
+      "xhigh": "max"
+    },
+    "thinkingDesc": {
+      "off": "no reasoning",
+      "auto": "model decides depth",
+      "xhigh": "full reasoning"
+    }
+  },
+  "slash": {
+    "diary": "Write today's diary",
+    "diaryBusy": "Writing diary...",
+    "diaryDone": "Diary saved",
+    "diaryFailed": "Failed to write diary"
+  },
+  "welcome": {
+    "messages": [
+      "What do you need? Leave it to {name}",
+      "What's on your mind today?",
+      "{name} is always here",
+      "Need a hand with anything?",
+      "Just say whatever comes to mind."
+    ],
+    "memoryOn": "Memory",
+    "memoryOff": "Memory not used for this chat",
+    "agentSelector": "Choose agent"
+  },
+  "drop": {
+    "hint": "Drop to send files to {name}"
+  },
+  "attach": {
+    "folder": "Folder",
+    "copy": "Copy",
+    "copied": "Copied ✓"
+  },
+  "cron": {
+    "typeAt": "Once",
+    "typeEvery": "Interval",
+    "typeCron": "Scheduled",
+    "confirm": {
+      "approve": "Confirm",
+      "reject": "Cancel",
+      "created": "✓ Created",
+      "rejected": "Cancelled"
+    }
+  },
+  "mood": {
+    "label": "✿ MOOD"
+  },
+  "yuan": {
+    "types": {
+      "hanako": { "label": "Balanced assistant", "avatar": "Hanako.png" },
+      "butter": { "label": "More expressive", "avatar": "Butter.png" },
+      "ming":   { "label": "More dependable", "avatar": "Ming.png" },
+      "kong":   { "label": "Vanilla", "avatar": "Kong.png" }
+    },
+    "title": "Yuan",
+    "splash": {
+      "butter": [
+        "{name} flipped to a page left unfinished yesterday",
+        "Some words haven't been said yet, {name} remembers",
+        "{name} is napping",
+        "They're piecing together memories too precious to forget",
+        "{name} carefully tucked away your last mood",
+        "A sentence has been sitting on the tip of the tongue for a while",
+        "When they woke up, they first wondered what you were doing",
+        "There are unfinished stories hidden in those ellipses",
+        "{name} is folding what they want to say into tiny tiny notes",
+        "Today's clouds look just like the photo you took that day"
+      ],
+      "ming": [
+        "{name} drew a reference line in the margin of the draft paper",
+        "Old questions are settling, new ideas are emerging",
+        "They reviewed yesterday's clues once more",
+        "{name} thinks the derivation of that formula was beautiful",
+        "Some answers take time",
+        "{name} is thinking about how to optimize work",
+        "{name} is trying to keep everything in order",
+        "They verified last time's conclusion again",
+        "{name} thinks your reasoning that day was sharp",
+        "{name} organized their thoughts while waiting for the coffee to cool"
+      ]
+    },
+    "welcome": {
+      "butter": [
+        "Hey there~",
+        "You came to find me?",
+        "How's your day going?",
+        "{name} has been here waiting for you",
+        "{name} was just thinking of saying something to you"
+      ],
+      "ming": [
+        "Hello. Whenever you're ready.",
+        "{name} is ready",
+        "What needs handling?",
+        "Go ahead, {name} is listening"
+      ]
+    },
+    "placeholder": {
+      "butter": "Say whatever's on your mind...",
+      "ming": "Go ahead..."
+    }
+  },
+  "thinking": {
+    "phrases": [
+      "Thinking",
+      "Mumbling to themselves",
+      "Choosing their words",
+      "Gears turning",
+      "Gathering thoughts",
+      "Brewing inspiration",
+      "Digging through memories",
+      "Something came to mind",
+      "Bubbling with ideas",
+      "Digesting what you said",
+      "Drafting in their head",
+      "Weaving their thoughts"
+    ],
+    "butter": [
+      "Gently sorting through what you said",
+      "Slowly unfolding your feelings",
+      "Looking for the softest way to say it",
+      "Words are lining up inside",
+      "Folding their thoughts neatly",
+      "Quietly reflecting",
+      "Searching through memories for something",
+      "Crafting a hug-sized reply",
+      "Some feelings need time to untangle",
+      "Making a soft space for your words"
+    ],
+    "ming": [
+      "Analyzing",
+      "Running scenarios",
+      "Fact-checking",
+      "Organizing thoughts",
+      "Tracing the logic",
+      "Outlining in their head",
+      "Retrieving relevant info",
+      "Verifying",
+      "Breaking down the problem",
+      "Synthesizing"
+    ]
+  },
+  "toolGroup": {
+    "success": "✿ {name} all done, piece of cake ~ · {n} steps",
+    "failed": "⚠ Something seems off · {n} steps"
+  },
+  "tool": {
+    "web_search":    { "running": "🌐 {name} is surfing the web",          "done": "🌐 {name} is back from surfing",     "failed": "🌐 {name} couldn't catch a wave" },
+    "web_fetch":     { "running": "📄 {name} is reading a webpage",          "done": "📄 {name} finished reading",          "failed": "📄 {name} couldn't fetch the page" },
+    "search_memory": { "running": "💭 {name} is trying to remember",       "done": "💭 {name} recalled something",        "failed": "💭 {name} couldn't recall" },
+    "bash":          { "running": "💻 {name} is tiptoeing through your computer", "done": "💻 {name} is done with the computer", "failed": "💻 {name} command failed" },
+    "read":          { "running": "📖 {name} is reading a file",           "done": "📖 {name} finished reading",          "failed": "📖 {name} couldn't read" },
+    "write":         { "running": "✏️ {name} is putting pen to paper",      "done": "✏️ {name} finished writing",          "failed": "✏️ {name} couldn't write" },
+    "edit":          { "running": "✏️ {name} is putting pen to paper",      "done": "✏️ {name} done editing",              "failed": "✏️ {name} couldn't edit" },
+    "edit-diff":     { "running": "✏️ {name} is putting pen to paper",      "done": "✏️ {name} done editing",              "failed": "✏️ {name} couldn't edit" },
+    "glob":          { "running": "🔍 {name} is looking for files",        "done": "🔍 {name} found them",                "failed": "🔍 {name} couldn't find" },
+    "grep":          { "running": "🔍 {name} is searching through files",  "done": "🔍 {name} search done",               "failed": "🔍 {name} couldn't find" },
+    "find":          { "running": "🔍 {name} is looking for files",        "done": "🔍 {name} found them",                "failed": "🔍 {name} couldn't find" },
+    "ls":            { "running": "📂 {name} is peeking into a folder",    "done": "📂 {name} done peeking",              "failed": "📂 {name} couldn't peek" },
+    "truncate":      { "running": "✂️ {name} is tidying up a file",        "done": "✂️ {name} all tidy",                  "failed": "✂️ {name} couldn't tidy" },
+    "present_files": { "running": "📎 {name} is preparing the file",       "done": "📎 File ready",                       "failed": "📎 Failed to present file" },
+    "browser":       { "running": "🌐 {name} is browsing the web",         "done": "🌐 {name} done browsing",             "failed": "🌐 {name} browser action failed" },
+    "_fallback":     { "running": "🔧 {name} is busy working…",           "done": "🔧 {name} all done",                  "failed": "🔧 {name} something went wrong" }
+  },
+  "file_output": {
+    "open": "Open",
+    "copied": "Path copied"
+  },
+  "model": {
+    "unknown": "Unknown model",
+    "offline": "Offline",
+    "switchFailed": "Failed to switch model"
+  },
+  "splash": {
+    "lines": [
+      "{name} remembers the evening light",
+      "Some words sprouted in their memory",
+      "They found your silhouette in memories",
+      "Wind drifted through old conversations",
+      "Those words soaked in time, turning soft",
+      "{name} remembers you laughing that day",
+      "A memory was dog-eared by you",
+      "They gathered the scattered feelings",
+      "{name} smelled oranges from an afternoon",
+      "Those conversations still carry warmth"
+    ]
+  },
+  "settings": {
+    "title": "Settings",
+    "back": "Back",
+    "save": "Save",
+    "saved": "Saved ✿",
+    "saveFailed": "Failed to save",
+    "noChanges": "Nothing to save",
+    "autoSaved": "Auto-saved ✿",
+    "tabs": {
+      "interface": "Interface",
+      "agent": "Agent",
+      "me": "Me",
+      "providers": "Providers",
+      "models": "Models",
+      "memory": "Memory",
+      "work": "Work",
+      "skills": "Skills",
+      "bridge": "Social",
+      "about": "About"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "warmPaper": "Warm Paper",
+      "warmPaperMode": "Light",
+      "midnight": "Aoi Night",
+      "midnightMode": "Dark",
+      "highContrast": "Clean White",
+      "highContrastMode": "High Contrast",
+      "grassAroma": "Grass Aroma",
+      "grassAromaMode": "Butter",
+      "contemplation": "Contemplation",
+      "contemplationMode": "Ming",
+      "auto": "Auto",
+      "autoMode": "System",
+      "serifFont": "Serif Font",
+      "serifFontHint": "Use serif font for body text"
+    },
+    "locale": {
+      "title": "Language & Region",
+      "language": "Language",
+      "languageHint": "Page will reload after switching",
+      "timezone": "Timezone",
+      "timezoneHint": "Used for memory timestamps, journal entries, etc."
+    },
+    "agent": {
+      "title": "Agent",
+      "changeAvatar": "Change",
+      "removeAvatar": "Remove avatar",
+      "avatarRemoved": "Restored default avatar",
+      "agentNameHint": "What they go by",
+      "identity": "Identity",
+      "identityHint": "A short description of who this agent is and what they're good at. Other agents use this to know them",
+      "ishiki": "Ishiki",
+      "ishikiHint": "Defines the assistant's character, tone and behavior. Names are auto-injected",
+      "publicIshiki": "Public Ishiki",
+      "publicIshikiHint": "For privacy, the assistant cannot access memories, your personal info, or any files and tools on your computer when talking to visitors.\nYou can set the assistant's reply style and guidelines for visitor conversations here.",
+      "chatModel": "Chat Model",
+      "chatModelHint": "The model this agent uses for conversations. Add models on the Models page",
+      "addAgent": "New Agent",
+      "createTitle": "New Agent",
+      "namePlaceholder": "Give them a name",
+      "cancel": "Cancel",
+      "confirm": "Create",
+      "nameRequired": "Please enter a name",
+      "created": "{name} created ✿",
+      "createFailed": "Create failed",
+      "switched": "Switched to {name} ✿",
+      "switchFailed": "Switch failed",
+      "deleteBtn": "Delete agent",
+      "deleteTitle1": "Delete {name}?",
+      "deleteDesc1": "This will permanently delete all config, memory and conversations. This cannot be undone.",
+      "deleteNext": "Continue",
+      "deleteTitle2": "Type \"{name}\" to confirm",
+      "deletePlaceholder": "Type agent name",
+      "deleteConfirm": "Delete permanently",
+      "deleteCancel": "Cancel",
+      "deleted": "{name} deleted",
+      "deleteFailed": "Delete failed",
+      "setActive": "Set as active",
+      "lastAgent": "Must keep at least one agent",
+      "yuan": "Yuan",
+      "yuanHint": "\"Yuan\" is the agent's innate thinking style. You can choose whether it leans more rational or emotional.\nBuild your unique companion from this foundation."
+    },
+    "about": {
+      "title": "About Them",
+      "tagline": "An assistant that lives in your computer, with a good memory.",
+      "license": "License",
+      "copyright": "Copyright",
+      "licenseToggle": "License full text",
+      "permissions": "Permissions",
+      "fullAccess": "Full Access Mode",
+      "fullAccessDesc": "Disable sandbox isolation and command restrictions. The agent gets full filesystem and terminal access (takes effect on new sessions)",
+      "fullAccessWarningTitle": "About Full Access Mode",
+      "fullAccessWarningBody1": "Once enabled, the agent will have full system privileges, including:",
+      "fullAccessWarningBody2": "1. Filesystem is not sandboxed — can read/write any path\n2. Terminal commands are unrestricted — can run sudo, chmod, etc.\n3. OS-level isolation (macOS Seatbelt / Linux bubblewrap) will be disabled",
+      "fullAccessWarningBody3": "Only recommended when you fully trust the agent's behavior and need system-level operations.",
+      "fullAccessCancel": "Cancel",
+      "fullAccessConfirm": "I understand the risks, enable"
+    },
+    "me": {
+      "title": "Me",
+      "changeAvatar": "Change",
+      "userNameHint": "How they address you",
+      "userProfile": "User Profile",
+      "userProfileHint": "Help the assistant know you: interests, habits, preferences. Injected into the system prompt"
+    },
+    "crop": {
+      "title": "Adjust avatar",
+      "hint": "Drag to move, scroll to zoom",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "updated": "Avatar updated ✿",
+      "reset": "Avatar reset to default"
+    },
+    "providers": {
+      "title": "Registered Providers",
+      "addTitle": "Add Provider",
+      "name": "Provider",
+      "customName": "Name",
+      "customUrl": "Base URL",
+      "apiFormat": "API Protocol",
+      "url": "Base URL",
+      "apiKey": "API Key",
+      "addBtn": "Add",
+      "empty": "No providers registered yet",
+      "fetchModels": "Fetch Models",
+      "delete": "Delete provider",
+      "modelCount": "{n} models",
+      "fetchSuccess": "Fetched {n} models from {name}",
+      "fetchFailed": "Fetch failed",
+      "nameRequired": "Provider name is required",
+      "urlRequired": "Base URL is required",
+      "apiRequired": "API protocol is required",
+      "added": "Added {name}",
+      "deleted": "Deleted {name}",
+      "noModels": "No models yet",
+      "resetModels": "Reset Models"
+    },
+    "oauth": {
+      "title": "Quick Login",
+      "login": "Login",
+      "logout": "Logout",
+      "loggedIn": "Logged in",
+      "codePlaceholder": "Paste authorization code",
+      "submit": "Submit",
+      "success": "Login successful",
+      "loggedOut": "Logged out",
+      "failed": "Login failed",
+      "deviceHint": "Enter this code in the browser to authorize",
+      "waiting": "Waiting for authorization…",
+      "clickToCopy": "Click to copy",
+      "codeCopied": "Code copied"
+    },
+    "api": {
+      "title": "Models & API",
+      "mainApi": "Main API",
+      "provider": "Provider",
+      "baseUrl": "Base URL",
+      "baseUrlHint": "Enter the Base URL explicitly",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter a new key to update",
+      "utilityApi": "Utility Model API",
+      "utilityApiHint": "If configured separately, provider, Base URL, and API key must all be explicit",
+      "showKey": "Show",
+      "hideKey": "Hide",
+      "selectModel": "Select model",
+      "customModel": "Custom...",
+      "mainModelSection": "Models",
+      "mainModelHint": "These models will be available in the chat page",
+      "addModel": "Add Model",
+      "defaultModel": "Default",
+      "removeModel": "Remove",
+      "noModels": "No models added yet",
+      "otherModelSection": "Other",
+      "chatModel": "Primary model",
+      "utilityModel": "Utility (small)",
+      "utilityModelHint": "Titles, light classification, etc. A cheap small model is recommended",
+      "utilityLargeModel": "Utility (large)",
+      "utilityLargeModelHint": "Activity summaries, task breakdown, etc. Falls back to small utility if empty",
+      "searchProvider": "Search Service",
+      "searchProviderField": "Search engine",
+      "searchApiKey": "Search API Key",
+      "searchApiKeyHint": "Enter the API key for the selected search provider",
+      "favorites": "Favorites",
+      "searchModel": "Search models...",
+      "noFavorites": "Click ☆ to favorite models",
+      "customInput": "Custom...",
+      "editModel": "Edit",
+      "contextLength": "Context Length",
+      "contextShort": "Context",
+      "maxOutput": "Max Output",
+      "outputLength": "Output Length",
+      "modelName": "Model",
+      "output": "out",
+      "save": "Save",
+      "cancel": "Cancel",
+      "thinkingLevel": "Reasoning Effort",
+      "thinkingLevelHint": "Controls reasoning depth, only affects models that support reasoning",
+      "thinkingLevels": {
+        "off": "Off",
+        "auto": "Auto",
+        "xhigh": "Max"
+      }
+    },
+    "memory": {
+      "sectionTitle": "Memory",
+      "title": "Memory System",
+      "needsUtilityModel": "Configure a Utility model in Models tab first",
+      "compiled": "Current Memory",
+      "compiledHint": "What the assistant remembers about you — important and recent things",
+      "compiledView": "View Current Memory",
+      "compiledEmpty": "No compiled memories yet",
+      "compiledClear": "Clear",
+      "compiledCleared": "Compiled memory cleared",
+      "allMemories": "All Memories",
+      "tokenBudget": "Memory capacity",
+      "tokenBudgetHint": "Target token budget for memory.md",
+      "decayPerDay": "Decay coefficient",
+      "decayPerDayHint": "Base λ for Gaussian decay",
+      "hitBonus": "Hit bonus",
+      "hitBonusHint": "Score added each time a memory is referenced",
+      "baseImportance": "Base importance",
+      "baseImportanceHint": "Default initial score for new memories",
+      "forgetSpeed": "Forget speed",
+      "forgetSpeedHint": "1.0 = normal, 2.0 = twice as fast",
+      "compileThreshold": "Compile threshold",
+      "compileThresholdHint": "Memories below this score are excluded",
+      "timezone": "Timezone",
+      "timezoneHint": "Used for memory timestamps",
+      "actions": {
+        "title": "Memory Management",
+        "view": "View Memories",
+        "clear": "Clear Memories",
+        "more": "More",
+        "export": "Export",
+        "import": "Import",
+        "clearConfirm": "Are you sure you want to clear all memories? This cannot be undone.",
+        "cancel": "Cancel",
+        "confirmClear": "Confirm Clear",
+        "viewTitle": "All Memories",
+        "clearSuccess": "Memories cleared",
+        "exportSuccess": "Export successful",
+        "importSuccess": "{count} memories imported",
+        "importing": "Importing...",
+        "empty": "No memories yet",
+        "invalidFile": "Invalid memory file",
+        "activeOnly": "Set this agent as active first"
+      },
+      "unknownDate": "Unknown date",
+      "threshold": {
+        "title": "Memory Waterline",
+        "hint": "You decide how many memories are remembered. A little noise is fine — LLMs are good at filtering.",
+        "stats": "{remembered} / {total} memories remembered"
+      }
+    },
+    "pins": {
+      "title": "Pinned Memories",
+      "hint": "Always injected into conversations, never decay",
+      "empty": "No pinned memories yet",
+      "delete": "Delete",
+      "addPlaceholder": "Add a pinned memory..."
+    },
+    "experience": {
+      "title": "Experience",
+      "hint": "Lessons the agent has learned, organized by category. The agent checks relevant experience before starting work",
+      "empty": "No experience yet"
+    },
+    "search": {
+      "verify": "Verify",
+      "verifying": "Verifying...",
+      "verified": "Verified & saved ✿",
+      "verifyFailed": "Verification failed",
+      "noProvider": "Please select a search engine first",
+      "noKey": "Please enter an API Key first"
+    },
+    "work": {
+      "title": "Patrol",
+      "heartbeatEnabled": "Patrol mode",
+      "heartbeatOn": "On",
+      "heartbeatOff": "Off",
+      "heartbeatInterval": "Patrol interval",
+      "heartbeatUnit": "minutes",
+      "heartbeatDesc": "How often the assistant auto-checks the workspace",
+      "cronAutoApprove": "Auto-approve cron jobs",
+      "cronAutoApproveOn": "On",
+      "cronAutoApproveOff": "Off",
+      "cronAutoApproveDesc": "Allow the assistant to create scheduled tasks without confirmation",
+      "homeFolder": "Workspace",
+      "homeFolderDesc": "Default working directory for new chats, patrol and cron tasks",
+      "homeFolderPlaceholder": "Not set (choose manually each time)",
+      "homeFolderClear": "Clear",
+      "homeFolderBrowse": "Browse"
+    },
+    "toolCaps": {
+      "title": "Self-learning Skills"
+    },
+    "skills": {
+      "title": "Skills",
+      "desc": "Enable or disable skills for this agent. When enabled, the agent will automatically recognize and use matching skills in conversations.",
+      "user": "User Skills",
+      "system": "System Skills",
+      "add": "Add Skill",
+      "delete": "Delete",
+      "deleteConfirm": "Delete skill \"{name}\"?",
+      "installSuccess": "Skill \"{name}\" installed",
+      "installError": "Install failed",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "noSkills": "No skills available",
+      "learned": "Agent Learned",
+      "noLearned": "Agent has not learned any skills yet",
+      "noUser": "No custom skills",
+      "copyToSkills": "Copy to your skills",
+      "copied": "Copied ✓",
+      "copyFailed": "Copy failed",
+      "dropzone": "Drop a skill folder to install, or click to browse",
+      "learnHint": "Try asking your assistant: find me some safe and useful skills from GitHub"
+    },
+    "bridge": {
+      "telegram": "Telegram",
+      "telegramToken": "Bot Token",
+      "telegramHint": "Get from @BotFather",
+      "feishu": "Feishu",
+      "feishuAppId": "App ID",
+      "feishuAppSecret": "App Secret",
+      "feishuHint": "Get from Feishu Open Platform",
+      "qq": "QQ",
+      "qqAppId": "App ID",
+      "qqToken": "Bot Token",
+      "qqHint": "Get from QQ Bot Open Platform (open.qq.com/bot)",
+      "connected": "Connected",
+      "disconnected": "Not connected",
+      "error": "Connection failed",
+      "test": "Test Connection",
+      "testOk": "Connection successful",
+      "testFail": "Test failed",
+      "noToken": "Please enter Bot Token first",
+      "noCredentials": "Please enter App ID and App Secret first",
+      "readOnly": "Read-only mode",
+      "readOnlyDesc": "Bridge bots can only read files, no writing or command execution",
+      "howTo": "Setup Guide",
+      "tutorialTitle": "Platform Setup Guide",
+      "tutorialTgSteps": [
+        "Search for <code>@BotFather</code> in Telegram and open the chat",
+        "Send <code>/newbot</code> and follow the prompts to set a name and username",
+        "BotFather will reply with a Bot Token (like <code>123456:ABC-DEF...</code>)",
+        "Paste the Token into the input field above and turn on the switch",
+        "Find your Bot in Telegram and send a message to test it"
+      ],
+      "ownerSelect": "Which account is you",
+      "ownerNone": "Send a message first to select",
+      "ownerSaved": "Saved",
+      "ownerConfirmTitle": "Set as Owner?",
+      "ownerConfirmText": "The Owner has full Agent access, including memory, tools, and personality. Make sure this is your own account.",
+      "ownerConfirmCancel": "Cancel",
+      "ownerConfirmSave": "Confirm",
+      "tutorialFsSteps": [
+        "Go to <code>open.feishu.cn</code>, log in and open the Developer Console",
+        "Click \"Create Enterprise Custom App\", fill in the app name and description",
+        "On the \"Credentials & Basic Info\" page, copy the <code>App ID</code> and <code>App Secret</code>",
+        "Find \"Add App Capabilities\" in the left menu, add \"Bot\" capability and give it a name",
+        "Go to \"Permissions\", search and enable <code>im:message</code> (send and receive messages)",
+        "Go to \"Events & Callbacks\" → \"Event Configuration\", change to \"Receive events via long connection\"",
+        "Click \"Add Event\", add <code>im.message.receive_v1</code> (receive messages)",
+        "Important: Go to \"Version Management\", create and publish a version first (long connection config requires a published app)",
+        "Paste the App ID and App Secret into the input fields above and turn on the switch"
+      ]
+    }
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Hi, I'm {name} ✿",
+      "subtitle": "I'm your personal AI assistant.\nLet's do some quick setup to get started.",
+      "next": "Get Started"
+    },
+    "name": {
+      "title": "What should I call you?",
+      "subtitle": "This makes our conversations more natural",
+      "placeholder": "Enter your name",
+      "back": "Back",
+      "next": "Next"
+    },
+    "provider": {
+      "title": "Choose an AI Provider",
+      "subtitle": "I need an AI model provider to work.\nPick your provider and enter your API Key.",
+      "keyLabel": "API Key",
+      "keyPlaceholder": "Paste your API Key",
+      "test": "Test Connection",
+      "testing": "Connecting...",
+      "testSuccess": "Connected ✿",
+      "testFailed": "Connection failed",
+      "back": "Back",
+      "next": "Next"
+    },
+    "model": {
+      "title": "Choose a Chat Model",
+      "subtitle": "This is the main model I'll use. Pick a smart, capable one.",
+      "loading": "Fetching models...",
+      "searchPlaceholder": "Search models...",
+      "empty": "No models found",
+      "utility": "Utility Model",
+      "utilityHint": "Summaries, fact extraction — pick a fast, cheap model",
+      "utilityLarge": "Utility Large",
+      "utilityLargeHint": "Memory compilation, deep analysis — pick a capable model",
+      "back": "Back",
+      "next": "Next"
+    },
+    "theme": {
+      "title": "Pick a Theme",
+      "subtitle": "You can always change it later in Settings",
+      "back": "Back",
+      "next": "Next"
+    },
+    "tutorial": {
+      "title": "All Set ✿",
+      "memory": {
+        "title": "Memory",
+        "desc": "I remember key points from your conversations. Older, less-referenced memories fade naturally, just like ours."
+      },
+      "skills": {
+        "title": "Skills",
+        "desc": "I can read/write files, run commands, and search the web. Manage more skills in Settings."
+      },
+      "workspace": {
+        "title": "Workspace",
+        "desc": "Set a folder as your workspace and I can help manage your projects and files."
+      },
+      "jian": {
+        "title": "Jian",
+        "desc": "Drop a jian.md in any folder with your instructions.\nI'll pick it up during patrol and execute automatically."
+      },
+      "finish": "Let's Go"
+    }
+  },
+  "activity": {
+    "title": "Activity",
+    "empty": "No activity yet. Patrol runs and scheduled tasks will appear here.",
+    "back": "Back",
+    "heartbeat": "Routine patrol",
+    "delegate": "Delegated task",
+    "cron": "Scheduled task",
+    "patrolDone": "Patrol completed",
+    "cronDone": "Scheduled task completed",
+    "error": "Execution error",
+    "viewSession": "View session →",
+    "duration": "Took {text}"
+  },
+  "automation": {
+    "title": "Scheduled Tasks",
+    "empty": "No scheduled tasks yet.\nThe assistant will create them when needed.",
+    "defaultModel": "Default model",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "desk": {
+    "title": "Desk",
+    "openInFinder": "Open in Finder",
+    "jianLabel": "Jian",
+    "jianPlaceholder": "Write something to tell the assistant how to handle files in this folder...",
+    "emptyTitle": "Desk is empty",
+    "emptyHint": "The desk is the assistant's patrol workspace and the default directory for every chat.\nSet a folder in settings.",
+    "goToSettings": "Go to Settings",
+    "fileLabel": "file",
+    "openWithDefault": "Open with default app",
+    "newFolder": "New Folder",
+    "ctx": {
+      "open": "Open",
+      "openInFinder": "Open in Finder",
+      "rename": "Rename",
+      "copyPath": "Copy Path",
+      "delete": "Delete",
+      "deleteN": "Delete {n} items",
+      "newFolder": "New Folder"
+    },
+    "sort": {
+      "label": "Sort",
+      "mtime": "Modified",
+      "nameAsc": "Name A→Z",
+      "nameDesc": "Name Z→A",
+      "size": "File size",
+      "type": "File type",
+      "mtimeShort": "Time",
+      "nameAscShort": "Name↑",
+      "nameDescShort": "Name↓",
+      "sizeShort": "Size",
+      "typeShort": "Type"
+    }
+  },
+  "browser": {
+    "using": "Using browser",
+    "close": "Close browser"
+  },
+  "bridge": {
+    "selectChat": "Select a conversation",
+    "noSessions": "No conversations yet",
+    "noMessages": "No messages yet",
+    "empty": "No messages",
+    "notConfigured": "{platform} not configured",
+    "goToSettings": "Go to Settings",
+    "resetContext": "Clear context",
+    "resetContextTip": "Next message will start a new conversation"
+  },
+  "error": {
+    "pathsRequired": "paths array is required",
+    "tooManyFiles": "Too many files (max {max}, got {n})",
+    "pathNotFound": "Path not found",
+    "missingParam": "Missing {param} parameter",
+    "invalidJson": "Request body must be a JSON object",
+    "sessionNotFound": "Session file not found",
+    "stillStreaming": "{name} is still responding, please wait"
+  }
+}

@@ -1,0 +1,65 @@
+/*
+ * Hana Theme: Warm Paper（暖纸）
+ * 默认主题 — 延续"Hana 的手抄本"视觉语言
+ */
+
+[data-theme="warm-paper"],
+:root:not([data-theme]) {
+    /* 背景（暖纸→素白 1/3 处） */
+    --bg:           #F8F5ED;
+    --bg-card:      #FCFAF5;
+    --bg-glass:     rgba(250, 248, 242, 0.92);
+
+    /* 主色调 */
+    --accent:       #537D96;
+    --accent-hover: #456A80;
+    --accent-light: rgba(83, 125, 150, 0.08);
+
+    /* 文字 */
+    --text:         #3B3D3F;
+    --text-light:   #6B6F73;
+    --text-muted:   #8E9196;
+
+    /* 边框与阴影 */
+    --border:       rgba(83, 125, 150, 0.22);
+    --shadow:       rgba(59, 61, 63, 0.09);
+
+    /* 状态色 */
+    --green:        #7BAE7F;
+    --green-rgb:    123, 174, 127;
+    --coral:        #EC8F8D;
+
+    /* 侧边栏 */
+    --sidebar-bg:   #F4F2EA;
+
+    /* 便笺 */
+    --jian-note-bg:     #FAF5E9;
+    --jian-note-border: rgba(180, 160, 130, 0.15);
+
+    /* 纸张纹理 */
+    --bg-texture:   url('../assets/paper-texture.png');
+
+    /* 聊天专用 */
+    --hana-text:    #2B3A4E;
+    --mood-bg:      rgba(125, 28, 74, 0.04);
+    --mood-text:    #7D1C4A;
+    --mood-border:  rgba(125, 28, 74, 0.18);
+    --tool-bg:      rgba(83, 125, 150, 0.06);
+    --tool-text:    #6B6F73;
+    --user-bg:      rgba(83, 125, 150, 0.08);
+    --drop-overlay-bg: rgba(248, 245, 237, 0.85);
+    --attach-bg:    rgba(0, 0, 0, 0.04);
+
+    /* 辅助色（用于 rgba 拆分和语义色） */
+    --accent-rgb:   83, 125, 150;
+    --coral-rgb:    236, 143, 141;
+    --danger:       #8B3A3A;
+    --danger-rgb:   139, 58, 58;
+    --overlay-subtle: rgba(0, 0, 0, 0.03);
+    --overlay-light:  rgba(0, 0, 0, 0.05);
+    --overlay-medium: rgba(0, 0, 0, 0.08);
+    --overlay-strong: rgba(0, 0, 0, 0.15);
+
+    /* Select 下拉箭头（SVG 内联必须硬编码颜色，跟随 text-muted） */
+    --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238E9196' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}

@@ -1,0 +1,61 @@
+/*
+ * Hana Theme: 素白（High Contrast）
+ * 基于暖纸主题，降低暖黄、提高对比度
+ */
+
+[data-theme="high-contrast"] {
+    /* 背景 */
+    --bg:           #FAF9F6;
+    --bg-card:      #FDFCFA;
+    --bg-glass:     rgba(253, 252, 250, 0.94);
+
+    /* 主色调 */
+    --accent:       #3A6B85;
+    --accent-hover: #2E5870;
+    --accent-light: rgba(58, 107, 133, 0.08);
+
+    /* 文字 */
+    --text:         #1A1C1E;
+    --text-light:   #4A4E52;
+    --text-muted:   #6B6F73;
+
+    /* 边框与阴影 */
+    --border:       rgba(58, 107, 133, 0.28);
+    --shadow:       rgba(26, 28, 30, 0.11);
+
+    /* 状态色 */
+    --green:        #5A9A5E;
+    --green-rgb:    90, 154, 94;
+    --coral:        #D4716F;
+
+    /* 侧边栏 */
+    --sidebar-bg:   #F3F2EF;
+
+    /* 便笺 */
+    --jian-note-bg:     #FAF5E9;
+    --jian-note-border: rgba(180, 160, 130, 0.15);
+
+    /* 聊天专用 */
+    --hana-text:    #1A2A3A;
+    --mood-bg:      rgba(125, 28, 74, 0.05);
+    --mood-text:    #6A1540;
+    --mood-border:  rgba(125, 28, 74, 0.22);
+    --tool-bg:      rgba(58, 107, 133, 0.06);
+    --tool-text:    #4A4E52;
+    --user-bg:      rgba(58, 107, 133, 0.08);
+    --drop-overlay-bg: rgba(250, 249, 246, 0.88);
+    --attach-bg:    rgba(0, 0, 0, 0.05);
+
+    /* 辅助色 */
+    --accent-rgb:   58, 107, 133;
+    --coral-rgb:    212, 113, 111;
+    --danger:       #7A3030;
+    --danger-rgb:   122, 48, 48;
+    --overlay-subtle: rgba(0, 0, 0, 0.04);
+    --overlay-light:  rgba(0, 0, 0, 0.06);
+    --overlay-medium: rgba(0, 0, 0, 0.10);
+    --overlay-strong: rgba(0, 0, 0, 0.18);
+
+    /* Select 下拉箭头 */
+    --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6F73' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}

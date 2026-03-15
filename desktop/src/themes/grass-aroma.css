@@ -1,0 +1,61 @@
+/*
+ * Hana Theme: 草香（Grass Aroma）
+ * Butter 青草绿系，清晨露水的透亮感
+ */
+
+[data-theme="grass-aroma"] {
+    /* 背景 */
+    --bg:           #F5F8F3;
+    --bg-card:      #F9FBF7;
+    --bg-glass:     rgba(249, 251, 247, 0.92);
+
+    /* 主色调 */
+    --accent:       #5BA88C;
+    --accent-hover: #4D9179;
+    --accent-light: rgba(91, 168, 140, 0.08);
+
+    /* 文字 */
+    --text:         #2E3832;
+    --text-light:   #5E6B63;
+    --text-muted:   #8A9490;
+
+    /* 边框与阴影 */
+    --border:       rgba(91, 168, 140, 0.22);
+    --shadow:       rgba(46, 56, 50, 0.09);
+
+    /* 状态色 */
+    --green:        #7BAE7F;
+    --green-rgb:    123, 174, 127;
+    --coral:        #D4887A;
+
+    /* 侧边栏 */
+    --sidebar-bg:   #EFF3EC;
+
+    /* 便笺 */
+    --jian-note-bg:     #FAF5E9;
+    --jian-note-border: rgba(180, 160, 130, 0.15);
+
+    /* 聊天专用 */
+    --hana-text:    #1E3328;
+    --mood-bg:      rgba(106, 80, 64, 0.04);
+    --mood-text:    #6A5040;
+    --mood-border:  rgba(106, 80, 64, 0.18);
+    --tool-bg:      rgba(91, 168, 140, 0.06);
+    --tool-text:    #5E6B63;
+    --user-bg:      rgba(91, 168, 140, 0.08);
+    --drop-overlay-bg: rgba(245, 248, 243, 0.85);
+    --attach-bg:    rgba(0, 0, 0, 0.04);
+
+    /* 辅助色 */
+    --accent-rgb:   91, 168, 140;
+    --coral-rgb:    212, 136, 122;
+    --danger:       #8B4A3A;
+    --danger-rgb:   139, 74, 58;
+    --overlay-subtle: rgba(0, 0, 0, 0.03);
+    --overlay-light:  rgba(0, 0, 0, 0.05);
+    --overlay-medium: rgba(0, 0, 0, 0.08);
+    --overlay-strong: rgba(0, 0, 0, 0.15);
+
+    /* Select 下拉箭头 */
+    --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A9490' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
