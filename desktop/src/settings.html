@@ -46,11 +46,15 @@
             border-bottom: none;
         }
         /* Windows/Linux：无红绿灯，不需要大 padding-top；
-           取消 drag 让 titlebar-minimal 上的 window controls 可点击 */
+           取消 header drag，改由 titlebar-minimal 承担拖拽 */
         html[data-platform="win32"] .settings-header,
         html[data-platform="linux"] .settings-header {
             -webkit-app-region: no-drag;
             padding-top: 10px;
+        }
+        html[data-platform="win32"] .titlebar-minimal,
+        html[data-platform="linux"] .titlebar-minimal {
+            pointer-events: auto;
         }
         /* 加载蒙版 */
         .settings-loading-mask {
