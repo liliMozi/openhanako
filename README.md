@@ -1,5 +1,3 @@
-[中文版](README_CN.md)
-
 <p align="center">
   <img src=".github/assets/banner.png" width="100%" alt="OpenHanako Banner">
 </p>
@@ -11,6 +9,8 @@
 <h1 align="center">OpenHanako</h1>
 
 <p align="center">A personal AI agent with memory and soul</p>
+
+<p align="center"><a href="README_CN.md">中文版</a></p>
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/liliMozi/openhanako/releases)
