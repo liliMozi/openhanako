@@ -28,10 +28,14 @@ const state = {
   // 收集的配置
   locale: "zh-CN",
   userName: "",
+  providerSelection: "",
   providerName: "",
   providerUrl: "",
   providerApi: "",
   apiKey: "",
+  customProviderName: "",
+  customProviderUrl: "",
+  customProviderApi: "",
   selectedModel: "",
   selectedUtility: "",
   selectedUtilityLarge: "",
@@ -39,6 +43,13 @@ const state = {
   connectionTested: false,
   isLocalProvider: false,
 };
+
+const CUSTOM_PROVIDER_VALUE = "__custom__";
+const API_FORMAT_OPTIONS = [
+  { value: "openai-completions", label: "OpenAI Compatible" },
+  { value: "anthropic-messages", label: "Anthropic Messages" },
+  { value: "openai-codex-responses", label: "OpenAI Codex Responses" },
+];
 
 // ── Provider 预设 ──
 const PROVIDER_PRESETS = [
@@ -54,6 +65,22 @@ const PROVIDER_PRESETS = [
   { value: "mistral",     label: "Mistral",           url: "https://api.mistral.ai/v1", api: "openai-completions" },
   { value: "minimax",     label: "MiniMax",           url: "https://api.minimaxi.com/anthropic", api: "anthropic-messages" },
 ];
+
+function isCustomProviderSelected() {
+  return state.providerSelection === CUSTOM_PROVIDER_VALUE;
+}
+
+function providerSignature() {
+  // 自定义供应商不会变更 providerName 之外的“已选项”标识，
+  // 用完整签名做缓存键，才能在 URL/API/Key 变动后重新拉取模型。
+  return JSON.stringify({
+    selection: state.providerSelection,
+    name: state.providerName,
+    url: state.providerUrl,
+    api: state.providerApi,
+    key: state.apiKey,
+  });
+}
 
 // ── Server 通信 ──
 function hanaFetch(urlPath, opts = {}) {
@@ -134,6 +161,8 @@ function applyI18n() {
   s("welcomeTitle", "onboarding.welcome.title");
   sp("welcomeSubtitle", "onboarding.welcome.subtitle");
   s("welcomeNextBtn", "onboarding.welcome.next");
+  s("skipSetupBtn", "onboarding.skipSetup");
+  s("skipPageBtn", "onboarding.skipPage");
 
   // Step 1: Name
   s("nameTitle", "onboarding.name.title");
@@ -145,11 +174,17 @@ function applyI18n() {
   // Step 2: Provider
   s("providerTitle", "onboarding.provider.title");
   sp("providerSubtitle", "onboarding.provider.subtitle");
+  s("providerCustomNameLabel", "settings.providers.customName");
+  s("providerCustomUrlLabel", "settings.providers.customUrl");
+  s("providerCustomApiLabel", "settings.providers.apiFormat");
   s("providerKeyLabel", "onboarding.provider.keyLabel");
   $("#providerKeyInput").placeholder = t("onboarding.provider.keyPlaceholder");
+  $("#providerCustomNameInput").placeholder = "my-provider";
+  $("#providerCustomUrlInput").placeholder = "https://api.example.com/v1";
   s("providerTestBtn", "onboarding.provider.test");
   s("providerBackBtn", "onboarding.provider.back");
   s("providerNextBtn", "onboarding.provider.next");
+  renderProviderApiOptions();
 
   // Step 3: Model
   s("modelTitle", "onboarding.model.title");
@@ -227,6 +262,8 @@ function renderLocalePicker() {
       // 切换语言包并重新渲染所有文本
       await i18n.load(loc.value);
       applyI18n();
+      renderProviderGrid();
+      if (state.providerSelection) selectProvider(state.providerSelection);
       renderThemeGrid();
     });
 
@@ -247,25 +284,92 @@ function renderProviderGrid() {
     card.dataset.value = preset.value;
 
     card.addEventListener("click", () => {
-      grid.querySelectorAll(".provider-card").forEach(c => c.classList.remove("selected"));
-      card.classList.add("selected");
-      state.providerName = preset.value;
-      state.providerUrl = preset.url;
-      state.providerApi = preset.api;
-      state.isLocalProvider = !!preset.local;
-      state.connectionTested = false;
-      $("#providerTestStatus").textContent = "";
-      // 本地 provider 隐藏 key 输入
-      const keyRow = $("#providerKeyInput")?.parentElement;
-      const keyLabel = $("#providerKeyLabel");
-      if (keyRow) keyRow.style.display = preset.local ? "none" : "";
-      if (keyLabel) keyLabel.style.display = preset.local ? "none" : "";
-      if (preset.local) state.apiKey = "";
-      updateProviderBtns();
+      selectProvider(preset.value);
     });
 
     grid.appendChild(card);
   }
+
+  const customCard = document.createElement("div");
+  customCard.className = "provider-card";
+  customCard.textContent = t("settings.api.customInput");
+  customCard.dataset.value = CUSTOM_PROVIDER_VALUE;
+  customCard.addEventListener("click", () => {
+    selectProvider(CUSTOM_PROVIDER_VALUE);
+  });
+  grid.appendChild(customCard);
+}
+
+function renderProviderApiOptions() {
+  const select = $("#providerCustomApiSelect");
+  if (!select) return;
+  const currentValue = state.customProviderApi || select.value || "";
+  select.innerHTML = "";
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = t("settings.providers.apiFormat");
+  select.appendChild(placeholder);
+
+  for (const option of API_FORMAT_OPTIONS) {
+    const item = document.createElement("option");
+    item.value = option.value;
+    item.textContent = option.label;
+    select.appendChild(item);
+  }
+
+  select.value = currentValue;
+}
+
+function resetProviderState() {
+  state.connectionTested = false;
+  $("#providerTestStatus").textContent = "";
+  _modelsLoadedFor = "";
+}
+
+function syncCustomProviderState() {
+  state.providerName = state.customProviderName.trim().toLowerCase();
+  state.providerUrl = state.customProviderUrl.trim();
+  state.providerApi = state.customProviderApi;
+  state.isLocalProvider = false;
+}
+
+function updateProviderFieldVisibility() {
+  const customFields = $("#providerCustomFields");
+  if (customFields) customFields.style.display = isCustomProviderSelected() ? "flex" : "none";
+
+  const keyRow = $("#providerKeyInput")?.parentElement;
+  const keyLabel = $("#providerKeyLabel");
+  const hideKey = state.isLocalProvider;
+  if (keyRow) keyRow.style.display = hideKey ? "none" : "";
+  if (keyLabel) keyLabel.style.display = hideKey ? "none" : "";
+}
+
+function selectProvider(value) {
+  state.providerSelection = value;
+  $("#providerGrid").querySelectorAll(".provider-card").forEach((card) => {
+    card.classList.toggle("selected", card.dataset.value === value);
+  });
+
+  if (value === CUSTOM_PROVIDER_VALUE) {
+    syncCustomProviderState();
+  } else {
+    const preset = PROVIDER_PRESETS.find((item) => item.value === value);
+    if (!preset) return;
+    state.providerName = preset.value;
+    state.providerUrl = preset.url;
+    state.providerApi = preset.api;
+    state.isLocalProvider = !!preset.local;
+    if (preset.local) state.apiKey = "";
+  }
+
+  resetProviderState();
+  updateProviderFieldVisibility();
+  updateProviderBtns();
+}
+
+function hasProviderConfig() {
+  return !!(state.providerName && state.providerUrl && state.providerApi);
 }
 
 // ── Provider step 逻辑 ──
@@ -277,10 +381,9 @@ function updateProviderBtns() {
     $("#providerNextBtn").disabled = false;
     return;
   }
-  const hasKey = !!state.apiKey || !!state.isLocalProvider;
-  const hasProvider = !!state.providerName;
-  $("#providerTestBtn").disabled = !(hasProvider && hasKey);
-  $("#providerNextBtn").disabled = !(hasProvider && hasKey && state.connectionTested);
+  const ready = hasProviderConfig();
+  $("#providerTestBtn").disabled = !ready;
+  $("#providerNextBtn").disabled = !(ready && state.connectionTested);
 }
 
 async function testConnection() {
@@ -345,7 +448,7 @@ async function saveProvider() {
 
 // ── Model step 逻辑 ──
 
-let _modelsLoadedFor = ""; // 记录上次加载模型的 provider
+let _modelsLoadedFor = ""; // 记录上次加载模型的供应商签名
 
 async function loadModels() {
   // 预览模式：展示 mock 模型列表
@@ -361,7 +464,8 @@ async function loadModels() {
     return;
   }
 
-  if (_modelsLoadedFor === state.providerName) return;
+  const signature = providerSignature();
+  if (_modelsLoadedFor === signature) return;
 
   const loadingEl = $("#modelLoading");
   loadingEl.textContent = t("onboarding.model.loading");
@@ -391,7 +495,7 @@ async function loadModels() {
     state.selectedUtility = "";
     state.selectedUtilityLarge = "";
     $("#modelNextBtn").disabled = true;
-    _modelsLoadedFor = state.providerName;
+    _modelsLoadedFor = signature;
     loadingEl.style.display = "none";
 
     renderModelList(state.fetchedModels);
@@ -575,6 +679,39 @@ function renderThemeGrid() {
 // ── 事件绑定 ──
 
 function bindEvents() {
+  $("#skipSetupBtn").addEventListener("click", async () => {
+    if (PREVIEW) {
+      window.close();
+      return;
+    }
+    $("#skipSetupBtn").disabled = true;
+    try {
+      await window.hana.onboardingComplete();
+    } catch (err) {
+      console.error("[onboarding] skip setup failed:", err);
+      showError(t("onboarding.provider.testFailed"));
+      $("#skipSetupBtn").disabled = false;
+    }
+  });
+
+  $("#skipPageBtn").addEventListener("click", async () => {
+    // 引导允许跨过当前步骤，避免上游接口异常时把新用户彻底卡死。
+    if (state.currentStep >= state.totalSteps - 1) {
+      if (PREVIEW) {
+        window.close();
+        return;
+      }
+      try {
+        await window.hana.onboardingComplete();
+      } catch (err) {
+        console.error("[onboarding] skip final step failed:", err);
+        showError(t("onboarding.provider.testFailed"));
+      }
+      return;
+    }
+    goToStep(state.currentStep + 1);
+  });
+
   // Welcome → next（保存 locale）
   $("#welcomeNextBtn").addEventListener("click", async () => {
     if (!PREVIEW) {
@@ -620,10 +757,37 @@ function bindEvents() {
 
   // Provider
   const keyInput = $("#providerKeyInput");
+  const customNameInput = $("#providerCustomNameInput");
+  const customUrlInput = $("#providerCustomUrlInput");
+  const customApiSelect = $("#providerCustomApiSelect");
+
   keyInput.addEventListener("input", () => {
     state.apiKey = keyInput.value.replace(/[^\x20-\x7E]/g, "").trim();
-    state.connectionTested = false;
-    $("#providerTestStatus").textContent = "";
+    resetProviderState();
+    updateProviderBtns();
+  });
+
+  customNameInput.addEventListener("input", () => {
+    state.customProviderName = customNameInput.value;
+    if (!isCustomProviderSelected()) return;
+    syncCustomProviderState();
+    resetProviderState();
+    updateProviderBtns();
+  });
+
+  customUrlInput.addEventListener("input", () => {
+    state.customProviderUrl = customUrlInput.value;
+    if (!isCustomProviderSelected()) return;
+    syncCustomProviderState();
+    resetProviderState();
+    updateProviderBtns();
+  });
+
+  customApiSelect.addEventListener("change", () => {
+    state.customProviderApi = customApiSelect.value;
+    if (!isCustomProviderSelected()) return;
+    syncCustomProviderState();
+    resetProviderState();
     updateProviderBtns();
   });
 
@@ -739,6 +903,8 @@ async function loadAvatar() {
     renderProviderGrid();
     renderThemeGrid();
     applyI18n();
+    updateProviderFieldVisibility();
+    updateProviderBtns();
     loadAvatar();
     bindEvents();
 

@@ -28,6 +28,34 @@
             -webkit-app-region: drag;
         }
 
+        .onboarding-corner-actions {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 3;
+            -webkit-app-region: no-drag;
+        }
+
+        .ob-corner-btn {
+            font-family: inherit;
+            font-size: 0.76rem;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: color-mix(in srgb, var(--bg-card, #fff) 92%, transparent);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            backdrop-filter: blur(8px);
+        }
+
+        .ob-corner-btn:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
         .onboarding button,
         .onboarding input,
         .onboarding select,
@@ -199,6 +227,15 @@
             background: var(--accent-bg, rgba(139,115,85,0.06));
             color: var(--accent);
             font-weight: 500;
+        }
+        .provider-custom-fields {
+            width: 100%;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .provider-custom-select {
+            appearance: none;
         }
 
         /* ── API key row ── */
@@ -409,6 +446,10 @@
     <!-- Windows/Linux 窗口控制按钮注入点 -->
     <div class="titlebar titlebar-minimal"></div>
     <div class="onboarding" id="onboarding">
+        <div class="onboarding-corner-actions">
+            <button class="ob-corner-btn" id="skipPageBtn"></button>
+            <button class="ob-corner-btn" id="skipSetupBtn"></button>
+        </div>
         <!-- Progress dots -->
         <div class="onboarding-progress" id="obProgress"></div>
 
@@ -439,6 +480,14 @@
             <h1 class="onboarding-title" id="providerTitle"></h1>
             <p class="onboarding-subtitle" id="providerSubtitle"></p>
             <div class="provider-grid" id="providerGrid"></div>
+            <div class="provider-custom-fields" id="providerCustomFields">
+                <span class="ob-field-label" id="providerCustomNameLabel"></span>
+                <input class="ob-input" type="text" id="providerCustomNameInput" autocomplete="off">
+                <span class="ob-field-label" id="providerCustomUrlLabel"></span>
+                <input class="ob-input" type="text" id="providerCustomUrlInput" autocomplete="off">
+                <span class="ob-field-label" id="providerCustomApiLabel"></span>
+                <select class="ob-input provider-custom-select" id="providerCustomApiSelect"></select>
+            </div>
             <span class="ob-field-label" id="providerKeyLabel">API Key</span>
             <div class="ob-key-row">
                 <input class="ob-input" type="password" id="providerKeyInput" autocomplete="off">

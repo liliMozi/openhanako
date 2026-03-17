@@ -664,6 +664,8 @@
       "back": "Back",
       "next": "Next"
     },
+    "skipSetup": "Skip Setup",
+    "skipPage": "Skip This Step",
     "provider": {
       "title": "Choose an AI Provider",
       "subtitle": "I need an AI model provider to work.\nPick your provider and enter your API Key.",
