@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
 import {
-  t, formatContext, lookupModelMeta, resolveProviderForModel,
+  t, formatContext, getProviderDisplayName, lookupModelMeta, resolveProviderForModel,
   autoSaveConfig, autoSaveGlobalModels, autoSaveModels,
   CONTEXT_PRESETS, OUTPUT_PRESETS,
 } from '../helpers';
@@ -20,26 +20,128 @@ export function ModelsTab() {
     pendingFavorites, pendingDefaultModel, showToast,
   } = useSettingsStore();
   const providers = settingsConfig?.providers || {};
+  const [providerPickerState, setProviderPickerState] = useState<{
+    modelId: string;
+    resolve: (providerId: string | null) => void;
+  } | null>(null);
+  const [selectedProviderId, setSelectedProviderId] = useState('');
+
+  const providerOptions = Object.keys(providers).map((providerId) => ({
+    value: providerId,
+    label: getProviderDisplayName(providerId),
+  }));
+
+  const closeProviderPicker = (providerId: string | null = null) => {
+    setProviderPickerState((current) => {
+      current?.resolve(providerId);
+      return null;
+    });
+    setSelectedProviderId('');
+  };
+
+  const openProviderPicker = (modelId: string) => new Promise<string | null>((resolve) => {
+    setSelectedProviderId('');
+    setProviderPickerState({ modelId, resolve });
+  });
+
+  const persistModelProviderBinding = async (modelId: string, providerId: string) => {
+    const currentConfig = useSettingsStore.getState().settingsConfig || {};
+    const currentProviders = currentConfig.providers || {};
+    const providerConfig = currentProviders[providerId] || {};
+    const nextModels = [...new Set([...(providerConfig.models || []), modelId])];
+
+    const res = await hanaFetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providers: { [providerId]: { models: nextModels } } }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    useSettingsStore.setState({
+      settingsConfig: {
+        ...currentConfig,
+        providers: {
+          ...currentProviders,
+          [providerId]: {
+            ...providerConfig,
+            models: nextModels,
+            model_count: nextModels.length,
+          },
+        },
+      },
+    });
+    platform?.settingsChanged?.('models-changed');
+  };
+
+  const ensureModelProviderBinding = async (modelId: string) => {
+    const existingProvider = resolveProviderForModel(modelId);
+    if (existingProvider) return existingProvider;
+
+    if (providerOptions.length === 0) {
+      showToast(t('settings.api.customProviderNoOptions'), 'error');
+      return null;
+    }
+
+    // 自定义模型的典型场景就是“列表里拿不到它”，因此这里不能猜 provider，
+    // 必须先让用户显式绑定，再把模型写进对应供应商的 models 列表。
+    const selectedProvider = await openProviderPicker(modelId);
+    if (!selectedProvider) return null;
+
+    await persistModelProviderBinding(modelId, selectedProvider);
+    return selectedProvider;
+  };
 
   return (
-    <div className="settings-tab-content active" data-tab="models">
-      {/* 主模型 */}
-      <section className="settings-section cml-section">
-        <h2 className="settings-section-title">{t('settings.api.mainModelSection')}</h2>
-        <p className="settings-hint">{t('settings.api.mainModelHint')}</p>
-        <ChatModelSection providers={providers} />
-      </section>
+    <>
+      <div className="settings-tab-content active" data-tab="models">
+        {/* 主模型 */}
+        <section className="settings-section cml-section">
+          <h2 className="settings-section-title">{t('settings.api.mainModelSection')}</h2>
+          <p className="settings-hint">{t('settings.api.mainModelHint')}</p>
+          <ChatModelSection
+            providers={providers}
+            ensureModelProviderBinding={ensureModelProviderBinding}
+          />
+        </section>
 
-      {/* 其他 */}
-      <section className="settings-section">
-        <h2 className="settings-section-title">{t('settings.api.otherModelSection')}</h2>
-        <OtherModelsSection providers={providers} />
-      </section>
-    </div>
+        {/* 其他 */}
+        <section className="settings-section">
+          <h2 className="settings-section-title">{t('settings.api.otherModelSection')}</h2>
+          <OtherModelsSection
+            providers={providers}
+            ensureModelProviderBinding={ensureModelProviderBinding}
+          />
+        </section>
+      </div>
+
+      {providerPickerState && (
+        <CustomModelProviderOverlay
+          modelId={providerPickerState.modelId}
+          providerOptions={providerOptions}
+          selectedProviderId={selectedProviderId}
+          onSelect={setSelectedProviderId}
+          onCancel={() => closeProviderPicker(null)}
+          onConfirm={() => {
+            if (!selectedProviderId) {
+              showToast(t('settings.api.customProviderRequired'), 'error');
+              return;
+            }
+            closeProviderPicker(selectedProviderId);
+          }}
+        />
+      )}
+    </>
   );
 }
 
-function ChatModelSection({ providers }: { providers: Record<string, any> }) {
+function ChatModelSection({
+  providers,
+  ensureModelProviderBinding,
+}: {
+  providers: Record<string, any>;
+  ensureModelProviderBinding: (modelId: string) => Promise<string | null>;
+}) {
   const { pendingFavorites, pendingDefaultModel, showToast } = useSettingsStore();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
@@ -91,6 +193,16 @@ function ChatModelSection({ providers }: { providers: Record<string, any> }) {
     autoSaveModels();
   };
 
+  const addCustomModelFromSearch = async () => {
+    const modelId = pickerSearch.trim();
+    if (!modelId) return;
+    const providerId = await ensureModelProviderBinding(modelId);
+    if (!providerId) return;
+    addFavorite(modelId);
+    setPickerSearch('');
+    setPickerOpen(false);
+  };
+
   const query = pickerSearch.toLowerCase();
 
   return (
@@ -110,6 +222,12 @@ function ChatModelSection({ providers }: { providers: Record<string, any> }) {
             placeholder={t('settings.api.searchModel')}
             value={pickerSearch}
             onChange={(e) => setPickerSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void addCustomModelFromSearch();
+              }
+            }}
             autoFocus={pickerOpen}
           />
           <div className="cml-picker-options">
@@ -132,9 +250,10 @@ function ChatModelSection({ providers }: { providers: Record<string, any> }) {
             ).map(([provName, allModels]: [string, string[]]) => {
               const filtered = query ? allModels.filter((id: string) => id.toLowerCase().includes(query)) : allModels;
               if (filtered.length === 0) return null;
+              const providerLabel = getProviderDisplayName(provName);
               return (
                 <React.Fragment key={provName}>
-                  <div className="cml-picker-group">{provName}</div>
+                  <div className="cml-picker-group">{providerLabel}</div>
                   {filtered.map((mid: string) => {
                     const isAdded = pendingFavorites.has(mid);
                     const meta = lookupModelMeta(mid);
@@ -148,7 +267,7 @@ function ChatModelSection({ providers }: { providers: Record<string, any> }) {
                         {isAdded ? (
                           <span className="cml-picker-option-added">✓</span>
                         ) : (
-                          <span className="cml-picker-option-provider">{provName}</span>
+                          <span className="cml-picker-option-provider">{providerLabel}</span>
                         )}
                         {meta?.context && (
                           <span className="cml-picker-option-ctx">{formatContext(meta.context)}</span>
@@ -288,9 +407,21 @@ function ModelEditPanel({ modelId, onClose, providers }: {
   );
 }
 
-function OtherModelsSection({ providers }: { providers: Record<string, any> }) {
+function OtherModelsSection({
+  providers,
+  ensureModelProviderBinding,
+}: {
+  providers: Record<string, any>;
+  ensureModelProviderBinding: (modelId: string) => Promise<string | null>;
+}) {
   const { globalModelsConfig, settingsConfig, pendingFavorites, showToast } = useSettingsStore();
   const [searchApiKey, setSearchApiKey] = useState('');
+
+  const selectSharedModel = async (role: string, modelId: string) => {
+    const providerId = await ensureModelProviderBinding(modelId);
+    if (!providerId) return;
+    await autoSaveGlobalModels({ models: { [role]: modelId } });
+  };
 
   const searchProvider = globalModelsConfig?.search?.provider || '';
   const maskedSearchKey = globalModelsConfig?.search?.api_key;
@@ -328,6 +459,7 @@ function OtherModelsSection({ providers }: { providers: Record<string, any> }) {
             favorites={pendingFavorites}
             value={globalModelsConfig?.models?.utility || ''}
             onSelect={(id) => autoSaveGlobalModels({ models: { utility: id } })}
+            onCustomSelect={(id) => selectSharedModel('utility', id)}
             lookupModelMeta={lookupModelMeta}
             formatContext={formatContext}
           />
@@ -340,6 +472,7 @@ function OtherModelsSection({ providers }: { providers: Record<string, any> }) {
             favorites={pendingFavorites}
             value={globalModelsConfig?.models?.utility_large || ''}
             onSelect={(id) => autoSaveGlobalModels({ models: { utility_large: id } })}
+            onCustomSelect={(id) => selectSharedModel('utility_large', id)}
             lookupModelMeta={lookupModelMeta}
             formatContext={formatContext}
           />
@@ -375,5 +508,72 @@ function OtherModelsSection({ providers }: { providers: Record<string, any> }) {
         </div>
       </div>
     </>
+  );
+}
+
+function CustomModelProviderOverlay({
+  modelId,
+  providerOptions,
+  selectedProviderId,
+  onSelect,
+  onCancel,
+  onConfirm,
+}: {
+  modelId: string;
+  providerOptions: Array<{ value: string; label: string }>;
+  selectedProviderId: string;
+  onSelect: (providerId: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCancel();
+      if (event.key === 'Enter' && selectedProviderId) onConfirm();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel, onConfirm, selectedProviderId]);
+
+  return (
+    <div
+      className="custom-model-provider-overlay"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div className="custom-model-provider-card">
+        <div className="custom-model-provider-title">{t('settings.api.customProviderTitle')}</div>
+        <div className="custom-model-provider-body">
+          <div className="custom-model-provider-model">
+            <span className="custom-model-provider-label">{t('settings.api.modelName')}</span>
+            <code className="custom-model-provider-code">{modelId}</code>
+          </div>
+          <p className="custom-model-provider-hint">{t('settings.api.customProviderHint')}</p>
+          <div className="settings-field">
+            <label className="settings-field-label">{t('settings.api.provider')}</label>
+            <SelectWidget
+              options={providerOptions}
+              value={selectedProviderId}
+              onChange={onSelect}
+              placeholder={t('settings.api.customProviderPlaceholder')}
+            />
+          </div>
+        </div>
+        <div className="custom-model-provider-actions">
+          <button type="button" className="custom-model-provider-cancel" onClick={onCancel}>
+            {t('settings.api.cancel')}
+          </button>
+          <button
+            type="button"
+            className="custom-model-provider-confirm"
+            onClick={onConfirm}
+            disabled={!selectedProviderId}
+          >
+            {t('settings.api.customProviderConfirm')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

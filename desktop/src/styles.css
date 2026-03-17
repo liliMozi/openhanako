@@ -8120,6 +8120,120 @@ body.resizing .jian-sidebar-inner {
     font-size: 0.82rem;
 }
 
+.custom-model-provider-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: fade-in 0.2s ease;
+}
+
+.custom-model-provider-card {
+    width: 420px;
+    max-width: min(420px, calc(100vw - 32px));
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+    animation: dropdown-in 0.22s var(--ease-out);
+}
+
+.custom-model-provider-title {
+    padding: 1rem 1.1rem 0.7rem;
+    font-size: 0.96rem;
+    font-weight: 600;
+    color: var(--text);
+    border-bottom: 1px solid var(--overlay-light);
+}
+
+.custom-model-provider-body {
+    padding: 0.95rem 1.1rem 0.3rem;
+}
+
+.custom-model-provider-model {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+}
+
+.custom-model-provider-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+
+.custom-model-provider-code {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    max-width: 100%;
+    padding: 0.3rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--text);
+    background: var(--overlay-subtle);
+    border-radius: var(--radius-sm);
+    word-break: break-all;
+}
+
+.custom-model-provider-hint {
+    margin: 0 0 0.9rem;
+    font-size: 0.78rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+}
+
+.custom-model-provider-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+    padding: 0.8rem 1.1rem 1rem;
+    border-top: 1px solid var(--overlay-light);
+}
+
+.custom-model-provider-cancel,
+.custom-model-provider-confirm {
+    min-width: 88px;
+    padding: 0.42rem 0.95rem;
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.18s var(--ease-out);
+}
+
+.custom-model-provider-cancel {
+    background: var(--overlay-subtle);
+    color: var(--text-light);
+}
+
+.custom-model-provider-cancel:hover {
+    background: var(--overlay-light);
+    color: var(--text);
+}
+
+.custom-model-provider-confirm {
+    background: var(--accent);
+    color: #fff;
+}
+
+.custom-model-provider-confirm:hover:not(:disabled) {
+    opacity: 0.88;
+}
+
+.custom-model-provider-confirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 /* 隐藏工具类 */
 .chat-area.hidden,
 .input-area.hidden {

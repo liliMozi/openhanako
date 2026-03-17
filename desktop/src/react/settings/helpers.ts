@@ -38,6 +38,18 @@ export function resolveProviderForModel(modelId: string): string | null {
   return null;
 }
 
+export function getProviderDisplayName(providerId: string): string {
+  if (!providerId) return '';
+  const preset = PROVIDER_PRESETS.find((item) => item.value === providerId);
+  if (preset?.label) return preset.label;
+
+  if (providerId === 'openai-codex') {
+    return 'ChatGPT Plus/Pro (Codex Subscription)';
+  }
+
+  return providerId;
+}
+
 function lookupReferenceModelMeta(modelId: string): any {
   if (!modelId) return null;
   const dict = knownModels as Record<string, any>;
