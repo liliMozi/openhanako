@@ -103,6 +103,7 @@ export interface PlatformApi {
   openBrowserViewer(url?: string, theme?: string): void;
   selectFolder(): Promise<string | null>;
   selectSkill(): Promise<string | null>;
+  selectAuthFile?(): Promise<string | null>;
   readFile(path: string): Promise<string | null>;
   writeFile(filePath: string, content: string): Promise<boolean>;
   watchFile(filePath: string): Promise<boolean>;

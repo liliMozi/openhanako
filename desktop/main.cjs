@@ -1576,6 +1576,22 @@ ipcMain.handle("select-skill", async (event) => {
   return result.filePaths[0];
 });
 
+// 选择 Codex CLI 登录态 auth.json
+ipcMain.handle("select-auth-file", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (!win) return null;
+  const result = await dialog.showOpenDialog(win, {
+    properties: ["openFile"],
+    title: "选择 Codex CLI 登录态 auth.json",
+    filters: [
+      { name: "JSON", extensions: ["json"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
 // ── Skill 预览窗口 IPC ──
 ipcMain.handle("open-skill-viewer", (_event, data) => {
   if (!data) return;

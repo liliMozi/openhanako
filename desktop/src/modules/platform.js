@@ -53,6 +53,7 @@
     // 系统对话框 → Web 降级
     selectFolder: async () => null,
     selectSkill: async () => null,
+    selectAuthFile: async () => null,
 
     // OS 集成 → 静默降级
     openFolder: () => {},

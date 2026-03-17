@@ -157,7 +157,6 @@ export function ProvidersTab() {
                     key={id}
                     providerId={id}
                     info={info}
-                    providerConfig={providers[id]}
                     onRefresh={loadOAuthStatus}
                   />
                 ))}
@@ -251,21 +250,46 @@ export function ProvidersTab() {
 }
 
 // ── OAuth Row ──
-function OAuthRow({ providerId, info, providerConfig, onRefresh }: {
+function OAuthRow({ providerId, info, onRefresh }: {
   providerId: string;
   info: any;
-  providerConfig?: any;
   onRefresh: () => void;
 }) {
   const { showToast } = useSettingsStore();
   const [codeInput, setCodeInput] = useState('');
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [deviceCode, setDeviceCode] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [allowManualInput, setAllowManualInput] = useState(false);
   const [polling, setPolling] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const [importingAuthFile, setImportingAuthFile] = useState(false);
   const pollingRef = useRef(false);
+  const canImportAuthFile = providerId === 'openai-codex';
+
+  const refreshAfterAuthSuccess = async () => {
+    // OAuth 成功后不只要刷新状态徽标，还要把刚同步下来的 provider/models
+    // 快照重新拉进设置页，否则 UI 会继续停留在“暂无模型”的旧状态。
+    await loadSettingsConfig();
+    platform?.settingsChanged?.('models-changed');
+    onRefresh();
+  };
+
+  const resetPendingState = (clearError = false) => {
+    setCodeInput('');
+    setShowCodeInput(false);
+    setDeviceCode(null);
+    setSessionId(null);
+    setAllowManualInput(false);
+    setPolling(false);
+    pollingRef.current = false;
+    if (clearError) setOauthError(null);
+  };
 
   const login = async () => {
     try {
+      resetPendingState(true);
+
       const res = await hanaFetch('/api/auth/oauth/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -275,6 +299,8 @@ function OAuthRow({ providerId, info, providerConfig, onRefresh }: {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       platform?.openExternal?.(data.url);
+      setSessionId(data.sessionId || null);
+      setAllowManualInput(Boolean(data.manualInput));
 
       if (data.instructions) {
         // 设备码流程：显示 user_code + 轮询
@@ -283,36 +309,65 @@ function OAuthRow({ providerId, info, providerConfig, onRefresh }: {
         pollingRef.current = true;
         pollLogin(data.sessionId);
       } else if (data.polling) {
-        // callback server 流程（如 OpenAI Codex）：只轮询，不显示设备码
+        // callback server 流程（如 OpenAI Codex）优先等本地回调，
+        // 但同时保留手动粘贴回调地址/授权码的兜底入口。
         setPolling(true);
+        setShowCodeInput(Boolean(data.manualInput));
         pollingRef.current = true;
         pollLogin(data.sessionId);
       } else {
         // 授权码流程：用户粘贴 code
         setShowCodeInput(true);
-        (window as any).__oauthSessionId = data.sessionId;
       }
     } catch (err: any) {
+      setOauthError(err.message);
       showToast(t('settings.oauth.failed') + ': ' + err.message, 'error');
+    }
+  };
+
+  const importAuthFile = async () => {
+    try {
+      resetPendingState(true);
+      setImportingAuthFile(true);
+      const selectedPath = await platform?.selectAuthFile?.();
+      if (!selectedPath) return;
+
+      const res = await hanaFetch('/api/auth/oauth/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: providerId, filePath: selectedPath }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      showToast(t('settings.oauth.importSuccess'), 'success');
+      await refreshAfterAuthSuccess();
+    } catch (err: any) {
+      setOauthError(err.message);
+      showToast(t('settings.oauth.failed') + ': ' + err.message, 'error');
+    } finally {
+      setImportingAuthFile(false);
     }
   };
 
   const submitCode = async () => {
     const code = codeInput.trim();
-    if (!code) return;
+    if (!code || !sessionId) return;
     try {
       const res = await hanaFetch('/api/auth/oauth/callback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: (window as any).__oauthSessionId, code }),
+        body: JSON.stringify({ sessionId, code }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       showToast(t('settings.oauth.success'), 'success');
-      setShowCodeInput(false);
-      onRefresh();
+      resetPendingState(true);
+      await refreshAfterAuthSuccess();
     } catch (err: any) {
+      setOauthError(err.message);
       showToast(t('settings.oauth.failed') + ': ' + err.message, 'error');
     }
   };
@@ -326,24 +381,20 @@ function OAuthRow({ providerId, info, providerConfig, onRefresh }: {
         const data = await res.json();
         if (data.status === 'done') {
           showToast(t('settings.oauth.success'), 'success');
-          setDeviceCode(null);
-          setPolling(false);
-          pollingRef.current = false;
-          onRefresh();
+          resetPendingState(true);
+          await refreshAfterAuthSuccess();
           return;
         }
         if (data.status === 'error') throw new Error(data.error || 'Login failed');
       } catch (err: any) {
+        setOauthError(err.message);
         showToast(t('settings.oauth.failed') + ': ' + err.message, 'error');
-        setDeviceCode(null);
-        setPolling(false);
-        pollingRef.current = false;
+        resetPendingState();
         return;
       }
     }
-    setDeviceCode(null);
-    setPolling(false);
-    pollingRef.current = false;
+    setOauthError(t('settings.oauth.timeout'));
+    resetPendingState();
   };
 
   const logout = async () => {
@@ -355,25 +406,49 @@ function OAuthRow({ providerId, info, providerConfig, onRefresh }: {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       showToast(t('settings.oauth.loggedOut'), 'success');
+      setOauthError(null);
       onRefresh();
     } catch (err: any) {
+      setOauthError(err.message);
       showToast(t('settings.oauth.failed') + ': ' + err.message, 'error');
     }
   };
+
+  const showCodeEntry = showCodeInput && !deviceCode;
+  const showWaitingState = polling && !deviceCode;
 
   return (
     <div className="oauth-provider-row">
       <div className="oauth-provider-header">
         <span className="oauth-provider-name">{info.name}</span>
-        {info.loggedIn ? (
-          <>
-            <span className="oauth-status-badge">{t('settings.oauth.loggedIn')}</span>
-            <button className="oauth-logout-btn" onClick={logout}>{t('settings.oauth.logout')}</button>
-          </>
-        ) : (
-          <button className="oauth-login-btn" onClick={login}>{t('settings.oauth.login')}</button>
-        )}
+        <div className="oauth-provider-actions">
+          {info.loggedIn ? (
+            <>
+              <span className="oauth-status-badge">{t('settings.oauth.loggedIn')}</span>
+              <button className="oauth-logout-btn" onClick={logout}>{t('settings.oauth.logout')}</button>
+            </>
+          ) : (
+            <>
+              <button className="oauth-login-btn" onClick={login} disabled={importingAuthFile}>
+                {t('settings.oauth.login')}
+              </button>
+              {canImportAuthFile && (
+                <button
+                  className="oauth-import-btn"
+                  onClick={importAuthFile}
+                  disabled={importingAuthFile}
+                  title={t('settings.oauth.importAuthFileHint')}
+                >
+                  {importingAuthFile ? t('settings.oauth.importingAuthFile') : t('settings.oauth.importAuthFile')}
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
+      {!info.loggedIn && canImportAuthFile && (
+        <div className="oauth-provider-note">{t('settings.oauth.importAuthFileHint')}</div>
+      )}
       {info.loggedIn && (
         <div className="oauth-provider-models">
           <span className="provider-item-count">
@@ -381,20 +456,6 @@ function OAuthRow({ providerId, info, providerConfig, onRefresh }: {
               ? t('settings.providers.modelCount', { n: info.modelCount })
               : t('settings.providers.noModels')}
           </span>
-        </div>
-      )}
-      {showCodeInput && (
-        <div className="oauth-code-section">
-          <input
-            className="settings-input oauth-code-input"
-            type="text"
-            placeholder={t('settings.oauth.codePlaceholder')}
-            value={codeInput}
-            onChange={(e) => setCodeInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') submitCode(); }}
-            autoFocus
-          />
-          <button className="oauth-code-submit" onClick={submitCode}>{t('settings.oauth.submit')}</button>
         </div>
       )}
       {deviceCode && (
@@ -410,9 +471,41 @@ function OAuthRow({ providerId, info, providerConfig, onRefresh }: {
           <div className="oauth-device-spinner">{t('settings.oauth.waiting')}</div>
         </div>
       )}
-      {polling && !deviceCode && !showCodeInput && (
-        <div className="oauth-code-section">
+      {showCodeEntry && (
+        <div className="oauth-assist-panel">
+          {showWaitingState && (
+            <div className="oauth-status-panel">
+              <div className="oauth-device-spinner">{t('settings.oauth.waiting')}</div>
+            </div>
+          )}
+          <div className="oauth-manual-panel">
+            <div className="oauth-manual-input-row">
+              <input
+                className="settings-input oauth-code-input"
+                type="text"
+                placeholder={t('settings.oauth.codePlaceholder')}
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitCode(); }}
+                autoFocus
+              />
+              <button className="oauth-code-submit" onClick={submitCode}>{t('settings.oauth.submit')}</button>
+            </div>
+            {allowManualInput && (
+              <div className="oauth-device-hint oauth-manual-hint">{t('settings.oauth.manualHint')}</div>
+            )}
+          </div>
+        </div>
+      )}
+      {!deviceCode && showWaitingState && !showCodeEntry && (
+        <div className="oauth-status-panel">
           <div className="oauth-device-spinner">{t('settings.oauth.waiting')}</div>
+        </div>
+      )}
+      {oauthError && (
+        <div className="oauth-error-panel">
+          <div className="oauth-error-title">{t('settings.oauth.failed')}</div>
+          <div className="oauth-error-text">{oauthError}</div>
         </div>
       )}
     </div>

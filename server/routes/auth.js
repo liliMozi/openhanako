@@ -8,19 +8,79 @@
  * 交互：
  *   1. POST /api/auth/oauth/start    → { sessionId, url, instructions? }
  *   2. POST /api/auth/oauth/callback → 提交授权码（授权码流程）
- *   3. GET  /api/auth/oauth/poll/:id → 轮询登录状态（设备码流程）
+ *   3. POST /api/auth/oauth/import   → 导入官方工具的认证文件
+ *   4. GET  /api/auth/oauth/poll/:id → 轮询登录状态（设备码流程）
  */
 import crypto from "crypto";
+import { createModuleLogger } from "../../lib/debug-log.js";
+import { loadGlobalProviders, saveGlobalProviders } from "../../lib/memory/config-loader.js";
+import { importOpenAICodexAuthFile } from "../../lib/oauth/openai-codex.js";
+
+const log = createModuleLogger("auth");
 
 export default async function authRoute(app, { engine }) {
 
   /** 进行中的 OAuth 流程 */
   const pendingFlows = new Map();
 
+  async function hydrateOAuthProviderCatalog(provider) {
+    if (!provider) return 0;
+
+    if (typeof engine.refreshAvailableModels === "function") {
+      await engine.refreshAvailableModels();
+    }
+
+    const availableModels = Array.isArray(engine.availableModels) ? engine.availableModels : [];
+    const providerModels = availableModels.filter((model) => model.provider === provider);
+    if (providerModels.length === 0) return 0;
+
+    const currentProvider = loadGlobalProviders().providers?.[provider] || {};
+    const mergedModels = [...new Set([
+      ...(Array.isArray(currentProvider.models) ? currentProvider.models : []),
+      ...providerModels.map((model) => model.id).filter(Boolean),
+    ])];
+    const firstModel = providerModels.find((model) => model?.baseUrl || model?.api) || providerModels[0];
+
+    // OAuth 登录成功后，需要把 registry 里的 provider 目录同步到配置层，
+    // 否则设置页虽然已有登录态，模型选择器仍可能因为 providers.yaml 缺少声明而显示为空。
+    saveGlobalProviders({
+      providers: {
+        [provider]: {
+          ...(firstModel?.baseUrl ? { base_url: firstModel.baseUrl } : {}),
+          ...(firstModel?.api ? { api: firstModel.api } : {}),
+          models: mergedModels,
+        },
+      },
+    });
+
+    return mergedModels.length;
+  }
+
+  async function finalizeOAuthSuccess(provider, stage) {
+    let hydratedCount = 0;
+
+    try {
+      hydratedCount = await hydrateOAuthProviderCatalog(provider);
+      if (provider && hydratedCount > 0) {
+        log.log(`oauth ${stage} provider catalog synced provider=${provider} models=${hydratedCount}`);
+      }
+    } catch (err) {
+      log.warn(`oauth ${stage} provider catalog sync failed${provider ? ` provider=${provider}` : ""}: ${err.message}`);
+    }
+
+    try {
+      await engine.syncModelsAndRefresh();
+    } catch (err) {
+      log.warn(`post-${stage} model sync failed${provider ? ` provider=${provider}` : ""}: ${err.message}`);
+    }
+
+    return hydratedCount;
+  }
+
   /**
    * 启动 OAuth 登录
    * body: { provider }
-   * → { sessionId, url, instructions? }
+   * → { sessionId, url, instructions?, polling?, manualInput? }
    *   instructions 存在时为设备码流程（值为 user_code）
    */
   app.post("/api/auth/oauth/start", async (req, reply) => {
@@ -52,6 +112,7 @@ export default async function authRoute(app, { engine }) {
     // 检查 provider 是否使用本地回调服务器（如 OpenAI Codex）
     const providerObj = engine.authStorage.getOAuthProviders().find(p => p.id === provider);
     if (providerObj?.usesCallbackServer) usesCallbackServer = true;
+    log.log(`oauth start provider=${provider} callbackServer=${usesCallbackServer}`);
 
     // 启动 OAuth（不 await，loginPromise 会异步 resolve）
     const loginPromise = engine.authStorage.login(provider, {
@@ -65,14 +126,18 @@ export default async function authRoute(app, { engine }) {
         }
         resolveUrl(info.url);
       },
+      // callback-server 模式下，把前端粘贴的回调地址也接进 SDK 的手动输入通道，
+      // 这样本地端口被占用或回调丢失时，前端仍然可以完成授权。
+      onManualCodeInput: usesCallbackServer ? () => codePromise : undefined,
       onPrompt: () => codePromise,
     }).catch(err => {
+      log.error(`oauth login failed provider=${provider}: ${err.message}`);
       rejectUrl(err);
       throw err;
     });
 
     // 追踪 loginPromise 的结果（供 poll 端点使用）
-    const flow = { resolveCode, rejectCode, loginPromise, result: null };
+    const flow = { provider, resolveCode, rejectCode, loginPromise, result: null };
     loginPromise.then(() => {
       flow.result = { ok: true };
     }).catch(err => {
@@ -96,15 +161,17 @@ export default async function authRoute(app, { engine }) {
       const resp = { sessionId, url };
       if (authInstructions) resp.instructions = authInstructions;
       if (usesCallbackServer) resp.polling = true;
+      if (usesCallbackServer) resp.manualInput = true;
       return resp;
     } catch (err) {
+      log.error(`oauth start failed provider=${provider}: ${err.message}`);
       reply.code(500);
       return { error: err.message };
     }
   });
 
   /**
-   * 提交授权码（授权码流程）
+   * 提交授权码（授权码流程 / callback-server 手动兜底）
    * body: { sessionId, code }
    */
   app.post("/api/auth/oauth/callback", async (req, reply) => {
@@ -116,20 +183,48 @@ export default async function authRoute(app, { engine }) {
     }
 
     flow.resolveCode(code);
+    log.log(`oauth callback received session=${sessionId} pasted=${typeof code === "string" && code.length > 0}`);
 
     try {
       await flow.loginPromise;
       pendingFlows.delete(sessionId);
-
-      try {
-        await engine.syncModelsAndRefresh();
-      } catch (err) {
-        console.error("[auth] post-login model sync failed:", err.message);
-      }
+      log.log(`oauth callback login completed session=${sessionId}`);
+      await finalizeOAuthSuccess(flow.provider, "callback");
 
       return { ok: true };
     } catch (err) {
       pendingFlows.delete(sessionId);
+      log.error(`oauth callback failed session=${sessionId}: ${err.message}`);
+      reply.code(500);
+      return { error: err.message };
+    }
+  });
+
+  /**
+   * 导入官方 Codex CLI 的认证文件
+   * body: { provider, filePath? }
+   */
+  app.post("/api/auth/oauth/import", async (req, reply) => {
+    const { provider, filePath } = req.body || {};
+    if (!provider) {
+      reply.code(400);
+      return { error: "provider is required" };
+    }
+    if (provider !== "openai-codex") {
+      reply.code(400);
+      return { error: "Import is only supported for openai-codex" };
+    }
+
+    try {
+      const credentials = await importOpenAICodexAuthFile(filePath);
+      const { sourcePath, ...oauthCredentials } = credentials;
+      engine.authStorage.set(provider, { type: "oauth", ...oauthCredentials });
+      log.log(`oauth import completed provider=${provider} source=${sourcePath}`);
+      await finalizeOAuthSuccess(provider, "import");
+
+      return { ok: true, sourcePath };
+    } catch (err) {
+      log.error(`oauth import failed provider=${provider}: ${err.message}`);
       reply.code(500);
       return { error: err.message };
     }
@@ -153,14 +248,12 @@ export default async function authRoute(app, { engine }) {
     pendingFlows.delete(req.params.sessionId);
 
     if (flow.result.ok) {
-      try {
-        await engine.syncModelsAndRefresh();
-      } catch (err) {
-        console.error("[auth] post-login model sync failed:", err.message);
-      }
+      await finalizeOAuthSuccess(flow.provider, "poll");
+      log.log(`oauth poll completed session=${req.params.sessionId}`);
       return { status: "done" };
     }
 
+    log.warn(`oauth poll failed session=${req.params.sessionId}: ${flow.result.error}`);
     return { status: "error", error: flow.result.error };
   });
 

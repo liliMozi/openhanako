@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("hana", {
   appReady: () => ipcRenderer.invoke("app-ready"),
   selectFolder: () => ipcRenderer.invoke("select-folder"),
   selectSkill: () => ipcRenderer.invoke("select-skill"),
+  selectAuthFile: () => ipcRenderer.invoke("select-auth-file"),
   openFolder: (path) => ipcRenderer.invoke("open-folder", path),
   openFile: (path) => ipcRenderer.invoke("open-file", path),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),

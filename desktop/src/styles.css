@@ -6328,8 +6328,8 @@ body.resizing .jian-sidebar-inner {
 .oauth-provider-row {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 0.45rem var(--space-md);
+    gap: 8px;
+    padding: 0.7rem var(--space-md);
     border-bottom: 1px solid var(--overlay-light);
 }
 
@@ -6339,8 +6339,9 @@ body.resizing .jian-sidebar-inner {
 
 .oauth-provider-header {
     display: flex;
-    align-items: center;
-    gap: var(--space-sm);
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-md);
 }
 
 .oauth-provider-models {
@@ -6350,14 +6351,33 @@ body.resizing .jian-sidebar-inner {
     padding-left: 2px;
 }
 
+.oauth-provider-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .oauth-provider-name {
     font-size: 0.85rem;
+    font-weight: 600;
     color: var(--text);
     flex: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.35;
+}
+
+.oauth-provider-note {
+    margin-top: 4px;
+    font-size: 0.73rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+    padding-left: 2px;
 }
 
 .oauth-status-badge {
@@ -6370,7 +6390,8 @@ body.resizing .jian-sidebar-inner {
 }
 
 .oauth-login-btn,
-.oauth-logout-btn {
+.oauth-logout-btn,
+.oauth-import-btn {
     padding: 4px 12px;
     font-family: inherit;
     font-size: 0.78rem;
@@ -6391,6 +6412,16 @@ body.resizing .jian-sidebar-inner {
     background: rgba(var(--accent-rgb), 0.15);
 }
 
+.oauth-import-btn {
+    color: var(--text-muted);
+    background: transparent;
+}
+
+.oauth-import-btn:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+}
+
 .oauth-logout-btn {
     color: var(--text-muted);
     background: transparent;
@@ -6401,6 +6432,13 @@ body.resizing .jian-sidebar-inner {
     border-color: var(--danger);
 }
 
+.oauth-login-btn:disabled,
+.oauth-logout-btn:disabled,
+.oauth-import-btn:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
 .oauth-code-section {
     display: flex;
     gap: var(--space-xs);
@@ -6408,8 +6446,40 @@ body.resizing .jian-sidebar-inner {
     width: 100%;
 }
 
+.oauth-assist-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.oauth-status-panel {
+    display: flex;
+    align-items: center;
+    min-height: 20px;
+    padding-left: 2px;
+}
+
+.oauth-manual-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    padding: 10px 12px;
+    background: var(--bg-secondary, #f7f7f8);
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-md);
+}
+
+.oauth-manual-input-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    min-width: 0;
+}
+
 .oauth-code-input {
     flex: 1;
+    min-width: 0;
+    margin: 0;
     font-size: 0.82rem !important;
 }
 
@@ -6424,6 +6494,7 @@ body.resizing .jian-sidebar-inner {
     cursor: pointer;
     transition: opacity 0.15s;
     flex-shrink: 0;
+    min-width: 72px;
 }
 
 .oauth-code-submit:hover {
@@ -6465,6 +6536,34 @@ body.resizing .jian-sidebar-inner {
     font-size: 0.78rem;
     color: var(--text-secondary);
     text-align: center;
+}
+
+.oauth-manual-hint {
+    text-align: left;
+    line-height: 1.5;
+}
+
+.oauth-error-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    background: rgba(214, 94, 94, 0.08);
+    border: 1px solid rgba(214, 94, 94, 0.18);
+    border-radius: var(--radius-md);
+}
+
+.oauth-error-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--danger, #d65e5e);
+}
+
+.oauth-error-text {
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    word-break: break-word;
 }
 
 .oauth-device-spinner {

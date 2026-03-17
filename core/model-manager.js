@@ -12,6 +12,7 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { registerOAuthProvider } from "@mariozechner/pi-ai/oauth";
 import { minimaxOAuthProvider } from "../lib/oauth/minimax-portal.js";
+import { openaiCodexOAuthProvider } from "../lib/oauth/openai-codex.js";
 import { clearConfigCache, loadGlobalProviders, resolveApiKeyFromAuth } from "../lib/memory/config-loader.js";
 
 function isLocalBaseUrl(url) {
@@ -36,6 +37,7 @@ export class ModelManager {
   init() {
     this._authStorage = AuthStorage.create(path.join(this._hanakoHome, "auth.json"));
     registerOAuthProvider(minimaxOAuthProvider);
+    registerOAuthProvider(openaiCodexOAuthProvider);
     this._modelRegistry = new ModelRegistry(
       this._authStorage,
       path.join(this._hanakoHome, "models.json"),
@@ -77,8 +79,9 @@ export class ModelManager {
     if (synced) {
       clearConfigCache();
       this._modelRegistry.refresh();
-      // refresh() 内部调 resetOAuthProviders()，需要重新注册
+      // refresh() 内部会 reset OAuth providers，所以本地覆写需要补回去。
       registerOAuthProvider(minimaxOAuthProvider);
+      registerOAuthProvider(openaiCodexOAuthProvider);
       this._availableModels = await this._modelRegistry.getAvailable();
     }
     return synced;
