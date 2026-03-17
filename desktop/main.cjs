@@ -992,6 +992,68 @@ async function handleBrowserCommand(cmd, params) {
     // ── launch ──
     case "launch": {
       if (_browserWebView) return {};
+      
+      // Windows 特定处理：确保能正常创建浏览器窗口
+      if (process.platform === "win32") {
+        try {
+          const ses = session.fromPartition("persist:hana-browser");
+          const view = new WebContentsView({
+            webPreferences: {
+              session: ses,
+              contextIsolation: true,
+              nodeIntegration: false,
+              sandbox: true,
+            },
+          });
+
+          // 监听导航事件，实时更新 URL 栏
+          view.webContents.on("did-navigate", (_e, url) => _notifyViewerUrl(url));
+          view.webContents.on("did-navigate-in-page", (_e, url) => _notifyViewerUrl(url));
+
+          // 在新窗口中打开链接（target=_blank）时，在当前视图中打开
+          view.webContents.setWindowOpenHandler(({ url }) => {
+            if (isAllowedBrowserUrl(url)) {
+              view.webContents.loadURL(url);
+            }
+            return { action: "deny" };
+          });
+
+          // 页面标题变化时更新标题栏
+          view.webContents.on("page-title-updated", () => {
+            _notifyViewerUrl(view.webContents.getURL());
+          });
+
+          // 卡片圆角
+          view.setBorderRadius(10);
+
+          // 绑定到 session
+          _browserWebView = view;
+          _currentBrowserSession = params.sessionPath || null;
+          if (_currentBrowserSession) {
+            _browserViews.set(_currentBrowserSession, view);
+          }
+
+          // 始终静默创建窗口（不弹出），等用户手动点击才 show
+          createBrowserViewerWindow({ show: false });
+          // 如果 HTML 已加载完毕（窗口复用），did-finish-load 不会再触发，手动挂载
+          if (browserViewerWindow && !browserViewerWindow.isDestroyed()) {
+            try { browserViewerWindow.contentView.removeChildView(_browserWebView); } catch {}
+            browserViewerWindow.contentView.addChildView(_browserWebView);
+            _updateBrowserViewBounds();
+            console.log("[browser] launch: view 已挂载 (silent), bounds:", _browserWebView.getBounds());
+            setTimeout(() => {
+              if (_browserWebView) {
+                _browserWebView.webContents.focus();
+              }
+            }, 300);
+          }
+          return {};
+        } catch (err) {
+          throw new Error(`Windows 浏览器启动失败: ${err.message}`);
+        }
+      }
+      
+      // Unix 系统原有代码（保持不变）
       const ses = session.fromPartition("persist:hana-browser");
       const view = new WebContentsView({
         webPreferences: {
@@ -1130,6 +1192,29 @@ async function handleBrowserCommand(cmd, params) {
     // ── screenshot ──
     case "screenshot": {
       _ensureBrowser();
+      
+      // Windows 特定处理：在 Unix 代码之前判断
+      if (process.platform === "win32") {
+        // 确保浏览器视图已正确初始化
+        if (!_browserWebView || !_browserWebView.webContents) {
+          throw new Error("Windows: 浏览器视图未正确初始化");
+        }
+        
+        // Windows 上确保页面已加载完成
+        try {
+          const img = await _browserWebView.webContents.capturePage();
+          if (!img || img.isEmpty()) {
+            throw new Error("Windows: 捕获的图像为空");
+          }
+          const jpeg = img.toJPEG(75);
+          return { base64: jpeg.toString("base64") };
+        } catch (err) {
+          // Windows 特定错误处理
+          throw new Error(`Windows 截图失败: ${err.message}`);
+        }
+      }
+      
+      // Unix 系统原有代码（保持不变）
       const img = await _browserWebView.webContents.capturePage();
       const jpeg = img.toJPEG(75);
       return { base64: jpeg.toString("base64") };
@@ -1138,6 +1223,30 @@ async function handleBrowserCommand(cmd, params) {
     // ── thumbnail ──
     case "thumbnail": {
       _ensureBrowser();
+      
+      // Windows 特定处理：在 Unix 代码之前判断
+      if (process.platform === "win32") {
+        // 确保浏览器视图已正确初始化
+        if (!_browserWebView || !_browserWebView.webContents) {
+          throw new Error("Windows: 浏览器视图未正确初始化");
+        }
+        
+        // Windows 上确保页面已加载完成
+        try {
+          const img = await _browserWebView.webContents.capturePage();
+          if (!img || img.isEmpty()) {
+            throw new Error("Windows: 捕获的图像为空");
+          }
+          const resized = img.resize({ width: 400 });
+          const jpeg = resized.toJPEG(60);
+          return { base64: jpeg.toString("base64") };
+        } catch (err) {
+          // Windows 特定错误处理
+          throw new Error(`Windows 缩略图失败: ${err.message}`);
+        }
+      }
+      
+      // Unix 系统原有代码（保持不变）
       const img = await _browserWebView.webContents.capturePage();
       const resized = img.resize({ width: 400 });
       const jpeg = resized.toJPEG(60);
