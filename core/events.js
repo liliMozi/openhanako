@@ -165,6 +165,98 @@ export class MoodParser {
 }
 
 /**
+ * ThinkTagParser — 拦截 <think>...</think> 标签（DeepSeek / Qwen 等模型的文本内思考格式）
+ *
+ * 链在 MoodParser 之前（最外层），输出事件流：
+ *   think_start / think_text { data } / think_end
+ *   text { data } — 非 think 内容透传
+ */
+export class ThinkTagParser {
+  constructor() {
+    this.inThink = false;
+    this.buffer = "";
+    this._justEnded = false;
+  }
+
+  feed(delta, emit) {
+    this.buffer += delta;
+    this._drain(emit);
+  }
+
+  flush(emit) {
+    if (this.buffer) {
+      emit({ type: this.inThink ? "think_text" : "text", data: this.buffer });
+      this.buffer = "";
+    }
+    if (this.inThink) {
+      emit({ type: "think_end" });
+      this.inThink = false;
+    }
+  }
+
+  reset() {
+    this.inThink = false;
+    this.buffer = "";
+    this._justEnded = false;
+  }
+
+  _drain(emit) {
+    while (this.buffer.length > 0) {
+      // think 刚结束时裁掉前导换行
+      if (this._justEnded && !this.inThink) {
+        this.buffer = this.buffer.replace(/^\n+/, "");
+        this._justEnded = false;
+        if (!this.buffer.length) break;
+      }
+
+      if (!this.inThink) {
+        const openTag = "<think>";
+        const idx = this.buffer.indexOf(openTag);
+        if (idx !== -1) {
+          const before = this.buffer.slice(0, idx);
+          if (before) emit({ type: "text", data: before });
+          emit({ type: "think_start" });
+          this.inThink = true;
+          this.buffer = this.buffer.slice(idx + openTag.length);
+          continue;
+        }
+        // buffer 末尾可能是 <think> 的前缀
+        const holdLen = trailingPrefixLen(this.buffer, openTag);
+        if (holdLen > 0) {
+          const safe = this.buffer.slice(0, -holdLen);
+          if (safe) emit({ type: "text", data: safe });
+          this.buffer = this.buffer.slice(-holdLen);
+          break;
+        }
+        emit({ type: "text", data: this.buffer });
+        this.buffer = "";
+      } else {
+        const closeTag = "</think>";
+        const idx = this.buffer.indexOf(closeTag);
+        if (idx !== -1) {
+          const content = this.buffer.slice(0, idx);
+          if (content) emit({ type: "think_text", data: content });
+          emit({ type: "think_end" });
+          this.inThink = false;
+          this._justEnded = true;
+          this.buffer = this.buffer.slice(idx + closeTag.length);
+          continue;
+        }
+        const holdLen = trailingPrefixLen(this.buffer, closeTag);
+        if (holdLen > 0) {
+          const safe = this.buffer.slice(0, -holdLen);
+          if (safe) emit({ type: "think_text", data: safe });
+          this.buffer = this.buffer.slice(-holdLen);
+          break;
+        }
+        emit({ type: "think_text", data: this.buffer });
+        this.buffer = "";
+      }
+    }
+  }
+}
+
+/**
  * XingParser — 从 streaming text 中解析 <xing title="...">...</xing> 标签
  *
  * 链在 MoodParser 的 text 输出之后，输出统一的事件流：

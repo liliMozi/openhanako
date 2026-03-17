@@ -221,9 +221,14 @@ async function startServer() {
       HANA_HOME: hanakoHome,
     };
     if (process.platform === "win32") {
-      const bundledGitBin = path.join(process.resourcesPath || "", "git", "bin");
-      if (fs.existsSync(bundledGitBin)) {
-        serverEnv.PATH = bundledGitBin + ";" + (process.env.PATH || "");
+      // MinGit-busybox 结构：cmd/git.exe, mingw64/bin/git.exe+sh.exe
+      const gitRoot = path.join(process.resourcesPath || "", "git");
+      const gitPaths = [
+        path.join(gitRoot, "mingw64", "bin"),
+        path.join(gitRoot, "cmd"),
+      ].filter(p => fs.existsSync(p));
+      if (gitPaths.length) {
+        serverEnv.PATH = gitPaths.join(";") + ";" + (process.env.PATH || "");
       }
     }
 

@@ -42,5 +42,10 @@ switch (mode) {
     process.exit(1);
 }
 
+// Electron 以子进程运行时（如 VS Code / Claude Code 终端），
+// 父进程可能设了 ELECTRON_RUN_AS_NODE=1，会让 Electron 以纯 Node 模式启动，
+// 导致 require('electron') 拿不到内置 API。spawn 前清掉。
+delete process.env.ELECTRON_RUN_AS_NODE;
+
 const child = spawn(bin, args, { stdio: "inherit", env: process.env });
 child.on("exit", (code) => process.exit(code ?? 1));

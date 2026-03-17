@@ -4,7 +4,7 @@
  * 桥接 Pi SDK streaming 事件 → WebSocket 消息
  * 支持多 session 并发：后台 session 静默运行，只转发当前活跃 session 的事件
  */
-import { MoodParser, XingParser } from "../../core/events.js";
+import { MoodParser, XingParser, ThinkTagParser } from "../../core/events.js";
 import { wsSend, wsParse } from "../ws-protocol.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { t } from "../i18n.js";
@@ -76,6 +76,7 @@ export default async function chatRoute(app, { engine, hub }) {
         }
       }
       sessionState.set(sessionPath, {
+        thinkTagParser: new ThinkTagParser(),
         moodParser: new MoodParser(),
         xingParser: new XingParser(),
         isThinking: false,
@@ -165,37 +166,53 @@ export default async function chatRoute(app, { engine, hub }) {
         }
 
         const delta = event.assistantMessageEvent.delta;
-        ss.moodParser.feed(delta, (evt) => {
-          switch (evt.type) {
+        // ThinkTagParser（最外层）→ MoodParser → XingParser
+        ss.thinkTagParser.feed(delta, (tEvt) => {
+          switch (tEvt.type) {
+            case "think_start":
+              emitStreamEvent(sessionPath, ss, { type: "thinking_start" });
+              break;
+            case "think_text":
+              emitStreamEvent(sessionPath, ss, { type: "thinking_delta", delta: tEvt.data });
+              break;
+            case "think_end":
+              emitStreamEvent(sessionPath, ss, { type: "thinking_end" });
+              break;
             case "text":
-              // text 透传到 XingParser 做二级拦截
-              ss.xingParser.feed(evt.data, (xEvt) => {
-                switch (xEvt.type) {
+              // 非 think 内容继续走 MoodParser → XingParser 链
+              ss.moodParser.feed(tEvt.data, (evt) => {
+                switch (evt.type) {
                   case "text":
-                    ss.titlePreview += xEvt.data || "";
-                    emitStreamEvent(sessionPath, ss, { type: "text_delta", delta: xEvt.data });
-                    maybeGenerateFirstTurnTitle(sessionPath, ss);
+                    ss.xingParser.feed(evt.data, (xEvt) => {
+                      switch (xEvt.type) {
+                        case "text":
+                          ss.titlePreview += xEvt.data || "";
+                          emitStreamEvent(sessionPath, ss, { type: "text_delta", delta: xEvt.data });
+                          maybeGenerateFirstTurnTitle(sessionPath, ss);
+                          break;
+                        case "xing_start":
+                          emitStreamEvent(sessionPath, ss, { type: "xing_start", title: xEvt.title });
+                          break;
+                        case "xing_text":
+                          emitStreamEvent(sessionPath, ss, { type: "xing_text", delta: xEvt.data });
+                          break;
+                        case "xing_end":
+                          emitStreamEvent(sessionPath, ss, { type: "xing_end" });
+                          break;
+                      }
+                    });
                     break;
-                  case "xing_start":
-                    emitStreamEvent(sessionPath, ss, { type: "xing_start", title: xEvt.title });
+                  case "mood_start":
+                    emitStreamEvent(sessionPath, ss, { type: "mood_start" });
                     break;
-                  case "xing_text":
-                    emitStreamEvent(sessionPath, ss, { type: "xing_text", delta: xEvt.data });
+                  case "mood_text":
+                    emitStreamEvent(sessionPath, ss, { type: "mood_text", delta: evt.data });
                     break;
-                  case "xing_end":
-                    emitStreamEvent(sessionPath, ss, { type: "xing_end" });
+                  case "mood_end":
+                    emitStreamEvent(sessionPath, ss, { type: "mood_end" });
                     break;
                 }
               });
-              break;
-            case "mood_start":
-              emitStreamEvent(sessionPath, ss, { type: "mood_start" });
-              break;
-            case "mood_text":
-              emitStreamEvent(sessionPath, ss, { type: "mood_text", delta: evt.data });
-              break;
-            case "mood_end":
-              emitStreamEvent(sessionPath, ss, { type: "mood_end" });
               break;
           }
         });
@@ -314,9 +331,47 @@ export default async function chatRoute(app, { engine, hub }) {
       broadcast({ type: "dm_new_message", from: event.from, to: event.to });
     } else if (event.type === "turn_end") {
       if (!ss) return;
+      // flush 顺序：ThinkTag → Mood → Xing（和 feed 顺序一致）
+      // flush 内部的 mood → xing 管线（thinkTag flush 和 mood flush 共用）
+      const feedMoodPipeline = (text) => {
+        ss.moodParser.feed(text, (evt) => {
+          if (evt.type === "text") {
+            ss.xingParser.feed(evt.data, (xEvt) => {
+              switch (xEvt.type) {
+                case "text":
+                  emitStreamEvent(sessionPath, ss, { type: "text_delta", delta: xEvt.data });
+                  break;
+                case "xing_start":
+                  emitStreamEvent(sessionPath, ss, { type: "xing_start", title: xEvt.title });
+                  break;
+                case "xing_text":
+                  emitStreamEvent(sessionPath, ss, { type: "xing_text", delta: xEvt.data });
+                  break;
+                case "xing_end":
+                  emitStreamEvent(sessionPath, ss, { type: "xing_end" });
+                  break;
+              }
+            });
+          } else if (evt.type === "mood_start") {
+            emitStreamEvent(sessionPath, ss, { type: "mood_start" });
+          } else if (evt.type === "mood_text") {
+            emitStreamEvent(sessionPath, ss, { type: "mood_text", delta: evt.data });
+          } else if (evt.type === "mood_end") {
+            emitStreamEvent(sessionPath, ss, { type: "mood_end" });
+          }
+        });
+      };
+      ss.thinkTagParser.flush((tEvt) => {
+        if (tEvt.type === "think_text") {
+          emitStreamEvent(sessionPath, ss, { type: "thinking_delta", delta: tEvt.data });
+        } else if (tEvt.type === "think_end") {
+          emitStreamEvent(sessionPath, ss, { type: "thinking_end" });
+        } else if (tEvt.type === "text") {
+          feedMoodPipeline(tEvt.data);
+        }
+      });
       ss.moodParser.flush((evt) => {
         if (evt.type === "text") {
-          // flush 的 text 也要过 xingParser
           ss.xingParser.feed(evt.data, (xEvt) => {
             switch (xEvt.type) {
               case "text":
@@ -348,6 +403,7 @@ export default async function chatRoute(app, { engine, hub }) {
       emitStreamEvent(sessionPath, ss, { type: "turn_end" });
       finishSessionStream(ss);
       ss.isThinking = false;
+      ss.thinkTagParser.reset();
       ss.moodParser.reset();
       ss.xingParser.reset();
 
@@ -458,6 +514,7 @@ export default async function chatRoute(app, { engine, hub }) {
         const promptSessionPath = engine.currentSessionPath;
         const ss = getState(promptSessionPath);
         try {
+          ss.thinkTagParser.reset();
           ss.moodParser.reset();
           ss.xingParser.reset();
           ss.titleRequested = false;
