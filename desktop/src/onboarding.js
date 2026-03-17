@@ -361,7 +361,12 @@ async function loadModels() {
     return;
   }
 
-  if (_modelsLoadedFor === state.providerName) return;
+  if (_modelsLoadedFor === state.providerName) {
+    // 已加载过：根据已选模型决定按钮状态
+    $("#modelNextBtn").disabled = !state.selectedModel;
+    renderModelList(state.fetchedModels);
+    return;
+  }
 
   const loadingEl = $("#modelLoading");
   loadingEl.textContent = t("onboarding.model.loading");

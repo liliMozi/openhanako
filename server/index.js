@@ -7,12 +7,36 @@
  *
  * 当通过 fork() 启动时，会通过 IPC 通知父进程端口号。
  */
-import crypto from "crypto";
-import fs from "fs";
-import { setMaxListeners } from "events";
+
+// 必须先设置 HANA_HOME（在所有 import 之前）
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
+
+// 先设置 HANA_HOME
+process.env.HANA_HOME = process.env.HANA_HOME
+  ? path.resolve(process.env.HANA_HOME.replace(/^~/, os.homedir()))
+  : path.join(os.homedir(), ".hanako");
+
+// 立即加载 .env 文件
+const envFilePath = path.join(process.env.HANA_HOME, ".env");
+if (fs.existsSync(envFilePath)) {
+  const envContent = fs.readFileSync(envFilePath, "utf-8");
+  envContent.split("\n").forEach(line => {
+    const match = line.match(/^([^=]+)=(.*)$/);
+    if (match) process.env[match[1].trim()] = match[2].trim();
+  });
+}
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, "..");
+const productDir = path.join(projectRoot, "lib");
+
+const hanakoHome = process.env.HANA_HOME;
+
+import crypto from "crypto";
+import { setMaxListeners } from "events";
 import Fastify from "fastify";
 import websocket from "@fastify/websocket";
 import { HanaEngine } from "../core/engine.js";
@@ -44,16 +68,7 @@ import { BridgeManager } from "../lib/bridge/bridge-manager.js";
 import { Hub } from "../hub/index.js";
 import { startCLI } from "./cli.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, "..");
-const productDir = path.join(projectRoot, "lib");
-
-// 用户数据存放在 ~/.hanako/（打包后与产品代码分离）
-// 开发时可通过 HANA_HOME 环境变量隔离数据目录，如：HANA_HOME=~/.hanako-dev node server/index.js
-const hanakoHome = process.env.HANA_HOME
-  ? path.resolve(process.env.HANA_HOME.replace(/^~/, os.homedir()))
-  : path.join(os.homedir(), ".hanako");
-process.env.HANA_HOME = hanakoHome;
+// hanakoHome, projectRoot, productDir 已在文件开头定义
 // ── 首次运行播种 ──
 console.log("[server] ① ensureFirstRun...");
 ensureFirstRun(hanakoHome, productDir);
