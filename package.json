@@ -45,6 +45,7 @@
     "@sinclair/typebox": "^0.34.0",
     "better-sqlite3": "^12.6.2",
     "codemirror": "^6.0.2",
+    "dotenv": "^17.3.1",
     "duck-duck-scrape": "^2.2.7",
     "exceljs": "^4.4.0",
     "fastify": "^5.2.0",
