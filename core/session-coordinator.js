@@ -328,13 +328,23 @@ export class SessionCoordinator {
       getSkillsForAgent: (ag) => skills.getSkillsForAgent(ag),
       buildTools:     (cwd, customTools, opts) => this._d.buildTools(cwd, customTools, opts),
       resolveModel:   (agentConfig) => {
-        const id = agentConfig?.models?.chat;
+        let id = agentConfig?.models?.chat;
+        // 非 active agent 可能没有配 models.chat（模板默认为空），回退到全局默认模型
         if (!id) {
-          log.error(`[resolveModel] agentConfig 未指定 models.chat`);
+          if (models.defaultModel) {
+            log.log(`[resolveModel] agentConfig 未指定 models.chat，回退到默认模型 ${models.defaultModel.id}`);
+            return models.defaultModel;
+          }
+          log.error(`[resolveModel] agentConfig 未指定 models.chat，也没有默认模型`);
           throw new Error("resolveModel: 未指定 models.chat，无法选择模型");
         }
         const found = models.availableModels.find(m => m.id === id);
         if (!found) {
+          // 模型 ID 在可用列表中找不到，尝试回退到默认模型
+          if (models.defaultModel) {
+            log.log(`[resolveModel] 模型 "${id}" 不在可用列表中，回退到默认模型 ${models.defaultModel.id}`);
+            return models.defaultModel;
+          }
           const available = models.availableModels.map(m => `${m.provider}/${m.id}`).join(", ");
           const hasAuth = models.modelRegistry
             ? `hasAuth("${models.inferModelProvider?.(id) || "?"}")=unknown`

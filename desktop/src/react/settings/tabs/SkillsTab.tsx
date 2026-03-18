@@ -10,6 +10,8 @@ const platform = (window as any).platform;
 export function SkillsTab() {
   const { skillsList, settingsConfig, showToast } = useSettingsStore();
 
+  const [reloading, setReloading] = useState(false);
+
   const loadSkills = useCallback(async () => {
     try {
       const res = await hanaFetch('/api/skills');
@@ -19,6 +21,24 @@ export function SkillsTab() {
       console.error('[skills] load failed:', err);
     }
   }, []);
+
+  const reloadSkills = useCallback(async () => {
+    setReloading(true);
+    try {
+      const res = await hanaFetch('/api/skills/reload', { method: 'POST' });
+      const data = await res.json();
+      if (data.skills) {
+        useSettingsStore.setState({ skillsList: data.skills });
+      } else {
+        await loadSkills();
+      }
+      showToast(t('settings.skills.reloaded'), 'success');
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    } finally {
+      setReloading(false);
+    }
+  }, [loadSkills, showToast]);
 
   useEffect(() => {
     loadSkills();
@@ -152,7 +172,24 @@ export function SkillsTab() {
   return (
     <div className="settings-tab-content active" data-tab="skills">
       <section className="settings-section">
-        <h2 className="settings-section-title">{t('settings.skills.title')}</h2>
+        <div className="settings-section-header">
+          <h2 className="settings-section-title">{t('settings.skills.title')}</h2>
+          <button
+            className="settings-icon-btn"
+            title={t('settings.skills.reload')}
+            onClick={reloadSkills}
+            disabled={reloading}
+          >
+            <svg
+              width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              className={reloading ? 'spin' : ''}
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+          </button>
+        </div>
 
         <div
           className="skills-dropzone"

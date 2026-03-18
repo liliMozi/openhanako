@@ -284,10 +284,24 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         }
         return { ok: false, error: data.msg || "验证失败" };
       } else if (platform === "qq") {
-        const { createOpenAPI } = (await import("qq-guild-bot")).default;
-        const client = createOpenAPI({ appID: credentials.appID, token: credentials.token, intents: [] });
-        const me = await client.meApi.me();
-        return { ok: true, info: { username: me.data?.username, name: me.data?.username } };
+        // v2 鉴权：appID + appSecret → access_token → /users/@me
+        const tokenRes = await fetch("https://bots.qq.com/app/getAppAccessToken", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appId: credentials.appID, clientSecret: credentials.appSecret }),
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenData.access_token) {
+          return { ok: false, error: tokenData.message || "获取 access_token 失败" };
+        }
+        const meRes = await fetch("https://api.sgroup.qq.com/users/@me", {
+          headers: { Authorization: `QQBot ${tokenData.access_token}` },
+        });
+        const me = await meRes.json();
+        if (me.id) {
+          return { ok: true, info: { username: me.username, name: me.username } };
+        }
+        return { ok: false, error: me.message || "获取机器人信息失败" };
       }
       return { ok: false, error: "该平台暂不支持测试" };
     } catch (err) {

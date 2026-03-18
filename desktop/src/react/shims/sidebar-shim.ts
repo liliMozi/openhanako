@@ -74,7 +74,7 @@ async function switchSession(path: string): Promise<void> {
     state().selectedAgentId = null;
     state().memoryEnabled = data.memoryEnabled !== false;
 
-    state().isStreaming = false;
+    state().isStreaming = !!data.isStreaming;
 
     if (data.agentId && data.agentId !== state().currentAgentId) {
       const ag = state().agents.find((a: any) => a.id === data.agentId);

@@ -14,17 +14,36 @@ import { isToolCallBlock, getToolArgs } from "../../core/llm-utils.js";
  */
 const TOOL_ARG_SUMMARY_KEYS = ["file_path", "path", "command", "pattern", "url", "query"];
 
-function extractTextContent(content) {
-  if (typeof content === "string") return { text: content, thinking: "", toolUses: [] };
+/** 从文本中提取并剥离 <think>...</think> 标签 */
+function stripThinkTags(raw) {
+  const thinkParts = [];
+  const text = raw.replace(/<think>([\s\S]*?)<\/think>\n*/g, (_, inner) => {
+    thinkParts.push(inner.trim());
+    return "";
+  });
+  return { text, thinkContent: thinkParts.join("\n") };
+}
+
+function extractTextContent(content, { stripThink = false } = {}) {
+  if (typeof content === "string") {
+    if (stripThink) {
+      const { text, thinkContent } = stripThinkTags(content);
+      return { text, thinking: thinkContent, toolUses: [] };
+    }
+    return { text: content, thinking: "", toolUses: [] };
+  }
   if (!Array.isArray(content)) return { text: "", thinking: "", toolUses: [] };
-  const text = content
+  const rawText = content
     .filter(block => block.type === "text" && block.text)
     .map(block => block.text)
     .join("");
-  const thinking = content
-    .filter(block => block.type === "thinking" && block.thinking)
-    .map(block => block.thinking)
-    .join("\n");
+  const { text, thinkContent } = stripThink ? stripThinkTags(rawText) : { text: rawText, thinkContent: "" };
+  const thinking = [
+    thinkContent,
+    ...content
+      .filter(block => block.type === "thinking" && block.thinking)
+      .map(block => block.thinking),
+  ].filter(Boolean).join("\n");
   const toolUses = content
     .filter(isToolCallBlock)
     .map(block => {
@@ -120,7 +139,7 @@ export default async function sessionsRoute(app, { engine }) {
           const { text } = extractTextContent(m.content);
           if (text) messages.push({ role: "user", content: text });
         } else if (m.role === "assistant") {
-          const { text, thinking, toolUses } = extractTextContent(m.content);
+          const { text, thinking, toolUses } = extractTextContent(m.content, { stripThink: true });
           if (text || toolUses.length) {
             messages.push({
               role: "assistant",

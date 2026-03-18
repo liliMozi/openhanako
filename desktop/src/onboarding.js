@@ -64,6 +64,7 @@ const PROVIDER_PRESETS = [
   { value: "groq",        label: "Groq",              url: "https://api.groq.com/openai/v1", api: "openai-completions" },
   { value: "mistral",     label: "Mistral",           url: "https://api.mistral.ai/v1", api: "openai-completions" },
   { value: "minimax",     label: "MiniMax",           url: "https://api.minimaxi.com/anthropic", api: "anthropic-messages" },
+  { value: "_custom",     label: "",                  url: "",  api: "openai-completions", custom: true },
 ];
 
 function isCustomProviderSelected() {
@@ -181,6 +182,10 @@ function applyI18n() {
   $("#providerKeyInput").placeholder = t("onboarding.provider.keyPlaceholder");
   $("#providerCustomNameInput").placeholder = "my-provider";
   $("#providerCustomUrlInput").placeholder = "https://api.example.com/v1";
+  s("customNameLabel", "onboarding.provider.customName");
+  $("#customNameInput").placeholder = t("onboarding.provider.customNamePlaceholder");
+  s("customUrlLabel", "onboarding.provider.customUrl");
+  $("#customUrlInput").placeholder = t("onboarding.provider.customUrlPlaceholder");
   s("providerTestBtn", "onboarding.provider.test");
   s("providerBackBtn", "onboarding.provider.back");
   s("providerNextBtn", "onboarding.provider.next");
@@ -280,7 +285,7 @@ function renderProviderGrid() {
   for (const preset of PROVIDER_PRESETS) {
     const card = document.createElement("div");
     card.className = "provider-card";
-    card.textContent = preset.label;
+    card.textContent = preset.custom ? t("onboarding.provider.custom") : preset.label;
     card.dataset.value = preset.value;
 
     card.addEventListener("click", () => {
@@ -376,7 +381,6 @@ function hasProviderConfig() {
 
 function updateProviderBtns() {
   if (PREVIEW) {
-    // 预览模式：所有按钮可用
     $("#providerTestBtn").disabled = false;
     $("#providerNextBtn").disabled = false;
     return;
@@ -790,6 +794,22 @@ function bindEvents() {
     resetProviderState();
     updateProviderBtns();
   });
+
+  // 自定义 Provider 输入
+  const customNameInput = $("#customNameInput");
+  const customUrlInput = $("#customUrlInput");
+  const customApiSelect = $("#customApiSelect");
+  const onCustomInput = () => {
+    state.providerName = customNameInput.value.trim().toLowerCase().replace(/\s+/g, "-");
+    state.providerUrl = customUrlInput.value.trim();
+    state.providerApi = customApiSelect.value;
+    state.connectionTested = false;
+    $("#providerTestStatus").textContent = "";
+    updateProviderBtns();
+  };
+  customNameInput.addEventListener("input", onCustomInput);
+  customUrlInput.addEventListener("input", onCustomInput);
+  customApiSelect.addEventListener("change", onCustomInput);
 
   $("#toggleKey").addEventListener("click", () => {
     keyInput.type = keyInput.type === "password" ? "text" : "password";

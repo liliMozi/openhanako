@@ -4660,6 +4660,21 @@ body.resizing .jian-sidebar-inner {
     margin-bottom: 0;
 }
 
+.settings-icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s;
+}
+.settings-icon-btn:hover { color: var(--text-primary); }
+.settings-icon-btn:disabled { opacity: 0.4; cursor: default; }
+.settings-icon-btn .spin { animation: spin 0.8s linear infinite; }
+
 .settings-hint {
     font-size: 0.75rem;
     color: var(--text-muted);

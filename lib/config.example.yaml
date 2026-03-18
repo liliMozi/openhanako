@@ -71,6 +71,6 @@ timezone: ""                       # 时区，如 Asia/Shanghai、America/New_Yo
 # Agent 能力（高级功能，默认关闭）
 capabilities:
   learn_skills:
-    enabled: false            # 允许 agent 自行编写/安装技能（本地）
+    enabled: true             # 允许 agent 自行编写/安装技能（本地）
     allow_github_fetch: false # 允许从 GitHub 拉取外部技能（高风险，需谨慎）
     min_stars: 100            # GitHub 仓库 star 数门槛，低于此值拒绝安装（默认 100）

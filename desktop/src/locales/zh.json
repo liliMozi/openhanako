@@ -609,7 +609,9 @@
       "copied": "已复制 ✓",
       "copyFailed": "复制失败",
       "dropzone": "拖入技能文件夹安装，或点击选择",
-      "learnHint": "试着对助手说：帮我从 GitHub 上找一些安全并且有用的技能"
+      "learnHint": "试着对助手说：帮我从 GitHub 上找一些安全并且有用的技能",
+      "reloaded": "技能已刷新",
+      "reload": "刷新技能"
     },
     "bridge": {
       "telegram": "Telegram",
@@ -681,6 +683,11 @@
     "provider": {
       "title": "选择 AI 供应商",
       "subtitle": "我需要一个 AI 模型供应商来工作。\n选择你常用的供应商并填入 API Key。",
+      "custom": "自定义...",
+      "customName": "名称",
+      "customNamePlaceholder": "如 my-provider",
+      "customUrl": "API 地址",
+      "customUrlPlaceholder": "如 https://api.example.com/v1",
       "keyLabel": "API Key",
       "keyPlaceholder": "粘贴你的 API Key",
       "test": "测试连接",

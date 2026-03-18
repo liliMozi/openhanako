@@ -277,6 +277,17 @@ export default async function skillsRoute(app, { engine }) {
     }
   });
 
+  // POST /api/skills/reload — 强制重新加载所有技能
+  app.post("/api/skills/reload", async (_req, reply) => {
+    try {
+      await engine.reloadSkills();
+      return { ok: true, skills: engine.getAllSkills() };
+    } catch (err) {
+      reply.code(500);
+      return { error: err.message };
+    }
+  });
+
   // POST /api/skills/translate — 用工具模型翻译技能名
   app.post("/api/skills/translate", async (request, reply) => {
     const { names, lang } = request.body || {};

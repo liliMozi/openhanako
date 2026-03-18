@@ -126,8 +126,15 @@ async function loadAvatars(): Promise<void> {
         const url = hanaUrl(`/api/avatar/${role}?t=${ts}`);
         if (role === 'agent') state.agentAvatarUrl = url;
         else state.userAvatarUrl = url;
+      } else {
+        // 当前 agent / user 没有自定义头像，清除 stale URL（防止切换 agent 后残留旧头像）
+        if (role === 'agent') state.agentAvatarUrl = null;
+        else state.userAvatarUrl = null;
       }
-    } catch { /* silent */ }
+    } catch {
+      if (role === 'agent') state.agentAvatarUrl = null;
+      else state.userAvatarUrl = null;
+    }
   }
   // Welcome avatar 由 React WelcomeScreen 响应 agentAvatarUrl 变化自动更新
 }

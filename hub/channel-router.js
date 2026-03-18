@@ -180,9 +180,14 @@ export class ChannelRouter {
             signal: triageSignal,
           });
           shouldReply = answer.trim().toUpperCase().includes("YES");
+        } else {
+          // utility_large 凭证不完整，跳过 triage 直接回复
+          shouldReply = true;
         }
       } catch (err) {
-        console.error(`[channel] triage 失败 (${agentId}/#${channelName}): ${err.message}`);
+        // utility 模型未配置或 triage 调用失败 → 默认回复（让 agent 自己在 reply 阶段判断要不要说话）
+        console.warn(`[channel] triage 不可用，默认回复 (${agentId}/#${channelName}): ${err.message}`);
+        shouldReply = true;
       }
     }
 

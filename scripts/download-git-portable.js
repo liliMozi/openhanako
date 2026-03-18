@@ -15,9 +15,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const VENDOR_DIR = path.join(ROOT, "vendor", "git-portable");
 
-// MinGit 版本和下载 URL
+// MinGit-busybox 版本和下载 URL（busybox 变体自带 sh.exe，不需要用户额外装 Git）
 const MINGIT_VERSION = "2.47.1";
-const MINGIT_URL = `https://github.com/git-for-windows/git/releases/download/v${MINGIT_VERSION}.windows.1/MinGit-${MINGIT_VERSION}-64-bit.zip`;
+const MINGIT_URL = `https://github.com/git-for-windows/git/releases/download/v${MINGIT_VERSION}.windows.1/MinGit-${MINGIT_VERSION}-busybox-64-bit.zip`;
 const ZIP_PATH = path.join(ROOT, "vendor", `mingit-${MINGIT_VERSION}.zip`);
 
 async function main() {
