@@ -774,6 +774,7 @@ function DeskCwdSkillsPanel() {
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // 阻止冒泡到书桌的 drop handler
     setDragging(false);
     const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
@@ -821,8 +822,8 @@ function DeskCwdSkillsPanel() {
     <div className={`desk-cwd-panel-wrap${closing ? ' closing' : ''}`}>
       <div
         className={`desk-cwd-panel${dragging ? ' drag-over' : ''}`}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true); }}
+        onDragLeave={(e) => { e.stopPropagation(); setDragging(false); }}
         onDrop={handleDrop}
       >
         {/* 说明文案 + 装饰线 */}
