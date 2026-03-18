@@ -72,6 +72,11 @@
   "MiniMax-M2.7": { "name": "MiniMax M2.7", "context": 204800, "maxOutput": 131072 },
   "MiniMax-M2.7-highspeed": { "name": "MiniMax M2.7 Highspeed", "context": 204800, "maxOutput": 131072 },
 
+  "mimo-v2-pro": { "name": "MiMo V2 Pro", "context": 131072, "maxOutput": 32768 },
+  "mimo-v2-omni": { "name": "MiMo V2 Omni", "context": 131072, "maxOutput": 32768 },
+  "mimo-v2-flash": { "name": "MiMo V2 Flash", "context": 131072, "maxOutput": 65536 },
+  "mimo-v2-tts": { "name": "MiMo V2 TTS", "context": 131072, "maxOutput": 8192 },
+
   "glm-5": { "name": "GLM-5", "context": 131072, "maxOutput": 16384 },
   "glm-4-plus": { "name": "GLM-4 Plus", "context": 131072, "maxOutput": 16384 },
   "glm-4-flash": { "name": "GLM-4 Flash", "context": 131072, "maxOutput": 4096 },
