@@ -310,6 +310,77 @@ export default async function deskRoute(app, { engine, hub }) {
     return { skills: results };
   });
 
+  /**
+   * 拖拽安装项目技能
+   * 接收文件路径，自动创建 .agents/skills/ 并安装
+   * 支持文件夹（直接复制）和 .zip/.skill（解压）
+   */
+  app.post("/api/desk/install-skill", async (req, reply) => {
+    const { filePath } = req.body || {};
+    const cwd = engine.deskCwd;
+    if (!filePath || !cwd) {
+      reply.code(400);
+      return { error: "filePath and active workspace required" };
+    }
+
+    try {
+      const stat = fs.statSync(filePath);
+      const skillsDir = path.join(cwd, ".agents", "skills");
+
+      // 确保 .agents/skills/ 存在
+      fs.mkdirSync(skillsDir, { recursive: true });
+
+      // macOS: 隐藏 .agents 目录（chflags hidden）
+      if (process.platform === "darwin") {
+        const agentsDir = path.join(cwd, ".agents");
+        try { require("child_process").execSync(`chflags hidden "${agentsDir}"`); } catch {}
+      }
+
+      if (stat.isDirectory()) {
+        // 直接复制文件夹
+        const destName = path.basename(filePath);
+        const dest = path.join(skillsDir, destName);
+        fs.cpSync(filePath, dest, { recursive: true });
+        return { ok: true, name: destName };
+      }
+
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === ".zip" || ext === ".skill") {
+        // 解压到 skills 目录
+        const { execSync } = require("child_process");
+        // 先解压到临时目录确认内容
+        const tmpDir = path.join(skillsDir, `_tmp_${Date.now()}`);
+        fs.mkdirSync(tmpDir, { recursive: true });
+        execSync(`unzip -o -q "${filePath}" -d "${tmpDir}"`);
+
+        // 检查解压结果：如果只有一个子目录，用那个；否则用文件名
+        const entries = fs.readdirSync(tmpDir).filter(e => !e.startsWith("."));
+        let skillName;
+        if (entries.length === 1 && fs.statSync(path.join(tmpDir, entries[0])).isDirectory()) {
+          // 单目录包：移动到 skills
+          skillName = entries[0];
+          const dest = path.join(skillsDir, skillName);
+          if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true });
+          fs.renameSync(path.join(tmpDir, skillName), dest);
+          fs.rmSync(tmpDir, { recursive: true });
+        } else {
+          // 散文件包：整个 tmp 目录就是技能
+          skillName = path.basename(filePath, ext);
+          const dest = path.join(skillsDir, skillName);
+          if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true });
+          fs.renameSync(tmpDir, dest);
+        }
+        return { ok: true, name: skillName };
+      }
+
+      reply.code(400);
+      return { error: "Unsupported file type. Use folder, .zip or .skill" };
+    } catch (err) {
+      reply.code(500);
+      return { error: err.message };
+    }
+  });
+
   /** 工作空间路径 */
   app.get("/api/desk/path", async (req) => {
     const dir = req.query.dir ? decodeURIComponent(req.query.dir) : engine.deskCwd;

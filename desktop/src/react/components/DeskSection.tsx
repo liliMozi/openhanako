@@ -770,53 +770,105 @@ function DeskCwdSkillsPanel() {
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [dragging, setDragging] = useState(false);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    for (const file of files) {
+      const filePath = (file as any).path;
+      if (!filePath) continue;
+      try {
+        const res = await getDeskCtx().hanaFetch('/api/desk/install-skill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          console.warn('[cwd-skills] install failed:', data.error);
+        } else {
+          console.log('[cwd-skills] installed:', data.name);
+        }
+      } catch (err) {
+        console.error('[cwd-skills] install failed:', err);
+      }
+    }
+    // 重新加载 CWD 技能面板
+    try {
+      const cwd = (window.__hanaState as any)?.deskBasePath;
+      if (cwd) {
+        const res = await getDeskCtx().hanaFetch(`/api/desk/skills?dir=${encodeURIComponent(cwd)}`);
+        const data = await res.json();
+        _cwdSkills = data.skills || [];
+        _cwdSkillsListeners.forEach(cb => cb());
+      }
+    } catch {}
+    // 也刷新书桌技能快捷区
+    (window as any).__loadDeskSkills?.();
+  }, []);
+
   if (!visible) return null;
 
-  const content = skills.length === 0 ? (
-    <div className="desk-cwd-panel">
-      <p className="desk-cwd-empty">{t('desk.cwdSkillsEmpty') || '当前文件夹没有项目技能'}</p>
-      <p className="desk-cwd-hint">{t('desk.cwdSkillsHint') || '在文件夹下创建 .agents/skills/ 目录即可'}</p>
-    </div>
-  ) : (() => {
-    const grouped: Record<string, CwdSkill[]> = {};
-    for (const s of skills) {
-      (grouped[s.source] ??= []).push(s);
-    }
-    return (
-      <div className="desk-cwd-panel">
-        {Object.entries(grouped).map(([source, items]) => (
-          <div key={source}>
-            <div className="desk-cwd-group-label">{source}</div>
-            {items.map(s => {
-              let desc = s.description || '';
-              if (desc.length > 60) desc = desc.slice(0, 60) + '…';
-              return (
-                <div
-                  className="desk-cwd-skill-item"
-                  key={s.name}
-                  onClick={() => {
-                    (window as any).platform?.openSkillViewer?.({
-                      name: s.name,
-                      baseDir: s.baseDir,
-                      filePath: s.filePath,
-                      installed: false,
-                    });
-                  }}
-                >
-                  <span className="desk-cwd-skill-name">{s.name}</span>
-                  {desc && <span className="desk-cwd-skill-desc">{desc}</span>}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    );
-  })();
+  const grouped: Record<string, CwdSkill[]> = {};
+  for (const s of skills) {
+    (grouped[s.source] ??= []).push(s);
+  }
 
   return (
     <div className={`desk-cwd-panel-wrap${closing ? ' closing' : ''}`}>
-      {content}
+      <div
+        className={`desk-cwd-panel${dragging ? ' drag-over' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+      >
+        {/* 说明文案 + 装饰线 */}
+        <div className="desk-cwd-desc-line">
+          <span className="desk-cwd-desc-deco" />
+          <span className="desk-cwd-desc-text">{t('desk.cwdSkillsDesc') || '技能跟随工作空间'}</span>
+          <span className="desk-cwd-desc-deco" />
+        </div>
+
+        {skills.length === 0 ? (
+          <>
+            <p className="desk-cwd-empty">{t('desk.cwdSkillsEmpty') || '当前文件夹没有项目技能'}</p>
+            <p className="desk-cwd-hint">{t('desk.cwdSkillsDrop') || '拖入文件夹或 .zip 安装技能'}</p>
+          </>
+        ) : (
+          <>
+            {Object.entries(grouped).map(([source, items]) => (
+              <div key={source}>
+                <div className="desk-cwd-group-label">{source}</div>
+                {items.map(s => {
+                  let desc = s.description || '';
+                  if (desc.length > 60) desc = desc.slice(0, 60) + '…';
+                  return (
+                    <div
+                      className="desk-cwd-skill-item"
+                      key={s.name}
+                      onClick={() => {
+                        (window as any).platform?.openSkillViewer?.({
+                          name: s.name,
+                          baseDir: s.baseDir,
+                          filePath: s.filePath,
+                          installed: false,
+                        });
+                      }}
+                    >
+                      <span className="desk-cwd-skill-name">{s.name}</span>
+                      {desc && <span className="desk-cwd-skill-desc">{desc}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            <p className="desk-cwd-hint">{t('desk.cwdSkillsDrop') || '拖入文件夹或 .zip 安装技能'}</p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

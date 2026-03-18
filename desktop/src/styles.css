@@ -4141,10 +4141,38 @@ body.resizing .jian-sidebar-inner {
     border-radius: var(--radius-sm);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     padding: 0.5rem 0.75rem 0.6rem;
-    max-height: 240px;
+    min-height: 200px;
+    max-height: 320px;
     overflow-y: auto;
     animation: cwd-panel-in 0.18s ease-out;
     transform-origin: top right;
+    transition: border-color 0.15s;
+}
+
+.desk-cwd-panel.drag-over {
+    border-color: var(--accent);
+    border-style: dashed;
+}
+
+/* 说明文案 + 装饰线 */
+.desk-cwd-desc-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.desk-cwd-desc-deco {
+    flex: 1;
+    height: 1px;
+    background: var(--overlay-light);
+}
+
+.desk-cwd-desc-text {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    opacity: 0.6;
+    white-space: nowrap;
 }
 
 @keyframes cwd-panel-in {
@@ -5824,6 +5852,8 @@ body.resizing .jian-sidebar-inner {
     border-radius: var(--radius-md);
     overflow: hidden;
     margin-top: 0.4rem;
+    box-shadow: 0 1px 4px var(--shadow);
+    background: var(--bg-card, var(--bg));
 }
 
 .compat-path-item {
@@ -5958,6 +5988,13 @@ body.resizing .jian-sidebar-inner {
 
 .compat-drawer-skills {
     padding: 0 0.65rem 0.5rem 1.8rem;
+    overflow: hidden;
+    animation: compat-expand 0.2s ease-out;
+}
+
+@keyframes compat-expand {
+    from { max-height: 0; opacity: 0; }
+    to { max-height: 800px; opacity: 1; }
 }
 
 .compat-drawer-skills .skills-list-item {

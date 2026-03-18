@@ -769,6 +769,8 @@
     "cwdSkills": "项目技能",
     "cwdSkillsEmpty": "当前文件夹没有项目技能",
     "cwdSkillsHint": "在文件夹下创建 .agents/skills/ 目录即可",
+    "cwdSkillsDesc": "技能跟随工作空间",
+    "cwdSkillsDrop": "拖入文件夹或 .zip 安装技能",
     "openInFinder": "在访达中打开",
     "jianLabel": "笺",
     "jianPlaceholder": "写点什么，告诉助手这个文件夹里面的文件该如何处理...",
