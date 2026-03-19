@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { hanaFetch } from '../hooks/use-hana-fetch';
 import { formatSessionDate, parseMoodFromContent } from '../utils/format';
@@ -38,15 +37,10 @@ export function BridgePanel() {
   const [showOverlay, setShowOverlay] = useState(false);
   const [statusData, setStatusData] = useState<StatusData>({});
 
-  const containerRef = useRef<Element | null>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentKeyRef = useRef(currentKey);
   currentKeyRef.current = currentKey;
-
-  useEffect(() => {
-    containerRef.current = document.querySelector('.main-content');
-  }, []);
 
   // 加载状态
   const loadStatus = useCallback(async () => {
@@ -155,7 +149,7 @@ export function BridgePanel() {
 
   const close = useCallback(() => setActivePanel(null), [setActivePanel]);
 
-  if (activePanel !== 'bridge' || !containerRef.current) return null;
+  if (activePanel !== 'bridge') return null;
 
   const t = window.t ?? ((p: string) => p);
   const tgStatus = statusData.telegram?.status;
@@ -163,7 +157,7 @@ export function BridgePanel() {
   const waStatus = statusData.whatsapp?.status;
   const qqStatus = statusData.qq?.status;
 
-  return createPortal(
+  return (
     <div className={`floating-panel bridge-panel-wide${panelClosing ? ' closing' : ''}`} id="bridgePanel">
       <div className="floating-panel-inner">
         <div className="floating-panel-header">
@@ -282,8 +276,7 @@ export function BridgePanel() {
           </div>
         </div>
       </div>
-    </div>,
-    containerRef.current,
+    </div>
   );
 }
 

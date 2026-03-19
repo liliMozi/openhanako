@@ -7,7 +7,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { hanaUrl } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
@@ -20,11 +19,7 @@ import type { Agent } from '../types';
 
 export function WelcomeScreen() {
   const portalTarget = document.getElementById('welcome');
-  if (!portalTarget) {
-    console.warn('[WelcomeScreen] portal target #welcome not found');
-    return null;
-  }
-  return createPortal(<WelcomeInner portalTarget={portalTarget} />, portalTarget);
+  return <WelcomeInner portalTarget={portalTarget} />;
 }
 
 // ── Yuan helpers ──
@@ -50,7 +45,7 @@ function randomWelcome(agentName: string, yuan: string): string {
 
 // ── 内部组件 ──
 
-function WelcomeInner({ portalTarget }: { portalTarget: HTMLElement }) {
+function WelcomeInner({ portalTarget }: { portalTarget: HTMLElement | null }) {
   const { t } = useI18n();
   const welcomeVisible = useStore(s => s.welcomeVisible);
   const agents = useStore(s => s.agents);
@@ -66,10 +61,12 @@ function WelcomeInner({ portalTarget }: { portalTarget: HTMLElement }) {
 
   // Toggle #welcome hidden class based on welcomeVisible
   useEffect(() => {
+    const el = portalTarget || document.getElementById('welcome');
+    if (!el) return;
     if (welcomeVisible) {
-      portalTarget.classList.remove('hidden');
+      el.classList.remove('hidden');
     } else {
-      portalTarget.classList.add('hidden');
+      el.classList.add('hidden');
     }
   }, [welcomeVisible, portalTarget]);
 

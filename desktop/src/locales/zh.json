@@ -653,7 +653,7 @@
         "在 Telegram 找到你的 Bot，发消息试试吧"
       ],
       "ownerSelect": "哪个账号是你",
-      "ownerWarning": "注意：你选择的账号可以访问你的电脑、记忆以及各种隐私信息，请确保账号主人是你自己，谨慎选择。",
+      "ownerWarning": "所选账号可访问你的文件和隐私信息，请确认是你本人。",
       "ownerNone": "发送一条消息后即可选择",
       "ownerSaved": "已保存",
       "ownerConfirmTitle": "确认设为 Owner？",

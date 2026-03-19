@@ -2,11 +2,10 @@
  * InputArea — 聊天输入区域 React 组件
  *
  * 替代 app-input-shim.ts + app-ui-shim.ts 中的模型/PlanMode/Todo 逻辑。
- * 通过 portal 渲染到 index.html 的 #inputAreaPortal。
+ * 由 App.tsx 在 .input-area 容器内直接渲染。
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { isImageFile } from '../utils/format';
 import { hanaFetch } from '../hooks/use-hana-fetch';
@@ -85,12 +84,7 @@ interface SlashCommand {
 // ── 主组件 ──
 
 export function InputArea() {
-  const portalEl = document.getElementById('inputAreaPortal');
-  if (!portalEl) {
-    console.warn('[InputArea] portal target #inputAreaPortal not found');
-    return null;
-  }
-  return createPortal(<InputAreaInner />, portalEl);
+  return <InputAreaInner />;
 }
 
 /** t() 翻译缺失时返回 key 本身（truthy），|| fallback 不会触发。这个包一层检测 */

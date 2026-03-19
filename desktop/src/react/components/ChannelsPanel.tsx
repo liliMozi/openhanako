@@ -6,7 +6,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
@@ -208,32 +207,28 @@ export function ChannelsPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTab]);
 
-  // Tab slider + badge 的 DOM 操纵（titlebar tabs 不在 React 管理范围内）
+  // Tab slider + badge 的 DOM 操纵（titlebar tabs 现在由 React 渲染但仍用 DOM 操纵 slider）
   useTabSlider(currentTab);
   useTabBadge();
   useTabClickHandler();
 
-  const channelListTarget = document.getElementById('channelList');
-  const channelMessagesTarget = document.getElementById('channelMessages');
-  const channelMembersTarget = document.getElementById('channelMembersList');
-  const channelInputTarget = document.getElementById('channelInputArea');
-  const channelReadonlyTarget = document.getElementById('channelReadonlyNotice');
-  const channelCreateTarget = document.getElementById('channelCreateOverlay');
-
+  // 渲染 headless 控制组件（不产出 DOM，只管理副作用）
   return (
     <>
-      {channelListTarget && createPortal(<ChannelListSection />, channelListTarget)}
-      {channelMessagesTarget && createPortal(<ChannelMessagesSection />, channelMessagesTarget)}
-      {channelMembersTarget && createPortal(<ChannelMembersSection />, channelMembersTarget)}
-      {channelInputTarget && createPortal(<ChannelInputSection />, channelInputTarget)}
-      {channelReadonlyTarget && createPortal(<ChannelReadonlyNotice />, channelReadonlyTarget)}
-      {channelCreateTarget && createPortal(<ChannelCreateModal />, channelCreateTarget)}
       <ChannelHeaderSync />
       <ChannelToggleController />
       <ChannelSidebarButtons />
     </>
   );
 }
+
+// ── 导出子组件供 App.tsx 布局使用 ──
+export const ChannelList = ChannelListSection;
+export const ChannelMessages = ChannelMessagesSection;
+export const ChannelMembers = ChannelMembersSection;
+export const ChannelInput = ChannelInputSection;
+export const ChannelReadonly = ChannelReadonlyNotice;
+export const ChannelCreate = ChannelCreateModal;
 
 // ══════════════════════════════════════════════════════
 // Hooks for titlebar tab management
@@ -271,7 +266,6 @@ function useTabBadge() {
     const badge = document.getElementById('channelTabBadge');
     if (!badge) return;
     if (channelTotalUnread > 0) {
-      badge.textContent = channelTotalUnread > 99 ? '99+' : String(channelTotalUnread);
       badge.classList.remove('hidden');
     } else {
       badge.classList.add('hidden');

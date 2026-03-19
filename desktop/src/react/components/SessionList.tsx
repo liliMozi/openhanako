@@ -6,7 +6,6 @@
  */
 
 import { Fragment, useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
@@ -19,12 +18,7 @@ import type { Session, Agent } from '../types';
 // ── 主组件 ──
 
 export function SessionList() {
-  const portalTarget = document.getElementById('sessionList');
-  if (!portalTarget) {
-    console.warn('[SessionList] portal target #sessionList not found');
-    return null;
-  }
-  return createPortal(<SessionListInner />, portalTarget);
+  return <SessionListInner />;
 }
 
 // ── 日期分组 ──

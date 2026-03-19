@@ -6,7 +6,6 @@
  */
 
 import { memo, useRef, useEffect, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../../stores';
 import { UserMessage } from './UserMessage';
 import { AssistantMessage } from './AssistantMessage';
@@ -18,13 +17,10 @@ const MAX_ALIVE = 5;
 // ── 入口 ──
 
 export function ChatArea() {
-  const chatArea = document.getElementById('chatArea');
-  const mainContent = chatArea?.parentElement;
-  if (!chatArea || !mainContent) return null;
   return (
     <>
-      {createPortal(<PanelHost />, chatArea)}
-      {createPortal(<ScrollToBottomBtn />, mainContent)}
+      <PanelHost />
+      <ScrollToBottomBtn />
     </>
   );
 }

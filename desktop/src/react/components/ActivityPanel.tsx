@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { formatSessionDate, injectCopyButtons, parseMoodFromContent } from '../utils/format';
@@ -48,12 +47,7 @@ export function ActivityPanel() {
 
   const [detail, setDetail] = useState<DetailState | null>(null);
   const [hbEnabled, setHbEnabled] = useState(true);
-  const containerRef = useRef<Element | null>(null);
   const t = window.t ?? ((p: string) => p);
-
-  useEffect(() => {
-    containerRef.current = document.querySelector('.main-content');
-  }, []);
 
   // 打开面板时加载活动 + 巡检状态
   useEffect(() => {
@@ -110,9 +104,9 @@ export function ActivityPanel() {
     setDetail(null);
   }, []);
 
-  if (activePanel !== 'activity' || !containerRef.current) return null;
+  if (activePanel !== 'activity') return null;
 
-  return createPortal(
+  return (
     <div className={`floating-panel${panelClosing ? ' closing' : ''}`} id="activityPanel">
       <div className="floating-panel-inner">
         {detail ? (
@@ -175,8 +169,7 @@ export function ActivityPanel() {
           </div>
         )}
       </div>
-    </div>,
-    containerRef.current,
+    </div>
   );
 }
 

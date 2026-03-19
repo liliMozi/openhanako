@@ -3219,8 +3219,7 @@ html[data-platform="linux"] .tb-toggle-right {
     pointer-events: none;
 }
 
-.input-area > *,
-#inputAreaPortal > * {
+.input-area > * {
     max-width: 646px;
     margin-left: auto;
     margin-right: auto;
@@ -9668,17 +9667,14 @@ body.resizing .jian-sidebar-inner {
 }
 
 .tb-tab-badge {
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 8px;
+    position: absolute;
+    top: 2px;
+    right: -2px;
+    min-width: 7px;
+    height: 7px;
+    border-radius: 50%;
     background: var(--accent);
-    color: white;
-    font-size: 0.6rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    pointer-events: none;
 }
 
 .tb-tab-badge.hidden {
@@ -10100,9 +10096,8 @@ body.resizing .jian-sidebar-inner {
 
 /* ── 频道输入区 ── */
 .channel-input-area {
-    flex-shrink: 0;      /* 不被消息区压缩 */
+    flex-shrink: 0;
     padding: var(--space-sm) var(--space-lg) var(--space-lg);
-    border-top: 1px solid var(--overlay-light);
 }
 
 .channel-input-area.hidden {
@@ -10193,9 +10188,9 @@ body.resizing .jian-sidebar-inner {
 }
 
 .channel-send-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-sm);
+    width: 36px;
+    align-self: stretch;
+    border-radius: var(--radius-md);
     border: none;
     background: var(--accent);
     color: white;

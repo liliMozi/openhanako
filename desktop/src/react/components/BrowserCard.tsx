@@ -3,11 +3,10 @@
  *
  * 替代旧 artifacts.js 的 renderBrowserCard 逻辑。
  * 当 browserRunning 为 true 时，在聊天区顶部显示浮动卡片。
- * 通过 portal 渲染到 .main-content 内的 #browserCardPortal。
+ * 由 App.tsx 在 .main-content 内直接渲染。
  */
 
 import { useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { hanaFetch } from '../hooks/use-hana-fetch';
 
@@ -37,11 +36,6 @@ export function BrowserCard() {
     }
   }, [setBrowserRunning, setBrowserThumbnail]);
 
-  const portalTarget = document.getElementById('browserCardPortal');
-  if (!portalTarget) {
-    if (browserRunning) console.warn('[BrowserCard] portal target #browserCardPortal not found');
-    return null;
-  }
   if (!browserRunning) return null;
 
   let displayUrl = '';
@@ -51,7 +45,7 @@ export function BrowserCard() {
     displayUrl = browserUrl || '';
   }
 
-  return createPortal(
+  return (
     <div className="browser-floating-card" id="browserFloatingCard" onClick={handleClick}>
       <div className="browser-floating-info">
         <div className="browser-floating-icon">
@@ -83,7 +77,6 @@ export function BrowserCard() {
           </svg>
         </button>
       </div>
-    </div>,
-    portalTarget,
+    </div>
   );
 }

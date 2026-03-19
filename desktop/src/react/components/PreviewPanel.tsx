@@ -11,7 +11,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { renderMarkdown } from '../utils/markdown';
 import { parseCSV, injectCopyButtons } from '../utils/format';
@@ -223,13 +222,7 @@ export function PreviewPanel() {
     });
   }, [artifact]);
 
-  const portalTarget = document.getElementById('previewPortal');
-  if (!portalTarget) {
-    console.warn('[PreviewPanel] portal target #previewPortal not found');
-    return null;
-  }
-
-  return createPortal(
+  return (
     <div className={`preview-panel${previewOpen ? '' : ' collapsed'}`} id="previewPanel">
       <div className="resize-handle resize-handle-left" id="previewResizeHandle"></div>
       <div className="preview-panel-inner">
@@ -273,7 +266,6 @@ export function PreviewPanel() {
           )}
         </div>
       </div>
-    </div>,
-    portalTarget,
+    </div>
   );
 }

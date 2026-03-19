@@ -2,13 +2,12 @@
  * DeskSection — 笺侧栏的书桌内容区
  *
  * 替代旧 desk.js 的 renderDeskFiles / initJianEditor / updateDeskEmptyOverlay 逻辑。
- * 通过 portal 渲染到 #jianDeskPortal（在 .jian-sidebar-inner 内部）。
+ * 由 App.tsx 在 .jian-chat-content 容器内直接渲染。
  *
  * Phase B: 所有文件操作直接调用 desk-actions。
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { hanaFetch } from '../hooks/use-hana-fetch';
 import type { DeskFile } from '../types';
@@ -1106,15 +1105,9 @@ export function DeskSection() {
     setCtxMenu(null);
   }, []);
 
-  const portalTarget = document.getElementById('jianDeskPortal');
-  if (!portalTarget) {
-    console.warn('[DeskSection] portal target #jianDeskPortal not found');
-    return null;
-  }
-
   const t = window.t ?? ((p: string) => p);
 
-  return createPortal(
+  return (
     <>
       <DeskDropZone onShowMenu={handleShowMenu}>
         <div className="jian-desk-header">
@@ -1139,7 +1132,6 @@ export function DeskSection() {
           onClose={handleCloseMenu}
         />
       )}
-    </>,
-    portalTarget,
+    </>
   );
 }

@@ -1,8 +1,8 @@
 /**
  * App.tsx — React 根组件 + 应用初始化
  *
+ * React 渲染完整 DOM 树，不再依赖 index.html 的静态 HTML。
  * 所有初始化逻辑从 app.js / bridge.ts 迁移至此。
- * 不再依赖 __hanaState Proxy、HanaModules shim 或 __hanaInit。
  */
 
 import { useEffect } from 'react';
@@ -19,7 +19,7 @@ import { InputArea } from './components/InputArea';
 import { SessionList } from './components/SessionList';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ChatArea } from './components/chat/ChatArea';
-import { ChannelsPanel } from './components/ChannelsPanel';
+import { ChannelsPanel, ChannelList, ChannelMessages, ChannelMembers, ChannelInput, ChannelReadonly, ChannelCreate } from './components/ChannelsPanel';
 import { SidebarLayout, updateLayout } from './components/SidebarLayout';
 import { useSidebarResize } from './hooks/use-sidebar-resize';
 import { applyAgentIdentity, loadAgents, loadAvatars } from './stores/agent-actions';
@@ -332,18 +332,232 @@ function App() {
 
   return (
     <ErrorBoundary>
+      {/* Headless behavior components */}
       <SidebarLayout />
-      <ActivityPanel />
-      <AutomationPanel />
-      <BridgePanel />
-      <PreviewPanel />
-      <BrowserCard />
-      <DeskSection />
-      <InputArea />
-      <SessionList />
-      <WelcomeScreen />
-      <ChatArea />
       <ChannelsPanel />
+
+      {/* ── Titlebar ── */}
+      <div className="titlebar">
+        <button className="tb-toggle tb-toggle-left" id="tbToggleLeft" title="侧边栏">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+        </button>
+        <div className="tb-tabs" id="tbTabs">
+          <div className="tb-tabs-slider" id="tbSlider"></div>
+          <button className="tb-tab active" data-tab="chat">聊天</button>
+          <button className="tb-tab" data-tab="channels">
+            频道
+            <span className="tb-tab-badge hidden" id="channelTabBadge"></span>
+          </button>
+        </div>
+        <button className="tb-toggle tb-toggle-right" id="tbToggleRight" title="书桌">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="15" y1="3" x2="15" y2="21"></line>
+          </svg>
+        </button>
+      </div>
+
+      {/* ── App body ── */}
+      <div className="app">
+        {/* Left sidebar */}
+        <aside className="sidebar" id="sidebar">
+          <div className="sidebar-inner">
+            <div className="sidebar-chat-content" id="sidebarChatContent">
+              <div className="sidebar-header">
+                <span className="sidebar-title"></span>
+                <div className="sidebar-header-actions">
+                  <button className="sidebar-action-btn" id="newSessionBtn" title="">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </button>
+                  <button className="sidebar-action-btn" id="settingsBtn" title="">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="3"></circle>
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                  </button>
+                  <button className="sidebar-action-btn" id="sidebarCollapseBtn" title="">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 6 9 12 15 18"></polyline>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <button className="sidebar-activity-bar sidebar-bridge-card" id="bridgeBar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
+                <span id="bridgeBarLabel">接入</span>
+                <span className="sidebar-bridge-dot" id="bridgeDot"></span>
+              </button>
+              <button className="sidebar-activity-bar" id="activityBar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                <span id="activityBarLabel">助手活动</span>
+              </button>
+              <button className="sidebar-activity-bar" id="automationBar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span>任务计划</span>
+                <span className="automation-count-badge" id="automationCountBadge"></span>
+              </button>
+              <button className="sidebar-activity-bar browser-bg-bar hidden" id="browserBgBar" title="后台浏览器运行中，点击查看">
+                <svg className="browser-bg-globe" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+                <span>后台浏览器</span>
+              </button>
+              <div className="session-list" id="sessionList">
+                <SessionList />
+              </div>
+            </div>
+
+            {/* 频道 tab 内容 */}
+            <div className="sidebar-channel-content hidden" id="sidebarChannelContent">
+              <div className="sidebar-header">
+                <span className="sidebar-title">频道 <span className="beta-badge">Beta</span></span>
+                <div className="sidebar-header-actions">
+                  <button className="sidebar-action-btn" id="channelCreateBtn" title="新建频道">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </button>
+                  <button className="sidebar-action-btn" id="channelCollapseBtn" title="">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 6 9 12 15 18"></polyline>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="channel-list-wrap" id="channelListWrap">
+                <div className="channel-list" id="channelList">
+                  <ChannelList />
+                </div>
+                <div className="channel-disabled-overlay hidden" id="channelDisabledOverlay">
+                  <span>频道功能已关闭</span>
+                </div>
+                <div className="channel-toggle-bar">
+                  <span className="channel-toggle-bar-label">频道功能开关</span>
+                  <button className="hana-toggle on" id="channelToggle"></button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="resize-handle resize-handle-right" id="sidebarResizeHandle"></div>
+        </aside>
+
+        {/* Main content */}
+        <div className="main-content">
+          <BrowserCard />
+          <div className="drop-overlay" id="dropOverlay">
+            <div className="drop-overlay-inner">
+              <span className="drop-icon">📎</span>
+              <span className="drop-text"></span>
+            </div>
+          </div>
+
+          <div className="chat-area" id="chatArea">
+            <div className="welcome" id="welcome">
+              <WelcomeScreen />
+            </div>
+            <div className="messages" id="messages"></div>
+            <ChatArea />
+          </div>
+
+          <div className="input-area">
+            <InputArea />
+          </div>
+
+          <div className="channel-view" id="channelView">
+            <div className="channel-header" id="channelHeader">
+              <div className="channel-header-info">
+                <span className="channel-header-name" id="channelHeaderName"></span>
+                <span className="channel-header-members" id="channelHeaderMembers"></span>
+              </div>
+              <div className="channel-header-actions">
+                <button className="channel-header-action-btn" id="channelInfoToggle" title="频道信息">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+                </button>
+                <button className="channel-header-action-btn" id="channelMenuBtn" title="更多">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <circle cx="12" cy="5" r="1"></circle>
+                    <circle cx="12" cy="12" r="1"></circle>
+                    <circle cx="12" cy="19" r="1"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="channel-messages" id="channelMessages">
+              <ChannelMessages />
+            </div>
+            <div className="channel-input-area hidden" id="channelInputArea">
+              <ChannelInput />
+            </div>
+            <div className="channel-readonly-notice hidden" id="channelReadonlyNotice">
+              <ChannelReadonly />
+            </div>
+          </div>
+
+          {/* Floating panels render into main-content */}
+          <ActivityPanel />
+          <AutomationPanel />
+          <BridgePanel />
+        </div>
+
+        <PreviewPanel />
+
+        {/* Right sidebar (Jian) */}
+        <aside className="jian-sidebar" id="jianSidebar">
+          <div className="resize-handle resize-handle-left" id="jianResizeHandle"></div>
+          <div className="jian-sidebar-inner">
+            <div className="jian-chat-content" id="jianChatContent">
+              <DeskSection />
+            </div>
+
+            <div className="jian-channel-content hidden" id="jianChannelContent">
+              <div className="jian-card">
+                <div className="channel-info-section">
+                  <div className="channel-info-label">频道信息</div>
+                  <div className="channel-info-name" id="channelInfoName"></div>
+                </div>
+                <div className="channel-info-section">
+                  <div className="channel-info-label">成员</div>
+                  <div className="channel-members-list" id="channelMembersList">
+                    <ChannelMembers />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Connection status */}
+      <div className="connection-status" id="connectionStatus">
+        <span className="status-dot"></span>
+        <span className="status-text"></span>
+      </div>
+
+      {/* Channel create overlay */}
+      <div className="agent-create-overlay" id="channelCreateOverlay">
+        <ChannelCreate />
+      </div>
     </ErrorBoundary>
   );
 }

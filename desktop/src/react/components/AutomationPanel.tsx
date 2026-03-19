@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { cronToHuman } from '../utils/format';
@@ -23,11 +22,6 @@ export function AutomationPanel() {
 
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
-  const containerRef = useRef<Element | null>(null);
-
-  useEffect(() => {
-    containerRef.current = document.querySelector('.main-content');
-  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -93,9 +87,9 @@ export function AutomationPanel() {
     }
   }, [loadData]);
 
-  if (activePanel !== 'automation' || !containerRef.current) return null;
+  if (activePanel !== 'automation') return null;
 
-  return createPortal(
+  return (
     <div className={`floating-panel${panelClosing ? ' closing' : ''}`} id="automationPanel">
       <div className="floating-panel-inner">
         <div className="floating-panel-header">
@@ -130,8 +124,7 @@ export function AutomationPanel() {
           </div>
         </div>
       </div>
-    </div>,
-    containerRef.current,
+    </div>
   );
 }
 
