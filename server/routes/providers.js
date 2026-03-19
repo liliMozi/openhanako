@@ -228,10 +228,12 @@ export default async function providersRoute(app, { engine }) {
       if (api === "anthropic-messages") {
         const baseUrl = base_url.replace(/\/+$/, "");
         const headers = buildProviderAuthHeaders(api, api_key);
+        // Kimi Coding requires valid model ID, use k2p5 for testing (API maps to kimi-for-coding)
+        const testModel = base_url.includes("kimi.com") ? "k2p5" : "test";
         const res = await fetch(baseUrl + "/messages", {
           method: "POST",
           headers,
-          body: JSON.stringify({ model: "test", max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
+          body: JSON.stringify({ model: testModel, max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
           signal: AbortSignal.timeout(10000),
         });
         // 401/403 = key 无效，其他错误（400 model not found 等）说明认证通过了

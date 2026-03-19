@@ -284,8 +284,28 @@ function ApiKeyCredentials({ providerId, summary, providerConfig, isPresetSetup,
     }
   };
 
+  const isKimiCoding = providerId === 'kimi-coding' || baseUrl.includes('kimi.com');
+
+  // Kimi Coding 网页登录
+  const handleKimiWebLogin = () => {
+    platform?.openExternal?.('https://www.kimi.com/code/en');
+  };
+
   return (
     <div className="pv-credentials">
+      {/* Kimi Coding: 网页登录按钮（类似 OAuth） */}
+      {isKimiCoding && !summary.api_key_masked && (
+        <div className="pv-cred-row">
+          <span className="pv-cred-label">登录</span>
+          <button className="pv-oauth-login-btn" onClick={handleKimiWebLogin}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            网页登录 Kimi Code
+          </button>
+        </div>
+      )}
       <div className="pv-cred-row">
         <span className="pv-cred-label">{t('settings.api.apiKey')}</span>
         <div className="pv-cred-key-row">

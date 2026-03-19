@@ -7417,6 +7417,30 @@ body.resizing .jian-sidebar-inner {
     border-bottom: 1px solid var(--overlay-light);
 }
 
+/* Kimi Coding 网页登录按钮 */
+.pv-oauth-login-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--accent);
+    background: var(--accent-light);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.pv-oauth-login-btn:hover {
+    background: rgba(var(--accent-rgb), 0.15);
+}
+
+.pv-oauth-login-btn svg {
+    flex-shrink: 0;
+}
+
 .pv-cred-row {
     display: flex;
     align-items: center;
@@ -11009,4 +11033,136 @@ body.resizing .preview-panel-inner {
 }
 .hana-warning-confirm:hover {
     opacity: 0.85;
+}
+
+/* ── Button system ── */
+.hana-btn {
+    font-family: inherit;
+    font-size: 0.8rem;
+    padding: 0.4rem 1rem;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+}
+
+.hana-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.hana-btn--sm {
+    font-size: 0.72rem;
+    padding: 0.3rem 0.65rem;
+}
+
+.hana-btn--ghost {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--overlay-medium);
+}
+
+.hana-btn--ghost:hover:not(:disabled) {
+    background: var(--overlay-light);
+    color: var(--text);
+}
+
+/* ── Usage Tab ── */
+.usage-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+}
+
+.usage-card {
+    background: var(--overlay-light);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.usage-card-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.usage-card-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    font-family: var(--font-mono);
+    line-height: 1;
+}
+
+.usage-card-sub {
+    display: flex;
+    gap: var(--space-sm);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.usage-card-cost {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.usage-card-count {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+.usage-footer {
+    margin-top: var(--space-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.usage-note {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+    flex: 1;
+    line-height: 1.5;
+}
+
+.settings-loading {
+    padding: var(--space-xl) 0;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.settings-error {
+    padding: var(--space-sm) var(--space-md);
+    background: rgba(220, 80, 80, 0.1);
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    color: var(--coral);
+    margin-top: var(--space-sm);
+}
+
+/* danger button */
+.hana-btn--danger {
+    background: rgba(220, 80, 80, 0.12);
+    color: var(--coral);
+    border: 1px solid rgba(220, 80, 80, 0.25);
+    font-family: inherit;
+    font-size: 0.75rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.hana-btn--danger:hover {
+    background: rgba(220, 80, 80, 0.2);
 }
