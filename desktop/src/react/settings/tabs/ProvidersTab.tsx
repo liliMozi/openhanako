@@ -284,8 +284,25 @@ function ApiKeyCredentials({ providerId, summary, providerConfig, isPresetSetup,
     }
   };
 
+  const isKimiCoding = providerId === 'kimi-coding' || baseUrl.includes('kimi.com');
+
   return (
     <div className="pv-credentials">
+      {/* Kimi Coding: 显示获取 API Key 链接 */}
+      {isKimiCoding && (
+        <div className="pv-kimi-link-row">
+          <span className="pv-kimi-link-text">需要 API Key？</span>
+          <a
+            href="https://www.kimi.com/code/en"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pv-kimi-link"
+            onClick={() => platform?.openExternal?.('https://www.kimi.com/code/en')}
+          >
+            前往 Kimi Code 获取 →
+          </a>
+        </div>
+      )}
       <div className="pv-cred-row">
         <span className="pv-cred-label">{t('settings.api.apiKey')}</span>
         <div className="pv-cred-key-row">
