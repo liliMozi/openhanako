@@ -511,22 +511,22 @@ function renderModelList(models) {
 }
 
 async function saveModel() {
-  // 保存 chat 模型
+  // 保存 chat 模型 + provider 完整信息（base_url / api / models）
+  // 合并为一次请求，确保预设供应商的凭证不会丢失
+  const modelIds = state.fetchedModels.map(m => m.id);
+  const providerInfo = {
+    base_url: state.providerUrl,
+    api: state.providerApi,
+    models: modelIds,
+  };
+  if (state.apiKey) providerInfo.api_key = state.apiKey;
+
   await hanaFetch(`/api/agents/${state.agentId}/config`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       models: { chat: state.selectedModel },
-    }),
-  });
-
-  // 保存模型列表到 provider
-  const modelIds = state.fetchedModels.map(m => m.id);
-  await hanaFetch(`/api/agents/${state.agentId}/config`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      providers: { [state.providerName]: { models: modelIds } },
+      providers: { [state.providerName]: providerInfo },
     }),
   });
 
