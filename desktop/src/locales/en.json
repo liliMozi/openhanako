@@ -290,6 +290,8 @@
       "work": "Work",
       "skills": "Skills",
       "bridge": "Social",
+      "providers": "Providers",
+      "usage": "Usage",
       "about": "About"
     },
     "appearance": {
@@ -446,6 +448,15 @@
       "codeCopied": "Code copied",
       "addModel": "Add Model",
       "customModelPlaceholder": "Enter model ID"
+    },
+    "usage": {
+      "title": "Usage Statistics",
+      "note": "Data stored locally only, for reference only",
+      "reset": "Clear Data",
+      "resetConfirmTitle": "Confirm Clear",
+      "resetConfirmBody": "Are you sure you want to clear all usage data? This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirmReset": "Confirm Clear"
     },
     "api": {
       "title": "Models & API",
