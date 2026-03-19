@@ -228,8 +228,8 @@ export default async function providersRoute(app, { engine }) {
       if (api === "anthropic-messages") {
         const baseUrl = base_url.replace(/\/+$/, "");
         const headers = buildProviderAuthHeaders(api, api_key);
-        // Kimi Coding requires valid model ID, use kimi-for-coding for testing
-        const testModel = base_url.includes("kimi.com") ? "kimi-for-coding" : "test";
+        // Kimi Coding requires valid model ID, use k2p5 for testing (API maps to kimi-for-coding)
+        const testModel = base_url.includes("kimi.com") ? "k2p5" : "test";
         const res = await fetch(baseUrl + "/messages", {
           method: "POST",
           headers,

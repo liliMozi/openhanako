@@ -49,7 +49,7 @@
 
   "kimi-k2.5": { "name": "Kimi K2.5", "context": 262144, "maxOutput": 262144 },
   "kimi-k2": { "name": "Kimi K2", "context": 131072, "maxOutput": 8192 },
-  "kimi-for-coding": { "name": "Kimi For Coding", "context": 262144, "maxOutput": 131072 },
+  "k2p5": { "name": "Kimi K2.5 (Coding)", "context": 262144, "maxOutput": 131072 },
   "moonshot-v1-128k": { "name": "Moonshot V1 128K", "context": 131072, "maxOutput": 4096 },
   "moonshot-v1-32k": { "name": "Moonshot V1 32K", "context": 32768, "maxOutput": 4096 },
   "moonshot-v1-8k": { "name": "Moonshot V1 8K", "context": 8192, "maxOutput": 4096 },
