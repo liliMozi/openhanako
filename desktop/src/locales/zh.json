@@ -290,6 +290,7 @@
       "work": "工作",
       "skills": "技能",
       "bridge": "社交平台",
+      "usage": "用量",
       "about": "关于"
     },
     "appearance": {
@@ -361,6 +362,20 @@
       "lastAgent": "至少保留一个助手",
       "yuan": "元",
       "yuanHint": "「元」是助手的先天思维方式，你可以选择它更理性还是更感性\n以此为基础搭建你独一无二的伙伴"
+    },
+    "usage": {
+      "title": "Token 用量统计",
+      "desc": "累计记录每次对话的 Token 消耗，包括主对话和所有工具调用。消耗量由模型供应商定价。",
+      "today": "今天",
+      "thisWeek": "本周",
+      "thisMonth": "本月",
+      "allTime": "累计",
+      "note": "数据仅保存在本地，清除后无法恢复。",
+      "reset": "清除统计",
+      "resetConfirmTitle": "确认清除",
+      "resetConfirmBody": "清除后将删除所有用量记录，此操作不可撤销。",
+      "cancel": "取消",
+      "confirmReset": "确认清除"
     },
     "about": {
       "title": "关于 Ta",

@@ -539,6 +539,7 @@ function InputAreaInner() {
                 modelXhigh={currentModelInfo?.xhigh ?? false}
               />
             )}
+            <ResponseStatusIndicator />
             <ModelSelector models={models} />
             <SendButton
               isStreaming={isStreaming}
@@ -750,6 +751,49 @@ function ContextRing() {
       </svg>
       <span className="context-ring-label">{tokensK}k</span>
     </button>
+  );
+}
+
+// ── Response Status Indicator ──
+
+function ResponseStatusIndicator() {
+  const isStreaming = useStore(s => s.isStreaming);
+  const responseTimeout = useStore(s => s.responseTimeout);
+  const [elapsed, setElapsed] = useState<number | null>(null);
+
+  // 每秒更新一次已超时时间
+  useEffect(() => {
+    if (!responseTimeout) {
+      setElapsed(null);
+      return;
+    }
+    const store = useStore.getState();
+    if (!store.lastResponseTime) return;
+    const update = () => {
+      const now = Date.now();
+      const store2 = useStore.getState();
+      if (store2.lastResponseTime) {
+        setElapsed(Math.round((now - store2.lastResponseTime) / 1000));
+      }
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [responseTimeout]);
+
+  // 只在 streaming 时显示
+  if (!isStreaming) return null;
+
+  const status = responseTimeout ? 'timeout' : 'active';
+  const elapsedStr = elapsed !== null ? `${elapsed}s` : '';
+
+  return (
+    <div
+      className={`response-status-indicator ${status}`}
+      title={responseTimeout ? `模型响应超时 (${elapsedStr})` : '模型响应正常'}
+    >
+      <span className="response-status-dot" />
+    </div>
   );
 }
 

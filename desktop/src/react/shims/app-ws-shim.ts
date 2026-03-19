@@ -6,6 +6,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { useStore } from '../stores';
+
 declare function t(key: string, vars?: Record<string, string>): any;
 
 interface AppWsCtx {
@@ -39,6 +41,39 @@ let _wsResumeVersion = 0;
 // ── 流恢复状态 ──
 let _streamResumeRebuildVersion = 0;
 let _streamResumeRebuildingFor: string | null = null;
+
+// ── 响应超时追踪 ──
+let _responseCheckTimer: ReturnType<typeof setInterval> | null = null;
+const RESPONSE_TIMEOUT_MS = 30000; // 30秒无响应视为超时
+
+/** 更新最后响应时间 */
+function touchResponseTime(): void {
+  useStore.getState().setLastResponseTime(Date.now());
+}
+
+/** 开始响应超时检查 */
+function startResponseTimeoutCheck(): void {
+  stopResponseTimeoutCheck();
+  touchResponseTime();
+  _responseCheckTimer = setInterval(() => {
+    const { isStreaming, lastResponseTime, responseTimeout } = useStore.getState();
+    if (!isStreaming || !lastResponseTime) return;
+    const elapsed = Date.now() - lastResponseTime;
+    const shouldTimeout = elapsed >= RESPONSE_TIMEOUT_MS;
+    if (shouldTimeout !== responseTimeout) {
+      useStore.getState().setResponseTimeout(shouldTimeout);
+    }
+  }, 2000);
+}
+
+/** 停止响应超时检查 */
+function stopResponseTimeoutCheck(): void {
+  if (_responseCheckTimer) {
+    clearInterval(_responseCheckTimer);
+    _responseCheckTimer = null;
+  }
+  useStore.getState().resetResponseState();
+}
 
 // ── Session 流元数据 ──
 
@@ -124,11 +159,13 @@ function applyStreamingStatus(isStreaming: boolean): void {
   state.isStreaming = !!isStreaming;
   if (state.isStreaming) {
     ensureCurrentSessionVisible();
+    startResponseTimeoutCheck();
   } else {
     ctx._cr().finishAssistantMessage();
     if (hasOptimisticCurrentSession()) {
       ctx._sb().loadSessions().catch(() => {});
     }
+    stopResponseTimeoutCheck();
   }
 }
 
@@ -297,6 +334,7 @@ function handleServerMessage(msg: any): void {
       break;
 
     case 'text_delta':
+      touchResponseTime();
       _cr().ensureAssistantMessage();
       _cr().hideThinking();
       _cr().sealToolGroup();
@@ -362,6 +400,7 @@ function handleServerMessage(msg: any): void {
     }
 
     case 'mood_text':
+      touchResponseTime();
       if (state.currentMoodEl) {
         state.currentMoodEl.textContent += msg.delta;
         scrollToBottom();
@@ -384,6 +423,7 @@ function handleServerMessage(msg: any): void {
       break;
 
     case 'thinking_delta':
+      touchResponseTime();
       if (msg.delta) state._thinkingBuf = (state._thinkingBuf || '') + msg.delta;
       break;
 
@@ -393,6 +433,7 @@ function handleServerMessage(msg: any): void {
       break;
 
     case 'tool_start':
+      touchResponseTime();
       _cr().ensureAssistantMessage();
       _cr().hideThinking();
       _cr().addToolToGroup(msg.name, msg.args);
@@ -556,6 +597,7 @@ function handleServerMessage(msg: any): void {
       break;
 
     case 'error':
+      stopResponseTimeoutCheck();
       showError(msg.message);
       break;
 

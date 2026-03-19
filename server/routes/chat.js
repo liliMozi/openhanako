@@ -407,6 +407,31 @@ export default async function chatRoute(app, { engine, hub }) {
 
       emitStreamEvent(sessionPath, ss, { type: "turn_end" });
       finishSessionStream(ss);
+
+      // ── 累计 Token 使用量 ──
+      try {
+        const session = engine.session;
+        if (session) {
+          const messages = session.messages || [];
+          const modelInfo = engine.currentModel;
+          const modelId = modelInfo?.id || modelInfo?.name || "unknown";
+          const providerId = modelInfo?.provider || "custom";
+          // 找最后一个成功的 assistant 消息
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            if (msg.role === "assistant" && msg.usage && msg.stopReason !== "aborted" && msg.stopReason !== "error") {
+              engine.usageTracker?.add({
+                ...msg.usage,
+                model: modelId,
+                provider: providerId,
+              });
+              break;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[usage-tracker] tracking failed:", err.message);
+      }
       ss.thinkTagParser.reset();
       ss.moodParser.reset();
       ss.xingParser.reset();

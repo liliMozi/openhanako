@@ -290,6 +290,7 @@
       "work": "Work",
       "skills": "Skills",
       "bridge": "Social",
+      "usage": "Usage",
       "about": "About"
     },
     "appearance": {
@@ -361,6 +362,20 @@
       "lastAgent": "Must keep at least one agent",
       "yuan": "Yuan",
       "yuanHint": "\"Yuan\" is the agent's innate thinking style. You can choose whether it leans more rational or emotional.\nBuild your unique companion from this foundation."
+    },
+    "usage": {
+      "title": "Token Usage Statistics",
+      "desc": "Cumulatively records token consumption from each conversation, including main dialogue and all tool calls. Pricing is set by the model provider.",
+      "today": "Today",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "allTime": "All Time",
+      "note": "Data is stored locally only. Clearing cannot be undone.",
+      "reset": "Clear Stats",
+      "resetConfirmTitle": "Confirm Clear",
+      "resetConfirmBody": "This will delete all usage records. This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirmReset": "Clear"
     },
     "about": {
       "title": "About Them",
