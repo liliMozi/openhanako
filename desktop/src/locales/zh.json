@@ -290,6 +290,8 @@
       "work": "工作",
       "skills": "技能",
       "bridge": "社交平台",
+      "providers": "供应商",
+      "usage": "费用",
       "about": "关于"
     },
     "appearance": {
@@ -446,6 +448,15 @@
       "codeCopied": "验证码已复制",
       "addModel": "添加模型",
       "customModelPlaceholder": "输入模型 ID"
+    },
+    "usage": {
+      "title": "使用统计",
+      "note": "数据仅本地存储，仅供参考",
+      "reset": "清除数据",
+      "resetConfirmTitle": "确认清除",
+      "resetConfirmBody": "确定要清除所有使用统计数据吗？此操作不可恢复。",
+      "cancel": "取消",
+      "confirmReset": "确认清除"
     },
     "api": {
       "title": "模型与接口",
