@@ -286,21 +286,24 @@ function ApiKeyCredentials({ providerId, summary, providerConfig, isPresetSetup,
 
   const isKimiCoding = providerId === 'kimi-coding' || baseUrl.includes('kimi.com');
 
+  // Kimi Coding 网页登录
+  const handleKimiWebLogin = () => {
+    platform?.openExternal?.('https://www.kimi.com/code/en');
+  };
+
   return (
     <div className="pv-credentials">
-      {/* Kimi Coding: 显示获取 API Key 链接 */}
-      {isKimiCoding && (
-        <div className="pv-kimi-link-row">
-          <span className="pv-kimi-link-text">需要 API Key？</span>
-          <a
-            href="https://www.kimi.com/code/en"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pv-kimi-link"
-            onClick={() => platform?.openExternal?.('https://www.kimi.com/code/en')}
-          >
-            前往 Kimi Code 获取 →
-          </a>
+      {/* Kimi Coding: 网页登录按钮（类似 OAuth） */}
+      {isKimiCoding && !summary.api_key_masked && (
+        <div className="pv-cred-row">
+          <span className="pv-cred-label">登录</span>
+          <button className="pv-oauth-login-btn" onClick={handleKimiWebLogin}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            网页登录 Kimi Code
+          </button>
         </div>
       )}
       <div className="pv-cred-row">

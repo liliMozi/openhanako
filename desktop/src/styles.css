@@ -7417,32 +7417,28 @@ body.resizing .jian-sidebar-inner {
     border-bottom: 1px solid var(--overlay-light);
 }
 
-/* Kimi Coding 获取 API Key 链接 */
-.pv-kimi-link-row {
+/* Kimi Coding 网页登录按钮 */
+.pv-oauth-login-btn {
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
-    padding: 6px 10px;
-    background: var(--overlay-light);
-    border-radius: var(--radius-sm);
-    margin-bottom: 4px;
-}
-
-.pv-kimi-link-text {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-}
-
-.pv-kimi-link {
-    font-size: 0.72rem;
+    gap: 6px;
+    padding: 4px 12px;
+    font-family: inherit;
+    font-size: 0.78rem;
     color: var(--accent);
-    text-decoration: none;
-    transition: opacity 0.2s;
+    background: var(--accent-light);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
 }
 
-.pv-kimi-link:hover {
-    opacity: 0.8;
-    text-decoration: underline;
+.pv-oauth-login-btn:hover {
+    background: rgba(var(--accent-rgb), 0.15);
+}
+
+.pv-oauth-login-btn svg {
+    flex-shrink: 0;
 }
 
 .pv-cred-row {
