@@ -4,6 +4,9 @@
  * 从 app.js 提取（Phase 4），ctx 注入模式。
  */
 
+import { buildItemsFromHistory } from '../utils/history-builder';
+import { useStore } from '../stores';
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // ── i18n helper（全局注入） ──
@@ -212,11 +215,7 @@ function parseUserAttachments(content: string): ParsedAttachments {
 // ── 消息历史加载 ──
 
 async function loadMessages(): Promise<void> {
-  const { state, hanaFetch, md, scrollToBottom, renderTodoDisplay, injectCopyButtons } = ctx;
-  const { SVG_ICONS } = (window as any).HanaModules.icons;
-  const _cr = ctx._cr;
-  const _fc = ctx._fc;
-  const _ar = ctx._ar;
+  const { state, hanaFetch, renderTodoDisplay } = ctx;
 
   try {
     const res = await hanaFetch('/api/sessions/messages');
@@ -225,114 +224,16 @@ async function loadMessages(): Promise<void> {
       state.sessionTodos = data.todos;
       renderTodoDisplay();
     }
-
-    if (data.messages && data.messages.length > 0) {
+    const items = buildItemsFromHistory(data);
+    const sessionPath = state.currentSessionPath;
+    if (sessionPath && items.length > 0) {
+      useStore.getState().initSession(sessionPath, items, data.hasMore ?? false);
       state.welcomeVisible = false;
-
-      const fileMap: Record<number, any[]> = {};
-      const artMap: Record<number, any[]> = {};
-      for (const fo of (data.fileOutputs || [])) {
-        (fileMap[fo.afterIndex] ??= []).push(...fo.files);
-      }
-      for (const ar of (data.artifacts || [])) {
-        (artMap[ar.afterIndex] ??= []).push(ar);
-      }
-
-      for (let i = 0; i < data.messages.length; i++) {
-        const m = data.messages[i];
-        if (m.role === 'user') {
-          const { text: userText, files: userFiles, deskContext } = parseUserAttachments(m.content);
-          _cr().addUserMessage(userText, userFiles.length ? userFiles : null, deskContext);
-        } else if (m.role === 'assistant') {
-          const group = _cr().ensureGroup('assistant');
-          const bubble = document.createElement('div');
-          bubble.className = 'message assistant';
-
-          state.currentAssistantEl = bubble;
-          const { mood, yuan: moodYuan, text: afterMood } = parseMoodFromContent(m.content);
-          const { xingBlocks, text } = parseXingFromContent(afterMood);
-
-          if (mood) {
-            const y = moodYuan || state.agentYuan || 'hanako';
-            const details = document.createElement('details');
-            details.className = 'mood-wrapper';
-            details.dataset.yuan = y;
-            const summaryEl = document.createElement('summary');
-            summaryEl.className = 'mood-summary';
-            summaryEl.innerHTML = `<span class="mood-arrow">›</span> ${moodLabel(y)}`;
-            details.appendChild(summaryEl);
-            const moodBlock = document.createElement('div');
-            moodBlock.className = 'mood-block';
-            moodBlock.textContent = mood;
-            details.appendChild(moodBlock);
-            details.addEventListener('toggle', () => {
-              const arrow = summaryEl.querySelector('.mood-arrow');
-              if (arrow) arrow.classList.toggle('open', details.open);
-            });
-            bubble.appendChild(details);
-          }
-
-          if (m.thinking) {
-            const block = document.createElement('details');
-            block.className = 'thinking-block';
-            const thinkSummary = document.createElement('summary');
-            thinkSummary.className = 'thinking-block-summary';
-            thinkSummary.innerHTML = '<span class="thinking-block-arrow">›</span> 思考完成';
-            block.appendChild(thinkSummary);
-            const body = document.createElement('div');
-            body.className = 'thinking-block-body';
-            body.textContent = m.thinking;
-            block.appendChild(body);
-            block.addEventListener('toggle', () => {
-              const arrow = thinkSummary.querySelector('.thinking-block-arrow');
-              if (arrow) arrow.classList.toggle('open', block.open);
-            });
-            bubble.appendChild(block);
-          }
-
-          for (const xb of xingBlocks) {
-            _cr().sealXingCard(xb.title, xb.content);
-          }
-
-          if (m.toolCalls?.length) {
-            _cr().renderHistoryToolGroup(m.toolCalls, bubble);
-          }
-
-          if (text) {
-            const mdEl = document.createElement('div');
-            mdEl.className = 'md-content';
-            mdEl.innerHTML = md.render(text.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, ''));
-            injectCopyButtons(mdEl);
-            bubble.appendChild(mdEl);
-          }
-
-          if (fileMap[i]) {
-            for (const f of fileMap[i]) {
-              _fc().appendFileCard(f.filePath, f.label, f.ext || '');
-            }
-          }
-
-          if (artMap[i]) {
-            for (const ar of artMap[i]) {
-              const artifact = {
-                id: ar.artifactId || `hist-${i}`,
-                type: ar.artifactType,
-                title: ar.title,
-                content: ar.content,
-                language: ar.language,
-              };
-              state.artifacts.push(artifact);
-              _ar().appendArtifactCard(artifact);
-            }
-          }
-          state.currentAssistantEl = null;
-
-          group.appendChild(bubble);
-        }
-      }
-      scrollToBottom();
+    } else if (sessionPath) {
+      // 即使没有消息也初始化空 session，防止反复 fetch
+      useStore.getState().initSession(sessionPath, [], false);
     }
-  } catch { /* silent */ }
+  } catch (err) { console.error('[loadMessages] error:', err); }
 }
 
 // ── Setup ──

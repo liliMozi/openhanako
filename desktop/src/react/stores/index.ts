@@ -9,6 +9,7 @@ import { createDeskSlice, type DeskSlice } from './desk-slice';
 import { createModelSlice, type ModelSlice } from './model-slice';
 import { createMiscSlice, type MiscSlice } from './misc-slice';
 import { createInputSlice, type InputSlice } from './input-slice';
+import { createChatSlice, type ChatSlice } from './chat-slice';
 
 export type StoreState = ConnectionSlice &
   SessionSlice &
@@ -19,7 +20,8 @@ export type StoreState = ConnectionSlice &
   DeskSlice &
   ModelSlice &
   MiscSlice &
-  InputSlice;
+  InputSlice &
+  ChatSlice;
 
 export const useStore = create<StoreState>()((set, _get, _api) => ({
   ...createConnectionSlice(set),
@@ -32,6 +34,7 @@ export const useStore = create<StoreState>()((set, _get, _api) => ({
   ...createModelSlice(set),
   ...createMiscSlice(set),
   ...createInputSlice(set),
+  ...createChatSlice(set as any, _get as any),
 }));
 
 // Re-export slice types
@@ -46,4 +49,5 @@ export type {
   ModelSlice,
   MiscSlice,
   InputSlice,
+  ChatSlice,
 };

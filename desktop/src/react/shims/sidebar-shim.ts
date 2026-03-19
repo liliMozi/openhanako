@@ -68,12 +68,7 @@ async function switchSession(path: string): Promise<void> {
       return;
     }
 
-    // 切到正在 streaming 的 session 时，提前锁住实时事件，防止 resume 前重复渲染
-    if (data.isStreaming) {
-      const ws = (window as any).HanaModules?.appWs;
-      ws?.lockStreamResumeFor(path);
-    }
-
+    // React 路径：streaming 事件通过 StreamBuffer 按 sessionPath 路由，无需 lock
     state().currentSessionPath = path;
     state().pendingNewSession = false;
     state().selectedFolder = null;
@@ -105,21 +100,22 @@ async function switchSession(path: string): Promise<void> {
     renderBrowserCard();
 
     ctx!.updateFolderButton();
-    ctx!.clearChat();
-    await ctx!.loadMessages();
+
+    // 数据驱动：检查 store 中是否已有该 session 的消息数据
+    const store = (window as any).__zustandStore;
+    const hasData = !!store?.getState()?.chatSessions?.[path];
+    if (!hasData) {
+      await ctx!.loadMessages();
+    }
     ctx!.loadDeskFiles('');
     renderSessionList();
 
-    // 切换会话后刷新 context ring：先重置旧值，再请求新值
+    // 切换会话后刷新 context ring
     state().contextTokens = null;
     state().contextWindow = null;
     state().contextPercent = null;
     if (state().ws?.readyState === WebSocket.OPEN) {
       state().ws.send(JSON.stringify({ type: 'context_usage' }));
-    }
-
-    if (data.isStreaming && state().ws?.readyState === WebSocket.OPEN) {
-      ctx!.requestStreamResume(path, { fromStart: true });
     }
   } catch (err) {
     console.error('[session] switch failed:', err);
@@ -132,7 +128,7 @@ async function createNewSession(): Promise<void> {
 
   state().isStreaming = false;
 
-  ctx!.clearChat();
+  state().welcomeVisible = true;
   state().currentSessionPath = null;
   state().selectedFolder = state().homeFolder || null;
   state().selectedAgentId = null;
@@ -196,6 +192,8 @@ async function ensureSession(): Promise<boolean> {
     state().selectedAgentId = null;
     if (data.path) {
       state().currentSessionPath = data.path;
+      // 初始化空 session，ChatArea 自动渲染
+      (window as any).__zustandStore?.getState()?.initSession?.(data.path, [], false);
     }
     await loadSessions();
     ctx!.updateFolderButton();

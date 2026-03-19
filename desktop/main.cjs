@@ -571,12 +571,12 @@ function createMainWindow() {
   mainWindow.on("maximize", () => mainWindow.webContents.send("window-maximized"));
   mainWindow.on("unmaximize", () => mainWindow.webContents.send("window-unmaximized"));
 
-  // macOS 风格：点关闭按钮只是隐藏窗口，不退出 app
+  // macOS 风格：点关闭按钮只是隐藏窗口，Dock 保留黑点
   mainWindow.on("close", (e) => {
     if (!isQuitting) {
       e.preventDefault();
       mainWindow.hide();
-      if (process.platform === "darwin") app.dock.hide();
+      // 不调 app.dock.hide()，Dock 上保留图标和黑点
       // 同时隐藏子窗口
       if (devToolsWindow && !devToolsWindow.isDestroyed()) devToolsWindow.hide();
       if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.hide();
@@ -2027,23 +2027,16 @@ app.on("activate", () => {
 // ── 优雅关闭 ──
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
+  // 销毁托盘图标
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy();
+    tray = null;
+  }
 });
 
 app.on("before-quit", async (event) => {
   isQuitting = true;
-  if (!isExitingServer && !forceQuitApp) {
-    // 普通退出（Cmd+Q / 隐藏并保持运行）：仅关前端，server 继续在后台运行
-    event.preventDefault();
-    isQuitting = false; // 重置，使窗口后续可以正常 hide
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
-    if (onboardingWindow && !onboardingWindow.isDestroyed()) onboardingWindow.hide();
-    if (process.platform === "darwin") app.dock.hide();
-    // 清理文件监听器
-    for (const [, w] of _fileWatchers) w.close();
-    _fileWatchers.clear();
-    console.log("[desktop] 前端已隐藏，Server 继续在后台运行");
-    return;
-  }
+  isExitingServer = true; // Cmd+Q 走完全退出路径，连 server 一起关
   // 完全退出：清理浏览器实例（仅在真正退出时执行，避免隐藏路径打断后台浏览器能力）
   for (const [sp, view] of _browserViews) {
     try { view.webContents.close(); } catch {}

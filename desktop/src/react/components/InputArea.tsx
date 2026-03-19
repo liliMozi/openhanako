@@ -158,8 +158,17 @@ function InputAreaInner() {
       _sb().loadSessions();
     }
 
-    const _cr = () => (window as any).HanaModules.chatRender;
-    _cr().addUserMessage(displayText ?? text);
+    // 用户消息写入 store，React 渲染
+    const sessionPath = state.currentSessionPath;
+    if (sessionPath) {
+      const { renderMarkdown } = await import('../utils/markdown');
+      const msgText = displayText ?? text;
+      useStore.getState().appendItem(sessionPath, {
+        type: 'message',
+        data: { id: `user-${Date.now()}`, role: 'user', text: msgText, textHtml: renderMarkdown(msgText) },
+      });
+      state.welcomeVisible = false;
+    }
     state.ws.send(JSON.stringify({ type: 'prompt', text, sessionPath: state.currentSessionPath }));
     return true;
   }, [pendingNewSession]);
@@ -405,8 +414,22 @@ function InputAreaInner() {
       if (docForRender) {
         allFiles.push({ path: docForRender.path, name: docForRender.name });
       }
-      const _cr = () => window.HanaModules.chatRender;
-      _cr().addUserMessage(text, allFiles.length > 0 ? allFiles : null, null);
+      // 用户消息写入 store
+      const sessionPath = state.currentSessionPath;
+      if (sessionPath) {
+        const { renderMarkdown } = await import('../utils/markdown');
+        useStore.getState().appendItem(sessionPath, {
+          type: 'message',
+          data: {
+            id: `user-${Date.now()}`,
+            role: 'user',
+            text,
+            textHtml: renderMarkdown(text),
+            attachments: allFiles.length > 0 ? allFiles.map((f: any) => ({ path: f.path, name: f.name, isDir: false })) : undefined,
+          },
+        });
+        state.welcomeVisible = false;
+      }
 
       setInputText('');
       clearAttachedFiles();
@@ -420,15 +443,21 @@ function InputAreaInner() {
   }, [inputText, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, setDocContextAttached, slashMenuOpen, filteredCommands, slashSelected]);
 
   // ── Steer (插话) ──
-  const handleSteer = useCallback(() => {
+  const handleSteer = useCallback(async () => {
     const text = inputText.trim();
     if (!text || !isStreaming) return;
     const state = window.__hanaState;
     if (!state.ws) return;
 
-    // 断开当前 assistant 消息组（不封存工具），让后续回复出现在 steer 消息下方
-    window.HanaModules.chatRender.breakAssistantGroup();
-    window.HanaModules.chatRender.addUserMessage(text, null, null);
+    // steer：用户消息写入 store
+    const sessionPath = (window as any).__hanaState?.currentSessionPath;
+    if (sessionPath) {
+      const { renderMarkdown } = await import('../utils/markdown');
+      useStore.getState().appendItem(sessionPath, {
+        type: 'message',
+        data: { id: `user-${Date.now()}`, role: 'user', text, textHtml: renderMarkdown(text) },
+      });
+    }
 
     setInputText('');
     state.ws.send(JSON.stringify({ type: 'steer', text, sessionPath: state.currentSessionPath }));
@@ -685,6 +714,7 @@ function ContextRing() {
   const [contextWindow, setContextWindow] = useState<number | null>(null);
   const [percent, setPercent] = useState<number | null>(null);
   const [compacting, setCompacting] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   // 从 __hanaState 同步 context 数据
   useEffect(() => {
@@ -725,8 +755,6 @@ function ContextRing() {
   // token 数量格式化
   const tokensK = Math.round(tokens / 1000);
   const windowK = contextWindow != null ? Math.round(contextWindow / 1000) : 0;
-
-  const [hovered, setHovered] = useState(false);
 
   return (
     <span className="context-ring-wrap"

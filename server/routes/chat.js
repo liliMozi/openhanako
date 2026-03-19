@@ -109,20 +109,15 @@ export default async function chatRoute(app, { engine, hub }) {
     if (_browserThumbTimer) { clearInterval(_browserThumbTimer); _browserThumbTimer = null; }
   }
 
-  // 元数据事件：非焦点 session 也广播（前端需要维护 streamingSessions）
-  const META_EVENT_TYPES = new Set(["turn_end", "status"]);
-
   function emitStreamEvent(sessionPath, ss, event) {
     const entry = appendSessionStreamEvent(ss, event);
-    // 内容事件只广播焦点 session，元数据事件始终广播（Phase 4 多标签页时放开全部）
-    if (sessionPath === engine.currentSessionPath || META_EVENT_TYPES.has(event.type)) {
-      broadcast({
-        ...event,
-        sessionPath,
-        streamId: entry.streamId,
-        seq: entry.seq,
-      });
-    }
+    // Phase 4: 始终广播所有事件，前端按 sessionPath 路由到对应 panel
+    broadcast({
+      ...event,
+      sessionPath,
+      streamId: entry.streamId,
+      seq: entry.seq,
+    });
     return entry;
   }
 

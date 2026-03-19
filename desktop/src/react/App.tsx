@@ -10,6 +10,7 @@ import { DeskSection } from './components/DeskSection';
 import { InputArea } from './components/InputArea';
 import { SessionList } from './components/SessionList';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { ChatArea } from './components/chat/ChatArea';
 
 function App() {
   useEffect(() => {
@@ -36,6 +37,7 @@ function App() {
       <InputArea />
       <SessionList />
       <WelcomeScreen />
+      <ChatArea />
     </ErrorBoundary>
   );
 }

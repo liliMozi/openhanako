@@ -327,8 +327,6 @@ function initModules() {
     _cr, _fc, _ar, _sb, _ch, _dk, _msg, _ag,
   });
 
-  _cr().initChatRender(sharedCtx);
-
   _sb().initSidebarModule({
     ...sharedCtx,
     clearChat: (...a) => _ag().clearChat(...a),

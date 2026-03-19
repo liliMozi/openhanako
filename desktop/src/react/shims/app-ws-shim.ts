@@ -6,6 +6,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { streamBufferManager } from '../hooks/use-stream-buffer';
+
 declare function t(key: string, vars?: Record<string, string>): any;
 
 interface AppWsCtx {
@@ -125,7 +127,7 @@ function applyStreamingStatus(isStreaming: boolean): void {
   if (state.isStreaming) {
     ensureCurrentSessionVisible();
   } else {
-    ctx._cr().finishAssistantMessage();
+    // React 模式：消息完成由 StreamBuffer turn_end 处理
     if (hasOptimisticCurrentSession()) {
       ctx._sb().loadSessions().catch(() => {});
     }
@@ -142,6 +144,8 @@ async function rebuildCurrentSessionFromResume(msg: any): Promise<void> {
   const myVersion = ++_streamResumeRebuildVersion;
   _streamResumeRebuildingFor = sessionPath;
   try {
+    // 清掉旧 buffer 防止脏写
+    streamBufferManager.clear(sessionPath);
     ctx._ag().clearChat();
     await ctx._msg().loadMessages();
 
@@ -291,137 +295,55 @@ function handleServerMessage(msg: any): void {
     updateSessionStreamMeta(msg);
   }
 
-  // Phase 1: 非焦点 session 的 stream 事件只更新元数据，不写 DOM
-  if (isStreamScopedMessage(msg) && msg.sessionPath !== state.currentSessionPath) {
-    return;
-  }
+  // React 模式：stream 事件由 StreamBufferManager 按 sessionPath 路由，无需 PanelManager
 
-  switch (msg.type) {
-    case 'stream_resume':
-      replayStreamResume(msg);
-      break;
-
-    case 'text_delta':
-      _cr().ensureAssistantMessage();
-      _cr().hideThinking();
-      _cr().sealToolGroup();
-      _cr().ensureTextEl();
-      state.currentTextBuffer += msg.delta;
-      {
-        const displayText = state.currentTextBuffer.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
-        state.currentTextEl.innerHTML = md.render(displayText);
-        injectCopyButtons(state.currentTextEl);
-      }
-      scrollToBottom();
-      break;
-
-    case 'xing_start': {
-      _cr().ensureAssistantMessage();
-      _cr().hideThinking();
-      _cr().sealToolGroup();
-      state.inXing = true;
-      state.xingTitle = msg.title || '反省';
-      state.currentTextEl = null;
-      state._xingBuf = '';
-      _cr().showXingLoading(state.xingTitle);
-      scrollToBottom();
-      break;
-    }
-
-    case 'xing_text':
-      state._xingBuf = (state._xingBuf || '') + (msg.delta || '');
-      break;
-
-    case 'xing_end':
-      _cr().sealXingCard(state.xingTitle, state._xingBuf || '');
-      state.inXing = false;
-      state.xingTitle = null;
-      state.xingCardEl = null;
-      state._xingBuf = '';
-      scrollToBottom();
-      break;
-
-    case 'mood_start': {
-      _cr().ensureAssistantMessage();
-      _cr().hideThinking();
-      _cr().sealToolGroup();
-      state.inMood = true;
-      const yuan = state.agentYuan || 'hanako';
-      state.currentMoodWrapper = document.createElement('details');
-      state.currentMoodWrapper.className = 'mood-wrapper';
-      state.currentMoodWrapper.dataset.yuan = yuan;
-      const summary = document.createElement('summary');
-      summary.className = 'mood-summary';
-      summary.innerHTML = `<span class="mood-arrow">›</span> ${_msg().moodLabel(yuan)}`;
-      state.currentMoodWrapper.appendChild(summary);
-      state.currentMoodEl = document.createElement('div');
-      state.currentMoodEl.className = 'mood-block';
-      state.currentMoodWrapper.appendChild(state.currentMoodEl);
-      const wrapper = state.currentMoodWrapper;
-      wrapper.addEventListener('toggle', () => {
-        const arrow = summary.querySelector('.mood-arrow');
-        if (arrow) arrow.classList.toggle('open', wrapper.open);
-      });
-      state.currentAssistantEl.appendChild(state.currentMoodWrapper);
-      break;
-    }
-
-    case 'mood_text':
-      if (state.currentMoodEl) {
-        state.currentMoodEl.textContent += msg.delta;
-        scrollToBottom();
-      }
-      break;
-
-    case 'mood_end':
-      state.inMood = false;
-      if (state.currentMoodEl) {
-        state.currentMoodEl.textContent = _msg().cleanMoodText(state.currentMoodEl.textContent);
-      }
-      state.currentMoodEl = null;
-      state.currentMoodWrapper = null;
-      break;
-
-    case 'thinking_start':
-      _cr().ensureAssistantMessage();
-      state._thinkingBuf = '';
-      _cr().showThinking();
-      break;
-
-    case 'thinking_delta':
-      if (msg.delta) state._thinkingBuf = (state._thinkingBuf || '') + msg.delta;
-      break;
-
-    case 'thinking_end':
-      _cr().sealThinking(state._thinkingBuf || '');
-      state._thinkingBuf = undefined;
-      break;
-
-    case 'tool_start':
-      _cr().ensureAssistantMessage();
-      _cr().hideThinking();
-      _cr().addToolToGroup(msg.name, msg.args);
-      break;
-
-    case 'tool_end':
-      _cr().updateToolInGroup(msg.name, msg.success);
-      if (msg.name === 'todo' && msg.details?.todos) {
-        state.sessionTodos = msg.details.todos;
-      }
-      break;
-
-    case 'turn_end':
-      // 安全兜底：如果 thinking 块未被 seal，先保留内容再结束
-      if (state._thinkingBuf != null) {
-        _cr().sealThinking(state._thinkingBuf || '');
-        state._thinkingBuf = undefined;
-      }
-      _cr().finishAssistantTurn();
+  // ── React 聊天渲染路径：聊天相关事件走 StreamBufferManager ──
+  const REACT_CHAT_EVENTS = new Set([
+    'text_delta', 'thinking_start', 'thinking_delta', 'thinking_end',
+    'mood_start', 'mood_text', 'mood_end',
+    'xing_start', 'xing_text', 'xing_end',
+    'tool_start', 'tool_end', 'turn_end',
+    'file_output', 'skill_activated', 'artifact',
+    'browser_screenshot', 'cron_confirmation',
+    'compaction_start', 'compaction_end',
+  ]);
+  if (REACT_CHAT_EVENTS.has(msg.type)) {
+    streamBufferManager.handle(msg);
+    // turn_end 后仍需执行部分通用逻辑（loadSessions、context_usage）
+    if (msg.type === 'turn_end') {
       _sb().loadSessions();
-      // 每轮结束后刷新 token 用量
       if (state.ws?.readyState === WebSocket.OPEN) {
         state.ws.send(JSON.stringify({ type: 'context_usage' }));
       }
+    }
+    // tool_end 后更新 todo
+    if (msg.type === 'tool_end' && msg.name === 'todo' && msg.details?.todos) {
+      state.sessionTodos = msg.details.todos;
+    }
+    // compaction_end 后更新 token
+    if (msg.type === 'compaction_end') {
+      state._compacting = false;
+      if (msg.tokens != null && msg.contextWindow != null) {
+        state.contextTokens = msg.tokens;
+        state.contextWindow = msg.contextWindow;
+        state.contextPercent = msg.percent;
+      }
+    }
+    if (msg.type === 'compaction_start') {
+      state._compacting = true;
+    }
+    // artifact 需要通知 artifacts shim 更新预览
+    if (msg.type === 'artifact' && state.currentTab === 'chat') {
+      _ar().handleArtifact(msg);
+    }
+    // scrollToBottom 由 Virtuoso followOutput 自动处理
+    return;
+  }
+
+  // 非聊天渲染事件走传统 switch
+  switch (msg.type) {
+    case 'stream_resume':
+      replayStreamResume(msg);
       break;
 
     case 'session_title':
@@ -434,32 +356,6 @@ function handleServerMessage(msg: any): void {
 
     case 'desk_changed':
       _dk().loadDeskFiles();
-      break;
-
-    case 'file_output':
-      _cr().ensureAssistantMessage();
-      _fc().appendFileCard(msg.filePath, msg.label, msg.ext);
-      scrollToBottom();
-      break;
-
-    case 'skill_activated':
-      _cr().ensureAssistantMessage();
-      _fc().appendSkillCard(msg.skillName, msg.skillFilePath);
-      scrollToBottom();
-      break;
-
-    case 'artifact':
-      if (state.currentTab !== 'chat') break;
-      _cr().ensureAssistantMessage();
-      _ar().handleArtifact(msg);
-      scrollToBottom();
-      break;
-
-    case 'browser_screenshot':
-      if (state.currentTab !== 'chat') break;
-      _cr().ensureAssistantMessage();
-      _ar().appendBrowserScreenshot(msg.base64, msg.mimeType);
-      scrollToBottom();
       break;
 
     case 'browser_status':
@@ -480,15 +376,6 @@ function handleServerMessage(msg: any): void {
     case 'browser_bg_status': {
       const bar = document.getElementById('browserBgBar');
       if (bar) bar.classList.toggle('hidden', !msg.running);
-      break;
-    }
-
-    case 'cron_confirmation': {
-      _cr().ensureAssistantMessage();
-      const jd = msg.jobData;
-      if (!jd || !state.currentAssistantEl) break;
-      _msg().appendCronConfirmCard(jd);
-      scrollToBottom();
       break;
     }
 
@@ -535,15 +422,6 @@ function handleServerMessage(msg: any): void {
       }
       break;
     }
-
-    case 'compaction_start':
-      state._compacting = true;
-      _cr().showCompaction();
-      break;
-
-    case 'compaction_end':
-      state._compacting = false;
-      _cr().hideCompaction();
       // 更新 token 用量
       if (msg.tokens != null && msg.contextWindow != null) {
         state.contextTokens = msg.tokens;

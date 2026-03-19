@@ -1813,8 +1813,8 @@ html[data-platform="linux"] .tb-toggle-right {
     animation: msg-in 0.3s var(--ease-out);
 }
 
-.message-group:first-child {
-    margin-top: var(--space-md);
+.message-group:first-child .avatar-row {
+    margin-top: 0;
 }
 
 .message-group.user {
@@ -1832,6 +1832,7 @@ html[data-platform="linux"] .tb-toggle-right {
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    margin-top: var(--space-lg);
     margin-bottom: 0.2rem;
 }
 
@@ -2163,7 +2164,7 @@ html[data-platform="linux"] .tb-toggle-right {
 
 /* 消息组间距（不同角色之间留大间距） */
 .message-group + .message-group {
-    margin-top: var(--space-lg);
+    margin-top: 0;
 }
 
 /* ========================================
@@ -11039,4 +11040,70 @@ body.resizing .preview-panel-inner {
 }
 .hana-warning-confirm:hover {
     opacity: 0.85;
+}
+
+/* ========================================
+   Scroll to bottom FAB
+   ======================================== */
+/* ========================================
+   Session Panel（每个 session 独立的滚动容器）
+   ======================================== */
+/* 每个 session panel：绝对定位 + 自带原生滚动 */
+.chat-session-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto;
+    /* 上：title bar 52px + 呼吸空间 24px = 76px；下：输入框空间由 footer 撑 */
+    padding: 76px var(--space-lg) 0;
+}
+
+/* 消息列表居中限宽 */
+.chat-session-messages {
+    max-width: 640px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 底部占位（给输入框留出呼吸空间） */
+.chat-session-footer {
+    height: 8rem;
+    flex-shrink: 0;
+}
+
+/* session panel 存在时 chatArea 不自己滚动 */
+.chat-area:has(.chat-session-panel) {
+    overflow: hidden;
+    position: relative;
+}
+
+.scroll-to-bottom-fab {
+    position: absolute;
+    bottom: 140px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border-light, rgba(0,0,0,0.08));
+    background: var(--bg-card, #fff);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.04);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: opacity 0.2s, box-shadow 0.2s;
+    opacity: 0.85;
+}
+.scroll-to-bottom-fab:hover {
+    opacity: 1;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06);
+}
+.scroll-to-bottom-fab svg {
+    display: block;
 }

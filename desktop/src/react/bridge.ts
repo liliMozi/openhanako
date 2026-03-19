@@ -18,7 +18,7 @@ import { setupAppUiShim } from './shims/app-ui-shim';
 import { setupArtifactsShim } from './shims/artifacts-shim';
 import { setupFileCardsShim } from './shims/file-cards-shim';
 import { setupDeskShim } from './shims/desk-shim';
-import { setupChatRenderShim } from './shims/chat-render-shim';
+// chat-render-shim 和 panel-manager 已删除，聊天渲染由 React ChatArea 管理
 
 declare global {
   interface Window {
@@ -38,6 +38,8 @@ function activateProxy(): void {
     () => useStore.getState(),
     (patch) => useStore.setState(patch),
   );
+  // 暴露 store 给非 React 代码（sidebar-shim 等）
+  (window as any).__zustandStore = { getState: () => useStore.getState() };
 }
 
 /**
@@ -74,9 +76,6 @@ function setupLegacyShims(): void {
 
   // desk（Phase 3d）
   setupDeskShim(modules);
-
-  // chat-render（Phase 3e）— 命令式 DOM 操作，流式高频调用
-  setupChatRenderShim(modules);
 
   // sidebar（Phase 3f）
   setupSidebarShim(modules);

@@ -54,12 +54,15 @@ function renderWelcomeAgentSelector(): void { /* React 负责 */ }
 
 function clearChat(): void {
   const { state, messagesEl, renderTodoDisplay, resetScroll } = ctx;
-  messagesEl.innerHTML = '';
+
+  // 清 store 数据，DOM 由 React 管理
+  const sessionPath = state.currentSessionPath;
+  if (sessionPath) {
+    (window as any).__zustandStore?.getState()?.clearSession?.(sessionPath);
+  }
+
   state.welcomeVisible = true;
-  ctx._cr().finishAssistantMessage();
-  state.lastRole = null;
   state.memoryEnabled = true;
-  resetScroll();
   state.sessionTodos = [];
   state.artifacts = [];
   if (state.previewOpen) ctx._ar().closePreview();

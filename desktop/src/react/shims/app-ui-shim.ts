@@ -61,15 +61,13 @@ function setStatus(text: string, connected: boolean): void {
 // ── 错误显示 ──
 
 function showError(message: string): void {
-  const { state } = ctx;
-  ctx._cr().ensureAssistantMessage();
-  const el = document.createElement('div');
-  el.style.color = 'var(--coral)';
-  el.style.fontSize = '0.85rem';
-  el.style.margin = 'var(--space-xs) 0';
-  el.textContent = `⚠ ${message}`;
-  state.currentAssistantEl.appendChild(el);
-  scrollToBottom();
+  // 简易 toast 提示（不再操作聊天 DOM）
+  console.error('[hana]', message);
+  const toast = document.createElement('div');
+  toast.className = 'hana-toast error';
+  toast.textContent = `⚠ ${message}`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 5000);
 }
 
 // ── 模型加载（数据 only，UI 由 React ModelSelector 渲染） ──

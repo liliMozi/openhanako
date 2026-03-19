@@ -122,21 +122,39 @@ describe("模型选择无 fallback", () => {
       expect(result).toEqual({ id: "qwen3.5-plus", provider: "dashscope" });
     });
 
-    it("models.chat 未配置时抛错", () => {
+    it("models.chat 未配置、有 defaultModel 时回退到默认模型", () => {
       const coord = makeCoordinator(tempDir, {
         agentConfig: {},
         models: makeModels([{ id: "some-model", provider: "x" }]),
       });
       const ctx = coord.createSessionContext();
-      expect(() => ctx.resolveModel({})).toThrow("未指定 models.chat");
-      expect(() => ctx.resolveModel({ models: {} })).toThrow("未指定 models.chat");
+      expect(ctx.resolveModel({})).toEqual({ id: "some-model", provider: "x" });
+      expect(ctx.resolveModel({ models: {} })).toEqual({ id: "some-model", provider: "x" });
     });
 
-    it("指定的模型不在 availableModels 中时抛错，不 fallback", () => {
+    it("models.chat 未配置、无 defaultModel 时抛错", () => {
+      const coord = makeCoordinator(tempDir, {
+        agentConfig: {},
+        models: makeModels([]),
+      });
+      const ctx = coord.createSessionContext();
+      expect(() => ctx.resolveModel({})).toThrow("未指定 models.chat");
+    });
+
+    it("指定的模型不在 availableModels 中、有 defaultModel 时回退", () => {
       const models = makeModels([
         { id: "gpt-5", provider: "openai" },
         { id: "MiniMax-M2", provider: "minimax" },
       ]);
+      const coord = makeCoordinator(tempDir, { models });
+      const ctx = coord.createSessionContext();
+      // 有 defaultModel，回退而非抛错
+      expect(ctx.resolveModel({ models: { chat: "qwen3.5-plus" } }))
+        .toEqual({ id: "gpt-5", provider: "openai" });
+    });
+
+    it("指定的模型不在 availableModels 中、无 defaultModel 时抛错", () => {
+      const models = { ...makeModels([]), defaultModel: null };
       const coord = makeCoordinator(tempDir, { models });
       const ctx = coord.createSessionContext();
       expect(() => ctx.resolveModel({ models: { chat: "qwen3.5-plus" } }))
@@ -154,22 +172,22 @@ describe("模型选择无 fallback", () => {
   // ────── executeIsolated ──────
 
   describe("executeIsolated", () => {
-    it("agent 未配置 models.chat 时抛错", async () => {
+    it("agent 未配置 models.chat、无 defaultModel 时抛错", async () => {
       const coord = makeCoordinator(tempDir, {
         agentConfig: {},
-        models: makeModels([{ id: "some-model", provider: "x" }]),
+        models: makeModels([]),
       });
       const result = await coord.executeIsolated("hello");
-      expect(result.error).toContain("未指定 models.chat");
+      expect(result.error).toContain("无可用模型");
     });
 
-    it("配置的模型不在可用列表中时抛错", async () => {
+    it("配置的模型不在可用列表中、无 defaultModel 时抛错", async () => {
       const coord = makeCoordinator(tempDir, {
         agentConfig: { models: { chat: "nonexistent-model" } },
-        models: makeModels([{ id: "gpt-5", provider: "openai" }]),
+        models: { ...makeModels([]), defaultModel: null },
       });
       const result = await coord.executeIsolated("hello");
-      expect(result.error).toContain('模型 "nonexistent-model" 不在可用列表中');
+      expect(result.error).toContain("无可用模型");
     });
 
     it("模型匹配成功时正常执行", async () => {
