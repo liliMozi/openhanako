@@ -168,7 +168,7 @@ export const PROVIDER_PRESETS = [
   { value: 'deepseek', label: 'DeepSeek', url: 'https://api.deepseek.com/v1', api: 'openai-completions' },
   { value: 'volcengine', label: 'Volcengine (豆包)', url: 'https://ark.cn-beijing.volces.com/api/v3', api: 'openai-completions' },
   { value: 'moonshot', label: 'Moonshot (Kimi)', url: 'https://api.moonshot.cn/v1', api: 'openai-completions' },
-  { value: 'kimi-coding', label: 'Kimi Coding', url: 'https://api.kimi.com/coding', api: 'anthropic-messages' },
+  { value: 'kimi-coding', label: 'Kimi Coding', url: 'https://api.kimi.com/coding/v1', api: 'anthropic-messages' },
   { value: 'zhipu', label: 'Zhipu (GLM)', url: 'https://open.bigmodel.cn/api/paas/v4', api: 'openai-completions' },
   { value: 'siliconflow', label: 'SiliconFlow', url: 'https://api.siliconflow.cn/v1', api: 'openai-completions' },
   { value: 'groq', label: 'Groq', url: 'https://api.groq.com/openai/v1', api: 'openai-completions' },
