@@ -50,6 +50,7 @@ import {
 } from "./llm-utils.js";
 import { debugLog } from "../lib/debug-log.js";
 import { createSandboxedTools } from "../lib/sandbox/index.js";
+import { UsageTracker } from "./usage-tracker.js";
 
 export class HanaEngine {
   /**
@@ -69,6 +70,8 @@ export class HanaEngine {
     // ── Core managers ──
     this._prefs = new PreferencesManager({ userDir: this.userDir, agentsDir: this.agentsDir });
     this._models = new ModelManager({ hanakoHome });
+    // ── Usage Tracker ──
+    this._usageTracker = new UsageTracker(this.userDir);
 
     // 确定启动时焦点 agent
     const startId = agentId || this._prefs.getPrimaryAgent() || this._prefs.findFirstAgent();
@@ -241,6 +244,7 @@ export class HanaEngine {
   get authStorage() { return this._models.authStorage; }
   get modelRegistry() { return this._models.modelRegistry; }
   get preferences() { return this._prefs; }
+  get usageTracker() { return this._usageTracker; }
 
   /** 刷新可用模型列表（含 OAuth 自定义模型注入） */
   async refreshModels() { return this._models.refreshAvailable(); }

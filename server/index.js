@@ -40,6 +40,7 @@ import preferencesRoute from "./routes/preferences.js";
 import bridgeRoute from "./routes/bridge.js";
 import authRoute from "./routes/auth.js";
 import diaryRoute from "./routes/diary.js";
+import usageRoute from "./routes/usage.js";
 import { BridgeManager } from "../lib/bridge/bridge-manager.js";
 import { Hub } from "../hub/index.js";
 import { startCLI } from "./cli.js";
@@ -166,6 +167,7 @@ app.register(preferencesRoute, { engine });
 app.register(bridgeRoute, { engine, bridgeManager });
 app.register(authRoute, { engine });
 app.register(diaryRoute, { engine });
+app.register(usageRoute, { engine });
 
 // 健康检查 + 身份信息
 app.get("/api/health", async () => ({
