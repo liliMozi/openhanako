@@ -7,11 +7,28 @@ import { Toggle } from '../widgets/Toggle';
 
 const platform = (window as any).platform;
 
+interface InstanceStatus {
+  basePlatform: string;
+  configured?: boolean;
+  enabled?: boolean;
+  status?: string;
+  error?: string | null;
+  label?: string | null;
+  // Telegram
+  tokenMasked?: string;
+  // Feishu
+  appId?: string;
+  appSecretMasked?: string;
+  // QQ
+  appID?: string;
+}
+
 interface BridgeStatus {
   telegram: any;
   feishu: any;
   whatsapp: any;
   qq: any;
+  instances: Record<string, InstanceStatus>;
   readOnly: boolean;
   knownUsers: { telegram?: any[]; feishu?: any[]; whatsapp?: any[]; qq?: any[] };
   owner: { telegram?: string; feishu?: string; whatsapp?: string; qq?: string };
@@ -53,9 +70,8 @@ export function BridgeTab() {
 
   // Telegram fields
   const [tgToken, setTgToken] = useState('');
-  // Feishu fields
-  const [fsAppId, setFsAppId] = useState('');
-  const [fsAppSecret, setFsAppSecret] = useState('');
+  // Feishu fields — 多实例
+  const [feishuInstances, setFeishuInstances] = useState<{ id: string; appId: string; appSecret: string; label: string }[]>([]);
   // QQ fields
   const [qqAppId, setQqAppId] = useState('');
   const [qqAppSecret, setQqAppSecret] = useState('');
@@ -65,22 +81,70 @@ export function BridgeTab() {
       const res = await hanaFetch('/api/bridge/status');
       const data = await res.json();
       setStatus(data);
-      // 回填非敏感值
-      if (data.feishu?.appId && !fsAppId) setFsAppId(data.feishu.appId);
+
+      // 从 instances 中提取飞书实例列表
+      const instances = data.instances || {};
+      const fsIds = Object.keys(instances).filter(id => instances[id]?.basePlatform === 'feishu');
+      if (fsIds.length === 0) fsIds.push('feishu'); // 至少保留一个默认实例
+
+      setFeishuInstances(prev => {
+        // 仅在首次加载时初始化（或实例数量变化时更新）
+        if (prev.length === 0 || prev.length !== fsIds.length) {
+          return fsIds.map(id => ({
+            id,
+            appId: instances[id]?.appId || '',
+            appSecret: '',
+            label: instances[id]?.label || '',
+          }));
+        }
+        return prev;
+      });
+
       if (data.qq?.appID && !qqAppId) setQqAppId(data.qq.appID);
     } catch (err) {
       console.error('[bridge] load status failed:', err);
     }
   };
 
+  const addFeishuInstance = () => {
+    // 生成下一个实例 ID：feishu:2, feishu:3, ...
+    const existing = feishuInstances.map(i => i.id);
+    let next = 2;
+    while (existing.includes(`feishu:${next}`)) next++;
+    const newId = `feishu:${next}`;
+    setFeishuInstances(prev => [...prev, { id: newId, appId: '', appSecret: '', label: '' }]);
+  };
+
+  const removeFeishuInstance = async (instanceId: string) => {
+    if (!instanceId.includes(':')) return; // 不能删除默认实例
+    try {
+      await hanaFetch('/api/bridge/delete-instance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceId }),
+      });
+      setFeishuInstances(prev => prev.filter(i => i.id !== instanceId));
+      showToast(t('settings.saved'), 'success');
+      await loadStatus();
+    } catch (err: any) {
+      showToast(t('settings.saveFailed') + ': ' + err.message, 'error');
+    }
+  };
+
+  const updateFeishuField = (instanceId: string, field: string, value: string) => {
+    setFeishuInstances(prev => prev.map(i =>
+      i.id === instanceId ? { ...i, [field]: value } : i
+    ));
+  };
+
   useEffect(() => { loadStatus(); }, []);
 
-  const saveBridgeConfig = async (platform_: string, credentials: any, enabled?: boolean) => {
+  const saveBridgeConfig = async (platform_: string, credentials: any, enabled?: boolean, label?: string) => {
     try {
       await hanaFetch('/api/bridge/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: platform_, credentials, enabled }),
+        body: JSON.stringify({ platform: platform_, credentials, enabled, label }),
       });
       showToast(t('settings.saved'), 'success');
       await loadStatus();
@@ -127,7 +191,6 @@ export function BridgeTab() {
   };
 
   const tgInfo = status?.telegram || {};
-  const fsInfo = status?.feishu || {};
   const waInfo = status?.whatsapp || {};
   const qqInfo = status?.qq || {};
   const readOnly = !!status?.readOnly;
@@ -210,70 +273,110 @@ export function BridgeTab() {
         />
       </section>
 
-      {/* 飞书 */}
+      {/* 飞书（支持多实例） */}
       <section className="settings-section">
-        <h2 className="settings-section-title">{t('settings.bridge.feishu')}</h2>
-        <div className="bridge-platform-header">
-          <BridgeStatusDot status={fsInfo.status} />
-          <BridgeStatusText status={fsInfo.status} error={fsInfo.error} />
-          <Toggle
-            on={!!fsInfo.enabled}
-            onChange={async (on) => {
-              const hasSaved = !!fsInfo.appSecretMasked;
-              if (on && !fsAppId && !hasSaved) {
-                showToast(t('settings.bridge.noCredentials'), 'error');
-                return;
-              }
-              const creds = fsAppSecret ? { appId: fsAppId, appSecret: fsAppSecret } : (fsAppId ? { appId: fsAppId } : null);
-              await saveBridgeConfig('feishu', creds, on);
-            }}
-          />
-        </div>
-        <div className="settings-field">
-          <label className="settings-field-label">{t('settings.bridge.feishuAppId')}</label>
-          <input
-            className="settings-input"
-            type="text"
-            value={fsAppId}
-            onChange={(e) => setFsAppId(e.target.value)}
-            onBlur={async () => {
-              if (fsAppId.trim() && fsAppSecret.trim()) {
-                await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, undefined);
-              }
-            }}
-          />
-        </div>
-        <div className="settings-field">
-          <label className="settings-field-label">{t('settings.bridge.feishuAppSecret')}</label>
-          <div className="bridge-input-row">
-            <KeyInput
-              value={fsAppSecret}
-              onChange={setFsAppSecret}
-              placeholder={fsInfo.appSecretMasked || ''}
-              onBlur={async () => {
-                if (fsAppId.trim() && fsAppSecret.trim()) {
-                  await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, undefined);
-                }
-              }}
-            />
-            <button
-              className="bridge-test-btn"
-              onClick={(e) => {
-                if (!fsAppId.trim() || !fsAppSecret.trim()) { showToast(t('settings.bridge.noCredentials'), 'error'); return; }
-                testPlatform('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, e.currentTarget);
-              }}
-            >
-              {t('settings.bridge.test')}
-            </button>
-          </div>
-          <span className="settings-field-hint">{t('settings.bridge.feishuHint')}</span>
-        </div>
-        <OwnerSelect
-          platform_="feishu"
-          users={status?.knownUsers?.feishu || []}
-          currentOwner={status?.owner?.feishu}
-          onChange={(userId) => setOwner('feishu', userId)}
-        />
+        <h2 className="settings-section-title">
+          {t('settings.bridge.feishu')}
+          <button
+            className="bridge-add-instance-btn"
+            onClick={addFeishuInstance}
+            title="添加飞书实例"
+          >+</button>
+        </h2>
+        {feishuInstances.map((inst) => {
+          const instanceInfo = status?.instances?.[inst.id] || {};
+          const isDefault = !inst.id.includes(':');
+          const displayLabel = inst.label || instanceInfo.label || (isDefault ? '' : inst.id.split(':')[1]);
+          return (
+            <div key={inst.id} className="bridge-instance-block">
+              {!isDefault && (
+                <div className="bridge-instance-header">
+                  <input
+                    className="settings-input bridge-instance-label-input"
+                    type="text"
+                    placeholder={`实例标签（如"Owner 飞书"）`}
+                    value={inst.label}
+                    onChange={(e) => updateFeishuField(inst.id, 'label', e.target.value)}
+                    onBlur={async () => {
+                      if (inst.label.trim()) {
+                        await saveBridgeConfig(inst.id, null, undefined, inst.label.trim());
+                      }
+                    }}
+                  />
+                  <button
+                    className="bridge-remove-instance-btn"
+                    onClick={() => removeFeishuInstance(inst.id)}
+                    title="删除此实例"
+                  >✕</button>
+                </div>
+              )}
+              <div className="bridge-platform-header">
+                <BridgeStatusDot status={instanceInfo.status} />
+                <BridgeStatusText status={instanceInfo.status} error={instanceInfo.error} />
+                {displayLabel && <span className="bridge-instance-tag">{displayLabel}</span>}
+                <Toggle
+                  on={!!instanceInfo.enabled}
+                  onChange={async (on) => {
+                    const hasSaved = !!instanceInfo.appSecretMasked;
+                    if (on && !inst.appId && !hasSaved) {
+                      showToast(t('settings.bridge.noCredentials'), 'error');
+                      return;
+                    }
+                    const creds = inst.appSecret ? { appId: inst.appId, appSecret: inst.appSecret } : (inst.appId ? { appId: inst.appId } : null);
+                    await saveBridgeConfig(inst.id, creds, on);
+                  }}
+                />
+              </div>
+              <div className="settings-field">
+                <label className="settings-field-label">{t('settings.bridge.feishuAppId')}</label>
+                <input
+                  className="settings-input"
+                  type="text"
+                  value={inst.appId}
+                  onChange={(e) => updateFeishuField(inst.id, 'appId', e.target.value)}
+                  onBlur={async () => {
+                    if (inst.appId.trim() && inst.appSecret.trim()) {
+                      await saveBridgeConfig(inst.id, { appId: inst.appId.trim(), appSecret: inst.appSecret.trim() }, undefined);
+                    }
+                  }}
+                />
+              </div>
+              <div className="settings-field">
+                <label className="settings-field-label">{t('settings.bridge.feishuAppSecret')}</label>
+                <div className="bridge-input-row">
+                  <KeyInput
+                    value={inst.appSecret}
+                    onChange={(v: string) => updateFeishuField(inst.id, 'appSecret', v)}
+                    placeholder={instanceInfo.appSecretMasked || ''}
+                    onBlur={async () => {
+                      if (inst.appId.trim() && inst.appSecret.trim()) {
+                        await saveBridgeConfig(inst.id, { appId: inst.appId.trim(), appSecret: inst.appSecret.trim() }, undefined);
+                      }
+                    }}
+                  />
+                  <button
+                    className="bridge-test-btn"
+                    onClick={(e) => {
+                      if (!inst.appId.trim() || !inst.appSecret.trim()) { showToast(t('settings.bridge.noCredentials'), 'error'); return; }
+                      testPlatform(inst.id, { appId: inst.appId.trim(), appSecret: inst.appSecret.trim() }, e.currentTarget);
+                    }}
+                  >
+                    {t('settings.bridge.test')}
+                  </button>
+                </div>
+                <span className="settings-field-hint">{t('settings.bridge.feishuHint')}</span>
+              </div>
+              {isDefault && (
+                <OwnerSelect
+                  platform_="feishu"
+                  users={status?.knownUsers?.feishu || []}
+                  currentOwner={status?.owner?.feishu}
+                  onChange={(userId) => setOwner('feishu', userId)}
+                />
+              )}
+            </div>
+          );
+        })}
       </section>
 
       {/* QQ */}

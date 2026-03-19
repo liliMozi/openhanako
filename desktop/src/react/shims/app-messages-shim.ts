@@ -335,6 +335,55 @@ async function loadMessages(): Promise<void> {
   } catch { /* silent */ }
 }
 
+// ── Bridge 消息加载 ──
+
+async function loadBridgeMessages(sessionKey: string): Promise<void> {
+  const { hanaFetch, md, scrollToBottom } = ctx;
+  const _cr = ctx._cr;
+
+  try {
+    const res = await hanaFetch(`/api/bridge/sessions/${encodeURIComponent(sessionKey)}/messages`);
+    const data = await res.json();
+
+    if (data.messages && data.messages.length > 0) {
+      for (const msg of data.messages) {
+        if (msg.role === 'user') {
+          // 提取前缀中的用户名：[飞书 私聊] 用户名: 消息内容
+          let displayText = msg.content;
+          const prefixMatch = displayText.match(/^\[.+?\]\s*(.+?):\s*/);
+          if (prefixMatch) {
+            // 有前缀 → 外部平台用户（飞书/TG 等）
+            const senderName = prefixMatch[1];
+            displayText = displayText.slice(prefixMatch[0].length);
+            _cr().addBridgeUserMessage(displayText, senderName);
+          } else {
+            // 无前缀 → Owner 消息（桌面端用户发的）
+            _cr().addOwnerBridgeMessage(displayText);
+          }
+        } else if (msg.role === 'assistant') {
+          // 去掉内部标签
+          const cleaned = (msg.content || '')
+            .replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '')
+            .replace(/```(?:mood|pulse|reflect)[\s\S]*?```\n*/gi, '')
+            .replace(/<(?:mood|pulse|reflect)>[\s\S]*?<\/(?:mood|pulse|reflect)>\s*/g, '');
+          const group = _cr().ensureGroup('assistant');
+          const bubble = document.createElement('div');
+          bubble.className = 'message assistant';
+          const textEl = document.createElement('div');
+          textEl.className = 'md-content';
+          textEl.innerHTML = md.render(cleaned);
+          bubble.appendChild(textEl);
+          group.appendChild(bubble);
+          _cr().finishAssistantMessage();
+        }
+      }
+      scrollToBottom();
+    }
+  } catch (err) {
+    console.error('[bridge] loadBridgeMessages failed:', err);
+  }
+}
+
 // ── Setup ──
 
 export function setupAppMessagesShim(modules: Record<string, unknown>): void {
@@ -349,6 +398,7 @@ export function setupAppMessagesShim(modules: Record<string, unknown>): void {
     // 消息
     parseUserAttachments,
     loadMessages,
+    loadBridgeMessages,
     // ctx 注入
     initAppMessages: (injected: AppMessagesCtx) => { ctx = injected; },
   };

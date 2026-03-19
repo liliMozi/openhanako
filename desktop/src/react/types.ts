@@ -10,6 +10,13 @@ export interface Session {
   agentName: string | null;
   cwd: string | null;
   _optimistic?: boolean;
+  // Bridge session 字段
+  bridge?: boolean;
+  bridgePlatform?: string;
+  bridgeChatType?: string;
+  bridgeSessionKey?: string;
+  bridgeDisplayName?: string | null;
+  bridgeAvatarUrl?: string | null;
 }
 
 export interface Agent {

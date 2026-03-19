@@ -215,6 +215,98 @@ function addUserMessage(text: string, files?: Array<{ isDirectory?: boolean; nam
   crCtx!.scrollToBottom();
 }
 
+// ── Bridge 外部平台用户消息（显示外部用户名） ──
+
+function addBridgeUserMessage(text: string, senderName: string): void {
+  useStore.getState().setWelcomeVisible(false);
+
+  const messagesEl = crCtx!.messagesEl;
+
+  // 总是新建消息组（bridge 用户名可能不同，且不和 owner 消息复用）
+  const group = document.createElement('div');
+  group.className = 'message-group bridge-user';
+
+  const avatarRow = document.createElement('div');
+  avatarRow.className = 'avatar-row';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar user-avatar bridge-user-avatar';
+  avatar.textContent = '\u{1F4AC}';
+  avatarRow.appendChild(avatar);
+
+  const name = document.createElement('span');
+  name.className = 'avatar-name';
+  name.textContent = senderName || '用户';
+  avatarRow.appendChild(name);
+
+  group.appendChild(avatarRow);
+  messagesEl.appendChild(group);
+  crState().lastRole = 'bridge-user';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'message user bridge-user-msg';
+
+  if (text) {
+    const textEl = document.createElement('div');
+    textEl.className = 'user-text md-content';
+    textEl.innerHTML = crCtx!.md.render(text);
+    bubble.appendChild(textEl);
+  }
+
+  group.appendChild(bubble);
+  crCtx!.scrollToBottom();
+}
+
+// ── Bridge Owner 消息（桌面端用户在 bridge 模式下发的消息） ──
+
+function addOwnerBridgeMessage(text: string): void {
+  useStore.getState().setWelcomeVisible(false);
+
+  const messagesEl = crCtx!.messagesEl;
+
+  // 新建消息组，带 owner 标识
+  const group = document.createElement('div');
+  group.className = 'message-group bridge-owner';
+
+  const avatarRow = document.createElement('div');
+  avatarRow.className = 'avatar-row';
+
+  // 使用桌面用户的头像
+  if (crState().userAvatarUrl) {
+    const avatar = document.createElement('img');
+    avatar.className = 'avatar user-avatar-img';
+    avatar.src = crState().userAvatarUrl as string;
+    avatar.draggable = false;
+    avatarRow.appendChild(avatar);
+  } else {
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar user-avatar';
+    avatar.textContent = '\u{1F467}\u{1F3FB}';
+    avatarRow.appendChild(avatar);
+  }
+  const name = document.createElement('span');
+  name.className = 'avatar-name';
+  name.textContent = (crState().userName as string) || 'Owner';
+  avatarRow.appendChild(name);
+
+  group.appendChild(avatarRow);
+  messagesEl.appendChild(group);
+  crState().lastRole = 'bridge-owner';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'message user bridge-owner-msg';
+
+  if (text) {
+    const textEl = document.createElement('div');
+    textEl.className = 'user-text md-content';
+    textEl.innerHTML = crCtx!.md.render(text);
+    bubble.appendChild(textEl);
+  }
+
+  group.appendChild(bubble);
+  crCtx!.scrollToBottom();
+}
+
 // ── 助手消息 ──
 
 function ensureAssistantMessage(): void {
@@ -700,6 +792,8 @@ export function setupChatRenderShim(modules: Record<string, unknown>): void {
   modules.chatRender = {
     ensureGroup,
     addUserMessage,
+    addBridgeUserMessage,
+    addOwnerBridgeMessage,
     ensureAssistantMessage,
     ensureTextEl,
     finishAssistantTurn: crFinishAssistantTurn,

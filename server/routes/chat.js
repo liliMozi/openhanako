@@ -427,6 +427,12 @@ export default async function chatRoute(app, { engine, hub }) {
           percent: usage?.percent ?? null,
         });
       }
+    } else if (event.type === "bridge_message") {
+      // Bridge 消息广播到所有 WS 客户端（飞书/TG 用户消息、AI 回复、owner 回显）
+      broadcast({ type: "bridge_message", message: event.message });
+    } else if (event.type === "bridge_status") {
+      // Bridge 平台连接状态变更（支持多实例）
+      broadcast({ type: "bridge_status", platform: event.platform, instanceId: event.instanceId || event.platform, status: event.status, error: event.error || null });
     }
   });
 

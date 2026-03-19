@@ -69,21 +69,73 @@ export function BridgePanel() {
       const sessData = await sessionsRes.json();
       setStatusData(sData);
       updateSidebarDot(sData);
-      setShowOverlay(!sData[plat]?.configured);
+      // 检查平台是否已配置（飞书：任一飞书实例 configured 即可）
+      let configured = sData[plat]?.configured;
+      if (!configured && sData.instances) {
+        configured = Object.entries(sData.instances).some(([id, inst]: [string, any]) =>
+          (id === plat || id.startsWith(plat + ':')) && inst?.configured
+        );
+      }
+      setShowOverlay(!configured);
       setSessions(sessData.sessions || []);
     } catch (err) {
       console.error('[bridge] load platform data failed:', err);
     }
   }, []);
 
+  const openSession = useCallback(async (sessionKey: string, displayName: string) => {
+    setCurrentKey(sessionKey);
+    setCurrentName(displayName);
+    try {
+      const res = await hanaFetch(`/api/bridge/sessions/${encodeURIComponent(sessionKey)}/messages`);
+      const data = await res.json();
+      setMessages(data.messages || []);
+      setChatOpen(true);
+      setTimeout(() => {
+        if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+      }, 0);
+    } catch (err) {
+      console.error('[bridge] open session failed:', err);
+      setChatOpen(false);
+    }
+  }, []);
+
+  const switchTab = useCallback((plat: string) => {
+    setPlatform(plat);
+    setCurrentKey(null);
+    setChatOpen(false);
+    localStorage.setItem('hana_bridge_tab', plat);
+    loadPlatformData(plat);
+  }, [loadPlatformData]);
+
   // 面板打开时加载数据
   useEffect(() => {
     if (activePanel === 'bridge') {
       loadPlatformData(platform);
-      setChatOpen(false);
-      setCurrentKey(null);
+      // 不在这里 reset chatOpen，让 hana-bridge-open-session 事件有机会设置
     }
   }, [activePanel, platform, loadPlatformData]);
+
+  // 监听从 SessionList 点击 bridge session 的事件
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail?.sessionKey) return;
+      const { sessionKey, displayName, platform: plat } = detail;
+      if (plat && plat !== platform) {
+        setPlatform(plat);
+        localStorage.setItem('hana_bridge_tab', plat);
+        // 先加载平台数据，再打开会话
+        loadPlatformData(plat).then(() => {
+          openSession(sessionKey, displayName || sessionKey);
+        });
+      } else {
+        openSession(sessionKey, displayName || sessionKey);
+      }
+    };
+    window.addEventListener('hana-bridge-open-session', handler);
+    return () => window.removeEventListener('hana-bridge-open-session', handler);
+  }, [platform, loadPlatformData, openSession]);
 
   // 注册 WS 回调
   useEffect(() => {
@@ -118,31 +170,6 @@ export function BridgePanel() {
     };
   }, [activePanel, platform, loadStatus, loadPlatformData]);
 
-  const switchTab = useCallback((plat: string) => {
-    setPlatform(plat);
-    setCurrentKey(null);
-    setChatOpen(false);
-    localStorage.setItem('hana_bridge_tab', plat);
-    loadPlatformData(plat);
-  }, [loadPlatformData]);
-
-  const openSession = useCallback(async (sessionKey: string, displayName: string) => {
-    setCurrentKey(sessionKey);
-    setCurrentName(displayName);
-    try {
-      const res = await hanaFetch(`/api/bridge/sessions/${encodeURIComponent(sessionKey)}/messages`);
-      const data = await res.json();
-      setMessages(data.messages || []);
-      setChatOpen(true);
-      setTimeout(() => {
-        if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-      }, 0);
-    } catch (err) {
-      console.error('[bridge] open session failed:', err);
-      setChatOpen(false);
-    }
-  }, []);
-
   const resetSession = useCallback(async () => {
     if (!currentKey) return;
     try {
@@ -159,7 +186,12 @@ export function BridgePanel() {
 
   const t = window.t ?? ((p: string) => p);
   const tgStatus = statusData.telegram?.status;
-  const fsStatus = statusData.feishu?.status;
+  // 飞书状态：取所有飞书实例中最好的状态（任一 connected 即为 connected）
+  const instances = (statusData as any)?.instances || {};
+  const fsConnected = Object.entries(instances).some(([id, inst]: [string, any]) =>
+    (id === 'feishu' || id.startsWith('feishu:')) && inst?.status === 'connected'
+  );
+  const fsStatus = fsConnected ? 'connected' : (statusData.feishu?.status || undefined);
   const waStatus = statusData.whatsapp?.status;
   const qqStatus = statusData.qq?.status;
 
@@ -293,10 +325,14 @@ function dotClass(status?: string): string {
   return ' bridge-dot-off';
 }
 
-function updateSidebarDot(data: Record<string, { status: string } | undefined>) {
+function updateSidebarDot(data: Record<string, { status: string } | undefined> & { instances?: Record<string, { status: string }> }) {
   const dot = document.getElementById('bridgeDot');
   if (!dot) return;
-  const anyConnected = data.telegram?.status === 'connected' || data.feishu?.status === 'connected' || data.whatsapp?.status === 'connected' || data.qq?.status === 'connected';
+  // 检查顶层兼容字段和所有 instances
+  let anyConnected = data.telegram?.status === 'connected' || data.feishu?.status === 'connected' || data.whatsapp?.status === 'connected' || data.qq?.status === 'connected';
+  if (!anyConnected && data.instances) {
+    anyConnected = Object.values(data.instances).some(i => i?.status === 'connected');
+  }
   dot.classList.toggle('connected', anyConnected);
 }
 

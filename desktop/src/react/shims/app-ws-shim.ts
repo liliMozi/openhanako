@@ -506,6 +506,43 @@ function handleServerMessage(msg: any): void {
     case 'bridge_message':
       if (msg.message) {
         (window as any).__hanaBridgeOnMessage?.(msg.message);
+
+        // 如果当前处于 bridge 接管模式且消息属于当前 session，在主聊天区域追加气泡
+        const bridgeState = (window as any).__hanaGetState?.()?.bridgeSession;
+        if (bridgeState && msg.message.sessionKey === bridgeState.sessionKey) {
+          const _crBridge = () => (window as any).HanaModules.chatRender;
+          const mdInst = (window as any).__hanaState?.md;
+          if (msg.message.direction === 'in') {
+            // 用户消息（来自外部平台）— 显示飞书用户名而非桌面用户
+            let displayText = msg.message.text || '';
+            const pfx = displayText.match(/^\[.+?\]\s*.+?:\s*/);
+            if (pfx) displayText = displayText.slice(pfx[0].length);
+            const senderName = msg.message.sender || '用户';
+            _crBridge().addBridgeUserMessage(displayText, senderName);
+          } else if (msg.message.direction === 'owner_echo') {
+            // 桌面端用户自己的消息回显（已在本地渲染，跳过）
+          } else {
+            // 助手回复（direction === 'out'）
+            const cleaned = (msg.message.text || '')
+              .replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '')
+              .replace(/```(?:mood|pulse|reflect)[\s\S]*?```\n*/gi, '')
+              .replace(/<(?:mood|pulse|reflect)>[\s\S]*?<\/(?:mood|pulse|reflect)>\s*/g, '');
+            const group = _crBridge().ensureGroup('assistant');
+            const bubble = document.createElement('div');
+            bubble.className = 'message assistant';
+            const textEl = document.createElement('div');
+            textEl.className = 'md-content';
+            textEl.innerHTML = mdInst ? mdInst.render(cleaned) : cleaned;
+            bubble.appendChild(textEl);
+            group.appendChild(bubble);
+            _crBridge().finishAssistantMessage();
+          }
+          // 自动滚到底
+          const messagesEl = document.getElementById('messages');
+          if (messagesEl) {
+            setTimeout(() => { messagesEl.scrollTop = messagesEl.scrollHeight; }, 0);
+          }
+        }
       }
       break;
 

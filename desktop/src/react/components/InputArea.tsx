@@ -113,6 +113,7 @@ function InputAreaInner() {
   const agentYuan = useStore(s => s.agentYuan);
   const thinkingLevel = useStore(s => s.thinkingLevel);
   const setThinkingLevel = useStore(s => s.setThinkingLevel);
+  const bridgeSession = useStore(s => s.bridgeSession);
 
   const currentModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
 
@@ -269,6 +270,9 @@ function InputAreaInner() {
 
   // ── Placeholder from yuan ──
   const placeholder = (() => {
+    if (bridgeSession) {
+      return `在 ${bridgeSession.displayName} 的对话中发消息...`;
+    }
     const yuanPh = t(`yuan.placeholder.${agentYuan}`);
     return (yuanPh && !yuanPh.startsWith('yuan.')) ? yuanPh : t('input.placeholder');
   })();
@@ -334,6 +338,35 @@ function InputAreaInner() {
         cmd.execute();
         return;
       }
+    }
+
+    // Bridge 接管模式：以 owner 身份发送消息到 AI engine（AI 处理后回复外部平台用户）
+    if (bridgeSession && text) {
+      if (sending) return;
+      setSending(true);
+      try {
+        // 渲染 owner 消息到主聊天区域（用 owner 专用样式，区分飞书用户消息）
+        const _cr = () => window.HanaModules.chatRender;
+        _cr().addOwnerBridgeMessage(text);
+
+        setInputText('');
+
+        // 通过 API 发送到 AI engine 处理（异步，AI 回复通过 WebSocket 推送）
+        const res = await hanaFetch(`/api/bridge/sessions/${encodeURIComponent(bridgeSession.sessionKey)}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          console.error('[bridge] send failed:', data.error);
+        }
+      } catch (err) {
+        console.error('[bridge] send failed:', err);
+      } finally {
+        setSending(false);
+      }
+      return;
     }
 
     const hasFiles = attachedFiles.length > 0;
@@ -417,7 +450,7 @@ function InputAreaInner() {
     } finally {
       setSending(false);
     }
-  }, [inputText, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, setDocContextAttached, slashMenuOpen, filteredCommands, slashSelected]);
+  }, [inputText, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, setDocContextAttached, slashMenuOpen, filteredCommands, slashSelected, bridgeSession]);
 
   // ── Steer (插话) ──
   const handleSteer = useCallback(() => {

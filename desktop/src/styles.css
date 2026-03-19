@@ -805,6 +805,34 @@ html[data-platform="linux"] .tb-toggle-right {
     flex-shrink: 0;
 }
 
+/* Bridge session 平台标签 */
+.session-platform-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.55rem;
+    font-weight: 600;
+    color: #fff;
+    padding: 0 4px;
+    border-radius: 3px;
+    height: 14px;
+    line-height: 14px;
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+}
+
+/* Bridge session 头像 */
+.session-bridge-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary, #e5e5e5);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    overflow: hidden;
+}
+
 .session-item-header {
     display: flex;
     align-items: center;
@@ -1883,6 +1911,58 @@ html[data-platform="linux"] .tb-toggle-right {
     margin-bottom: 0;
 }
 
+/* Bridge 外部平台用户消息 */
+.message-group.bridge-user {
+    align-items: flex-start;
+    padding-left: var(--space-sm);
+    margin-left: 2px;
+}
+
+.message-group.bridge-user .avatar-row {
+    flex-direction: row;
+}
+
+.bridge-user-avatar {
+    background: #3370ff !important;
+    color: #fff;
+    font-size: 0.85rem;
+}
+
+.message.bridge-user-msg {
+    background: rgba(51, 112, 255, 0.08);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm) var(--radius-md) var(--radius-md) var(--radius-md);
+    color: var(--text);
+    font-size: 0.95rem;
+    word-break: break-word;
+}
+
+.message.bridge-user-msg .user-text p:last-child {
+    margin-bottom: 0;
+}
+
+/* Bridge Owner 消息（桌面端用户在 bridge 对话中发的消息） */
+.message-group.bridge-owner {
+    align-items: flex-end;
+}
+
+.message-group.bridge-owner .avatar-row {
+    flex-direction: row-reverse;
+}
+
+.message.bridge-owner-msg {
+    background: rgba(var(--accent-rgb), 0.10);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-md);
+    color: var(--text);
+    font-size: 0.95rem;
+    word-break: break-word;
+}
+
+.message.bridge-owner-msg .user-text p:last-child {
+    margin-bottom: 0;
+}
+
 /* 用户附件网格 */
 .user-attachments {
     display: flex;
@@ -2488,6 +2568,86 @@ html[data-platform="linux"] .tb-toggle-right {
 .bridge-test-ok  { color: var(--green); border-color: var(--green); }
 .bridge-test-fail { color: var(--coral); border-color: var(--coral); }
 
+/* 多实例管理 */
+.bridge-add-instance-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-left: 8px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    vertical-align: middle;
+}
+.bridge-add-instance-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.bridge-instance-block {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: rgba(var(--bg-rgb, 0,0,0), 0.02);
+}
+.bridge-instance-block:last-child {
+    margin-bottom: 0;
+}
+
+.bridge-instance-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.bridge-instance-label-input {
+    flex: 1;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+}
+
+.bridge-remove-instance-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--coral);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.bridge-remove-instance-btn:hover {
+    background: var(--coral);
+    color: #fff;
+    border-color: var(--coral);
+}
+
+.bridge-instance-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 4px;
+}
+
 /* Owner 选择区域 */
 .bridge-owner-label {
     text-align: center;
@@ -2912,6 +3072,31 @@ html[data-platform="linux"] .tb-toggle-right {
 
 .bridge-bubble p:last-child {
     margin-bottom: 0;
+}
+
+/* ── Bridge 接管模式（主聊天区域） ── */
+
+.bridge-takeover-header {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-md) var(--space-lg);
+    margin-bottom: var(--space-sm);
+}
+
+.bridge-takeover-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.bridge-takeover-badge svg {
+    opacity: 0.7;
 }
 
 /* ─── 旧 bridge 卡片样式（保留给 settings 页） ─── */

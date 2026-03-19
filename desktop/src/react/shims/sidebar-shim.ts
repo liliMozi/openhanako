@@ -7,6 +7,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { useStore } from '../stores';
+
 // ── ctx 闭包 ──
 
 let ctx: Record<string, any> | null = null;
@@ -48,6 +50,11 @@ function renderSessionList(): void {
 
 async function switchSession(path: string): Promise<void> {
   if (path === state().currentSessionPath) return;
+  // bridge session 不走普通切换流程（由 SessionList React 组件的 handleClick 处理）
+  if (path.startsWith('bridge:')) return;
+
+  // 切换到普通 session 时，清除 bridge 接管状态
+  useStore.getState().setBridgeSession(null);
 
   const { isActivityVisible, hideActivityPanel, closeActivityDetail, isAutomationVisible, hideAutomationPanel } = (window as any).HanaModules.activity;
   if (isActivityVisible()) { closeActivityDetail(); hideActivityPanel(); }
@@ -118,6 +125,9 @@ async function switchSession(path: string): Promise<void> {
 async function createNewSession(): Promise<void> {
   const { isActivityVisible, hideActivityPanel, closeActivityDetail } = (window as any).HanaModules.activity;
   if (isActivityVisible()) { closeActivityDetail(); hideActivityPanel(); }
+
+  // 清除 bridge 接管状态
+  useStore.getState().setBridgeSession(null);
 
   state().isStreaming = false;
 
@@ -627,6 +637,9 @@ function buildSessionList(card: HTMLElement): void {
   const list = document.createElement('div');
   list.className = 'float-card-list';
   for (const s of sessions.slice(0, 12)) {
+    // bridge session 在浮动卡片中跳过（由 SessionList React 组件处理）
+    if (s.bridge) continue;
+
     const item = document.createElement('div');
     item.className = 'float-card-item';
     if (s.path === state().currentSessionPath) item.classList.add('active');
@@ -732,6 +745,50 @@ function buildDeskList(card: HTMLElement): void {
 
 function initSidebarModule(injected: Record<string, any>): void {
   ctx = injected;
+
+  // 监听 bridge 接管事件
+  window.addEventListener('hana-bridge-takeover', async (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    if (!detail?.sessionKey) return;
+
+    const { sessionKey, displayName } = detail;
+
+    // 清除当前普通 session 的状态（但不新建 session）
+    state().currentSessionPath = `bridge:${sessionKey}`;
+    state().pendingNewSession = false;
+    state().isStreaming = false;
+    state().sessionAgent = null;
+
+    // 清空主聊天区域并加载 bridge 消息
+    ctx!.clearChat();
+    state().welcomeVisible = false;
+
+    // 在消息区域顶部显示 bridge session 标识
+    const messagesEl = ctx!.messagesEl as HTMLElement;
+    const header = document.createElement('div');
+    header.className = 'bridge-takeover-header';
+    header.innerHTML = `
+      <div class="bridge-takeover-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>${escapeText(displayName || sessionKey)}</span>
+      </div>
+    `;
+    messagesEl.appendChild(header);
+
+    // 加载 bridge 消息
+    const _msg = () => (window as any).HanaModules.appMessages;
+    await _msg().loadBridgeMessages(sessionKey);
+
+    // 更新 session 列表高亮
+    renderSessionList();
+  });
+}
+
+/** 简易 HTML 转义 */
+function escapeText(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ══════════════════════════════════════════════════════

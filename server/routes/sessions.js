@@ -2,10 +2,12 @@
  * Session 管理 REST 路由
  */
 import fs from "fs/promises";
+import fsSync from "fs";
 import path from "path";
 import { t } from "../i18n.js";
 import { BrowserManager } from "../../lib/browser/browser-manager.js";
 import { isToolCallBlock, getToolArgs } from "../../core/llm-utils.js";
+import { parseSessionKey } from "../../lib/bridge/session-key.js";
 
 /**
  * 从 Pi SDK 的 content 块数组中提取纯文本 + thinking + tool_use 调用
@@ -104,11 +106,11 @@ function isValidSessionPath(sessionPath, baseDir) {
 
 export default async function sessionsRoute(app, { engine }) {
 
-  // 列出所有 agent 的历史 session
+  // 列出所有 agent 的历史 session（含 bridge sessions）
   app.get("/api/sessions", async (req, reply) => {
     try {
       const sessions = await engine.listSessions();
-      return sessions.map(s => ({
+      const result = sessions.map(s => ({
         path: s.path,
         title: s.title || null,
         firstMessage: (s.firstMessage || "").slice(0, 100),
@@ -118,6 +120,50 @@ export default async function sessionsRoute(app, { engine }) {
         agentId: s.agentId || null,
         agentName: s.agentName || null,
       }));
+
+      // 合并 bridge sessions
+      try {
+        const index = engine.getBridgeIndex();
+        const bridgeDir = path.join(engine.sessionDir, "bridge");
+        for (const [sessionKey, raw] of Object.entries(index)) {
+          const entry = typeof raw === "string" ? { file: raw } : raw;
+          if (!entry.file) continue;
+          const { platform, chatType } = parseSessionKey(sessionKey);
+
+          let lastActive = null;
+          const fp = path.join(bridgeDir, entry.file);
+          try {
+            const stat = fsSync.statSync(fp);
+            lastActive = stat.mtime.toISOString();
+          } catch {}
+
+          result.push({
+            path: `bridge:${sessionKey}`,
+            title: entry.name || sessionKey,
+            firstMessage: "",
+            modified: lastActive,
+            messageCount: 0,
+            cwd: null,
+            agentId: engine.currentAgentId || null,
+            agentName: engine.agentName || null,
+            bridge: true,
+            bridgePlatform: platform,
+            bridgeChatType: chatType,
+            bridgeSessionKey: sessionKey,
+            bridgeDisplayName: entry.name || null,
+            bridgeAvatarUrl: entry.avatarUrl || null,
+          });
+        }
+      } catch {}
+
+      // 统一排序：最近修改的在前
+      result.sort((a, b) => {
+        const ta = a.modified ? new Date(a.modified).getTime() : 0;
+        const tb = b.modified ? new Date(b.modified).getTime() : 0;
+        return tb - ta;
+      });
+
+      return result;
     } catch (err) {
       reply.code(500);
       return { error: err.message };

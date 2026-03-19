@@ -7,46 +7,85 @@
 import fs from "fs";
 import path from "path";
 import { debugLog } from "../../lib/debug-log.js";
-import { parseSessionKey, collectKnownUsers, KNOWN_PLATFORMS } from "../../lib/bridge/session-key.js";
+import { parseSessionKey, collectKnownUsers, KNOWN_PLATFORMS, isValidInstanceId, getBasePlatform } from "../../lib/bridge/session-key.js";
 
 export default async function bridgeRoute(app, { engine, bridgeManager }) {
 
-  /** 获取所有平台连接状态 */
+  /** 获取所有平台连接状态（支持多实例） */
   app.get("/api/bridge/status", async () => {
     const prefs = engine.getPreferences();
     const bridge = prefs.bridge || {};
     const live = bridgeManager.getStatus();
 
     // 凭证做遮掩后返回，供前端回显
-    const tgToken = bridge.telegram?.token || "";
-    const fsAppId = bridge.feishu?.appId || "";
-    const fsAppSecret = bridge.feishu?.appSecret || "";
     const mask = (s) => s.length <= 8 ? "••••" : s.slice(0, 4) + "••••" + s.slice(-4);
 
+    // 收集所有实例（从 preferences 和 live 状态合并）
+    const instanceIds = new Set();
+    for (const key of Object.keys(bridge)) {
+      if (key === "owner" || key === "readOnly") continue;
+      if (isValidInstanceId(key)) instanceIds.add(key);
+    }
+    for (const key of Object.keys(live)) {
+      instanceIds.add(key);
+    }
+
+    // 构建实例状态数组
+    const instances = {};
+    for (const id of instanceIds) {
+      const cfg = bridge[id] || {};
+      const base = getBasePlatform(id);
+      const liveEntry = live[id] || {};
+
+      if (base === "telegram") {
+        const token = cfg.token || "";
+        instances[id] = {
+          basePlatform: base,
+          configured: !!token,
+          enabled: !!cfg.enabled,
+          status: liveEntry.status || "disconnected",
+          error: liveEntry.error || null,
+          tokenMasked: token ? mask(token) : "",
+          label: cfg.label || null,
+        };
+      } else if (base === "feishu") {
+        const appId = cfg.appId || "";
+        const appSecret = cfg.appSecret || "";
+        instances[id] = {
+          basePlatform: base,
+          configured: !!(appId && appSecret),
+          enabled: !!cfg.enabled,
+          status: liveEntry.status || "disconnected",
+          error: liveEntry.error || null,
+          appId,
+          appSecretMasked: appSecret ? mask(appSecret) : "",
+          label: cfg.label || null,
+        };
+      } else if (base === "qq") {
+        const secret = cfg.appSecret || cfg.token;
+        instances[id] = {
+          basePlatform: base,
+          configured: !!(cfg.appID && secret),
+          enabled: !!cfg.enabled,
+          status: liveEntry.status || "disconnected",
+          error: liveEntry.error || null,
+          appID: cfg.appID || "",
+          appSecretMasked: secret ? mask(secret) : "",
+          label: cfg.label || null,
+        };
+      }
+    }
+
+    // 兼容旧格式：保留顶层 telegram/feishu/qq 快捷引用（指向默认实例）
+    const tgDef = instances["telegram"] || {};
+    const fsDef = instances["feishu"] || {};
+    const qqDef = instances["qq"] || {};
+
     return {
-      telegram: {
-        configured: !!tgToken,
-        enabled: !!bridge.telegram?.enabled,
-        status: live.telegram?.status || "disconnected",
-        error: live.telegram?.error || null,
-        tokenMasked: tgToken ? mask(tgToken) : "",
-      },
-      feishu: {
-        configured: !!(fsAppId && fsAppSecret),
-        enabled: !!bridge.feishu?.enabled,
-        status: live.feishu?.status || "disconnected",
-        error: live.feishu?.error || null,
-        appId: fsAppId,
-        appSecretMasked: fsAppSecret ? mask(fsAppSecret) : "",
-      },
-      qq: {
-        configured: !!(bridge.qq?.appID && (bridge.qq?.appSecret || bridge.qq?.token)),
-        enabled: !!bridge.qq?.enabled,
-        status: live.qq?.status || "disconnected",
-        error: live.qq?.error || null,
-        appID: bridge.qq?.appID || "",
-        appSecretMasked: (bridge.qq?.appSecret || bridge.qq?.token) ? mask(bridge.qq.appSecret || bridge.qq.token) : "",
-      },
+      telegram: tgDef,
+      feishu: fsDef,
+      qq: qqDef,
+      instances,
       readOnly: !!bridge.readOnly,
       knownUsers: collectKnownUsers(engine.getBridgeIndex()),
       owner: bridge.owner || {},
@@ -72,12 +111,12 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     return { ok: true };
   });
 
-  /** 保存凭证 + 启停平台 */
+  /** 保存凭证 + 启停平台（支持多实例 ID，如 "feishu:2"） */
   app.post("/api/bridge/config", async (req, reply) => {
-    const { platform, credentials, enabled } = req.body || {};
-    if (!platform || !KNOWN_PLATFORMS.includes(platform)) {
+    const { platform, credentials, enabled, label } = req.body || {};
+    if (!platform || !isValidInstanceId(platform)) {
       reply.code(400);
-      return { error: "invalid platform" };
+      return { error: "invalid platform or instance id" };
     }
 
     const prefs = engine.getPreferences();
@@ -92,6 +131,11 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     // 更新启用状态
     if (typeof enabled === "boolean") {
       prefs.bridge[platform].enabled = enabled;
+    }
+
+    // 更新标签（用于 UI 显示，如"Hanako 飞书"、"Owner 飞书"）
+    if (typeof label === "string") {
+      prefs.bridge[platform].label = label;
     }
 
     engine.savePreferences(prefs);
@@ -119,7 +163,7 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     return { ok: true };
   });
 
-  /** 停止指定平台 */
+  /** 停止指定平台实例 */
   app.post("/api/bridge/stop", async (req, reply) => {
     const { platform } = req.body || {};
     if (!platform) {
@@ -250,6 +294,49 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     return { ok: true };
   });
 
+  /** 从桌面端发送消息到 bridge session（接管模式） */
+  app.post("/api/bridge/sessions/:sessionKey/send", async (req, reply) => {
+    const { sessionKey } = req.params;
+    const { text } = req.body || {};
+    if (!text) {
+      reply.code(400);
+      return { error: "text required" };
+    }
+
+    const result = await bridgeManager.sendToSession(sessionKey, text);
+    if (!result.ok) {
+      reply.code(500);
+    }
+    return result;
+  });
+
+  /** 删除飞书等多实例配置 */
+  app.post("/api/bridge/delete-instance", async (req, reply) => {
+    const { instanceId } = req.body || {};
+    if (!instanceId || !isValidInstanceId(instanceId)) {
+      reply.code(400);
+      return { error: "invalid instance id" };
+    }
+    // 不允许删除基础平台的默认实例（如 "feishu"），只能删多实例后缀的
+    if (!instanceId.includes(":")) {
+      reply.code(400);
+      return { error: "cannot delete default instance, use disable instead" };
+    }
+
+    // 先停止
+    bridgeManager.stopPlatform(instanceId);
+
+    // 从 preferences 中删除
+    const prefs = engine.getPreferences();
+    if (prefs.bridge?.[instanceId]) {
+      delete prefs.bridge[instanceId];
+      engine.savePreferences(prefs);
+    }
+
+    debugLog()?.log("api", `POST /api/bridge/delete-instance instanceId=${instanceId}`);
+    return { ok: true };
+  });
+
   /** 测试凭证（不启动轮询） */
   app.post("/api/bridge/test", async (req, reply) => {
     const { platform, credentials } = req.body || {};
@@ -258,18 +345,20 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
       return { error: "platform and credentials required" };
     }
 
-    if (!KNOWN_PLATFORMS.includes(platform)) {
+    // 支持实例 ID（如 "feishu:2"），提取基础平台名用于测试
+    const basePlatform = getBasePlatform(platform);
+    if (!KNOWN_PLATFORMS.includes(basePlatform)) {
       reply.code(400);
       return { error: "unknown platform" };
     }
 
     try {
-      if (platform === "telegram") {
+      if (basePlatform === "telegram") {
         const TelegramBot = (await import("node-telegram-bot-api")).default;
         const bot = new TelegramBot(credentials.token);
         const me = await bot.getMe();
         return { ok: true, info: { username: me.username, name: me.first_name } };
-      } else if (platform === "feishu") {
+      } else if (basePlatform === "feishu") {
         const resp = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -283,7 +372,7 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
           return { ok: true, info: { msg: "token 获取成功" } };
         }
         return { ok: false, error: data.msg || "验证失败" };
-      } else if (platform === "qq") {
+      } else if (basePlatform === "qq") {
         // v2 鉴权：appID + appSecret → access_token → /users/@me
         const tokenRes = await fetch("https://bots.qq.com/app/getAppAccessToken", {
           method: "POST",
