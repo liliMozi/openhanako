@@ -2,12 +2,13 @@
  * stream-resume.ts — 流恢复逻辑（从 app-ws-shim.ts 迁移）
  *
  * 管理 per-session 流元数据、断线重连后的 stream resume 请求和事件重放。
- * 不依赖 ctx 注入，通过 Zustand store 和 window.HanaModules 访问状态。
+ * 不依赖 ctx 注入，通过 Zustand store 访问状态。
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { streamBufferManager } from '../hooks/use-stream-buffer';
+import { useStore } from '../stores';
 import { getWebSocket } from './websocket';
 import { clearChat } from '../stores/agent-actions';
 import { loadMessages } from '../stores/session-actions';
@@ -28,17 +29,16 @@ export function injectHandlers(
 let _streamResumeRebuildVersion = 0;
 let _streamResumeRebuildingFor: string | null = null;
 
-// ── Session 流元数据 ──
+// ── Session 流元数据（module-level，不走 Zustand） ──
+const _sessionStreams: Record<string, { streamId: string | null; lastSeq: number }> = {};
 
 export function getSessionStreamMeta(sessionPath?: string): { streamId: string | null; lastSeq: number } | null {
-  const state = (window as any).__hanaState;
-  if (!state) return null;
-  const path = sessionPath || state.currentSessionPath;
+  const path = sessionPath || useStore.getState().currentSessionPath;
   if (!path) return null;
-  if (!state.sessionStreams[path]) {
-    state.sessionStreams[path] = { streamId: null, lastSeq: 0 };
+  if (!_sessionStreams[path]) {
+    _sessionStreams[path] = { streamId: null, lastSeq: 0 };
   }
-  return state.sessionStreams[path];
+  return _sessionStreams[path];
 }
 
 export function isStreamScopedMessage(msg: any): boolean {
@@ -46,9 +46,7 @@ export function isStreamScopedMessage(msg: any): boolean {
 }
 
 export function updateSessionStreamMeta(meta: any = {}): void {
-  const state = (window as any).__hanaState;
-  if (!state) return;
-  const sessionPath = meta.sessionPath || state.currentSessionPath;
+  const sessionPath = meta.sessionPath || useStore.getState().currentSessionPath;
   if (!sessionPath) return;
 
   const entry = getSessionStreamMeta(sessionPath);
@@ -71,9 +69,7 @@ export function isStreamResumeRebuilding(): string | null {
 }
 
 export function requestStreamResume(sessionPath?: string, opts: any = {}): void {
-  const state = (window as any).__hanaState;
-  if (!state) return;
-  const path = sessionPath || state.currentSessionPath;
+  const path = sessionPath || useStore.getState().currentSessionPath;
   const ws = getWebSocket();
   if (!path || !ws || ws.readyState !== WebSocket.OPEN) return;
   const meta = getSessionStreamMeta(path) || { streamId: null, lastSeq: 0 };
@@ -93,10 +89,9 @@ export function requestStreamResume(sessionPath?: string, opts: any = {}): void 
 // ── 流恢复 / 重建 ──
 
 async function rebuildCurrentSessionFromResume(msg: any): Promise<void> {
-  const state = (window as any).__hanaState;
-  if (!state) return;
-  const sessionPath = msg.sessionPath || state.currentSessionPath;
-  if (!sessionPath || sessionPath !== state.currentSessionPath) return;
+  const currentSessionPath = useStore.getState().currentSessionPath;
+  const sessionPath = msg.sessionPath || currentSessionPath;
+  if (!sessionPath || sessionPath !== currentSessionPath) return;
 
   const myVersion = ++_streamResumeRebuildVersion;
   _streamResumeRebuildingFor = sessionPath;
@@ -108,7 +103,7 @@ async function rebuildCurrentSessionFromResume(msg: any): Promise<void> {
     await loadMessages();
 
     if (myVersion !== _streamResumeRebuildVersion) return;
-    if (state.currentSessionPath !== sessionPath) return;
+    if (useStore.getState().currentSessionPath !== sessionPath) return;
 
     const meta = getSessionStreamMeta(sessionPath);
     if (meta) {
@@ -129,7 +124,7 @@ async function rebuildCurrentSessionFromResume(msg: any): Promise<void> {
     _applyStreamingStatus?.(msg.isStreaming);
 
     const ws = getWebSocket();
-    if (state.currentSessionPath === sessionPath && ws?.readyState === WebSocket.OPEN && msg.isStreaming) {
+    if (useStore.getState().currentSessionPath === sessionPath && ws?.readyState === WebSocket.OPEN && msg.isStreaming) {
       requestStreamResume(sessionPath);
     }
   } finally {
@@ -140,10 +135,9 @@ async function rebuildCurrentSessionFromResume(msg: any): Promise<void> {
 }
 
 export function replayStreamResume(msg: any): void {
-  const state = (window as any).__hanaState;
-  if (!state) return;
-  const sessionPath = msg.sessionPath || state.currentSessionPath;
-  if (!sessionPath || sessionPath !== state.currentSessionPath) return;
+  const currentSessionPath = useStore.getState().currentSessionPath;
+  const sessionPath = msg.sessionPath || currentSessionPath;
+  if (!sessionPath || sessionPath !== currentSessionPath) return;
 
   if (msg.reset || msg.truncated) {
     rebuildCurrentSessionFromResume(msg).catch((err) => {

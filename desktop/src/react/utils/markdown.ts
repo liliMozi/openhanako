@@ -1,8 +1,8 @@
 /**
  * Markdown 渲染器
  *
- * 包装全局 markdown-it 实例。Phase 1 直接复用 app.js 配置好的 window.markdownit，
- * Phase 3 迁移 chat-render 时会把 md 实例收归此处独立管理。
+ * 包装全局 markdown-it 实例（由 lib/markdown-it.min.js 提供 window.markdownit）。
+ * 此处独立创建并管理 md 实例。
  */
 
 interface MarkdownIt {

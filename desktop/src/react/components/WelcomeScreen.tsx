@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
 import { hanaUrl } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
+import { loadDeskFiles } from '../stores/desk-actions';
 import type { Agent } from '../types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -175,8 +176,7 @@ function AgentChips({ agents, selectedId }: {
   selectedId: string | null;
 }) {
   const handleClick = useCallback((agentId: string) => {
-    const hanaState = window.__hanaState;
-    if (hanaState) hanaState.selectedAgentId = agentId;
+    useStore.setState({ selectedAgentId: agentId });
   }, []);
 
   return (
@@ -353,21 +353,21 @@ function FolderHistory({ cwdHistory, selectedFolder, onSelect, onBrowse }: {
 
 /** Apply folder selection — core logic preserved from bridge.ts desk shim */
 function applyFolderAction(folder: string, pendingNewSession: boolean): void {
-  const hanaState = window.__hanaState;
-  if (hanaState) hanaState.selectedFolder = folder;
+  useStore.setState({ selectedFolder: folder });
 
   if (!pendingNewSession) {
-    if (hanaState) {
-      hanaState.currentSessionPath = null;
-      hanaState.pendingNewSession = true;
-    }
-    (hanaState?.clearChat as (() => void) | undefined)?.();
+    useStore.setState({
+      currentSessionPath: null,
+      pendingNewSession: true,
+    });
+    // Clear chat via agent-actions
+    const { clearChat } = require('../stores/agent-actions');
+    clearChat();
     (document.getElementById('inputBox') as HTMLTextAreaElement | null)?.focus();
   }
 
   // Load desk files for the new folder
-  const desk = (window as any).HanaModules?.desk;
-  desk?.loadDeskFiles?.('', folder);
+  loadDeskFiles('', folder);
 }
 
 // ── Memory Toggle ──
@@ -377,8 +377,7 @@ function MemoryToggle({ enabled, t }: {
   t: (key: string) => string;
 }) {
   const handleClick = useCallback(() => {
-    const hanaState = window.__hanaState;
-    if (hanaState) hanaState.memoryEnabled = !hanaState.memoryEnabled;
+    useStore.setState((s: any) => ({ memoryEnabled: !s.memoryEnabled }));
   }, []);
 
   return (

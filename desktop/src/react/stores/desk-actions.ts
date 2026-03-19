@@ -6,6 +6,7 @@
 
 import { useStore } from './index';
 import { hanaFetch } from '../hooks/use-hana-fetch';
+import { hideFloatCard, applyTbToggleState } from '../components/SidebarLayout';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -203,17 +204,16 @@ export async function deskRenameFile(oldName: string, newName: string): Promise<
 // ── 状态工具 ──
 
 export function toggleMemory(): void {
-  const hanaState = window.__hanaState;
-  if (hanaState) hanaState.memoryEnabled = !(hanaState.memoryEnabled as boolean);
+  useStore.setState((s: any) => ({ memoryEnabled: !s.memoryEnabled }));
 }
 
 export function applyFolder(folder: string): void {
-  const hanaState = window.__hanaState;
-  if (hanaState) hanaState.selectedFolder = folder;
+  useStore.setState({ selectedFolder: folder });
   const s = useStore.getState();
   if (!s.pendingNewSession) {
-    if (hanaState) { hanaState.currentSessionPath = null; hanaState.pendingNewSession = true; }
-    (hanaState?.clearChat as (() => void) | undefined)?.();
+    useStore.setState({ currentSessionPath: null, pendingNewSession: true });
+    const { clearChat } = require('./agent-actions');
+    clearChat();
     (document.getElementById('inputBox') as HTMLTextAreaElement | null)?.focus();
   }
   loadDeskFiles('', folder);
@@ -237,13 +237,11 @@ export function toggleJianSidebar(forceOpen?: boolean): void {
   const jianSidebar = document.getElementById('jianSidebar');
   if (newOpen) {
     jianSidebar?.classList.remove('collapsed');
-    const sidebarMod = (window as any).HanaModules?.sidebar as { dismissFloat?: () => void } | undefined;
-    sidebarMod?.dismissFloat?.();
+    hideFloatCard();
   } else {
     jianSidebar?.classList.add('collapsed');
   }
-  const sidebarMod2 = (window as any).HanaModules?.sidebar as { updateTbToggleState?: () => void } | undefined;
-  sidebarMod2?.updateTbToggleState?.();
+  applyTbToggleState();
 }
 
 export function initJian(): void {

@@ -1,7 +1,7 @@
 /**
  * ws-message-handler.ts — WebSocket 消息分发（从 app-ws-shim.ts 迁移）
  *
- * 纯逻辑模块，不依赖 ctx 注入。通过 Zustand store 和 window.HanaModules 访问状态。
+ * 纯逻辑模块，不依赖 ctx 注入。通过 Zustand store 访问状态。
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -9,6 +9,9 @@
 import { streamBufferManager } from '../hooks/use-stream-buffer';
 import { useStore } from '../stores';
 import { loadSessions as loadSessionsAction } from '../stores/session-actions';
+import { handleArtifact } from '../stores/artifact-actions';
+import { loadDeskFiles } from '../stores/desk-actions';
+import { showError } from '../utils/ui-helpers';
 import { getWebSocket } from './websocket';
 import {
   replayStreamResume,
@@ -34,37 +37,35 @@ const REACT_CHAT_EVENTS = new Set([
 // ── Session 可见性 + 流状态 ──
 
 function ensureCurrentSessionVisible(): void {
-  const state = (window as any).__hanaState;
-  if (!state) return;
+  const state = useStore.getState();
   const sessionPath = state.currentSessionPath;
   if (!sessionPath || state.pendingNewSession) return;
   if (state.sessions.some((s: any) => s.path === sessionPath)) return;
 
-  state.sessions = [{
-    path: sessionPath,
-    title: null,
-    firstMessage: '',
-    modified: new Date().toISOString(),
-    messageCount: 0,
-    agentId: state.currentAgentId || null,
-    agentName: state.agentName || null,
-    _optimistic: true,
-  }, ...state.sessions];
+  useStore.setState({
+    sessions: [{
+      path: sessionPath,
+      title: null,
+      firstMessage: '',
+      modified: new Date().toISOString(),
+      messageCount: 0,
+      agentId: state.currentAgentId || null,
+      agentName: state.agentName || null,
+      _optimistic: true,
+    }, ...state.sessions],
+  });
 }
 
 function hasOptimisticCurrentSession(): boolean {
-  const state = (window as any).__hanaState;
-  if (!state) return false;
+  const state = useStore.getState();
   const sessionPath = state.currentSessionPath;
   if (!sessionPath) return false;
   return !!state.sessions.find((s: any) => s.path === sessionPath && s._optimistic);
 }
 
 export function applyStreamingStatus(isStreaming: boolean): void {
-  const state = (window as any).__hanaState;
-  if (!state) return;
-  state.isStreaming = !!isStreaming;
-  if (state.isStreaming) {
+  useStore.setState({ isStreaming: !!isStreaming });
+  if (isStreaming) {
     ensureCurrentSessionVisible();
   } else {
     // React 模式：消息完成由 StreamBuffer turn_end 处理
@@ -77,11 +78,7 @@ export function applyStreamingStatus(isStreaming: boolean): void {
 // ── 消息分发（大 switch） ──
 
 export function handleServerMessage(msg: any): void {
-  const state = (window as any).__hanaState;
-  if (!state) return;
-
-  const _ar = () => (window as any).HanaModules?.artifacts; // renderBrowserCard still needed
-  const _dk = () => (window as any).HanaModules?.desk;
+  const state = useStore.getState();
 
   const rebuildingFor = isStreamResumeRebuilding();
 
@@ -116,23 +113,24 @@ export function handleServerMessage(msg: any): void {
     }
     // tool_end 后更新 todo
     if (msg.type === 'tool_end' && msg.name === 'todo' && msg.details?.todos) {
-      state.sessionTodos = msg.details.todos;
+      useStore.setState({ sessionTodos: msg.details.todos });
     }
     // compaction_end 后更新 token
     if (msg.type === 'compaction_end') {
-      state._compacting = false;
+      const patch: Record<string, any> = { compacting: false };
       if (msg.tokens != null && msg.contextWindow != null) {
-        state.contextTokens = msg.tokens;
-        state.contextWindow = msg.contextWindow;
-        state.contextPercent = msg.percent;
+        patch.contextTokens = msg.tokens;
+        patch.contextWindow = msg.contextWindow;
+        patch.contextPercent = msg.percent;
       }
+      useStore.setState(patch);
     }
     if (msg.type === 'compaction_start') {
-      state._compacting = true;
+      useStore.setState({ compacting: true });
     }
     // artifact 需要通知 artifacts shim 更新预览
     if (msg.type === 'artifact' && state.currentTab === 'chat') {
-      _ar()?.handleArtifact(msg);
+      handleArtifact(msg);
     }
     return;
   }
@@ -145,27 +143,30 @@ export function handleServerMessage(msg: any): void {
 
     case 'session_title':
       if (msg.title) {
-        state.sessions = state.sessions.map((s: any) =>
-          s.path === msg.path ? { ...s, title: msg.title } : s,
-        );
+        useStore.setState({
+          sessions: state.sessions.map((s: any) =>
+            s.path === msg.path ? { ...s, title: msg.title } : s,
+          ),
+        });
       }
       break;
 
     case 'desk_changed':
-      _dk()?.loadDeskFiles();
+      loadDeskFiles();
       break;
 
     case 'browser_status':
-      state.browserRunning = !!msg.running;
-      state.browserUrl = msg.url || null;
-      if (msg.thumbnail) state.browserThumbnail = msg.thumbnail;
-      if (!msg.running) state.browserThumbnail = null;
-      _ar()?.renderBrowserCard();
+      useStore.setState({
+        browserRunning: !!msg.running,
+        browserUrl: msg.url || null,
+        browserThumbnail: msg.running ? (msg.thumbnail || state.browserThumbnail) : null,
+      });
+      // renderBrowserCard — no-op (browser card rendering handled by React)
       if ((window as any).platform?.updateBrowserViewer) {
         (window as any).platform.updateBrowserViewer({
-          running: state.browserRunning,
-          url: state.browserUrl,
-          thumbnail: state.browserThumbnail,
+          running: !!msg.running,
+          url: msg.url || null,
+          thumbnail: msg.running ? (msg.thumbnail || state.browserThumbnail) : null,
         });
       }
       break;
@@ -178,7 +179,7 @@ export function handleServerMessage(msg: any): void {
 
     case 'activity_update':
       if (msg.activity) {
-        state.activities = [msg.activity, ...state.activities.slice(0, 499)];
+        useStore.setState({ activities: [msg.activity, ...state.activities.slice(0, 499)] });
       }
       break;
 
@@ -225,16 +226,16 @@ export function handleServerMessage(msg: any): void {
 
     case 'context_usage':
       if (msg.tokens != null && msg.contextWindow != null) {
-        state.contextTokens = msg.tokens;
-        state.contextWindow = msg.contextWindow;
-        state.contextPercent = msg.percent;
+        useStore.setState({
+          contextTokens: msg.tokens,
+          contextWindow: msg.contextWindow,
+          contextPercent: msg.percent,
+        });
       }
       break;
 
     case 'error': {
-      const showError = (window as any).HanaModules?.appUi?.showError;
-      if (showError) showError(msg.message);
-      else console.error('[hana]', msg.message);
+      showError(msg.message);
       break;
     }
 
@@ -244,9 +245,9 @@ export function handleServerMessage(msg: any): void {
       if (sp) {
         const list: string[] = state.streamingSessions || [];
         if (msg.isStreaming) {
-          if (!list.includes(sp)) state.streamingSessions = [...list, sp];
+          if (!list.includes(sp)) useStore.setState({ streamingSessions: [...list, sp] });
         } else {
-          state.streamingSessions = list.filter((p: string) => p !== sp);
+          useStore.setState({ streamingSessions: list.filter((p: string) => p !== sp) });
         }
       }
       // 渲染层：只有焦点 session 才影响 UI

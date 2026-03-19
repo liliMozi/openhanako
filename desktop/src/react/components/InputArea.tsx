@@ -12,6 +12,8 @@ import { isImageFile } from '../utils/format';
 import { hanaFetch } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
 import { ensureSession, loadSessions } from '../stores/session-actions';
+import { getWebSocket } from '../services/websocket';
+import { SVG_ICONS } from '../utils/icons';
 import type { ThinkingLevel } from '../stores/model-slice';
 
 // ── Toast 通知 ──
@@ -148,8 +150,8 @@ function InputAreaInner() {
 
   /** 统一的"以用户身份发送"入口，所有斜杠命令共用 */
   const sendAsUser = useCallback(async (text: string, displayText?: string): Promise<boolean> => {
-    const state = (window as any).__hanaState;
-    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return false;
+    const ws = getWebSocket();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     if (useStore.getState().isStreaming) return false;
 
     if (pendingNewSession) {
@@ -159,7 +161,7 @@ function InputAreaInner() {
     }
 
     // 用户消息写入 store，React 渲染
-    const sessionPath = state.currentSessionPath;
+    const sessionPath = useStore.getState().currentSessionPath;
     if (sessionPath) {
       const { renderMarkdown } = await import('../utils/markdown');
       const msgText = displayText ?? text;
@@ -167,9 +169,9 @@ function InputAreaInner() {
         type: 'message',
         data: { id: `user-${Date.now()}`, role: 'user', text: msgText, textHtml: renderMarkdown(msgText) },
       });
-      state.welcomeVisible = false;
+      useStore.setState({ welcomeVisible: false });
     }
-    state.ws.send(JSON.stringify({ type: 'prompt', text, sessionPath: state.currentSessionPath }));
+    ws.send(JSON.stringify({ type: 'prompt', text, sessionPath: useStore.getState().currentSessionPath }));
     return true;
   }, [pendingNewSession]);
 
@@ -208,9 +210,9 @@ function InputAreaInner() {
     setInputText('');
     setSlashMenuOpen(false);
     try {
-      const state = (window as any).__hanaState;
-      if (state.ws?.readyState === WebSocket.OPEN) {
-        state.ws.send(JSON.stringify({ type: 'compact' }));
+      const ws = getWebSocket();
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'compact' }));
       }
     } finally {
       // compaction_end 事件会通过 WS 回来，这里只需清 busy
@@ -352,7 +354,6 @@ function InputAreaInner() {
     setSending(true);
 
     try {
-      const state = window.__hanaState;
       if (pendingNewSession) {
         const ok = await ensureSession();
         if (!ok) return;
@@ -414,7 +415,7 @@ function InputAreaInner() {
         allFiles.push({ path: docForRender.path, name: docForRender.name });
       }
       // 用户消息写入 store
-      const sessionPath = state.currentSessionPath;
+      const sessionPath = useStore.getState().currentSessionPath;
       if (sessionPath) {
         const { renderMarkdown } = await import('../utils/markdown');
         useStore.getState().appendItem(sessionPath, {
@@ -427,15 +428,16 @@ function InputAreaInner() {
             attachments: allFiles.length > 0 ? allFiles.map((f: any) => ({ path: f.path, name: f.name, isDir: false })) : undefined,
           },
         });
-        state.welcomeVisible = false;
+        useStore.setState({ welcomeVisible: false });
       }
 
       setInputText('');
       clearAttachedFiles();
 
-      const wsMsg: any = { type: 'prompt', text: finalText, sessionPath: state.currentSessionPath };
+      const ws = getWebSocket();
+      const wsMsg: any = { type: 'prompt', text: finalText, sessionPath: useStore.getState().currentSessionPath };
       if (images.length > 0) wsMsg.images = images;
-      state.ws?.send(JSON.stringify(wsMsg));
+      ws?.send(JSON.stringify(wsMsg));
     } finally {
       setSending(false);
     }
@@ -445,11 +447,11 @@ function InputAreaInner() {
   const handleSteer = useCallback(async () => {
     const text = inputText.trim();
     if (!text || !isStreaming) return;
-    const state = window.__hanaState;
-    if (!state.ws) return;
+    const ws = getWebSocket();
+    if (!ws) return;
 
     // steer：用户消息写入 store
-    const sessionPath = (window as any).__hanaState?.currentSessionPath;
+    const sessionPath = useStore.getState().currentSessionPath;
     if (sessionPath) {
       const { renderMarkdown } = await import('../utils/markdown');
       useStore.getState().appendItem(sessionPath, {
@@ -459,14 +461,14 @@ function InputAreaInner() {
     }
 
     setInputText('');
-    state.ws.send(JSON.stringify({ type: 'steer', text, sessionPath: state.currentSessionPath }));
+    ws.send(JSON.stringify({ type: 'steer', text, sessionPath: useStore.getState().currentSessionPath }));
   }, [inputText, isStreaming]);
 
   // ── Stop generation ──
   const handleStop = useCallback(() => {
-    const state = window.__hanaState;
-    if (!isStreaming || !state.ws) return;
-    state.ws.send(JSON.stringify({ type: 'abort', sessionPath: state.currentSessionPath }));
+    const ws = getWebSocket();
+    if (!isStreaming || !ws) return;
+    ws.send(JSON.stringify({ type: 'abort', sessionPath: useStore.getState().currentSessionPath }));
   }, [isStreaming]);
 
   // ── Key handler ──
@@ -620,8 +622,6 @@ function AttachedFilesBar({ files, onRemove }: {
   files: Array<{ path: string; name: string; isDirectory?: boolean }>;
   onRemove: (index: number) => void;
 }) {
-  const { SVG_ICONS } = (window as any).HanaModules?.icons ?? {};
-
   return (
     <div className="attached-files">
       {files.map((f, i) => (
@@ -715,27 +715,26 @@ function ContextRing() {
   const [compacting, setCompacting] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  // 从 __hanaState 同步 context 数据
+  // 从 Zustand store 同步 context 数据
+  const storeContextTokens = useStore(s => s.contextTokens);
+  const storeContextWindow = useStore(s => s.contextWindow);
+  const storeContextPercent = useStore(s => s.contextPercent);
+  const storeCompacting = useStore(s => s.compacting);
+
   useEffect(() => {
-    const state = (window as any).__hanaState;
-    const sync = () => {
-      if (state.contextTokens != null) {
-        setTokens(state.contextTokens);
-        setContextWindow(state.contextWindow);
-        setPercent(state.contextPercent);
-      }
-      setCompacting(!!state._compacting);
-    };
-    sync();
-    const id = setInterval(sync, 2000);
-    return () => clearInterval(id);
-  }, [isStreaming]);
+    if (storeContextTokens != null) {
+      setTokens(storeContextTokens);
+      setContextWindow(storeContextWindow);
+      setPercent(storeContextPercent);
+    }
+    setCompacting(storeCompacting);
+  }, [storeContextTokens, storeContextWindow, storeContextPercent, storeCompacting]);
 
   const handleClick = useCallback(() => {
     if (compacting) return;
-    const state = (window as any).__hanaState;
-    if (state.ws?.readyState === WebSocket.OPEN) {
-      state.ws.send(JSON.stringify({ type: 'compact' }));
+    const ws = getWebSocket();
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'compact' }));
     }
   }, [compacting]);
 
@@ -896,9 +895,7 @@ function ModelSelector({ models }: { models: Array<{ id: string; name: string; p
       });
       const favRes = await hanaFetch('/api/models/favorites');
       const favData = await favRes.json();
-      const state = window.__hanaState;
-      state.models = favData.models || [];
-      state.currentModel = favData.current;
+      useStore.setState({ models: favData.models || [] });
     } catch (err) {
       console.error('[model] switch failed:', err);
     }

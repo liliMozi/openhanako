@@ -11,6 +11,10 @@ import { useStore } from '../stores';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
 import { renderMarkdown } from '../utils/markdown';
+import { toggleSidebar, applyTbToggleState } from './SidebarLayout';
+import { toggleJianSidebar } from '../stores/desk-actions';
+import { ContextMenu } from './ContextMenu';
+import type { ContextMenuItem } from './ContextMenu';
 import type { Channel, Agent } from '../types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -194,14 +198,12 @@ export function ChannelsPanel() {
     const wantLeftOpen = savedLeft !== 'closed';
     const s = useStore.getState();
     if (s.sidebarOpen !== wantLeftOpen) {
-      const sidebar = (window as any).HanaModules?.sidebar;
-      sidebar?.toggleSidebar?.(wantLeftOpen);
+      toggleSidebar(wantLeftOpen);
     }
     const savedRight = localStorage.getItem(`hana-jian-${currentTab}`);
     const wantRightOpen = savedRight !== 'closed';
     if (s.jianOpen !== wantRightOpen) {
-      const desk = (window as any).HanaModules?.desk;
-      desk?.toggleJianSidebar?.(wantRightOpen);
+      toggleJianSidebar(wantRightOpen);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTab]);
@@ -297,8 +299,7 @@ function useTabClickHandler() {
         (btn as HTMLElement).classList.toggle('active', (btn as HTMLElement).dataset.tab === tab);
       });
 
-      const sidebar = (window as any).HanaModules?.sidebar;
-      sidebar?.updateTbToggleState?.();
+      applyTbToggleState();
     };
 
     tbTabs.addEventListener('click', handler);
@@ -405,31 +406,32 @@ function showChannelWarning(): Promise<boolean> {
 // ══════════════════════════════════════════════════════
 
 function ChannelSidebarButtons() {
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [menuItems, setMenuItems] = useState<ContextMenuItem[]>([]);
+
   useEffect(() => {
     const collapseBtn = document.getElementById('channelCollapseBtn');
     const infoToggle = document.getElementById('channelInfoToggle');
     const menuBtn = document.getElementById('channelMenuBtn');
 
     const handleCollapse = () => {
-      const sidebar = (window as any).HanaModules?.sidebar;
-      sidebar?.toggleSidebar?.();
+      toggleSidebar();
     };
     const handleInfoToggle = () => {
-      const desk = (window as any).HanaModules?.desk;
-      desk?.toggleJianSidebar?.();
+      toggleJianSidebar();
     };
     const handleMenu = (e: Event) => {
       const s = useStore.getState();
       if (!s.currentChannel) return;
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const desk = (window as any).HanaModules?.desk;
-      desk?.showContextMenu?.(rect.left, rect.bottom + 4, [
+      setMenuItems([
         {
           label: (window as any).t('channel.deleteChannel'),
           danger: true,
           action: () => confirmDeleteChannel(s.currentChannel!),
         },
       ]);
+      setMenuPos({ x: rect.left, y: rect.bottom + 4 });
     };
 
     collapseBtn?.addEventListener('click', handleCollapse);
@@ -443,7 +445,13 @@ function ChannelSidebarButtons() {
     };
   }, []);
 
-  return null;
+  const handleCloseMenu = useCallback(() => {
+    setMenuPos(null);
+  }, []);
+
+  return menuPos ? (
+    <ContextMenu items={menuItems} position={menuPos} onClose={handleCloseMenu} />
+  ) : null;
 }
 
 function confirmDeleteChannel(channelId: string) {
@@ -577,6 +585,8 @@ interface ChannelItemProps {
 }
 
 function ChannelItem({ channel, isDM, isActive, agents, userName, userAvatarUrl, currentAgentId, onOpen }: ChannelItemProps) {
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+
   const handleClick = useCallback(() => {
     onOpen(channel.id, channel.isDM);
   }, [onOpen, channel.id, channel.isDM]);
@@ -585,17 +595,22 @@ function ChannelItem({ channel, isDM, isActive, agents, userName, userAvatarUrl,
     if (isDM) return;
     e.preventDefault();
     e.stopPropagation();
-    const desk = (window as any).HanaModules?.desk;
-    desk?.showContextMenu?.(e.clientX, e.clientY, [
-      {
-        label: (window as any).t('channel.deleteChannel'),
-        danger: true,
-        action: () => confirmDeleteChannel(channel.id),
-      },
-    ]);
-  }, [isDM, channel.id]);
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  }, [isDM]);
+
+  const handleCloseCtxMenu = useCallback(() => {
+    setCtxMenu(null);
+  }, []);
 
   const selfInfo = resolveChannelMember(currentAgentId || '', userName, userAvatarUrl, agents, currentAgentId);
+
+  const ctxMenuItems: ContextMenuItem[] = ctxMenu ? [
+    {
+      label: (window as any).t('channel.deleteChannel'),
+      danger: true,
+      action: () => confirmDeleteChannel(channel.id),
+    },
+  ] : [];
 
   return (
     <div
@@ -633,6 +648,9 @@ function ChannelItem({ channel, isDM, isActive, agents, userName, userAvatarUrl,
           </div>
         )}
       </div>
+      {ctxMenu && (
+        <ContextMenu items={ctxMenuItems} position={ctxMenu} onClose={handleCloseCtxMenu} />
+      )}
     </div>
   );
 }

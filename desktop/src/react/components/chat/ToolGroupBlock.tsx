@@ -4,6 +4,7 @@
 
 import { memo, useState, useCallback } from 'react';
 import { extractToolDetail } from '../../utils/message-parser';
+import { useStore } from '../../stores';
 import type { ToolCall } from '../../stores/chat-types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -16,7 +17,7 @@ interface Props {
 
 function getToolLabel(name: string, phase: string): string {
   const t = (window as any).t;
-  const agentName = (window as any).__hanaState?.agentName || 'Hanako';
+  const agentName = useStore.getState().agentName || 'Hanako';
   const vars = { name: agentName };
   const val = t?.(`tool.${name}.${phase}`, vars);
   if (val && val !== `tool.${name}.${phase}`) return val;

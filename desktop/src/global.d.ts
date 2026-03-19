@@ -21,17 +21,8 @@ declare global {
     platform: PlatformApi;
     hana: PlatformApi;
 
-    // ── Vanilla ↔ React 桥接 ──
-    // __hanaActivateProxy / __hanaGetState 在 bridge.ts 中声明（需要 StoreState 类型）
-    __hanaState: Record<string, unknown> & {
-      ws?: { send(data: string): void; readyState?: number };
-    };
-    __hanaInit: (() => Promise<void>) | undefined;
+    // ── 日志上报 ──
     __hanaLog: (level: string, module: string, message: string) => void;
-    __REACT_MANAGED: boolean;
-
-    // ── HanaModules（shim 层注入） ──
-    HanaModules: Record<string, Record<string, (...args: any[]) => any>>;
 
     // ── Bridge callbacks ──
     __hanaBridgeLoadStatus?: () => void;
@@ -56,10 +47,11 @@ declare global {
     };
   }
 
-  // theme helpers（app.js 顶层）
+  // theme helpers（theme.js 全局函数）
   function loadSavedTheme(): void;
   function loadSavedFont(): void;
   function setTheme(theme: string): void;
+  function setSerifFont(enabled: boolean): void;
 }
 
 export {};

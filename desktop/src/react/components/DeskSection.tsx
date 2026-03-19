@@ -4,7 +4,7 @@
  * 替代旧 desk.js 的 renderDeskFiles / initJianEditor / updateDeskEmptyOverlay 逻辑。
  * 通过 portal 渲染到 #jianDeskPortal（在 .jian-sidebar-inner 内部）。
  *
- * Phase B: 所有文件操作直接调用 desk-actions，不再经过 window.HanaModules.desk。
+ * Phase B: 所有文件操作直接调用 desk-actions。
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -635,8 +635,7 @@ function JianEditor() {
     const value = e.target.value;
     setLocalValue(value);
 
-    const hanaState = window.__hanaState;
-    if (hanaState) hanaState.deskJianContent = value;
+    useStore.setState({ deskJianContent: value });
     prevContentRef.current = value;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -1039,8 +1038,7 @@ function DeskSkillsSection() {
     const enabledList = prev.map(s => s.name === name ? { ...s, enabled: enable } : s)
       .filter(s => s.enabled).map(s => s.name);
     try {
-      const state = (window as any).__hanaState || {};
-      const agentId = state.currentAgentId || '';
+      const agentId = useStore.getState().currentAgentId || '';
       await hanaFetch(`/api/agents/${agentId}/skills`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

@@ -76,11 +76,8 @@ export function applyStaticI18n(): void {
   const dropText = $('.drop-text');
   if (dropText) dropText.textContent = t('drop.hint', { name: s.agentName });
 
-  const { updateMemoryToggle, updateFolderButton } = (window as any).HanaModules.desk;
-  updateMemoryToggle();
+  // updateMemoryToggle / updateFolderButton — no-ops (React-driven)
 
   const statusText = $('.status-text');
   if (statusText && !s.connected) statusText.textContent = t('status.connecting');
-
-  updateFolderButton();
 }

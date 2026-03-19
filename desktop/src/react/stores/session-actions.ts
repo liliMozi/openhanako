@@ -11,6 +11,7 @@ import { useStore } from './index';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { buildItemsFromHistory } from '../utils/history-builder';
 import { loadAvatars as loadAvatarsAction, clearChat as clearChatAction } from './agent-actions';
+import { loadDeskFiles } from './desk-actions';
 
 // ── 防竞争计数器 ──
 
@@ -67,9 +68,10 @@ export async function switchSession(path: string): Promise<void> {
   if (path === s.currentSessionPath) return;
 
   // 关闭浮动面板
-  const { isActivityVisible, hideActivityPanel, closeActivityDetail, isAutomationVisible, hideAutomationPanel } = (window as any).HanaModules.activity;
-  if (isActivityVisible()) { closeActivityDetail(); hideActivityPanel(); }
-  if (isAutomationVisible()) hideAutomationPanel();
+  const activePanel = useStore.getState().activePanel;
+  if (activePanel === 'activity' || activePanel === 'automation') {
+    useStore.getState().setActivePanel(null);
+  }
 
   const myVersion = ++_switchVersion;
 
@@ -122,13 +124,9 @@ export async function switchSession(path: string): Promise<void> {
       browserThumbnail: data.browserRunning ? state.browserThumbnail : null,
     });
 
-    // 渲染 browser card
-    const { renderBrowserCard } = (window as any).HanaModules.artifacts;
-    renderBrowserCard();
+    // renderBrowserCard — no-op (browser card rendering handled by React)
 
-    // 更新 folder button
-    const { updateFolderButton } = (window as any).HanaModules.desk;
-    updateFolderButton();
+    // updateFolderButton — no-op (React-driven)
 
     // 如果 store 中没有该 session 的消息数据，加载之
     const hasData = !!useStore.getState().chatSessions?.[path];
@@ -137,18 +135,14 @@ export async function switchSession(path: string): Promise<void> {
     }
 
     // 加载 desk files
-    const { loadDeskFiles } = (window as any).HanaModules.desk;
     loadDeskFiles('');
 
     // 切换会话后刷新 context ring
-    const hanaState = (window as any).__hanaState;
-    if (hanaState) {
-      hanaState.contextTokens = null;
-      hanaState.contextWindow = null;
-      hanaState.contextPercent = null;
-      if (hanaState.ws?.readyState === WebSocket.OPEN) {
-        hanaState.ws.send(JSON.stringify({ type: 'context_usage' }));
-      }
+    useStore.setState({ contextTokens: null, contextWindow: null, contextPercent: null });
+    const { getWebSocket } = await import('../services/websocket');
+    const wsConn = getWebSocket();
+    if (wsConn?.readyState === WebSocket.OPEN) {
+      wsConn.send(JSON.stringify({ type: 'context_usage' }));
     }
   } catch (err) {
     console.error('[session] switch failed:', err);
@@ -161,8 +155,9 @@ export async function switchSession(path: string): Promise<void> {
 
 export async function createNewSession(): Promise<void> {
   // 关闭浮动面板
-  const { isActivityVisible, hideActivityPanel, closeActivityDetail } = (window as any).HanaModules.activity;
-  if (isActivityVisible()) { closeActivityDetail(); hideActivityPanel(); }
+  if (useStore.getState().activePanel === 'activity') {
+    useStore.getState().setActivePanel(null);
+  }
 
   const s = useStore.getState();
 
@@ -180,18 +175,11 @@ export async function createNewSession(): Promise<void> {
   });
 
   // 重置 context ring
-  const hanaState = (window as any).__hanaState;
-  if (hanaState) {
-    hanaState.contextTokens = null;
-    hanaState.contextWindow = null;
-    hanaState.contextPercent = null;
-  }
+  useStore.setState({ contextTokens: null, contextWindow: null, contextPercent: null });
 
-  const { renderBrowserCard } = (window as any).HanaModules.artifacts;
-  renderBrowserCard();
+  // renderBrowserCard — no-op (browser card rendering handled by React)
 
-  const { updateFolderButton, loadDeskFiles } = (window as any).HanaModules.desk;
-  updateFolderButton();
+  // updateFolderButton — no-op (React-driven)
 
   const currentState = useStore.getState();
   loadDeskFiles('', currentState.selectedFolder || currentState.homeFolder);
@@ -264,8 +252,7 @@ export async function ensureSession(): Promise<boolean> {
 
     await loadSessions();
 
-    const { updateFolderButton, loadDeskFiles } = (window as any).HanaModules.desk;
-    updateFolderButton();
+    // updateFolderButton — no-op (React-driven)
 
     // 更新 cwdHistory
     if (justSelected) {

@@ -1,7 +1,7 @@
 /**
  * theme.js — 共享主题系统
  *
- * 被 app.js、onboarding.js 等所有窗口共用。
+ * 被 onboarding.js 等所有窗口共用。
  * 通过 localStorage 跨窗口同步主题选择。
  */
 

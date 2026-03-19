@@ -5,6 +5,7 @@
  */
 
 import { useStore } from './index';
+import { updateLayout } from '../components/SidebarLayout';
 import type { Artifact } from '../types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -20,18 +21,14 @@ export function openPreview(artifact: Artifact): void {
   s.setArtifacts(arts);
   s.setCurrentArtifactId(artifact.id);
   s.setPreviewOpen(true);
-  const mods = (window as any).HanaModules as Record<string, any> | undefined;
-  const sidebarMod = mods?.sidebar as { updateLayout?: () => void } | undefined;
-  sidebarMod?.updateLayout?.();
+  updateLayout();
 }
 
 export function closePreview(): void {
   const s = useStore.getState();
   s.setPreviewOpen(false);
   s.setCurrentArtifactId(null);
-  const mods = (window as any).HanaModules as Record<string, any> | undefined;
-  const sidebarMod = mods?.sidebar as { updateLayout?: () => void } | undefined;
-  sidebarMod?.updateLayout?.();
+  updateLayout();
 }
 
 /** 注册 artifact 到全局 store（流式事件 + 点击卡片都走这里） */

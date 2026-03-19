@@ -12,6 +12,7 @@ import { hanaUrl } from '../hooks/use-hana-fetch';
 import { createNewSession, switchSession } from '../stores/session-actions';
 import { yuanFallbackAvatar } from '../utils/agent-helpers';
 import { closePreview } from '../stores/artifact-actions';
+import { toggleJianSidebar, saveJianContent } from '../stores/desk-actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -163,13 +164,11 @@ export function SidebarLayout() {
     // 按钮绑定
     document.getElementById('newSessionBtn')?.addEventListener('click', createNewSession);
     document.getElementById('folderSelectBtn')?.addEventListener('click', () => {
-      const { selectFolder } = (window as any).HanaModules.desk;
-      selectFolder();
+      // selectFolder — no-op (folder selection handled by WelcomeScreen)
     });
     document.getElementById('sidebarCollapseBtn')?.addEventListener('click', () => toggleSidebar());
     document.getElementById('tbToggleLeft')?.addEventListener('click', () => toggleSidebar());
     document.getElementById('tbToggleRight')?.addEventListener('click', () => {
-      const { toggleJianSidebar } = (window as any).HanaModules.desk;
       toggleJianSidebar();
     });
 
@@ -216,7 +215,6 @@ export function SidebarLayout() {
         createNewSession();
       }
       if (e.key === 'Escape' && useStore.getState().previewOpen) {
-        const { closePreview } = (window as any).HanaModules.artifacts;
         closePreview();
       }
     };
@@ -417,8 +415,7 @@ function buildDeskList(card: HTMLElement): void {
     if (mainTextarea) mainTextarea.value = textarea.value;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      const { saveJianContent } = (window as any).HanaModules.desk;
-      if (saveJianContent) saveJianContent();
+      saveJianContent();
     }, 800);
   });
 

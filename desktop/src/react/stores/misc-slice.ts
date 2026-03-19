@@ -11,6 +11,12 @@ export interface MiscSlice {
   homeFolder: string | null;
   selectedFolder: string | null;
   cwdHistory: string[];
+  /** Context usage — token count for the current session */
+  contextTokens: number | null;
+  contextWindow: number | null;
+  contextPercent: number | null;
+  /** Whether a compaction is currently in progress */
+  compacting: boolean;
   setActivities: (activities: Activity[]) => void;
   setArtifacts: (artifacts: Artifact[]) => void;
   setCurrentArtifactId: (id: string | null) => void;
@@ -36,6 +42,10 @@ export const createMiscSlice = (
   homeFolder: null,
   selectedFolder: null,
   cwdHistory: [],
+  contextTokens: null,
+  contextWindow: null,
+  contextPercent: null,
+  compacting: false,
   setActivities: (activities) => set({ activities }),
   setArtifacts: (artifacts) => set({ artifacts }),
   setCurrentArtifactId: (id) => set({ currentArtifactId: id }),

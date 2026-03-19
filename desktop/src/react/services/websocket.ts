@@ -9,6 +9,8 @@
 
 import { handleServerMessage, applyStreamingStatus } from './ws-message-handler';
 import { requestStreamResume, injectHandlers } from './stream-resume';
+import { useStore } from '../stores';
+import { setStatus } from '../utils/ui-helpers';
 
 declare function t(key: string, vars?: Record<string, string>): any;
 
@@ -31,10 +33,10 @@ export function getWebSocket(): WebSocket | null {
 
 /** 发起 WebSocket 连接 */
 export function connectWebSocket(port?: string, token?: string): void {
-  // 如果没有传参，从 __hanaState 获取
-  const state = (window as any).__hanaState;
-  const serverPort = port || state?.serverPort;
-  const serverToken = token || state?.serverToken;
+  // 如果没有传参，从 Zustand store 获取
+  const storeState = useStore.getState();
+  const serverPort = port || storeState.serverPort;
+  const serverToken = token || storeState.serverToken;
 
   if (!serverPort) return;
 
@@ -43,25 +45,23 @@ export function connectWebSocket(port?: string, token?: string): void {
     try { _ws.onclose = null; _ws.close(); } catch { /* silent */ }
   }
 
-  // 同步到 state.ws（向后兼容：InputArea 等仍通过 __hanaState.ws 访问）
   const tokenParam = serverToken ? `?token=${serverToken}` : '';
   const url = `ws://127.0.0.1:${serverPort}/ws${tokenParam}`;
   _ws = new WebSocket(url);
-  if (state) state.ws = _ws;
 
   _ws.onopen = () => {
-    if (state) state.connected = true;
+    useStore.setState({ connected: true });
     _wsRetryDelay = 1000;
 
-    const setStatus = (window as any).HanaModules?.appUi?.setStatus;
-    if (setStatus) setStatus(t('status.connected'), true);
+    setStatus(t('status.connected'), true);
 
-    if (state?.currentSessionPath && state.isStreaming) {
+    const s = useStore.getState();
+    if (s.currentSessionPath && s.isStreaming) {
       const myVersion = ++_wsResumeVersion;
-      const targetPath = state.currentSessionPath;
+      const targetPath = s.currentSessionPath;
       Promise.resolve().then(async () => {
         if (myVersion !== _wsResumeVersion) return;
-        if (state.currentSessionPath !== targetPath) return;
+        if (useStore.getState().currentSessionPath !== targetPath) return;
         requestStreamResume(targetPath);
       }).catch((err) => {
         console.error('[ws] reconnect resume failed:', err);
@@ -79,9 +79,8 @@ export function connectWebSocket(port?: string, token?: string): void {
   };
 
   _ws.onclose = () => {
-    if (state) state.connected = false;
-    const setStatus = (window as any).HanaModules?.appUi?.setStatus;
-    if (setStatus) setStatus(t('status.disconnected'), false);
+    useStore.setState({ connected: false });
+    setStatus(t('status.disconnected'), false);
     _wsRetryTimer = setTimeout(() => connectWebSocket(serverPort, serverToken), _wsRetryDelay);
     _wsRetryDelay = Math.min(_wsRetryDelay * 2, WS_RETRY_MAX);
   };

@@ -164,7 +164,7 @@ class StreamBufferManager {
   // ── 公开事件处理器 ──
 
   handle(msg: any): void {
-    const sessionPath = msg.sessionPath || (window as any).__hanaState?.currentSessionPath;
+    const sessionPath = msg.sessionPath || useStore.getState().currentSessionPath;
     if (!sessionPath) return;
     const buf = this.getBuffer(sessionPath);
 
@@ -196,7 +196,7 @@ class StreamBufferManager {
         this.ensureMessage(buf);
         buf.inMood = true;
         buf.moodAcc = '';
-        buf.moodYuan = (window as any).__hanaState?.agentYuan || 'hanako';
+        buf.moodYuan = useStore.getState().agentYuan || 'hanako';
         this.flush(buf);
         break;
 
@@ -333,7 +333,7 @@ class StreamBufferManager {
         useStore.getState().appendItem(sessionPath, {
           type: 'compaction',
           id: `compaction-${Date.now()}`,
-          yuan: (window as any).__hanaState?.agentYuan || 'hanako',
+          yuan: useStore.getState().agentYuan || 'hanako',
         });
         break;
 
