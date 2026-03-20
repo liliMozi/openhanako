@@ -82,6 +82,24 @@ export function AboutTab() {
           <span className="about-label">{t('settings.about.copyright')}</span>
           <span className="about-value">&copy; 2026 liliMozi</span>
         </div>
+        <div className="about-row">
+          <span className="about-label">GitHub</span>
+          <a
+            className="about-value about-link"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              hana?.openExternal?.('https://github.com/liliMozi');
+            }}
+          >
+            github.com/liliMozi
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </a>
+        </div>
       </section>
 
       <button

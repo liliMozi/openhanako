@@ -11,6 +11,7 @@ import path from "path";
 import {
   createAgentSession,
   SessionManager,
+  SettingsManager,
 } from "@mariozechner/pi-coding-agent";
 import { createModuleLogger } from "../lib/debug-log.js";
 import { BrowserManager } from "../lib/browser/browser-manager.js";
@@ -90,10 +91,11 @@ export class SessionCoordinator {
     const creatingAgent = agent;
     creatingAgent.setMemoryEnabled(memoryEnabled);
 
-    const { tools: sessionTools, customTools: sessionCustomTools } = this._d.buildTools(effectiveCwd);
+    const { tools: sessionTools, customTools: sessionCustomTools } = this._d.buildTools(effectiveCwd, null, { workspace: this._d.getHomeCwd() });
     const { session } = await createAgentSession({
       cwd: effectiveCwd,
       sessionManager: sessionMgr,
+      settingsManager: this._createSettings(models.currentModel),
       authStorage: models.authStorage,
       modelRegistry: models.modelRegistry,
       model: models.currentModel,
@@ -493,7 +495,7 @@ export class SessionCoordinator {
       const execModel = models.resolveExecutionModel(resolvedModel);
       tempSessionMgr = SessionManager.create(execCwd, sessionDir);
       const { tools: allBuiltinTools, customTools: allCustomTools } = this._d.buildTools(
-        execCwd, targetAgent.tools, { agentDir: targetAgent.agentDir }
+        execCwd, targetAgent.tools, { agentDir: targetAgent.agentDir, workspace: this._d.getHomeCwd() }
       );
 
       const patrolAllowed = opts.toolFilter
@@ -520,6 +522,7 @@ export class SessionCoordinator {
       const { session } = await createAgentSession({
         cwd: execCwd,
         sessionManager: tempSessionMgr,
+        settingsManager: this._createSettings(execModel),
         authStorage: models.authStorage,
         modelRegistry: models.modelRegistry,
         model: execModel,
@@ -581,5 +584,17 @@ export class SessionCoordinator {
         this._d.emitEvent({ type: "browser_bg_status", running: browserNowRunning, url: bm.currentUrl }, null);
       }
     }
+  }
+
+  /** 创建 session 专用 settings（控制 compaction + max_completion_tokens） */
+  _createSettings(model) {
+    const contextWindow = model?.contextWindow || 200_000;
+    return SettingsManager.inMemory({
+      compaction: {
+        enabled: true,
+        reserveTokens: Math.max(contextWindow - 100_000, 16384),
+        keepRecentTokens: 20_000,
+      },
+    });
   }
 }

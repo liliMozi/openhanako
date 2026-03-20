@@ -76,6 +76,8 @@ export default async function chatRoute(app, { engine, hub }) {
         moodParser: new MoodParser(),
         xingParser: new XingParser(),
         isThinking: false,
+        hasOutput: false,
+        hasToolCall: false,
         titleRequested: false,
         titlePreview: "",
         ...createSessionStreamState(),
@@ -155,6 +157,7 @@ export default async function chatRoute(app, { engine, hub }) {
       const sub = event.assistantMessageEvent?.type;
 
       if (sub === "text_delta") {
+        ss.hasOutput = true;
         if (ss.isThinking) {
           ss.isThinking = false;
           emitStreamEvent(sessionPath, ss, { type: "thinking_end" });
@@ -227,6 +230,7 @@ export default async function chatRoute(app, { engine, hub }) {
       }
     } else if (event.type === "tool_execution_start") {
       if (!ss) return;
+      ss.hasToolCall = true;
       if (ss.isThinking) {
         ss.isThinking = false;
         emitStreamEvent(sessionPath, ss, { type: "thinking_end" });
@@ -400,8 +404,15 @@ export default async function chatRoute(app, { engine, hub }) {
         }
       });
 
+      // 空回复检测：本轮没有文本输出也没有工具调用，提示用户检查配置
+      if (!ss.hasOutput && !ss.hasToolCall && isActive) {
+        broadcast({ type: "error", message: "模型未返回任何内容，请检查 API 配置和网络连接。" });
+      }
+
       emitStreamEvent(sessionPath, ss, { type: "turn_end" });
       finishSessionStream(ss);
+      ss.hasOutput = false;
+      ss.hasToolCall = false;
       ss.thinkTagParser.reset();
       ss.moodParser.reset();
       ss.xingParser.reset();

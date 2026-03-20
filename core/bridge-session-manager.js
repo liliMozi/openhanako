@@ -20,10 +20,11 @@ export class BridgeSessionManager {
   /**
    * @param {object} deps - 注入依赖（不持有 engine 引用）
    * @param {() => object} deps.getAgent - 返回当前 agent（需 sessionDir, yuanPrompt）
+   * @param {(id: string) => object|null} deps.getAgentById - 按 ID 获取 agent
    * @param {() => import('./model-manager.js').ModelManager} deps.getModelManager
    * @param {() => object} deps.getResourceLoader
    * @param {() => object} deps.getPreferences
-   * @param {(cwd: string) => {tools: any[], customTools: any[]}} deps.buildTools
+   * @param {(cwd: string, customTools?, opts?) => {tools: any[], customTools: any[]}} deps.buildTools
    * @param {() => string} deps.getHomeCwd
    */
   constructor(deps) {
@@ -48,8 +49,9 @@ export class BridgeSessionManager {
   }
 
   /** bridge 索引文件路径 */
-  _indexPath() {
-    return path.join(this._deps.getAgent().sessionDir, "bridge", "bridge-sessions.json");
+  _indexPath(agent) {
+    const a = agent || this._deps.getAgent();
+    return path.join(a.sessionDir, "bridge", "bridge-sessions.json");
   }
 
   /**
@@ -81,17 +83,17 @@ export class BridgeSessionManager {
   }
 
   /** 读取 bridge session 索引 */
-  readIndex() {
+  readIndex(agent) {
     try {
-      return JSON.parse(fs.readFileSync(this._indexPath(), "utf-8"));
+      return JSON.parse(fs.readFileSync(this._indexPath(agent), "utf-8"));
     } catch { return {}; }
   }
 
   /** 写入 bridge session 索引 */
-  writeIndex(index) {
-    const dir = path.dirname(this._indexPath());
+  writeIndex(index, agent) {
+    const dir = path.dirname(this._indexPath(agent));
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(this._indexPath(), JSON.stringify(index, null, 2) + "\n", "utf-8");
+    fs.writeFileSync(this._indexPath(agent), JSON.stringify(index, null, 2) + "\n", "utf-8");
   }
 
   /**
@@ -103,7 +105,8 @@ export class BridgeSessionManager {
    * @returns {Promise<string|null>} agent 的回复文本
    */
   async executeExternalMessage(prompt, sessionKey, meta, opts = {}) {
-    const agent = this._deps.getAgent();
+    // 优先用调用方传入的 agentId，避免 debounce 窗口内切 agent 导致路由到错误 agent
+    const agent = (opts.agentId && this._deps.getAgentById?.(opts.agentId)) || this._deps.getAgent();
     const mm = this._deps.getModelManager();
     const bridgeDir = path.join(agent.sessionDir, "bridge");
     const subDir = opts.guest ? "guests" : "owner";
@@ -111,7 +114,7 @@ export class BridgeSessionManager {
     fs.mkdirSync(sessionDir, { recursive: true });
 
     // 查找已有 session（兼容旧格式字符串和新格式对象）
-    const index = this.readIndex();
+    const index = this.readIndex(agent);
     const raw = index[sessionKey];
     const existingFile = typeof raw === "string" ? raw : raw?.file || null;
     const existingPath = existingFile ? path.join(bridgeDir, existingFile) : null;
@@ -162,7 +165,7 @@ export class BridgeSessionManager {
         const prefs = this._deps.getPreferences();
         const bridgeReadOnly = !!prefs.bridge?.readOnly;
         const bridgeCwd = homeCwd;
-        const { tools: baseTools, customTools: baseCustomTools } = this._deps.buildTools(bridgeCwd);
+        const { tools: baseTools, customTools: baseCustomTools } = this._deps.buildTools(bridgeCwd, null, { workspace: homeCwd });
 
         const bridgeTools = bridgeReadOnly
           ? baseTools.filter(t => READ_ONLY_BUILTIN_TOOLS.includes(t.name))
@@ -235,7 +238,7 @@ export class BridgeSessionManager {
           Object.assign(entry, meta);
           index[sessionKey] = entry;
         }
-        this.writeIndex(index);
+        this.writeIndex(index, agent);
       }
 
       return capturedText.trim() || null;

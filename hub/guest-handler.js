@@ -37,6 +37,7 @@ export class GuestHandler {
 
     return this._hub.engine.executeExternalMessage(prefixed, sessionKey, meta, {
       guest: true,
+      agentId: opts.agentId,
       contextTag,
       onDelta: opts.onDelta,
     });
