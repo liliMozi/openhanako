@@ -7,6 +7,7 @@
 
 import { useEffect, lazy, Suspense } from 'react';
 import { useStore } from './stores';
+import type { ActivePanel } from './types';
 import { hanaFetch } from './hooks/use-hana-fetch';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ActivityPanel } from './components/ActivityPanel';
@@ -146,7 +147,7 @@ async function init(): Promise<void> {
 
   // 14. 浮动面板按钮
   const $ = (sel: string) => document.querySelector(sel);
-  const _togglePanel = (panel: string) => {
+  const _togglePanel = (panel: ActivePanel) => {
     const s = useStore.getState();
     s.setActivePanel(s.activePanel === panel ? null : panel);
   };

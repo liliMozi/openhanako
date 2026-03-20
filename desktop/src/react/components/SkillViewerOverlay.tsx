@@ -35,7 +35,7 @@ export function SkillViewerOverlay() {
   const [fileName, setFileName] = useState('SKILL.md');
   const [content, setContent] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const close = useCallback(() => {
     useStore.setState({ skillViewerData: null });

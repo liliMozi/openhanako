@@ -255,7 +255,7 @@ export function handleServerMessage(msg: any): void {
           if (!m.blocks) return m;
           const updated = m.blocks.map((b: any) => {
             if ((b.type === 'settings_confirm' || b.type === 'cron_confirm') && b.confirmId === msg.confirmId) {
-              return { ...b, status: msg.action === 'confirmed' ? 'approved' : 'rejected' };
+              return { ...b, status: msg.action === 'confirmed' ? 'confirmed' : 'rejected' };
             }
             return b;
           });

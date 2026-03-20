@@ -147,7 +147,7 @@ export function DevToolsPanel() {
   const [tab, setTab] = useState<DevTab>('logs');
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null);
   const [hbLoading, setHbLoading] = useState(false);
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // 首次打开时加载历史日志
   const logsLoaded = useRef(false);

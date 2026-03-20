@@ -58,7 +58,11 @@ const _distRenderer = path.join(__dirname, "dist-renderer");
 
 function loadWindowURL(win, pageName, opts) {
   if (_isDev && process.env.VITE_DEV_URL) {
-    const url = `${process.env.VITE_DEV_URL}/${pageName}.html`;
+    let url = `${process.env.VITE_DEV_URL}/${pageName}.html`;
+    if (opts?.query && Object.keys(opts.query).length > 0) {
+      const qs = new URLSearchParams(opts.query).toString();
+      url += `?${qs}`;
+    }
     win.loadURL(url);
   } else {
     const built = path.join(_distRenderer, `${pageName}.html`);
