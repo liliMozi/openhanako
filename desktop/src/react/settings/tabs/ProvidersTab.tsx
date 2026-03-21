@@ -94,15 +94,16 @@ export function ProvidersTab() {
       <div className="pv-layout">
         {/* ── 左栏 ── */}
         <div className="pv-list">
-          <div className="pv-list-title">{t('settings.tabs.providers')}</div>
-          {/* OAuth */}
+          {/* OAuth 分组 */}
           {oauthProviders.length > 0 && (
             <>
+              <div className="pv-list-section-title">OAuth</div>
               {oauthProviders.map(renderRegistered)}
-              <div className="pv-list-divider" />
             </>
           )}
 
+          {/* API Key 分组 */}
+          <div className="pv-list-section-title">API</div>
           {/* 已注册 preset providers */}
           {presetProviders.map(renderRegistered)}
 
@@ -110,12 +111,7 @@ export function ProvidersTab() {
           {unregisteredPresets.map(renderUnregistered)}
 
           {/* 自定义 providers */}
-          {customProviders.length > 0 && (
-            <>
-              <div className="pv-list-divider" />
-              {customProviders.map(renderRegistered)}
-            </>
-          )}
+          {customProviders.map(renderRegistered)}
 
           {/* 添加自定义供应商 */}
           <AddCustomButton

@@ -7850,7 +7850,7 @@ a.about-link:hover {
 .pv-layout {
     display: flex;
     gap: 0;
-    min-height: 400px;
+    height: 420px;
     background: var(--bg-card, var(--bg));
     border: 1px solid var(--overlay-light);
     border-radius: var(--radius-md);
@@ -7875,6 +7875,16 @@ a.about-link:hover {
     color: var(--text-muted);
     padding: 6px 12px 4px;
     letter-spacing: 0.03em;
+}
+
+.pv-list-section-title {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 8px 12px 2px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.75;
 }
 
 .pv-list-item {
@@ -9571,6 +9581,15 @@ a.about-link:hover {
 
 .sdw.open .sdw-popup {
     display: flex;
+}
+
+/* Portal 版：挂在 body 上，position/top/left 由 JS 计算 */
+.sdw-popup.sdw-popup-fixed {
+    display: flex;
+    position: fixed;
+    top: auto;
+    left: auto;
+    margin-top: 0;
 }
 
 .sdw-option {
