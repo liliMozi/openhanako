@@ -40,8 +40,6 @@ contextBridge.exposeInMainWorld("hana", {
   onboardingComplete: () => ipcRenderer.invoke("onboarding-complete"),
   debugOpenOnboarding: () => ipcRenderer.invoke("debug-open-onboarding"),
   debugOpenOnboardingPreview: () => ipcRenderer.invoke("debug-open-onboarding-preview"),
-  // DevTools 面板切换（主进程 → 渲染进程）
-  onToggleDevtools: (cb) => ipcRenderer.on("toggle-devtools", () => cb()),
   // Skill Viewer overlay（主进程 → 渲染进程）
   onShowSkillViewer: (cb) => ipcRenderer.on("show-skill-viewer", (_, data) => cb(data)),
   // 设置窗口

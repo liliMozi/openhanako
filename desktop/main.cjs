@@ -1978,17 +1978,7 @@ app.whenReady().then(async () => {
       createOnboardingWindow();
     }
 
-    // 5. 注册 DevTools 快捷键（Cmd+Option+=，仅 dev 模式）
-    const isDev = process.argv.includes("--dev") || process.env.NODE_ENV === "development";
-    if (isDev) {
-      globalShortcut.register("CommandOrControl+Alt+=", () => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("toggle-devtools");
-        }
-      });
-    }
-
-    // 6. 后台检查更新（不阻塞启动）
+    // 5. 后台检查更新（不阻塞启动）
     checkForUpdates().catch(() => {});
   } catch (err) {
     console.error("[desktop] 启动失败:", err.message);

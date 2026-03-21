@@ -176,14 +176,6 @@ export function handleServerMessage(msg: any): void {
       break;
     }
 
-    case 'devlog': {
-      const time = new Date().toLocaleTimeString(undefined, { hour12: false });
-      const logs = state.devLogs;
-      const next = [...logs, { level: msg.level || 'info', text: msg.text || '', time }];
-      useStore.setState({ devLogs: next.length > 200 ? next.slice(-200) : next });
-      break;
-    }
-
     case 'activity_update':
       if (msg.activity) {
         useStore.setState({ activities: [msg.activity, ...state.activities.slice(0, 499)] });

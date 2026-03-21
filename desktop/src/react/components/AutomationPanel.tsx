@@ -15,7 +15,6 @@ interface CronJob {
 
 export function AutomationPanel() {
   const activePanel = useStore(s => s.activePanel);
-  const panelClosing = useStore(s => s.panelClosing);
   const agentAvatarUrl = useStore(s => s.agentAvatarUrl);
   const agentName = useStore(s => s.agentName);
   const agentYuan = useStore(s => s.agentYuan);
@@ -91,7 +90,7 @@ export function AutomationPanel() {
   if (activePanel !== 'automation') return null;
 
   return (
-    <div className={`floating-panel${panelClosing ? ' closing' : ''}`} id="automationPanel">
+    <div className="floating-panel" id="automationPanel">
       <div className="floating-panel-inner">
         <div className="floating-panel-header">
           <h2 className="floating-panel-title">{(window.t ?? ((p: string) => p))('automation.title')}</h2>

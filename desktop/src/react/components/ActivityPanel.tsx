@@ -33,7 +33,6 @@ interface DetailState {
 
 export function ActivityPanel() {
   const activePanel = useStore(s => s.activePanel);
-  const panelClosing = useStore(s => s.panelClosing);
   const activities = useStore(s => s.activities) as ActivityItem[];
   const agents = useStore(s => s.agents);
   const currentAgentId = useStore(s => s.currentAgentId);
@@ -102,7 +101,7 @@ export function ActivityPanel() {
   if (activePanel !== 'activity') return null;
 
   return (
-    <div className={`floating-panel${panelClosing ? ' closing' : ''}`} id="activityPanel">
+    <div className="floating-panel" id="activityPanel">
       <div className="floating-panel-inner">
         {detail ? (
           // 详情视图

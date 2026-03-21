@@ -14,7 +14,6 @@ import { ActivityPanel } from './components/ActivityPanel';
 import { AutomationPanel } from './components/AutomationPanel';
 import { BridgePanel } from './components/BridgePanel';
 
-const DevToolsPanel = lazy(() => import('./components/DevToolsPanel').then(m => ({ default: m.DevToolsPanel })));
 const SkillViewerOverlay = lazy(() => import('./components/SkillViewerOverlay').then(m => ({ default: m.SkillViewerOverlay })));
 import { PreviewPanel } from './components/PreviewPanel';
 import { BrowserCard } from './components/BrowserCard';
@@ -200,13 +199,7 @@ async function init(): Promise<void> {
     }
   });
 
-  // 20. DevTools 面板切换（主进程快捷键 → 渲染进程）
-  (window as any).hana?.onToggleDevtools?.(() => {
-    const s = useStore.getState();
-    s.setActivePanel(s.activePanel === 'devtools' ? null : 'devtools');
-  });
-
-  // 21. Skill Viewer overlay（主进程 / 设置窗口 → 渲染进程）
+  // 20. Skill Viewer overlay（主进程 / 设置窗口 → 渲染进程）
   (window as any).hana?.onShowSkillViewer?.((data: any) => {
     useStore.setState({ skillViewerData: data });
   });
@@ -502,7 +495,6 @@ function App() {
           <ActivityPanel />
           <AutomationPanel />
           <BridgePanel />
-          <Suspense fallback={null}><DevToolsPanel /></Suspense>
         </MainContentDrag>
 
         <PreviewPanel />

@@ -1,11 +1,5 @@
 import type { ActivePanel, TabType } from '../types';
 
-export interface DevLogEntry {
-  level: string;
-  text: string;
-  time: string;
-}
-
 export interface UiSlice {
   sidebarOpen: boolean;
   sidebarAutoCollapsed: boolean;
@@ -15,9 +9,7 @@ export interface UiSlice {
   welcomeVisible: boolean;
   currentTab: TabType;
   activePanel: ActivePanel;
-  panelClosing: boolean;
   locale: string;
-  devLogs: DevLogEntry[];
   /** Skill 预览 overlay 数据（null = 关闭） */
   skillViewerData: { name: string; baseDir: string; filePath?: string; installed?: boolean } | null;
   setSidebarOpen: (open: boolean) => void;
@@ -31,8 +23,6 @@ export interface UiSlice {
   toggleSidebar: () => void;
   toggleJian: () => void;
 }
-
-let _panelCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const createUiSlice = (
   set: (partial: Partial<UiSlice> | ((s: UiSlice) => Partial<UiSlice>)) => void
@@ -48,9 +38,7 @@ export const createUiSlice = (
   // Keep locale empty until i18n.load() finishes so the first successful
   // locale sync always triggers a rerender, even for the default zh locale.
   locale: '',
-  devLogs: [],
   skillViewerData: null,
-  panelClosing: false,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setSidebarAutoCollapsed: (collapsed) => set({ sidebarAutoCollapsed: collapsed }),
   setJianOpen: (open) => set({ jianOpen: open }),
@@ -58,21 +46,7 @@ export const createUiSlice = (
   setPreviewOpen: (open) => set({ previewOpen: open }),
   setWelcomeVisible: (visible) => set({ welcomeVisible: visible }),
   setCurrentTab: (tab) => set({ currentTab: tab }),
-  setActivePanel: (panel) => {
-    if (_panelCloseTimer) {
-      clearTimeout(_panelCloseTimer);
-      _panelCloseTimer = null;
-    }
-    if (panel === null) {
-      set({ panelClosing: true });
-      _panelCloseTimer = setTimeout(() => {
-        _panelCloseTimer = null;
-        set({ activePanel: null, panelClosing: false });
-      }, 80);
-    } else {
-      set({ activePanel: panel, panelClosing: false });
-    }
-  },
+  setActivePanel: (panel) => set({ activePanel: panel }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   toggleJian: () => set((s) => ({ jianOpen: !s.jianOpen })),
 });
