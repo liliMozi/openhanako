@@ -56,6 +56,7 @@ export function BridgeTab() {
   // Feishu fields
   const [fsAppId, setFsAppId] = useState('');
   const [fsAppSecret, setFsAppSecret] = useState('');
+  const [fsDomain, setFsDomain] = useState<'feishu' | 'lark'>('feishu');
   // QQ fields
   const [qqAppId, setQqAppId] = useState('');
   const [qqAppSecret, setQqAppSecret] = useState('');
@@ -67,6 +68,7 @@ export function BridgeTab() {
       setStatus(data);
       // 回填非敏感值
       if (data.feishu?.appId && !fsAppId) setFsAppId(data.feishu.appId);
+      if (data.feishu?.domain) setFsDomain(data.feishu.domain === 'lark' ? 'lark' : 'feishu');
       if (data.qq?.appID && !qqAppId) setQqAppId(data.qq.appID);
     } catch (err) {
       console.error('[bridge] load status failed:', err);
@@ -224,10 +226,27 @@ export function BridgeTab() {
                 showToast(t('settings.bridge.noCredentials'), 'error');
                 return;
               }
-              const creds = fsAppSecret ? { appId: fsAppId, appSecret: fsAppSecret } : (fsAppId ? { appId: fsAppId } : null);
+              const creds = fsAppSecret ? { appId: fsAppId, appSecret: fsAppSecret, domain: fsDomain } : (fsAppId ? { appId: fsAppId, domain: fsDomain } : null);
               await saveBridgeConfig('feishu', creds, on);
             }}
           />
+        </div>
+        <div className="settings-field">
+          <label className="settings-field-label">{t('settings.bridge.feishuDomain')}</label>
+          <select
+            className="settings-input"
+            value={fsDomain}
+            onChange={async (e) => {
+              const d = e.target.value as 'feishu' | 'lark';
+              setFsDomain(d);
+              if (fsAppId.trim()) {
+                await saveBridgeConfig('feishu', { appId: fsAppId.trim(), ...(fsAppSecret.trim() ? { appSecret: fsAppSecret.trim() } : {}), domain: d }, undefined);
+              }
+            }}
+          >
+            <option value="feishu">{t('settings.bridge.feishuDomainFeishu')}</option>
+            <option value="lark">{t('settings.bridge.feishuDomainLark')}</option>
+          </select>
         </div>
         <div className="settings-field">
           <label className="settings-field-label">{t('settings.bridge.feishuAppId')}</label>
@@ -238,7 +257,7 @@ export function BridgeTab() {
             onChange={(e) => setFsAppId(e.target.value)}
             onBlur={async () => {
               if (fsAppId.trim() && fsAppSecret.trim()) {
-                await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, undefined);
+                await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim(), domain: fsDomain }, undefined);
               }
             }}
           />
@@ -252,7 +271,7 @@ export function BridgeTab() {
               placeholder={fsInfo.appSecretMasked || ''}
               onBlur={async () => {
                 if (fsAppId.trim() && fsAppSecret.trim()) {
-                  await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, undefined);
+                  await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim(), domain: fsDomain }, undefined);
                 }
               }}
             />
@@ -260,7 +279,7 @@ export function BridgeTab() {
               className="bridge-test-btn"
               onClick={(e) => {
                 if (!fsAppId.trim() || !fsAppSecret.trim()) { showToast(t('settings.bridge.noCredentials'), 'error'); return; }
-                testPlatform('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, e.currentTarget);
+                testPlatform('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim(), domain: fsDomain }, e.currentTarget);
               }}
             >
               {t('settings.bridge.test')}
