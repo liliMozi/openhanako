@@ -39,6 +39,7 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         error: live.feishu?.error || null,
         appId: fsAppId,
         appSecretMasked: fsAppSecret ? mask(fsAppSecret) : "",
+        domain: bridge.feishu?.domain || "feishu",
       },
       qq: {
         configured: !!(bridge.qq?.appID && (bridge.qq?.appSecret || bridge.qq?.token)),
@@ -271,7 +272,10 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         const me = await bot.getMe();
         return { ok: true, info: { username: me.username, name: me.first_name } };
       } else if (platform === "feishu") {
-        const resp = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+        const baseUrl = credentials.domain === "lark"
+          ? "https://open.larksuite.com"
+          : "https://open.feishu.cn";
+        const resp = await fetch(`${baseUrl}/open-apis/auth/v3/tenant_access_token/internal`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

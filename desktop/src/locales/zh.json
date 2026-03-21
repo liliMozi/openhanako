@@ -829,6 +829,9 @@
       "ownerConfirmText": "Owner 拥有完整的 Agent 权限，包括记忆、工具调用和人格。请确认这是你本人的账号。",
       "ownerConfirmCancel": "取消",
       "ownerConfirmSave": "确认",
+      "feishuDomain": "版本",
+      "feishuDomainFeishu": "飞书（中国大陆）",
+      "feishuDomainLark": "Lark（国际版）",
       "tutorialFsSteps": [
         "前往 <code>open.feishu.cn</code>，登录后进入「开发者后台」",
         "点击「创建企业自建应用」，填写应用名称和描述",

@@ -829,6 +829,9 @@
       "ownerConfirmText": "The Owner has full Agent access, including memory, tools, and personality. Make sure this is your own account.",
       "ownerConfirmCancel": "Cancel",
       "ownerConfirmSave": "Confirm",
+      "feishuDomain": "Version",
+      "feishuDomainFeishu": "Feishu (Mainland China)",
+      "feishuDomainLark": "Lark (International)",
       "tutorialFsSteps": [
         "Go to <code>open.feishu.cn</code>, log in and open the Developer Console",
         "Click \"Create Enterprise Custom App\", fill in the app name and description",
