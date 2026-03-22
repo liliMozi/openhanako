@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSettingsStore, type ProviderSummary } from '../../store';
 import { hanaFetch } from '../../api';
 import { t, API_FORMAT_OPTIONS } from '../../helpers';
@@ -18,10 +18,19 @@ export function ApiKeyCredentials({ providerId, summary, providerConfig, isPrese
 }) {
   const { showToast } = useSettingsStore();
   const [keyVal, setKeyVal] = useState('');
+  const [keyEdited, setKeyEdited] = useState(false);
   const baseUrl = summary.base_url || presetInfo?.url || '';
   const api = summary.api || presetInfo?.api || '';
 
+  // 未编辑时，从 summary 同步遮掩值到输入框（让用户看到"已保存"）
+  useEffect(() => {
+    if (!keyEdited && summary.api_key_masked) {
+      setKeyVal(summary.api_key_masked);
+    }
+  }, [summary.api_key_masked, keyEdited]);
+
   const verifyAndSave = async (btn: HTMLButtonElement) => {
+    if (!keyEdited) return;
     const key = keyVal.trim();
     if (!key && !presetInfo?.local) return;
     btn.classList.add(styles['spinning']);
@@ -46,6 +55,7 @@ export function ApiKeyCredentials({ providerId, summary, providerConfig, isPrese
       });
       showToast(t('settings.providers.verifySuccess'), 'success');
       if (isPresetSetup) useSettingsStore.setState({ selectedProviderId: providerId });
+      setKeyEdited(false);
       await onRefresh();
       platform?.settingsChanged?.('models-changed');
     } catch (err: unknown) {
@@ -65,7 +75,7 @@ export function ApiKeyCredentials({ providerId, summary, providerConfig, isPrese
       const testRes = await hanaFetch('/api/providers/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base_url: baseUrl, api, api_key: keyVal.trim() || undefined }),
+        body: JSON.stringify({ base_url: baseUrl, api, api_key: (keyEdited && keyVal.trim()) || undefined }),
       });
       const testData = await testRes.json();
       setConnStatus(testData.ok ? 'ok' : 'fail');
@@ -85,15 +95,14 @@ export function ApiKeyCredentials({ providerId, summary, providerConfig, isPrese
         <div className={styles['pv-cred-key-row']}>
           <KeyInput
             value={keyVal}
-            onChange={(v) => { setKeyVal(v); setConnStatus('idle'); }}
-            placeholder={summary.api_key_masked || (isPresetSetup ? t('settings.providers.setupHint') : '')}
+            onChange={(v) => { setKeyVal(v); setKeyEdited(true); setConnStatus('idle'); }}
+            placeholder={isPresetSetup ? t('settings.providers.setupHint') : ''}
           />
           <button
             className={`${styles['pv-cred-conn-icon']} ${styles[connStatus] || ''}`}
             title={t('settings.providers.verifyConnection')}
             onClick={(e) => {
-              const key = keyVal.trim();
-              if (key || presetInfo?.local) {
+              if (keyEdited && (keyVal.trim() || presetInfo?.local)) {
                 verifyAndSave(e.currentTarget);
               } else {
                 verifyOnly(e.currentTarget);

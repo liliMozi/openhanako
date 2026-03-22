@@ -61,14 +61,20 @@ export function BridgeTab() {
   const [qqAppId, setQqAppId] = useState('');
   const [qqAppSecret, setQqAppSecret] = useState('');
 
+  const isMasked = (v: string) => v.includes('••••');
+
   const loadStatus = async () => {
     try {
       const res = await hanaFetch('/api/bridge/status');
       const data = await res.json();
       setStatus(data);
       // 回填非敏感值
-      if (data.feishu?.appId && !fsAppId) setFsAppId(data.feishu.appId);
-      if (data.qq?.appID && !qqAppId) setQqAppId(data.qq.appID);
+      if (data.feishu?.appId) setFsAppId(data.feishu.appId);
+      if (data.qq?.appID) setQqAppId(data.qq.appID);
+      // 回填遮掩值到输入框（让用户看到"已保存"）
+      setTgToken(data.telegram?.tokenMasked || '');
+      setFsAppSecret(data.feishu?.appSecretMasked || '');
+      setQqAppSecret(data.qq?.appSecretMasked || '');
     } catch (err) {
       console.error('[bridge] load status failed:', err);
     }
@@ -170,13 +176,13 @@ export function BridgeTab() {
           <Toggle
             on={!!tgInfo.enabled}
             onChange={async (on) => {
-              const token = tgToken || '';
+              const hasRealToken = tgToken && !isMasked(tgToken);
               const hasSaved = !!status?.telegram?.tokenMasked;
-              if (on && !token && !hasSaved) {
+              if (on && !hasRealToken && !hasSaved) {
                 showToast(t('settings.bridge.noToken'), 'error');
                 return;
               }
-              await saveBridgeConfig('telegram', token ? { token } : null, on);
+              await saveBridgeConfig('telegram', hasRealToken ? { token: tgToken } : null, on);
             }}
           />
         </div>
@@ -186,16 +192,18 @@ export function BridgeTab() {
             <KeyInput
               value={tgToken}
               onChange={setTgToken}
-              placeholder={tgInfo.tokenMasked || ''}
+              placeholder=""
               onBlur={async () => {
-                if (tgToken.trim()) await saveBridgeConfig('telegram', { token: tgToken.trim() }, undefined);
+                const trimmed = tgToken.trim();
+                if (trimmed && !isMasked(trimmed)) await saveBridgeConfig('telegram', { token: trimmed }, undefined);
               }}
             />
             <button
               className="bridge-test-btn"
               onClick={(e) => {
-                if (!tgToken.trim()) { showToast(t('settings.bridge.noToken'), 'error'); return; }
-                testPlatform('telegram', { token: tgToken.trim() }, e.currentTarget);
+                const trimmed = tgToken.trim();
+                if (!trimmed || isMasked(trimmed)) { showToast(t('settings.bridge.noToken'), 'error'); return; }
+                testPlatform('telegram', { token: trimmed }, e.currentTarget);
               }}
             >
               {t('settings.bridge.test')}
@@ -221,11 +229,12 @@ export function BridgeTab() {
             on={!!fsInfo.enabled}
             onChange={async (on) => {
               const hasSaved = !!fsInfo.appSecretMasked;
-              if (on && !fsAppId && !hasSaved) {
+              const hasRealSecret = fsAppSecret && !isMasked(fsAppSecret);
+              if (on && !hasRealSecret && !hasSaved) {
                 showToast(t('settings.bridge.noCredentials'), 'error');
                 return;
               }
-              const creds = fsAppSecret ? { appId: fsAppId, appSecret: fsAppSecret } : (fsAppId ? { appId: fsAppId } : null);
+              const creds = hasRealSecret ? { appId: fsAppId, appSecret: fsAppSecret } : (fsAppId ? { appId: fsAppId } : null);
               await saveBridgeConfig('feishu', creds, on);
             }}
           />
@@ -238,7 +247,7 @@ export function BridgeTab() {
             value={fsAppId}
             onChange={(e) => setFsAppId(e.target.value)}
             onBlur={async () => {
-              if (fsAppId.trim() && fsAppSecret.trim()) {
+              if (fsAppId.trim() && fsAppSecret.trim() && !isMasked(fsAppSecret)) {
                 await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, undefined);
               }
             }}
@@ -250,9 +259,9 @@ export function BridgeTab() {
             <KeyInput
               value={fsAppSecret}
               onChange={setFsAppSecret}
-              placeholder={fsInfo.appSecretMasked || ''}
+              placeholder=""
               onBlur={async () => {
-                if (fsAppId.trim() && fsAppSecret.trim()) {
+                if (fsAppId.trim() && fsAppSecret.trim() && !isMasked(fsAppSecret)) {
                   await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, undefined);
                 }
               }}
@@ -260,7 +269,7 @@ export function BridgeTab() {
             <button
               className="bridge-test-btn"
               onClick={(e) => {
-                if (!fsAppId.trim() || !fsAppSecret.trim()) { showToast(t('settings.bridge.noCredentials'), 'error'); return; }
+                if (!fsAppId.trim() || !fsAppSecret.trim() || isMasked(fsAppSecret)) { showToast(t('settings.bridge.noCredentials'), 'error'); return; }
                 testPlatform('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, e.currentTarget);
               }}
             >
@@ -287,11 +296,12 @@ export function BridgeTab() {
             on={!!qqInfo.enabled}
             onChange={async (on) => {
               const hasSaved = !!(qqInfo.appID && qqInfo.appSecretMasked);
-              if (on && !(qqAppId && qqAppSecret) && !hasSaved) {
+              const hasRealCreds = qqAppId && qqAppSecret && !isMasked(qqAppSecret);
+              if (on && !hasRealCreds && !hasSaved) {
                 showToast(t('settings.bridge.noCredentials'), 'error');
                 return;
               }
-              const creds = (qqAppId && qqAppSecret) ? { appID: qqAppId, appSecret: qqAppSecret } : null;
+              const creds = hasRealCreds ? { appID: qqAppId, appSecret: qqAppSecret } : null;
               await saveBridgeConfig('qq', creds, on);
             }}
           />
@@ -304,7 +314,7 @@ export function BridgeTab() {
             value={qqAppId}
             onChange={(e) => setQqAppId(e.target.value)}
             onBlur={async () => {
-              if (qqAppId.trim() && qqAppSecret.trim()) {
+              if (qqAppId.trim() && qqAppSecret.trim() && !isMasked(qqAppSecret)) {
                 await saveBridgeConfig('qq', { appID: qqAppId.trim(), appSecret: qqAppSecret.trim() }, undefined);
               }
             }}
@@ -316,9 +326,9 @@ export function BridgeTab() {
             <KeyInput
               value={qqAppSecret}
               onChange={setQqAppSecret}
-              placeholder={qqInfo.appSecretMasked || ''}
+              placeholder=""
               onBlur={async () => {
-                if (qqAppId.trim() && qqAppSecret.trim()) {
+                if (qqAppId.trim() && qqAppSecret.trim() && !isMasked(qqAppSecret)) {
                   await saveBridgeConfig('qq', { appID: qqAppId.trim(), appSecret: qqAppSecret.trim() }, undefined);
                 }
               }}
@@ -326,7 +336,7 @@ export function BridgeTab() {
             <button
               className="bridge-test-btn"
               onClick={(e) => {
-                if (!qqAppId.trim() || !qqAppSecret.trim()) { showToast(t('settings.bridge.noCredentials'), 'error'); return; }
+                if (!qqAppId.trim() || !qqAppSecret.trim() || isMasked(qqAppSecret)) { showToast(t('settings.bridge.noCredentials'), 'error'); return; }
                 testPlatform('qq', { appID: qqAppId.trim(), appSecret: qqAppSecret.trim() }, e.currentTarget);
               }}
             >
