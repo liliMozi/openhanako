@@ -587,7 +587,7 @@ function createMainWindow() {
 
   mainWindow = new BrowserWindow(opts);
 
-  // Windows 自动更新：初始化 electron-updater
+  // 自动更新：注册 IPC handlers
   initAutoUpdater(mainWindow);
 
   if (saved?.isMaximized) {

@@ -1,27 +1,24 @@
 /**
  * auto-updater.cjs — 跨平台自动更新
  *
- * Windows: electron-updater（检测 + 下载 + 静默安装）
- * macOS:   GitHub API 手动检测（检测 + 外链下载），签名后无缝切 electron-updater
+ * 所有平台统一使用 GitHub API 检测新版本，浏览器下载安装包。
+ * 不依赖 electron-updater / latest.yml。
  *
- * 两个平台产出相同的 AutoUpdateState，前端 UI 统一。
  * beta 开关读 preferences.update_channel，通过 IPC 传入。
  */
 const { ipcMain, shell } = require("electron");
 const { app } = require("electron");
 
-const isWin = process.platform === "win32";
-
 let _mainWindow = null;
 let _updateChannel = "stable"; // "stable" | "beta"
 
 let _updateState = {
-  status: "idle",      // idle | checking | available | downloading | downloaded | error | latest
+  status: "idle",      // idle | checking | available | error | latest
   version: null,
   releaseNotes: null,
   releaseUrl: null,     // GitHub release page URL
   downloadUrl: null,    // direct download URL (asset)
-  progress: null,       // { percent, bytesPerSecond, transferred, total }
+  progress: null,
   error: null,
 };
 
@@ -59,86 +56,20 @@ function isNewerVersion(latest, current) {
 }
 
 // ══════════════════════════════════════
-// Windows: electron-updater
-// ══════════════════════════════════════
-let autoUpdater = null;
-
-function setupElectronUpdater() {
-  autoUpdater = require("electron-updater").autoUpdater;
-
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-
-  autoUpdater.on("checking-for-update", () => {
-    setState({ status: "checking", error: null });
-  });
-
-  autoUpdater.on("update-available", (info) => {
-    setState({
-      status: "available",
-      version: info.version,
-      releaseNotes: typeof info.releaseNotes === "string" ? info.releaseNotes : null,
-      releaseUrl: `https://github.com/liliMozi/openhanako/releases/tag/v${info.version}`,
-      downloadUrl: info.files?.[0]?.url || null,
-    });
-  });
-
-  autoUpdater.on("update-not-available", () => {
-    setState({ status: "latest" });
-  });
-
-  autoUpdater.on("download-progress", (progress) => {
-    setState({
-      status: "downloading",
-      progress: {
-        percent: Math.round(progress.percent),
-        bytesPerSecond: progress.bytesPerSecond,
-        transferred: progress.transferred,
-        total: progress.total,
-      },
-    });
-  });
-
-  autoUpdater.on("update-downloaded", () => {
-    setState({ status: "downloaded", progress: null });
-  });
-
-  autoUpdater.on("error", (err) => {
-    setState({ status: "error", error: err?.message || String(err) });
-  });
-}
-
-async function winCheck() {
-  autoUpdater.allowPrerelease = _updateChannel === "beta";
-  try {
-    const result = await autoUpdater.checkForUpdates();
-    return result?.updateInfo?.version || null;
-  } catch (err) {
-    setState({ status: "error", error: err?.message || String(err) });
-    return null;
-  }
-}
-
-async function winDownload() {
-  try {
-    await autoUpdater.downloadUpdate();
-    return true;
-  } catch (err) {
-    setState({ status: "error", error: err?.message || String(err) });
-    return false;
-  }
-}
-
-function winInstall() {
-  autoUpdater.quitAndInstall(false, true);
-}
-
-// ══════════════════════════════════════
-// macOS: GitHub API 手动检测
+// GitHub API 检测（所有平台共用）
 // ══════════════════════════════════════
 const GITHUB_RELEASES_URL = "https://api.github.com/repos/liliMozi/openhanako/releases";
 
-async function macCheck() {
+/** 根据平台选择对应的安装包后缀 */
+function getAssetExt() {
+  switch (process.platform) {
+    case "win32": return ".exe";
+    case "darwin": return ".dmg";
+    default: return ".AppImage";
+  }
+}
+
+async function checkUpdate() {
   setState({ status: "checking", error: null, version: null, progress: null });
   try {
     // beta: 取所有 releases 的第一个（含 prerelease）
@@ -167,13 +98,14 @@ async function macCheck() {
       setState({ status: "latest" });
       return null;
     }
-    const dmgAsset = (release.assets || []).find(a => a.name?.endsWith(".dmg"));
+    const ext = getAssetExt();
+    const asset = (release.assets || []).find(a => a.name?.endsWith(ext));
     setState({
       status: "available",
       version: latest,
       releaseNotes: release.body || null,
       releaseUrl: release.html_url,
-      downloadUrl: dmgAsset?.browser_download_url || release.html_url,
+      downloadUrl: asset?.browser_download_url || release.html_url,
     });
     return latest;
   } catch (err) {
@@ -193,27 +125,15 @@ function pickRelease(releases) {
 // 公共 API
 // ══════════════════════════════════════
 
-/**
- * 初始化。所有平台都注册 IPC，Windows 额外初始化 electron-updater。
- */
 function initAutoUpdater(mainWindow) {
   _mainWindow = mainWindow;
 
-  if (isWin) {
-    setupElectronUpdater();
-  }
-
-  // ── IPC handlers（所有平台） ──
-
   ipcMain.handle("auto-update-check", async () => {
     resetState();
-    setState({ status: "checking" });
-    return isWin ? winCheck() : macCheck();
+    return checkUpdate();
   });
 
   ipcMain.handle("auto-update-download", async () => {
-    if (isWin) return winDownload();
-    // macOS: 用浏览器打开下载链接
     if (_updateState.downloadUrl) {
       shell.openExternal(_updateState.downloadUrl);
     }
@@ -221,8 +141,6 @@ function initAutoUpdater(mainWindow) {
   });
 
   ipcMain.handle("auto-update-install", () => {
-    if (isWin) return winInstall();
-    // macOS: 无法自动安装，打开 release 页面
     if (_updateState.releaseUrl) {
       shell.openExternal(_updateState.releaseUrl);
     }
@@ -237,27 +155,18 @@ function initAutoUpdater(mainWindow) {
   });
 }
 
-/**
- * 启动时后台检查更新
- */
 async function checkForUpdatesAuto() {
   try {
-    return isWin ? await winCheck() : await macCheck();
+    return await checkUpdate();
   } catch {
     return null;
   }
 }
 
-/**
- * 设置更新通道（从 preferences 同步）
- */
 function setUpdateChannel(channel) {
   _updateChannel = channel === "beta" ? "beta" : "stable";
 }
 
-/**
- * 更新 mainWindow 引用
- */
 function setMainWindow(win) {
   _mainWindow = win;
 }
