@@ -132,6 +132,7 @@ export interface PlatformApi {
   openEditorWindow(data: { filePath: string; title: string; type: string; language?: string | null }): void;
   onEditorDockFile?(callback: (data: { filePath: string; title: string; type: string; language?: string | null }) => void): void;
   onEditorDetached?(callback: (detached: boolean) => void): void;
+  openFolder(path: string): void;
   openFile(path: string): void;
   openExternal(url: string): void;
   showInFinder(path: string): void;
