@@ -404,12 +404,7 @@ export function BridgeTab() {
           )}
           <span className={styles['settings-field-hint']}>{t('settings.bridge.wechatHint')}</span>
         </div>
-        <OwnerSelect
-          platform_="wechat"
-          users={status?.knownUsers?.wechat || []}
-          currentOwner={status?.owner?.wechat}
-          onChange={(userId) => setOwner('wechat', userId)}
-        />
+        {/* 微信只绑定一个账号，扫码时自动设 owner，无需手动选择 */}
       </section>
 
       {/* WhatsApp */}

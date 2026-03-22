@@ -80,6 +80,14 @@ export function WechatQrcodeOverlay() {
                 enabled: true,
               }),
             });
+            // 微信只绑定一个账号，扫码用户即 owner
+            if (data.userId) {
+              await hanaFetch('/api/bridge/owner', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform: 'wechat', userId: data.userId }),
+              }).catch(() => {});
+            }
             window.dispatchEvent(new Event('hana-bridge-reload'));
             setTimeout(close, 1200);
             return;
