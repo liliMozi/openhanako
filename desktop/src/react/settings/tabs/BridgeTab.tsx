@@ -13,9 +13,10 @@ interface BridgeStatus {
   feishu: any;
   whatsapp: any;
   qq: any;
+  wechat: any;
   readOnly: boolean;
-  knownUsers: { telegram?: any[]; feishu?: any[]; whatsapp?: any[]; qq?: any[] };
-  owner: { telegram?: string; feishu?: string; whatsapp?: string; qq?: string };
+  knownUsers: { telegram?: any[]; feishu?: any[]; whatsapp?: any[]; qq?: any[]; wechat?: any[] };
+  owner: { telegram?: string; feishu?: string; whatsapp?: string; qq?: string; wechat?: string };
 }
 
 export function BridgeTab() {
@@ -82,6 +83,13 @@ export function BridgeTab() {
 
   useEffect(() => { loadStatus(); }, []);
 
+  // 扫码 overlay 成功后触发刷新
+  useEffect(() => {
+    const handler = () => loadStatus();
+    window.addEventListener('hana-bridge-reload', handler);
+    return () => window.removeEventListener('hana-bridge-reload', handler);
+  }, []);
+
   const saveBridgeConfig = async (platform_: string, credentials: any, enabled?: boolean) => {
     try {
       await hanaFetch('/api/bridge/config', {
@@ -137,6 +145,7 @@ export function BridgeTab() {
   const fsInfo = status?.feishu || {};
   const waInfo = status?.whatsapp || {};
   const qqInfo = status?.qq || {};
+  const wxInfo = status?.wechat || {};
   const readOnly = !!status?.readOnly;
 
   return (
@@ -350,6 +359,54 @@ export function BridgeTab() {
           users={status?.knownUsers?.qq || []}
           currentOwner={status?.owner?.qq}
           onChange={(userId) => setOwner('qq', userId)}
+        />
+      </section>
+
+      {/* 微信 */}
+      <section className={styles['settings-section']}>
+        <h2 className={styles['settings-section-title']}>{t('settings.bridge.wechat')}</h2>
+        <div className="bridge-platform-header">
+          <BridgeStatusDot status={wxInfo.status} />
+          <BridgeStatusText status={wxInfo.status} error={wxInfo.error} />
+          <Toggle
+            on={!!wxInfo.enabled}
+            onChange={async (on) => {
+              if (on && !wxInfo.tokenMasked) {
+                showToast(t('settings.bridge.wechatNeedScan'), 'error');
+                return;
+              }
+              await saveBridgeConfig('wechat', null, on);
+            }}
+          />
+        </div>
+        <div className={styles['settings-field']}>
+          {wxInfo.tokenMasked ? (
+            <div className="bridge-input-row">
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', flex: 1 }}>
+                {t('settings.bridge.wechatLoggedIn')}: {wxInfo.tokenMasked}
+              </span>
+              <button
+                className="bridge-test-btn"
+                onClick={() => window.dispatchEvent(new Event('hana-show-wechat-qrcode'))}
+              >
+                {t('settings.bridge.wechatRescan')}
+              </button>
+            </div>
+          ) : (
+            <button
+              className="bridge-test-btn"
+              onClick={() => window.dispatchEvent(new Event('hana-show-wechat-qrcode'))}
+            >
+              {t('settings.bridge.wechatScan')}
+            </button>
+          )}
+          <span className={styles['settings-field-hint']}>{t('settings.bridge.wechatHint')}</span>
+        </div>
+        <OwnerSelect
+          platform_="wechat"
+          users={status?.knownUsers?.wechat || []}
+          currentOwner={status?.owner?.wechat}
+          onChange={(userId) => setOwner('wechat', userId)}
         />
       </section>
 

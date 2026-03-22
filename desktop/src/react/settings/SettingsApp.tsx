@@ -23,6 +23,7 @@ import { MemoryViewer } from './overlays/MemoryViewer';
 import { CompiledMemoryViewer } from './overlays/CompiledMemoryViewer';
 import { ClearMemoryConfirm } from './overlays/ClearMemoryConfirm';
 import { BridgeTutorial } from './overlays/BridgeTutorial';
+import { WechatQrcodeOverlay } from './overlays/WechatQrcodeOverlay';
 import styles from './Settings.module.css';
 
 const platform = window.platform;
@@ -80,6 +81,7 @@ export function SettingsApp() {
       <CompiledMemoryViewer />
       <ClearMemoryConfirm />
       <BridgeTutorial />
+      <WechatQrcodeOverlay />
 
       {!ready && (
         <div className="settings-loading-mask" id="settingsLoadingMask">

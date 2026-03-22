@@ -48,6 +48,13 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         appID: bridge.qq?.appID || "",
         appSecretMasked: (bridge.qq?.appSecret || bridge.qq?.token) ? mask(bridge.qq.appSecret || bridge.qq.token) : "",
       },
+      wechat: {
+        configured: !!bridge.wechat?.botToken,
+        enabled: !!bridge.wechat?.enabled,
+        status: live.wechat?.status || "disconnected",
+        error: live.wechat?.error || null,
+        tokenMasked: bridge.wechat?.botToken ? mask(bridge.wechat.botToken) : "",
+      },
       readOnly: !!bridge.readOnly,
       knownUsers: collectKnownUsers(engine.getBridgeIndex()),
       owner: bridge.owner || {},
@@ -370,9 +377,43 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         }
         return { ok: false, error: me.message || t("error.botInfoFailed") };
       }
+      if (platform === "wechat") {
+        // 用 getconfig 验证 token（不污染 cursor）
+        const crypto = await import("node:crypto");
+        const uin = Buffer.from(String(crypto.randomBytes(4).readUInt32BE(0)), "utf-8").toString("base64");
+        const res = await fetch("https://ilinkai.weixin.qq.com/ilink/bot/getconfig", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "AuthorizationType": "ilink_bot_token",
+            "Authorization": `Bearer ${credentials.botToken}`,
+            "X-WECHAT-UIN": uin,
+          },
+          body: JSON.stringify({ base_info: { channel_version: "1.0.0" } }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        const data = await res.json();
+        if (data.ret && data.ret !== 0) {
+          return { ok: false, error: data.errmsg || `errcode ${data.ret}` };
+        }
+        return { ok: true, info: { msg: "微信 iLink 连接成功" } };
+      }
       return { ok: false, error: t("error.platformTestUnsupported") };
     } catch (err) {
       return { ok: false, error: err.message };
     }
+  });
+
+  /** 获取微信扫码登录二维码 */
+  app.post("/api/bridge/wechat/qrcode", async () => {
+    const { getWechatQrcode } = await import("../../lib/bridge/wechat-login.js");
+    return getWechatQrcode();
+  });
+
+  /** 轮询微信扫码状态 */
+  app.post("/api/bridge/wechat/qrcode-status", async (req) => {
+    const { qrcodeId } = req.body || {};
+    const { pollWechatQrcodeStatus } = await import("../../lib/bridge/wechat-login.js");
+    return pollWechatQrcodeStatus(qrcodeId);
   });
 }
