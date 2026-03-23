@@ -9,6 +9,7 @@ import fsp from "fs/promises";
 import path from "path";
 import YAML from "js-yaml";
 import { Agent } from "./agent.js";
+import { safeReadYAMLSync } from "../shared/safe-fs.js";
 import { createModuleLogger } from "../lib/debug-log.js";
 import { clearConfigCache } from "../lib/memory/config-loader.js";
 import { t } from "../server/i18n.js";
@@ -153,7 +154,7 @@ export class AgentManager {
       const configPath = path.join(this._d.agentsDir, entry.name, "config.yaml");
       if (!fs.existsSync(configPath)) continue;
       try {
-        const cfg = YAML.load(fs.readFileSync(configPath, "utf-8"));
+        const cfg = safeReadYAMLSync(configPath, {}, YAML);
         let identity = "";
         try {
           const idMd = fs.readFileSync(path.join(this._d.agentsDir, entry.name, "identity.md"), "utf-8");

@@ -103,7 +103,9 @@
     "connected": "已連線",
     "disconnected": "連線中斷",
     "serverNotReady": "Server 未就緒",
-    "loading": "載入中..."
+    "loading": "載入中...",
+    "reconnecting": "重新連線中",
+    "reconnect": "重新連線"
   },
   "input": {
     "placeholder": "說點什麼...",
@@ -1543,5 +1545,30 @@
     "opWrite": "寫入",
     "opDelete": "刪除",
     "denied": "{op}被拒絕：{path}（權限級別: {level}）"
-  }
+  },
+  "error.llmTimeout": "模型请求超时",
+  "error.llmRateLimited": "模型限流，请稍候",
+  "error.llmEmptyResponse": "模型返回了空响应",
+  "error.llmAuthFailed": "模型认证失败",
+  "error.llmSlowResponse": "模型响应较慢，请耐心等待",
+  "error.fsPermission": "文件权限不足",
+  "error.fsNotFound": "文件未找到",
+  "error.fsCopyFailed": "文件复制失败",
+  "error.wsDisconnected": "连接已断开",
+  "error.fetchTimeout": "请求超时",
+  "error.fetchServerError": "服务器错误",
+  "error.ipcFailed": "内部通信错误",
+  "error.renderCrash": "显示异常",
+  "error.configParse": "配置文件损坏",
+  "error.bridgeSendFailed": "消息发送失败",
+  "error.skillSyncFailed": "技能同步失败",
+  "error.memoryCompileFailed": "记忆编译失败",
+  "error.dbError": "数据库错误",
+  "error.serverAuthFailed": "认证失败",
+  "error.unknown": "发生了未知错误",
+  "error.regionUnavailable": "此区域暂时无法显示",
+  "status.reconnecting": "正在重连...",
+  "status.disconnected": "连接已断开",
+  "status.reconnect": "重新连接",
+  "action.retry": "重试"
 }

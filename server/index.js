@@ -15,6 +15,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Fastify from "fastify";
 import websocket from "@fastify/websocket";
+import { registerErrorHandler } from './middleware/error-handler.js';
 import { HanaEngine } from "../core/engine.js";
 import { ensureFirstRun } from "../core/first-run.js";
 import { initDebugLog } from "../lib/debug-log.js";
@@ -145,6 +146,7 @@ app.addHook("onRequest", (req, reply, done) => {
 
 // WebSocket 支持
 await app.register(websocket);
+registerErrorHandler(app);
 
 // ── 阻塞式确认存储 ──
 const confirmStore = new ConfirmStore();

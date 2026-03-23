@@ -2019,6 +2019,25 @@ body.resizing .jian-sidebar-inner {
 .hana-toast-close:hover {
     opacity: 1;
 }
+.hana-toast.warning {
+    border-left-color: var(--warning-color, #c59a28);
+}
+.hana-toast-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+}
+.hana-toast-action {
+    background: none;
+    border: 1px solid var(--border-light, #ddd);
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    color: inherit;
+    white-space: nowrap;
+}
 
 /* (斜杠命令 + 输入框 + 发送按钮样式已迁移到 InputArea.module.css) */
 

@@ -14,6 +14,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import YAML from "js-yaml";
+import { safeReadYAMLSync } from "../shared/safe-fs.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const _defaultModels = JSON.parse(
@@ -151,12 +152,8 @@ export class ProviderRegistry {
   /** 从 _hanakoHome 直接读 providers.yaml（不走全局 config-loader） */
   _loadProvidersYaml() {
     const ymlPath = path.join(this._hanakoHome, "providers.yaml");
-    try {
-      const raw = YAML.load(fs.readFileSync(ymlPath, "utf-8")) || {};
-      return raw.providers || {};
-    } catch {
-      return {};
-    }
+    const raw = safeReadYAMLSync(ymlPath, {}, YAML) || {};
+    return raw.providers || {};
   }
 
   /** 将 providers 对象写入 _hanakoHome/providers.yaml */

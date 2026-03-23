@@ -1,0 +1,23 @@
+.fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  min-height: 100px;
+  background: var(--bg-secondary, #f5f5f3);
+}
+.message {
+  font-size: 13px;
+  color: var(--text-secondary, #888);
+  margin-bottom: 8px;
+}
+.retry {
+  background: none;
+  border: 1px solid var(--border-light, #ddd);
+  border-radius: 3px;
+  padding: 3px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-secondary, #888);
+}
