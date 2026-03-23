@@ -256,6 +256,7 @@ export default async function agentsRoute(app, { engine }) {
       if (!config.capabilities) config.capabilities = {};
       config.capabilities.learn_skills = engine.getLearnSkills();
       config.thinking_level = engine.getThinkingLevel();
+      config.update_channel = engine.getUpdateChannel();
 
       // 供应商列表
       try {
@@ -318,6 +319,12 @@ export default async function agentsRoute(app, { engine }) {
       if (partial.timezone !== undefined) {
         engine.setTimezone(partial.timezone);
         delete partial.timezone;
+      }
+
+      // update_channel → 全局 preferences
+      if (partial.update_channel !== undefined) {
+        engine.setUpdateChannel(partial.update_channel);
+        delete partial.update_channel;
       }
 
       // capabilities.learn_skills → 全局 preferences

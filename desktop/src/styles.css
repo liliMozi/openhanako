@@ -793,10 +793,6 @@ html[data-platform="linux"] .tb-toggle-right {
     line-height: 1.75;
 }
 
-/* 助手回答正文用宋体 */
-.message.assistant > .md-content {
-    font-family: var(--font-serif);
-}
 
 /* 段落间距 */
 .md-content p {
