@@ -31,7 +31,10 @@ if (process.platform !== "win32") {
 
 function safeReadJSON(filePath, fallback = null) {
   try { return JSON.parse(fs.readFileSync(filePath, 'utf-8')); }
-  catch { return fallback; }
+  catch (err) {
+    console.error(`[safeReadJSON] ${filePath}: ${err.message}`);
+    return fallback;
+  }
 }
 
 const hanakoHome = process.env.HANA_HOME

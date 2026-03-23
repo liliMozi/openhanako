@@ -41,7 +41,7 @@ export class RegionalErrorBoundary extends Component<Props, State> {
           context: { region: this.props.region, componentStack: info.componentStack?.slice(0, 500) },
         }));
       });
-    });
+    }).catch(() => { /* best effort - error reporting itself failed */ });
   }
 
   handleRetry = () => {
