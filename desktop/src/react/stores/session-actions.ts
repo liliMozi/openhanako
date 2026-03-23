@@ -12,6 +12,7 @@ import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { buildItemsFromHistory } from '../utils/history-builder';
 import { loadAvatars as loadAvatarsAction, clearChat as clearChatAction } from './agent-actions';
 import { loadDeskFiles } from './desk-actions';
+import { saveTabState, restoreTabState } from './artifact-actions';
 
 // ── 防竞争计数器 ──
 
@@ -111,6 +112,10 @@ export async function switchSession(path: string): Promise<void> {
       };
     }
 
+    // 保存当前 session 的 tab 状态
+    const currentPath = s.currentSessionPath;
+    if (currentPath) saveTabState(currentPath);
+
     // 批量更新 store
     useStore.setState({
       currentSessionPath: path,
@@ -125,6 +130,10 @@ export async function switchSession(path: string): Promise<void> {
       browserUrl: data.browserUrl || null,
       browserThumbnail: data.browserRunning ? state.browserThumbnail : null,
     });
+
+    // 恢复目标 session 的 tab 状态 + 清除 quotedSelection
+    restoreTabState(path);
+    useStore.getState().clearQuotedSelection();
 
     // Sync plan mode for the switched-to session
     window.dispatchEvent(new CustomEvent('hana-plan-mode', { detail: { enabled: data.planMode ?? false } }));
