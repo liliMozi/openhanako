@@ -104,7 +104,7 @@ const markdownHighlight = HighlightStyle.define([
   { tag: tags.link, color: 'var(--accent)', textDecoration: 'underline' },
   { tag: tags.url, color: 'var(--text-muted)', fontSize: '0.85em' },
   { tag: tags.quote, color: 'var(--text-muted)', fontStyle: 'italic' },
-  { tag: tags.list, color: 'var(--text-muted)' },
+  { tag: tags.list, color: 'var(--text)' },
   { tag: tags.meta, color: 'var(--text-muted)' },
 ]);
 

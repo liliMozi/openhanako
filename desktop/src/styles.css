@@ -879,6 +879,7 @@ html[data-platform="linux"] .tb-toggle-right {
 
 .md-content li {
     margin: 0.15em 0;
+    color: var(--text);
 }
 
 .md-content li > p {
