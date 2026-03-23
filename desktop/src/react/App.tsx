@@ -10,6 +10,7 @@ import { useStore } from './stores';
 import type { ActivePanel } from './types';
 import { hanaFetch } from './hooks/use-hana-fetch';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { RegionalErrorBoundary } from './components/RegionalErrorBoundary';
 import { ActivityPanel } from './components/ActivityPanel';
 import { AutomationPanel } from './components/AutomationPanel';
 import { BridgePanel } from './components/BridgePanel';
@@ -315,6 +316,7 @@ function App() {
   const browserRunning = useStore(s => s.browserRunning);
   const welcomeVisible = useStore(s => s.welcomeVisible);
   const currentSessionPath = useStore(s => s.currentSessionPath);
+  const currentAgentId = useStore(s => s.currentAgentId);
   const hasPanels = !welcomeVisible && !!currentSessionPath;
   const { floatCard, show: showFloat, scheduleHide: scheduleFloatHide, cancelHide: cancelFloatHide, hide: hideFloat } = useFloatCard();
 
@@ -422,7 +424,9 @@ function App() {
                 <span>{t('browser.background')}</span>
               </button>
               <div className="session-list" id="sessionList">
-                <SessionList />
+                <RegionalErrorBoundary region="sidebar" resetKeys={[currentAgentId]}>
+                  <SessionList />
+                </RegionalErrorBoundary>
               </div>
             </div>
 
@@ -439,11 +443,15 @@ function App() {
 
           <div className={`chat-area${currentTab === 'chat' ? '' : ' hidden'}${hasPanels ? ' has-panels' : ''}`}>
             <WelcomeContainer />
-            <ChatArea />
+            <RegionalErrorBoundary region="chat" resetKeys={[currentSessionPath]}>
+              <ChatArea />
+            </RegionalErrorBoundary>
           </div>
 
           <div className={`input-area${currentTab === 'chat' ? '' : ' hidden'}`}>
-            <InputArea />
+            <RegionalErrorBoundary region="input" resetKeys={[currentSessionPath]}>
+              <InputArea />
+            </RegionalErrorBoundary>
           </div>
 
           <div className={`channel-view${currentTab === 'channels' ? ' active' : ''}`}>
@@ -467,7 +475,9 @@ function App() {
           <div className="resize-handle resize-handle-left" id="jianResizeHandle"></div>
           <div className="jian-sidebar-inner">
             <div className={`jian-chat-content${currentTab === 'chat' ? '' : ' hidden'}`}>
-              <DeskSection />
+              <RegionalErrorBoundary region="desk">
+                <DeskSection />
+              </RegionalErrorBoundary>
             </div>
 
             <div className={`jian-channel-content${currentTab === 'channels' ? '' : ' hidden'}`}>
