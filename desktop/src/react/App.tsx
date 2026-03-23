@@ -41,6 +41,11 @@ import { WindowControls } from './components/WindowControls';
 import { ToastContainer } from './components/ToastContainer';
 import { StatusBar } from './components/StatusBar';
 import { initTheme, initDragPrevention } from './bootstrap';
+import { initErrorBusBridge } from './errors/error-bus-bridge';
+// @ts-expect-error — shared JS module
+import { errorBus as _errorBus } from '../../../shared/error-bus.js';
+// @ts-expect-error — shared JS module
+import { AppError as _AppError } from '../../../shared/errors.js';
 
 declare const i18n: {
   locale: string;
@@ -68,10 +73,12 @@ window.__hanaLog = function (level: string, module: string, message: string) {
 
 // ── 全局错误捕获 ──
 window.addEventListener('error', (e) => {
-  window.__hanaLog?.('error', 'desktop', `${e.message} at ${e.filename}:${e.lineno}`);
+  _errorBus.report(_AppError.wrap(e.error || e.message), {
+    context: { filename: e.filename, line: e.lineno },
+  });
 });
 window.addEventListener('unhandledrejection', (e) => {
-  window.__hanaLog?.('error', 'desktop', `unhandledRejection: ${e.reason}`);
+  _errorBus.report(_AppError.wrap(e.reason));
 });
 
 // ── 初始化流程 ──
@@ -127,6 +134,7 @@ async function init(): Promise<void> {
 
   // 8. 连接 WebSocket
   connectWebSocket();
+  initErrorBusBridge();
 
   // 9. 加载模型
   await loadModels();
