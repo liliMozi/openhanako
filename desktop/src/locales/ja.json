@@ -103,7 +103,9 @@
     "connected": "接続済み",
     "disconnected": "未接続",
     "serverNotReady": "サーバーの準備ができていません",
-    "loading": "読み込み中..."
+    "loading": "読み込み中...",
+    "reconnecting": "再接続中",
+    "reconnect": "再接続"
   },
   "input": {
     "placeholder": "なにか話しかけてみてください...",
@@ -1543,5 +1545,30 @@
     "opWrite": "書き込み",
     "opDelete": "削除",
     "denied": "{op}が拒否されました：{path}（アクセスレベル: {level}）"
-  }
+  },
+  "error.llmTimeout": "Model request timed out",
+  "error.llmRateLimited": "Model rate limited, please wait",
+  "error.llmEmptyResponse": "Model returned empty response",
+  "error.llmAuthFailed": "Model authentication failed",
+  "error.llmSlowResponse": "Model is responding slowly, please wait",
+  "error.fsPermission": "File permission denied",
+  "error.fsNotFound": "File not found",
+  "error.fsCopyFailed": "File copy failed",
+  "error.wsDisconnected": "Connection lost",
+  "error.fetchTimeout": "Request timed out",
+  "error.fetchServerError": "Server error",
+  "error.ipcFailed": "Internal communication error",
+  "error.renderCrash": "Display error",
+  "error.configParse": "Configuration file corrupted",
+  "error.bridgeSendFailed": "Failed to send message to platform",
+  "error.skillSyncFailed": "Skill sync failed",
+  "error.memoryCompileFailed": "Memory compilation failed",
+  "error.dbError": "Database error",
+  "error.serverAuthFailed": "Authentication failed",
+  "error.unknown": "An unexpected error occurred",
+  "error.regionUnavailable": "This area is temporarily unavailable",
+  "status.reconnecting": "Reconnecting...",
+  "status.disconnected": "Connection lost",
+  "status.reconnect": "Reconnect",
+  "action.retry": "Retry"
 }

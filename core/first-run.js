@@ -8,6 +8,9 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { safeCopyDir } from '../shared/safe-fs.js';
+import { AppError } from '../shared/errors.js';
+import { errorBus } from '../shared/error-bus.js';
 
 /**
  * 确保 ~/.hanako/ 数据目录就绪
@@ -21,9 +24,8 @@ export function ensureFirstRun(hanakoHome, productDir) {
 
   // 2. 如果 agents/ 没有任何 agent → 播种默认 agent
   const agentsDir = path.join(hanakoHome, "agents");
-  const hasAgent = fs.readdirSync(agentsDir).some(name => {
-    const full = path.join(agentsDir, name);
-    return fs.statSync(full).isDirectory() && !name.startsWith(".");
+  const hasAgent = fs.readdirSync(agentsDir, { withFileTypes: true }).some(entry => {
+    return entry.isDirectory() && !entry.name.startsWith('.');
   });
 
   if (!hasAgent) {
@@ -117,24 +119,14 @@ function syncSkills(srcDir, dstDir) {
     // 只要源里有 SKILL.md 就同步整个目录
     if (!fs.existsSync(path.join(skillSrc, "SKILL.md"))) continue;
 
-    copyDirSync(skillSrc, skillDst);
-  }
-}
-
-/** 递归复制目录（覆盖已有文件） */
-function copyDirSync(src, dst) {
-  fs.mkdirSync(dst, { recursive: true });
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const s = path.join(src, entry.name);
-    const d = path.join(dst, entry.name);
-    if (entry.isDirectory()) {
-      copyDirSync(s, d);
-    } else {
-      // 目标文件可能是只读的，先解除再覆盖（Windows NTFS 不支持 POSIX 权限，静默跳过）
-      if (fs.existsSync(d)) {
-        try { fs.chmodSync(d, 0o644); } catch {}
-      }
-      fs.copyFileSync(s, d);
+    try {
+      safeCopyDir(skillSrc, skillDst);
+    } catch (err) {
+      errorBus.report(new AppError('SKILL_SYNC_FAILED', {
+        cause: err instanceof Error ? err : new Error(String(err)),
+        context: { skill: entry.name },
+      }));
+      // Continue with other skills, don't abort
     }
   }
 }

@@ -134,7 +134,7 @@ Rules:
     });
   } catch (err) {
     // AbortError（超时）不算失败，静默返回 null 让调用方走 fallback
-    if (err.name === "AbortError" || err.name === "TimeoutError") return null;
+    if (err.name === "AbortError" || err.name === "TimeoutError" || err.code === "LLM_TIMEOUT") return null;
     console.error("[llm-utils] summarizeTitle failed:", err.message);
     return null;
   }

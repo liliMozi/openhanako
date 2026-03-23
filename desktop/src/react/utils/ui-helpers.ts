@@ -6,6 +6,10 @@
 
 import { useStore } from '../stores';
 import { hanaFetch } from '../hooks/use-hana-fetch';
+// @ts-expect-error — shared JS module
+import { errorBus } from '../../../../shared/error-bus.js';
+// @ts-expect-error — shared JS module
+import { AppError } from '../../../../shared/errors.js';
 
 // ── 连接状态 ──
 
@@ -16,8 +20,7 @@ export function setStatus(key: string, connected: boolean, vars: Record<string, 
 // ── 错误显示 ──
 
 export function showError(message: string): void {
-  console.error('[hana]', message);
-  useStore.getState().addToast(`\u26A0 ${message}`, 'error');
+  errorBus.report(new AppError('UNKNOWN', { message }));
 }
 
 // ── 模型加载 ──

@@ -10,6 +10,7 @@ import { useStore } from './stores';
 import type { ActivePanel } from './types';
 import { hanaFetch } from './hooks/use-hana-fetch';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { RegionalErrorBoundary } from './components/RegionalErrorBoundary';
 import { ActivityPanel } from './components/ActivityPanel';
 import { AutomationPanel } from './components/AutomationPanel';
 import { BridgePanel } from './components/BridgePanel';
@@ -39,7 +40,13 @@ import { initJian, toggleJianSidebar } from './stores/desk-actions';
 import { initEditorEvents } from './stores/artifact-actions';
 import { WindowControls } from './components/WindowControls';
 import { ToastContainer } from './components/ToastContainer';
+import { StatusBar } from './components/StatusBar';
 import { initTheme, initDragPrevention } from './bootstrap';
+import { initErrorBusBridge } from './errors/error-bus-bridge';
+// @ts-expect-error — shared JS module
+import { errorBus as _errorBus } from '../../../shared/error-bus.js';
+// @ts-expect-error — shared JS module
+import { AppError as _AppError } from '../../../shared/errors.js';
 
 declare const i18n: {
   locale: string;
@@ -67,10 +74,12 @@ window.__hanaLog = function (level: string, module: string, message: string) {
 
 // ── 全局错误捕获 ──
 window.addEventListener('error', (e) => {
-  window.__hanaLog?.('error', 'desktop', `${e.message} at ${e.filename}:${e.lineno}`);
+  _errorBus.report(_AppError.wrap(e.error || e.message), {
+    context: { filename: e.filename, line: e.lineno },
+  });
 });
 window.addEventListener('unhandledrejection', (e) => {
-  window.__hanaLog?.('error', 'desktop', `unhandledRejection: ${e.reason}`);
+  _errorBus.report(_AppError.wrap(e.reason));
 });
 
 // ── 初始化流程 ──
@@ -126,6 +135,7 @@ async function init(): Promise<void> {
 
   // 8. 连接 WebSocket
   connectWebSocket();
+  initErrorBusBridge();
 
   // 9. 加载模型
   await loadModels();
@@ -306,6 +316,7 @@ function App() {
   const browserRunning = useStore(s => s.browserRunning);
   const welcomeVisible = useStore(s => s.welcomeVisible);
   const currentSessionPath = useStore(s => s.currentSessionPath);
+  const currentAgentId = useStore(s => s.currentAgentId);
   const hasPanels = !welcomeVisible && !!currentSessionPath;
   const { floatCard, show: showFloat, scheduleHide: scheduleFloatHide, cancelHide: cancelFloatHide, hide: hideFloat } = useFloatCard();
 
@@ -413,7 +424,9 @@ function App() {
                 <span>{t('browser.background')}</span>
               </button>
               <div className="session-list" id="sessionList">
-                <SessionList />
+                <RegionalErrorBoundary region="sidebar" resetKeys={[currentAgentId]}>
+                  <SessionList />
+                </RegionalErrorBoundary>
               </div>
             </div>
 
@@ -430,11 +443,15 @@ function App() {
 
           <div className={`chat-area${currentTab === 'chat' ? '' : ' hidden'}${hasPanels ? ' has-panels' : ''}`}>
             <WelcomeContainer />
-            <ChatArea />
+            <RegionalErrorBoundary region="chat" resetKeys={[currentSessionPath]}>
+              <ChatArea />
+            </RegionalErrorBoundary>
           </div>
 
           <div className={`input-area${currentTab === 'chat' ? '' : ' hidden'}`}>
-            <InputArea />
+            <RegionalErrorBoundary region="input" resetKeys={[currentSessionPath]}>
+              <InputArea />
+            </RegionalErrorBoundary>
           </div>
 
           <div className={`channel-view${currentTab === 'channels' ? ' active' : ''}`}>
@@ -458,7 +475,9 @@ function App() {
           <div className="resize-handle resize-handle-left" id="jianResizeHandle"></div>
           <div className="jian-sidebar-inner">
             <div className={`jian-chat-content${currentTab === 'chat' ? '' : ' hidden'}`}>
-              <DeskSection />
+              <RegionalErrorBoundary region="desk">
+                <DeskSection />
+              </RegionalErrorBoundary>
             </div>
 
             <div className={`jian-channel-content${currentTab === 'channels' ? '' : ' hidden'}`}>
@@ -486,6 +505,9 @@ function App() {
           onAction={hideFloat}
         />
       )}
+
+      {/* Connection status bar */}
+      <StatusBar />
 
       {/* Toast notifications */}
       <ToastContainer />
