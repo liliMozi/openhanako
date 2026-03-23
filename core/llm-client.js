@@ -1,3 +1,6 @@
+import { AppError } from '../shared/errors.js';
+import { errorBus } from '../shared/error-bus.js';
+
 /**
  * core/llm-client.js — 统一的非流式 LLM 调用入口
  *
@@ -108,22 +111,29 @@ export async function callText({
   }
 
   // ── 4. 发送请求 ──
+  const SLOW_THRESHOLD_MS = 15_000;
+  const slowTimer = setTimeout(() => {
+    errorBus.report(new AppError('LLM_SLOW_RESPONSE', {
+      context: { model, provider, elapsed: SLOW_THRESHOLD_MS },
+    }));
+  }, SLOW_THRESHOLD_MS);
+
   const res = await fetch(endpoint, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
     signal: combinedSignal,
   }).catch(err => {
+    clearTimeout(slowTimer);
     if (err.name === "AbortError" || err.name === "TimeoutError") {
-      const abortErr = new Error(`LLM request aborted (model=${model})`);
-      abortErr.name = "AbortError";
-      throw abortErr;
+      throw new AppError('LLM_TIMEOUT', { context: { model }, cause: err });
     }
     throw err;
   });
 
   // ── 5. 解析响应 ──
   const rawText = await res.text();
+  clearTimeout(slowTimer);
   let data;
   try {
     data = rawText ? JSON.parse(rawText) : null;
@@ -133,7 +143,13 @@ export async function callText({
 
   if (!res.ok) {
     const message = data?.error?.message || data?.message || rawText || `HTTP ${res.status}`;
-    throw new Error(message);
+    if (res.status === 401 || res.status === 403) {
+      throw new AppError('LLM_AUTH_FAILED', { context: { model, status: res.status } });
+    }
+    if (res.status === 429) {
+      throw new AppError('LLM_RATE_LIMITED', { context: { model } });
+    }
+    throw new AppError('UNKNOWN', { message, context: { model, status: res.status } });
   }
 
   // ── 6. 提取文本 ──
@@ -159,11 +175,9 @@ export async function callText({
 
   if (!text) {
     if (combinedSignal.aborted) {
-      const err = new Error(`LLM request aborted (model=${model})`);
-      err.name = "AbortError";
-      throw err;
+      throw new AppError('LLM_TIMEOUT', { context: { model } });
     }
-    throw new Error(`LLM returned empty response (model=${model})`);
+    throw new AppError('LLM_EMPTY_RESPONSE', { context: { model } });
   }
 
   return text;
