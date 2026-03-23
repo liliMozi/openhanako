@@ -20,7 +20,12 @@ function wrapIpcHandler(channel, handler) {
 function wrapIpcOn(channel, handler) {
   ipcMain.on(channel, (event, ...args) => {
     try {
-      handler(event, ...args);
+      const result = handler(event, ...args);
+      if (result && typeof result.catch === 'function') {
+        result.catch((err) => {
+          console.error(`[IPC][${channel}] async: ${err?.message || err}`);
+        });
+      }
     } catch (err) {
       console.error(`[IPC][${channel}] ${err?.message || err}`);
     }
