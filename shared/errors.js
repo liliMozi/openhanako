@@ -64,6 +64,9 @@ export class AppError extends Error {
   static wrap(err, fallbackCode = 'UNKNOWN') {
     if (err instanceof AppError) return err;
     const raw = err instanceof Error ? err : new Error(String(err));
-    return new AppError(fallbackCode, { cause: raw, message: raw.message });
+    const appErr = new AppError(fallbackCode, { cause: raw, message: raw.message });
+    // Preserve explicit retryable flag set on plain errors (e.g. from third-party libraries)
+    if (typeof raw.retryable === 'boolean') appErr.retryable = raw.retryable;
+    return appErr;
   }
 }
