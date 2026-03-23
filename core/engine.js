@@ -419,14 +419,14 @@ export class HanaEngine {
     // 0. Provider 迁移
     this._configCoord.migrateProvidersToGlobal(log);
 
-    // 1. Pi SDK + ModelCatalog（必须在 agent init 之前，agent 需要解析记忆模型）
+    // 1. Pi SDK + 模型基础设施（必须在 agent init 之前，agent 需要解析记忆模型）
     log(`[init] 1/5 Pi SDK 初始化...`);
     this._models.init();
     this._models.setPreferences(this._prefs);
-    // 注册用户覆盖源：从当前 agent 的 config.models.overrides 动态读取
-    this._models.modelCatalog.setOverridesGetter(() => this.agent?.config?.models?.overrides || null);
-    await this._models.modelCatalog.build();
-    log(`[init] 1/5 AuthStorage + ModelRegistry + Catalog 就绪`);
+    this._models.setOverridesGetter(() => this.agent?.config?.models?.overrides || null);
+    // 预填充 _availableModels，agent init 时需要解析 utility model
+    await this._models.refreshAvailable();
+    log(`[init] 1/5 AuthStorage + ModelRegistry + ${this._models.availableModels.length} 个模型就绪`);
 
     // 2. 初始化所有 agent
     log(`[init] 2/5 初始化所有 agent...`);

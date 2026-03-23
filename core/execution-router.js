@@ -1,5 +1,5 @@
 /**
- * ExecutionRouter — per-agent 角色路由
+ * ExecutionRouter -- per-agent 角色路由
  *
  * 职责：
  *   - 将 agent 的角色配置（chat/utility/embed 等）解析为执行所需的完整参数
@@ -8,12 +8,12 @@
  *   - 完全不参与模型注册逻辑（这是路由层，不是管理层）
  *
  * 角色路由配置存储格式（preferences.json / config.yaml）：
- *   models.chat           → "provider/model" 或裸 modelId（向后兼容）
- *   models.utility        → 同上
- *   models.utility_large  → 同上
- *   models.embed          → 同上
- *   models.summarizer     → 同上
- *   models.compiler       → 同上
+ *   models.chat           -> "provider/model" 或裸 modelId（向后兼容）
+ *   models.utility        -> 同上
+ *   models.utility_large  -> 同上
+ *   models.embed          -> 同上
+ *   models.summarizer     -> 同上
+ *   models.compiler       -> 同上
  *
  * 设计来源：Hana 自己的三通道 API 概念（两个参考项目都没有）
  */
@@ -24,7 +24,7 @@ function isLocalBaseUrl(url) {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(String(url || ""));
 }
 
-// 角色名称 → preferences 字段名（SHARED_MODEL_KEYS 兼容）
+// 角色名称 -> preferences 字段名（SHARED_MODEL_KEYS 兼容）
 const ROLE_TO_PREF_KEY = {
   utility: "utility_model",
   utility_large: "utility_large_model",
@@ -34,16 +34,16 @@ const ROLE_TO_PREF_KEY = {
 
 export class ExecutionRouter {
   /**
-   * @param {import('./model-catalog.js').ModelCatalog} catalog
+   * @param {(ref: string) => object|null} resolveModel - 从 _availableModels 解析模型的函数
    * @param {import('./auth-store.js').AuthStore} authStore
    */
-  constructor(catalog, authStore) {
-    this._catalog = catalog;
+  constructor(resolveModel, authStore) {
+    this._resolveModel = resolveModel;
     this._authStore = authStore;
   }
 
   /**
-   * 解析角色 → 完整执行参数
+   * 解析角色 -> 完整执行参数
    *
    * @param {string} roleOrRef
    *   角色名（"chat"/"utility"/"utility_large"/"embed"/"summarizer"/"compiler"）
@@ -60,8 +60,8 @@ export class ExecutionRouter {
       throw new Error(t("error.noUtilityModel") + ` (role: ${roleOrRef})`);
     }
 
-    const entry = this._catalog.resolve(modelRef);
-    if (!entry) {
+    const model = this._resolveModel(modelRef);
+    if (!model) {
       throw new Error(t("error.modelNotFound", { id: modelRef }));
     }
 
@@ -69,32 +69,32 @@ export class ExecutionRouter {
     const isUtilityRole = roleOrRef === "utility" || roleOrRef === "utility_large";
     if (isUtilityRole && utilApiOverride?.api_key) {
       // 校验 provider 一致性（与原 ModelManager.resolveUtilityConfig 行为一致）
-      if (utilApiOverride.provider && utilApiOverride.provider !== entry.providerId) {
+      if (utilApiOverride.provider && utilApiOverride.provider !== model.provider) {
         throw new Error(t("error.utilityApiProviderMismatch", { model: modelRef }));
       }
       return {
-        modelId: entry.modelId,
-        providerId: entry.providerId,
-        api: entry.api,
+        modelId: model.id,
+        providerId: model.provider,
+        api: model.api,
         apiKey: utilApiOverride.api_key,
-        baseUrl: utilApiOverride.base_url || entry.baseUrl,
+        baseUrl: utilApiOverride.base_url || model.baseUrl,
       };
     }
 
-    const cred = this._authStore.get(entry.providerId, agentConfig);
+    const cred = this._authStore.get(model.provider, agentConfig);
     if (!cred) {
-      throw new Error(t("error.providerMissingCreds", { provider: entry.providerId }));
+      throw new Error(t("error.providerMissingCreds", { provider: model.provider }));
     }
     if (!cred.api) {
-      throw new Error(t("error.providerMissingApi", { provider: entry.providerId }));
+      throw new Error(t("error.providerMissingApi", { provider: model.provider }));
     }
     if (!cred.baseUrl || (!cred.apiKey && !isLocalBaseUrl(cred.baseUrl))) {
-      throw new Error(t("error.providerMissingCreds", { provider: entry.providerId }));
+      throw new Error(t("error.providerMissingCreds", { provider: model.provider }));
     }
 
     return {
-      modelId: entry.modelId,
-      providerId: entry.providerId,
+      modelId: model.id,
+      providerId: model.provider,
       api: cred.api,
       apiKey: cred.apiKey,
       baseUrl: cred.baseUrl,
@@ -118,33 +118,33 @@ export class ExecutionRouter {
     if (!utilityModelRef) throw new Error(t("error.noUtilityModel"));
     if (!largeModelRef) throw new Error(t("error.noUtilityLargeModel"));
 
-    const utilEntry = this._catalog.resolve(utilityModelRef);
-    if (!utilEntry) throw new Error(t("error.modelNotFound", { id: utilityModelRef }));
+    const utilModel = this._resolveModel(utilityModelRef);
+    if (!utilModel) throw new Error(t("error.modelNotFound", { id: utilityModelRef }));
 
-    const largeEntry = this._catalog.resolve(largeModelRef);
-    if (!largeEntry) throw new Error(t("error.modelNotFound", { id: largeModelRef }));
+    const largeModel = this._resolveModel(largeModelRef);
+    if (!largeModel) throw new Error(t("error.modelNotFound", { id: largeModelRef }));
 
     // utility 凭证
     let apiKey, baseUrl, api;
     if (utilApiOverride?.provider || utilApiOverride?.api_key || utilApiOverride?.base_url) {
       // 校验 provider 一致性（与原 ModelManager.resolveUtilityConfig 行为一致）
-      if (utilApiOverride.provider && utilApiOverride.provider !== utilEntry.providerId) {
+      if (utilApiOverride.provider && utilApiOverride.provider !== utilModel.provider) {
         throw new Error(t("error.utilityApiProviderMismatch", { model: utilityModelRef }));
       }
       // utility API 覆盖（用户指定了独立的 utility api endpoint）
-      const provCred = this._authStore.get(utilEntry.providerId, cfg);
-      api = provCred?.api || utilEntry.api;
+      const provCred = this._authStore.get(utilModel.provider, cfg);
+      api = provCred?.api || utilModel.api;
       apiKey = utilApiOverride.api_key || "";
       baseUrl = utilApiOverride.base_url || "";
-      if (!api) throw new Error(t("error.providerMissingApi", { provider: utilEntry.providerId }));
+      if (!api) throw new Error(t("error.providerMissingApi", { provider: utilModel.provider }));
       if (!baseUrl || (!apiKey && !isLocalBaseUrl(baseUrl))) {
-        throw new Error(t("error.utilityApiMissingCreds", { provider: utilEntry.providerId }));
+        throw new Error(t("error.utilityApiMissingCreds", { provider: utilModel.provider }));
       }
     } else {
-      const cred = this._authStore.get(utilEntry.providerId, cfg);
-      if (!cred?.api) throw new Error(t("error.providerMissingApi", { provider: utilEntry.providerId }));
+      const cred = this._authStore.get(utilModel.provider, cfg);
+      if (!cred?.api) throw new Error(t("error.providerMissingApi", { provider: utilModel.provider }));
       if (!cred.baseUrl || (!cred.apiKey && !isLocalBaseUrl(cred.baseUrl))) {
-        throw new Error(t("error.providerMissingCreds", { provider: utilEntry.providerId }));
+        throw new Error(t("error.providerMissingCreds", { provider: utilModel.provider }));
       }
       apiKey = cred.apiKey;
       baseUrl = cred.baseUrl;
@@ -153,11 +153,11 @@ export class ExecutionRouter {
 
     // utility_large 凭证（provider 相同则复用）
     let large_api_key = apiKey, large_base_url = baseUrl, large_api = api;
-    if (largeEntry.providerId !== utilEntry.providerId) {
-      const largeCred = this._authStore.get(largeEntry.providerId, cfg);
-      if (!largeCred?.api) throw new Error(t("error.providerMissingApi", { provider: largeEntry.providerId }));
+    if (largeModel.provider !== utilModel.provider) {
+      const largeCred = this._authStore.get(largeModel.provider, cfg);
+      if (!largeCred?.api) throw new Error(t("error.providerMissingApi", { provider: largeModel.provider }));
       if (!largeCred.baseUrl || (!largeCred.apiKey && !isLocalBaseUrl(largeCred.baseUrl))) {
-        throw new Error(t("error.providerMissingCreds", { provider: largeEntry.providerId }));
+        throw new Error(t("error.providerMissingCreds", { provider: largeModel.provider }));
       }
       large_api_key = largeCred.apiKey;
       large_base_url = largeCred.baseUrl;
@@ -165,8 +165,8 @@ export class ExecutionRouter {
     }
 
     return {
-      utility: utilEntry.modelId,
-      utility_large: largeEntry.modelId,
+      utility: utilModel.id,
+      utility_large: largeModel.id,
       api_key: apiKey,
       base_url: baseUrl,
       api,
@@ -183,7 +183,7 @@ export class ExecutionRouter {
   _resolveRef(roleOrRef, agentConfig, sharedModels) {
     const cfg = agentConfig || {};
 
-    // 内置角色名的查找顺序：sharedModels → agentConfig.models
+    // 内置角色名的查找顺序：sharedModels -> agentConfig.models
     switch (roleOrRef) {
       case "chat":
         return cfg.models?.chat || null;

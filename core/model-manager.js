@@ -1,14 +1,16 @@
 /**
- * ModelManager — 模型发现、切换、凭证解析
+ * ModelManager -- 模型发现、切换、凭证解析
  *
  * 管理 Pi SDK AuthStorage / ModelRegistry 基础设施，
  * 以及模型选择、provider 凭证查找、utility 配置解析。
  * 从 Engine 提取，Engine 通过 manager 访问模型状态。
  *
- * v2 新增：ProviderRegistry / ModelCatalog / AuthStore / ExecutionRouter
- * 四个新模块通过 init() 后挂载到实例，旧接口保持向后兼容。
+ * _availableModels 是唯一的模型真理源。所有模型解析、enrichment、
+ * default-models 回灌都在这个数组上完成，不再经过中间层。
  */
 import path from "path";
+import { readFileSync } from "fs";
+import { createRequire } from "module";
 import {
   AuthStorage,
   ModelRegistry,
@@ -18,12 +20,21 @@ import { minimaxOAuthProvider } from "../lib/oauth/minimax-portal.js";
 import { clearConfigCache, loadGlobalProviders } from "../lib/memory/config-loader.js";
 import { t } from "../server/i18n.js";
 import { ProviderRegistry } from "./provider-registry.js";
-import { ModelCatalog } from "./model-catalog.js";
 import { AuthStore } from "./auth-store.js";
 import { ExecutionRouter } from "./execution-router.js";
 
+const _require = createRequire(import.meta.url);
+const _knownModels = _require("../lib/known-models.json");
+
 function isLocalBaseUrl(url) {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(String(url || ""));
+}
+
+function humanizeName(id) {
+  let name = id.replace(/-(\d{6})$/, "");
+  name = name.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  name = name.replace(/(\d) (\d)/g, "$1.$2");
+  return name;
 }
 
 export class ModelManager {
@@ -39,9 +50,9 @@ export class ModelManager {
     this._sessionModel = null;   // 聊天页面临时切的，只影响桌面端
     this._availableModels = [];
 
-    // v2：新架构四层模块（init() 后可用）
+    // 新架构模块（init() 后可用）
     this.providerRegistry = new ProviderRegistry(hanakoHome);
-    this.modelCatalog = null;   // 依赖 modelsJsonPath，init() 后创建
+    this._overridesGetter = null;
     this.authStore = null;
     this.executionRouter = null;
   }
@@ -55,12 +66,13 @@ export class ModelManager {
       path.join(this._hanakoHome, "models.json"),
     );
 
-    // v2 模块初始化
     this.providerRegistry.reload();
-    this.modelCatalog = new ModelCatalog(this.providerRegistry, this.modelsJsonPath);
     this.authStore = new AuthStore(this._hanakoHome, this.providerRegistry);
     this.authStore.load();
-    this.executionRouter = new ExecutionRouter(this.modelCatalog, this.authStore);
+    this.executionRouter = new ExecutionRouter(
+      (ref) => this._resolveFromAvailable(ref),
+      this.authStore,
+    );
   }
 
   // ── Getters ──
@@ -78,22 +90,137 @@ export class ModelManager {
   /** 注入 PreferencesManager 引用（engine init 时调用） */
   setPreferences(prefs) { this._prefs = prefs; }
 
+  /** 注入用户模型覆盖源（从 agent config.models.overrides 动态读取） */
+  setOverridesGetter(fn) { this._overridesGetter = fn; }
+
+  // ── 模型解析：_availableModels 唯一真理源 ──
+
+  /**
+   * 从 _availableModels 解析模型引用
+   * 支持两种输入：
+   *   1. "provider/model" 格式（精确匹配 provider + id）
+   *   2. 裸 model ID（匹配 id 或 name）
+   * 不做模糊 fallback，避免静默绑到错误 provider。
+   * @param {string} ref - 模型引用字符串
+   * @returns {object|null} SDK 模型对象
+   */
+  _resolveFromAvailable(ref) {
+    if (!ref || typeof ref !== "string") return null;
+    const str = ref.trim();
+    if (!str) return null;
+
+    // 层级 1：尝试 "provider/model" 分割匹配（首个 / 做切分）
+    if (str.includes("/")) {
+      const slashIdx = str.indexOf("/");
+      const providerPart = str.slice(0, slashIdx);
+      const modelPart = str.slice(slashIdx + 1);
+      const match = this._availableModels.find(
+        m => m.provider === providerPart && m.id === modelPart,
+      );
+      if (match) return match;
+    }
+
+    // 层级 2：完整字符串作为裸 model ID 匹配
+    // 覆盖两种情况：
+    //   a) 纯裸 ID（如 "qwen3.5-flash"）
+    //   b) OpenRouter 风格 ID（如 "anthropic/claude-opus-4-6" 是 id 本身）
+    return this._availableModels.find(m => m.id === str || m.name === str) || null;
+  }
+
+  // ── 增强管线 ──
+
+  /**
+   * 用 known-models.json 修正 _availableModels 中的 contextWindow / maxTokens / name
+   * 供应商 /v1/models 返回的 context_length 经常不准确（如 MiMo 返回 131072 但实际 1M）
+   * known-models.json 作为权威来源覆盖
+   * @private
+   */
+  _enrichFromKnownModels() {
+    for (const m of this._availableModels) {
+      const known = _knownModels[m.id];
+      if (!known) continue;
+      if (known.context && known.context > (m.contextWindow || 0)) {
+        m.contextWindow = known.context;
+      }
+      if (known.maxOutput && known.maxOutput > (m.maxTokens || 0)) {
+        m.maxTokens = known.maxOutput;
+      }
+      // 补充 name（如果还是裸 ID）
+      if (known.name && (!m.name || m.name === m.id)) {
+        m.name = known.name;
+      }
+    }
+  }
+
+  /**
+   * 应用用户手动设置的模型覆盖（config.models.overrides）
+   * 优先级：用户覆盖 > known-models > API 返回值
+   * @private
+   */
+  _applyUserOverrides() {
+    const overrides = this._overridesGetter?.();
+    if (!overrides || typeof overrides !== "object") return;
+    for (const m of this._availableModels) {
+      const ov = overrides[m.id];
+      if (!ov) continue;
+      if (ov.context) m.contextWindow = ov.context;
+      if (ov.maxOutput) m.maxTokens = ov.maxOutput;
+      if (ov.displayName) m.name = ov.displayName;
+    }
+  }
+
+  /**
+   * 对有凭证但 _availableModels 中无模型的 provider，从 default-models.json 注入默认模型
+   * 构造最小 SDK 模型对象（从 known-models.json 补元数据）
+   * @private
+   */
+  _mergeDefaultModels() {
+    // 收集 _availableModels 中已有的 provider
+    const existingProviders = new Set(this._availableModels.map(m => m.provider).filter(Boolean));
+    // 用 provider+id 双重去重
+    const existingKeys = new Set(
+      this._availableModels.map(m => m.provider ? `${m.provider}/${m.id}` : m.id),
+    );
+
+    const allProviders = this.providerRegistry.getAll();
+    for (const [providerId, provEntry] of allProviders) {
+      // 只给有凭证但无模型的 provider 注入（或补全缺失的默认模型）
+      const defaults = this.providerRegistry.getDefaultModels(providerId);
+      if (!defaults || defaults.length === 0) continue;
+
+      for (const modelId of defaults) {
+        const key = `${providerId}/${modelId}`;
+        if (existingKeys.has(key)) continue;
+        // 也检查裸 id（向后兼容）
+        if (existingKeys.has(modelId)) continue;
+
+        const known = _knownModels[modelId];
+        this._availableModels.push({
+          id: modelId,
+          name: known?.name || humanizeName(modelId),
+          provider: providerId,
+          baseUrl: provEntry.baseUrl || "",
+          api: provEntry.api || "openai-completions",
+          input: ["text", "image"],
+          contextWindow: known?.context || 128_000,
+          maxTokens: known?.maxOutput || undefined,
+          reasoning: false,
+        });
+        existingKeys.add(key);
+      }
+    }
+  }
+
+  // ── 刷新 ──
+
   /** 刷新可用模型列表 */
   async refreshAvailable() {
     this._availableModels = await this._modelRegistry.getAvailable();
     this._injectOAuthCustomModels();
-    // v2：同步刷新 ModelCatalog + builtinModels 回灌
-    if (this.modelCatalog) {
-      await this.modelCatalog.build();
-      const oauthCustom = this._prefs?.getOAuthCustomModels?.() || {};
-      this.modelCatalog.injectOAuthCustomModels(oauthCustom);
-      this.authStore?.load();
-      // 用 ModelCatalog（含 known-models.json 元数据）修正 _availableModels 中的 contextWindow
-      // 供应商 /v1/models 返回的 context_length 经常不准确
-      this._enrichFromCatalog();
-      // 将 Catalog 中有但 _availableModels 没有的 builtinModels 回灌
-      this._mergeBuiltinModels();
-    }
+    this._mergeDefaultModels();
+    this._enrichFromKnownModels();
+    this._applyUserOverrides();
+    this.authStore?.load();
     return this._availableModels;
   }
 
@@ -132,47 +259,7 @@ export class ModelManager {
   }
 
   /**
-   * 用 ModelCatalog 的元数据修正 _availableModels 中的 contextWindow / maxTokens
-   * 供应商 /v1/models 返回的 context_length 经常不准确（如 MiMo 返回 131072 但实际 1M）
-   * known-models.json 作为权威来源覆盖
-   * @private
-   */
-  _enrichFromCatalog() {
-    if (!this.modelCatalog) return;
-    for (const m of this._availableModels) {
-      // 优先用 provider/id 精确匹配，避免同名模型跨 provider 误配
-      const key = m.provider ? `${m.provider}/${m.id}` : m.id;
-      const entry = this.modelCatalog.get(key) || this.modelCatalog.resolve(m.id);
-      if (!entry) continue;
-      if (entry.contextWindow && entry.contextWindow > (m.contextWindow || 0)) {
-        m.contextWindow = entry.contextWindow;
-      }
-      if (entry.maxTokens && entry.maxTokens > (m.maxTokens || 0)) {
-        m.maxTokens = entry.maxTokens;
-      }
-    }
-  }
-
-  /**
-   * 将 ModelCatalog 中有但 _availableModels 中没有的模型回灌
-   * 主要来源：ProviderRegistry 的 builtinModels 声明
-   * @private
-   */
-  _mergeBuiltinModels() {
-    if (!this.modelCatalog) return;
-    // 用 provider+id 双重去重，避免同名模型跨 provider 被吞
-    const existingKeys = new Set(this._availableModels.map(m => m.provider ? `${m.provider}/${m.id}` : m.id));
-    for (const entry of this.modelCatalog.list()) {
-      if (existingKeys.has(entry.key)) continue;
-      // 也检查裸 id（向后兼容：_availableModels 里可能没有 provider 字段）
-      if (existingKeys.has(entry.modelId)) continue;
-      this._availableModels.push(this.modelCatalog.toSdkEntry(entry));
-      existingKeys.add(entry.key);
-    }
-  }
-
-  /**
-   * 同步 favorites → models.json，然后刷新 ModelRegistry
+   * 同步 favorites -> models.json，然后刷新 ModelRegistry
    * @param {string} configPath - agent config.yaml 路径
    * @param {object} opts
    * @returns {boolean}
@@ -192,16 +279,11 @@ export class ModelManager {
       registerOAuthProvider(minimaxOAuthProvider);
       this._availableModels = await this._modelRegistry.getAvailable();
       this._injectOAuthCustomModels();
-      // v2：同步刷新 ModelCatalog + AuthStore（和 refreshAvailable 保持一致）
-      if (this.modelCatalog) {
-        await this.modelCatalog.refresh();
-        const oauthCustom = this._prefs?.getOAuthCustomModels?.() || {};
-        this.modelCatalog.injectOAuthCustomModels(oauthCustom);
-        this.authStore?.invalidate();
-        this.authStore?.load();
-        this._enrichFromCatalog();
-        this._mergeBuiltinModels();
-      }
+      this._mergeDefaultModels();
+      this._enrichFromKnownModels();
+      this._applyUserOverrides();
+      this.authStore?.invalidate();
+      this.authStore?.load();
     }
     return synced;
   }
@@ -217,14 +299,14 @@ export class ModelManager {
     return model;
   }
 
-  /** auto → medium，其余原样 */
+  /** auto -> medium，其余原样 */
   resolveThinkingLevel(level) {
     return level === "auto" ? "medium" : level;
   }
 
   /**
    * 将模型引用（id/name/object）解析成 SDK 可用的模型对象
-   * 委托 ModelCatalog，fallback 到 _availableModels
+   * 只查 _availableModels（唯一真理源）
    */
   resolveExecutionModel(modelRef) {
     if (!modelRef) return this.currentModel;
@@ -232,27 +314,17 @@ export class ModelManager {
     const ref = modelRef.trim();
     if (!ref) return this.currentModel;
 
-    // 新路径：通过 ModelCatalog 解析（支持 "provider/model" 格式）
-    if (this.modelCatalog) {
-      const entry = this.modelCatalog.resolve(ref);
-      if (entry) return this.modelCatalog.toSdkEntry(entry);
-    }
+    const model = this._resolveFromAvailable(ref);
+    if (model) return model;
 
-    // fallback：从 _availableModels 查找（覆盖 Catalog 未索引到的情况）
-    const model = this._availableModels.find(m => m.id === ref || m.name === ref);
-    if (!model) throw new Error(t("error.modelNotFound", { id: ref }));
-    return model;
+    throw new Error(t("error.modelNotFound", { id: ref }));
   }
 
   /** 根据模型 ID 推断其所属 provider */
   inferModelProvider(modelId) {
     if (!modelId) return null;
-    // 新路径：ModelCatalog
-    if (this.modelCatalog) {
-      const entry = this.modelCatalog.resolve(modelId);
-      if (entry) return entry.providerId;
-    }
-    return this._availableModels.find(m => m.id === modelId)?.provider || null;
+    const model = this._resolveFromAvailable(modelId);
+    return model?.provider || null;
   }
 
   /**
@@ -274,7 +346,7 @@ export class ModelManager {
   }
 
   /**
-   * 统一解析：模型引用 → { model, provider, api, api_key, base_url }
+   * 统一解析：模型引用 -> { model, provider, api, api_key, base_url }
    * 返回 snake_case 格式（兼容 callProviderText / diary-writer / compile 等消费方）
    * @param {string|object} modelRef
    * @param {object} [agentConfig]

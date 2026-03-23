@@ -5,14 +5,20 @@
  *   - 管理所有已知 provider 的静态声明（能力、协议、认证类型）
  *   - 将插件声明与 providers.yaml 用户配置合并为 ProviderEntry
  *   - 不管凭证（凭证由 AuthStore 负责）
- *   - 不管模型列表（模型列表由 ModelCatalog 负责）
+ *   - 不管模型列表（模型列表由 ModelManager._availableModels 负责）
  *
  * 设计来源：OpenClaw 的插件注册表模式
  */
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import YAML from "js-yaml";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _defaultModels = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "../lib/default-models.json"), "utf-8"),
+);
 
 // ── 内置插件 ────────────────────────────────────────────────────────────────
 
@@ -96,7 +102,6 @@ const BUILTIN_PLUGINS = [
  * @property {string} defaultBaseUrl
  * @property {string} defaultApi
  * @property {{ vision: boolean, functionCall: boolean, streaming: boolean, reasoning: boolean, quirks?: string[] }} capabilities
- * @property {string[]} [builtinModels]
  * @property {string} [authJsonKey] - OAuth provider 在 auth.json 中的 key（不同于 id 时）
  */
 
@@ -227,7 +232,6 @@ export class ProviderRegistry {
         quirks: [],
       },
       authJsonKey: plugin.authJsonKey || plugin.id,
-      builtinModels: plugin.builtinModels || [],
       isBuiltin,
     };
   }
@@ -291,6 +295,15 @@ export class ProviderRegistry {
    */
   getAuthJsonKey(providerId) {
     return this.get(providerId)?.authJsonKey || providerId;
+  }
+
+  /**
+   * 获取某 provider 的默认模型列表（来自 lib/default-models.json）
+   * @param {string} providerId
+   * @returns {string[]}
+   */
+  getDefaultModels(providerId) {
+    return _defaultModels[providerId] || [];
   }
 
   /**

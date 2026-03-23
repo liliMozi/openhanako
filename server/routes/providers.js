@@ -234,7 +234,7 @@ export default async function providersRoute(app, { engine }) {
       } catch {}
     }
 
-    // Anthropic 格式没有 /models 端点，从 Pi SDK + ProviderRegistry builtinModels 返回
+    // Anthropic 格式没有 /models 端点，从 Pi SDK registry 或 default-models.json 返回
     if (api === "anthropic-messages") {
       const registryModels = engine.modelRegistry
         ? engine.modelRegistry.getAll().filter((m) => m.provider === name)
@@ -242,12 +242,12 @@ export default async function providersRoute(app, { engine }) {
       if (registryModels.length > 0) {
         return { source: "registry", models: normalizeRegistryModels(registryModels) };
       }
-      // fallback：从 ProviderRegistry 的 builtinModels 声明返回
-      const provEntry = engine.providerRegistry?.get(name);
-      if (provEntry?.builtinModels?.length > 0) {
+      // fallback：从 default-models.json 返回默认模型列表
+      const defaults = engine.providerRegistry?.getDefaultModels(name) || [];
+      if (defaults.length > 0) {
         return {
           source: "builtin",
-          models: provEntry.builtinModels.map(id => ({ id, name: id, context: null, maxOutput: null })),
+          models: defaults.map(id => ({ id, name: id, context: null, maxOutput: null })),
         };
       }
       return { error: "No built-in models found for this provider", models: [] };

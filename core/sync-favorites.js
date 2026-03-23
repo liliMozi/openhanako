@@ -37,6 +37,7 @@ function humanizeName(id) {
 import { createRequire } from "module";
 const _require = createRequire(import.meta.url);
 const _knownModels = _require("../lib/known-models.json");
+const _defaultModels = _require("../lib/default-models.json");
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 
@@ -162,16 +163,40 @@ export function syncFavoritesToModelsJson(configPath, opts = {}) {
       if (!modelToProvider.has(mid)) modelToProvider.set(mid, provName);
     }
   }
+  // Layer 4: default-models.json（集中声明，作为新安装和未配置 provider 的兜底）
+  for (const [provName, modelIds] of Object.entries(_defaultModels)) {
+    if (provName.startsWith("_")) continue; // 跳过 _comment 等元数据 key
+    for (const mid of modelIds) {
+      if (!modelToProvider.has(mid)) modelToProvider.set(mid, provName);
+    }
+  }
   // ── 4. 按 provider 分组必须保留的模型 ──
+  // 支持 "provider/model" 命名空间格式：显式指定 provider 时直接使用，
+  // 裸 model ID 走反查表。避免带命名空间的配置被跳过或绑到错误 provider。
   const providerModels = new Map(); // providerName → Set<modelId>
   for (const mid of mustKeep) {
-    const prov = modelToProvider.get(mid);
+    let prov, modelId;
+    if (mid.includes("/")) {
+      const slashIdx = mid.indexOf("/");
+      const maybeProv = mid.slice(0, slashIdx);
+      const maybeModel = mid.slice(slashIdx + 1);
+      // 检查前缀是否是已知 provider（避免误拆 OpenRouter 风格 ID 如 "anthropic/claude-opus-4-6"）
+      if (modelToProvider.has(maybeModel) || globalProviders[maybeProv] || _defaultModels[maybeProv]) {
+        prov = maybeProv;
+        modelId = maybeModel;
+      }
+    }
+    if (!prov) {
+      // 裸 ID 走反查表
+      prov = modelToProvider.get(mid);
+      modelId = mid;
+    }
     if (!prov) {
       console.warn(`\x1b[33m  [sync] 模型 "${mid}" 未绑定 provider，跳过\x1b[0m`);
       continue;
     }
     if (!providerModels.has(prov)) providerModels.set(prov, new Set());
-    providerModels.get(prov).add(mid);
+    providerModels.get(prov).add(modelId);
   }
 
   // ── 5. 构建新的 models.json ──
