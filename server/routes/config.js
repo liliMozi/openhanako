@@ -8,6 +8,7 @@ import { t } from "../i18n.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { getRawConfig, getAllProviders, saveGlobalProviders, clearConfigCache } from "../../lib/memory/config-loader.js";
 import { FactStore } from "../../lib/memory/fact-store.js";
+import { splitByScope, injectGlobalFields } from '../../shared/config-scope.js';
 
 export default async function configRoute(app, { engine }) {
 
@@ -57,22 +58,12 @@ export default async function configRoute(app, { engine }) {
       }
       config.providers = maskedProviders;
 
-      // 注入全局设置（存于 preferences，跨 agent 共享）
-      if (!config.desk) config.desk = {};
-      config.desk.home_folder = engine.getHomeFolder() || "";
-      // 过滤掉已被删除的工作目录
+      // 自动注入全局字段（schema-driven）
+      injectGlobalFields(config, engine);
+      // cwd_history 过滤（agent-scope，但需要 existsSync 验证）
       if (Array.isArray(config.cwd_history)) {
         config.cwd_history = config.cwd_history.filter(p => existsSync(p));
       }
-      config.thinking_level = engine.getThinkingLevel();
-      config.sandbox = engine.getSandbox();
-      config.update_channel = engine.getUpdateChannel();
-      const globalLocale = engine.getLocale();
-      if (globalLocale) config.locale = globalLocale;
-      const globalTz = engine.getTimezone();
-      if (globalTz) config.timezone = globalTz;
-      if (!config.capabilities) config.capabilities = {};
-      config.capabilities.learn_skills = engine.getLearnSkills();
 
       return config;
     } catch (err) {
@@ -89,58 +80,18 @@ export default async function configRoute(app, { engine }) {
         reply.code(400);
         return { error: t("error.invalidJson") };
       }
-      // ── 全局设置拦截：存 preferences / providers.yaml 而非 agent config ──
-
-      // thinking_level → preference（跨 agent 共享）
-      if (partial.thinking_level !== undefined) {
-        engine.setThinkingLevel(partial.thinking_level);
-        delete partial.thinking_level;
-      }
-
-      // locale → 全局 preferences
-      if (partial.locale !== undefined) {
-        engine.setLocale(partial.locale);
-        delete partial.locale;
-      }
-
-      // timezone → 全局 preferences
-      if (partial.timezone !== undefined) {
-        engine.setTimezone(partial.timezone);
-        delete partial.timezone;
-      }
-
-      // sandbox → 全局 preferences
-      if (partial.sandbox !== undefined) {
-        engine.setSandbox(partial.sandbox);
-        delete partial.sandbox;
-      }
-
-      // update_channel → 全局 preferences
-      if (partial.update_channel !== undefined) {
-        engine.setUpdateChannel(partial.update_channel);
-        delete partial.update_channel;
-      }
-
-      // capabilities.learn_skills → 全局 preferences
-      if (partial.capabilities?.learn_skills !== undefined) {
-        engine.setLearnSkills(partial.capabilities.learn_skills);
-        delete partial.capabilities.learn_skills;
-        if (partial.capabilities && Object.keys(partial.capabilities).length === 0) delete partial.capabilities;
-      }
-
-      // desk.home_folder
-      if (partial.desk?.home_folder !== undefined) {
-        engine.setHomeFolder(partial.desk.home_folder || null);
-        delete partial.desk.home_folder;
-        if (partial.desk && Object.keys(partial.desk).length === 0) delete partial.desk;
+      // ── schema-driven 全局字段分流 ──
+      const { global: globalFields, agent: agentPartial } = splitByScope(partial);
+      for (const { setter, value } of globalFields) {
+        engine[setter](value);
       }
 
       // providers 块 → 全局 providers.yaml
       let providersChanged = false;
-      if (partial.providers) {
+      if (agentPartial.providers) {
         // 删除 provider 时（值为 null），同步清理 models.json + favorites
-        const deletedProviders = Object.keys(partial.providers)
-          .filter(name => partial.providers[name] === null);
+        const deletedProviders = Object.keys(agentPartial.providers)
+          .filter(name => agentPartial.providers[name] === null);
         if (deletedProviders.length > 0) {
           try {
             const modelsJsonPath = engine.modelsJsonPath;
@@ -171,15 +122,15 @@ export default async function configRoute(app, { engine }) {
             }
           } catch {}
         }
-        saveGlobalProviders({ providers: partial.providers });
-        delete partial.providers;
+        saveGlobalProviders({ providers: agentPartial.providers });
+        delete agentPartial.providers;
         providersChanged = true;
       }
 
       // 内联 API 凭证 → 全局 providers.yaml 对应条目
       const rawConfig = getRawConfig(engine.configPath) || {};
       for (const blockName of ["api", "embedding_api", "utility_api"]) {
-        const block = partial[blockName];
+        const block = agentPartial[blockName];
         if (block?.api_key || block?.base_url) {
           const provName = typeof block.provider === "string" && block.provider.trim()
             ? block.provider.trim()
@@ -199,8 +150,8 @@ export default async function configRoute(app, { engine }) {
       }
 
       // providers 变更后确保运行时刷新
-      const needsModelSync = providersChanged && !partial.models;
-      if (providersChanged && Object.keys(partial).length === 0) {
+      const needsModelSync = providersChanged && !agentPartial.models;
+      if (providersChanged && Object.keys(agentPartial).length === 0) {
         clearConfigCache();
         await engine.updateConfig({});
         if (needsModelSync) {
@@ -211,10 +162,10 @@ export default async function configRoute(app, { engine }) {
         return { ok: true };
       }
 
-      if (Object.keys(partial).length === 0) return { ok: true };
-      debugLog()?.log("api", `PUT /api/config keys=[${Object.keys(partial).join(",")}]`);
+      if (Object.keys(agentPartial).length === 0) return { ok: true };
+      debugLog()?.log("api", `PUT /api/config keys=[${Object.keys(agentPartial).join(",")}]`);
       if (providersChanged) clearConfigCache();
-      await engine.updateConfig(partial);
+      await engine.updateConfig(agentPartial);
       if (needsModelSync) {
         try { await engine.syncModelsAndRefresh(); } catch (e) {
           debugLog()?.warn("api", `syncModelsAndRefresh after config update: ${e.message}`);
