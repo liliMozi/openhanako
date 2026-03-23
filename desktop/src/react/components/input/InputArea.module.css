@@ -320,6 +320,16 @@
     border-color: rgba(var(--accent-rgb), 0.25);
 }
 
+.model-pill-disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.model-pill-disabled:hover {
+    color: var(--text-muted);
+    border-color: rgba(var(--accent-rgb), 0.12);
+}
+
 .model-selector.open .model-pill {
     color: var(--accent);
     border-color: rgba(var(--accent-rgb), 0.25);

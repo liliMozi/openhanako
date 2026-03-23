@@ -59,6 +59,8 @@ function InputAreaInner() {
   const setThinkingLevel = useStore(s => s.setThinkingLevel);
 
   const currentModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
+  const chatSessions = useStore(s => s.chatSessions);
+  const sessionHasMessages = !!(currentSessionPath && chatSessions[currentSessionPath]?.items?.length);
 
   // Local state
   const [inputText, setInputText] = useState('');
@@ -419,7 +421,7 @@ function InputAreaInner() {
             {currentModelInfo?.reasoning !== false && (
               <ThinkingLevelButton level={thinkingLevel} onChange={setThinkingLevel} modelXhigh={currentModelInfo?.xhigh ?? false} />
             )}
-            <ModelSelector models={models} />
+            <ModelSelector models={models} disabled={sessionHasMessages} />
             <SendButton isStreaming={isStreaming} hasInput={!!inputText.trim()}
               disabled={isStreaming ? false : !canSend} onSend={handleSend} onSteer={handleSteer} onStop={handleStop} />
           </div>

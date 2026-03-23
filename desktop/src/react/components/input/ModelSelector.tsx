@@ -4,7 +4,7 @@ import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { useI18n } from '../../hooks/use-i18n';
 import styles from './InputArea.module.css';
 
-export function ModelSelector({ models }: { models: Array<{ id: string; name: string; provider?: string; isCurrent?: boolean }> }) {
+export function ModelSelector({ models, disabled }: { models: Array<{ id: string; name: string; provider?: string; isCurrent?: boolean }>; disabled?: boolean }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -59,7 +59,7 @@ export function ModelSelector({ models }: { models: Array<{ id: string; name: st
 
   return (
     <div className={`${styles['model-selector']}${open ? ` ${styles.open}` : ''}`} ref={ref}>
-      <button className={styles['model-pill']} onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
+      <button className={`${styles['model-pill']}${disabled ? ` ${styles['model-pill-disabled']}` : ''}`} onClick={(e) => { e.stopPropagation(); if (!disabled) setOpen(!open); }}>
         <span>{current?.name || t('model.unknown') || '...'}</span>
         <span className={styles['model-arrow']}>▾</span>
       </button>
