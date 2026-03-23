@@ -1,0 +1,86 @@
+.tabBar {
+    display: flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 6px;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.tabList {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    overflow-x: auto;
+    flex: 1;
+    min-width: 0;
+    scrollbar-width: none;
+}
+
+.tabList::-webkit-scrollbar {
+    display: none;
+}
+
+.tab {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 160px;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+}
+
+.tab:hover {
+    background: var(--overlay-light);
+}
+
+.tabActive {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.tabTitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
+}
+
+.tabClose {
+    font-size: 9px;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0.5;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.tabClose:hover {
+    opacity: 1;
+}
+
+.tabActive .tabClose {
+    opacity: 0.7;
+}
+
+.closePanel {
+    margin-left: auto;
+    padding: 4px 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    display: flex;
+    align-items: center;
+    transition: color 0.12s;
+}
+
+.closePanel:hover {
+    color: var(--text);
+}
