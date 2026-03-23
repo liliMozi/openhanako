@@ -1,6 +1,6 @@
 {
   "name": "hanako",
-  "version": "0.63.1",
+  "version": "0.63.2",
   "type": "module",
   "description": "Hanako - a personal AI agent with memory and soul",
   "license": "Apache-2.0",
