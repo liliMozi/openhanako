@@ -16,6 +16,8 @@ import {
   appendSessionStreamEvent,
   resumeSessionStream,
 } from "../session-stream-store.js";
+import { AppError } from "../../shared/errors.js";
+import { errorBus } from "../../shared/error-bus.js";
 
 /** tool_start 事件只广播这些 arg 字段，避免传输完整文件内容（同步维护：chat-render-shim.ts extractToolDetail） */
 const TOOL_ARG_SUMMARY_KEYS = ["file_path", "path", "command", "pattern", "url", "query", "key", "value", "action", "type", "schedule", "prompt", "label"];
@@ -472,6 +474,22 @@ export default async function chatRoute(app, { engine, hub }) {
     }
   });
 
+  function wrapWsHandler(ws, handler) {
+    return async (raw) => {
+      const msg = wsParse(raw);
+      if (!msg) return;
+      try {
+        await handler(msg, ws);
+      } catch (err) {
+        const appErr = AppError.wrap(err);
+        errorBus.report(appErr, { context: { wsMessageType: msg.type } });
+        if (!appErr.message?.includes('aborted')) {
+          wsSend(ws, { type: 'error', error: appErr.toJSON() });
+        }
+      }
+    };
+  }
+
   app.get("/ws", { websocket: true }, (socket, req) => {
     const ws = socket;
     let closed = false;
@@ -484,9 +502,7 @@ export default async function chatRoute(app, { engine, hub }) {
     // Fastify @fastify/websocket 的 WS 升级请求也会经过该 hook
 
     // 处理客户端消息
-    ws.on("message", async (raw) => {
-      const msg = wsParse(raw);
-      if (!msg) return;
+    ws.on("message", wrapWsHandler(ws, async (msg, ws) => {
 
       if (msg.type === "abort") {
         const abortPath = msg.sessionPath || engine.currentSessionPath;
@@ -644,7 +660,7 @@ export default async function chatRoute(app, { engine, hub }) {
           broadcast({ type: "status", isStreaming: false, sessionPath: promptSessionPath });
         }
       }
-    });
+    }));
 
     ws.on("error", (err) => {
       console.error("[ws] error:", err.message);
