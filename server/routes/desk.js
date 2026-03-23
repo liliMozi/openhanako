@@ -389,16 +389,22 @@ export default async function deskRoute(app, { engine, hub }) {
       reply.code(400);
       return { error: "skillDir is required" };
     }
-    // 安全检查：必须在当前工作区的 .agents/skills/ 下
+    // 安全检查：必须在当前工作区的已知技能目录下
     const cwd = engine.deskCwd;
     if (!cwd) {
       reply.code(400);
       return { error: "No active workspace" };
     }
-    const allowedBase = path.join(cwd, ".agents", "skills");
-    if (!isInsidePath(skillDir, allowedBase)) {
+    const ALLOWED_SKILL_SUBS = [
+      ".claude/skills", ".codex/skills", ".openclaw/skills",
+      ".agents/skills", ".pi/skills",
+    ];
+    const allowed = ALLOWED_SKILL_SUBS.some(sub =>
+      isInsidePath(skillDir, path.join(cwd, sub))
+    );
+    if (!allowed) {
       reply.code(403);
-      return { error: "Only skills in current workspace .agents/skills/ can be deleted" };
+      return { error: "Only skills in current workspace skill directories can be deleted" };
     }
     try {
       fs.rmSync(skillDir, { recursive: true, force: true });
