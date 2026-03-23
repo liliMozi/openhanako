@@ -103,7 +103,9 @@
     "connected": "已連線",
     "disconnected": "連線中斷",
     "serverNotReady": "Server 未就緒",
-    "loading": "載入中..."
+    "loading": "載入中...",
+    "reconnecting": "重新連線中",
+    "reconnect": "重新連線"
   },
   "input": {
     "placeholder": "說點什麼...",

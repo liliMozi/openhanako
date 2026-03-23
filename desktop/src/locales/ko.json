@@ -103,7 +103,9 @@
     "connected": "연결됨",
     "disconnected": "연결 끊김",
     "serverNotReady": "서버가 준비되지 않았어요",
-    "loading": "로딩 중..."
+    "loading": "로딩 중...",
+    "reconnecting": "재연결 중",
+    "reconnect": "다시 연결"
   },
   "input": {
     "placeholder": "무슨 이야기든 해보세요...",

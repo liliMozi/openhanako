@@ -103,7 +103,9 @@
     "connected": "已连接",
     "disconnected": "连接断开",
     "serverNotReady": "Server 未就绪",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "reconnecting": "重连中",
+    "reconnect": "重新连接"
   },
   "input": {
     "placeholder": "说点什么...",

@@ -10,6 +10,10 @@ import { handleServerMessage, applyStreamingStatus } from './ws-message-handler'
 import { requestStreamResume, injectHandlers } from './stream-resume';
 import { useStore } from '../stores';
 import { setStatus } from '../utils/ui-helpers';
+// @ts-expect-error -- shared JS module, no type declarations
+import { AppError } from '../../../../shared/errors.js';
+// @ts-expect-error -- shared JS module, no type declarations
+import { errorBus } from '../../../../shared/error-bus.js';
 
 // ── 模块级 WS 实例 ──
 let _ws: WebSocket | null = null;
@@ -19,6 +23,8 @@ let _wsRetryDelay = 1000;
 const WS_RETRY_MAX = 30000;
 let _wsRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let _wsResumeVersion = 0;
+const WS_MAX_RETRIES = 20;
+let _wsRetryCount = 0;
 
 // 注入循环依赖的 handlers
 injectHandlers(handleServerMessage, applyStreamingStatus);
@@ -48,7 +54,9 @@ export function connectWebSocket(port?: string, token?: string): void {
 
   _ws.onopen = () => {
     _wsRetryDelay = 1000;
+    _wsRetryCount = 0;
     setStatus('status.connected', true);
+    useStore.setState({ wsState: 'connected', wsReconnectAttempt: 0 });
 
     const s = useStore.getState();
     if (s.currentSessionPath && s.isStreaming) {
@@ -75,9 +83,24 @@ export function connectWebSocket(port?: string, token?: string): void {
 
   _ws.onclose = () => {
     setStatus('status.disconnected', false);
-    _wsRetryTimer = setTimeout(() => connectWebSocket(serverPort, serverToken ?? undefined), _wsRetryDelay);
-    _wsRetryDelay = Math.min(_wsRetryDelay * 2, WS_RETRY_MAX);
+    _wsRetryCount++;
+
+    if (_wsRetryCount <= WS_MAX_RETRIES) {
+      useStore.setState({ wsState: 'reconnecting', wsReconnectAttempt: _wsRetryCount });
+      _wsRetryTimer = setTimeout(() => connectWebSocket(serverPort, serverToken ?? undefined), _wsRetryDelay);
+      _wsRetryDelay = Math.min(_wsRetryDelay * 2, WS_RETRY_MAX);
+    } else {
+      useStore.setState({ wsState: 'disconnected' });
+    }
   };
 
-  _ws.onerror = () => {};
+  _ws.onerror = () => {
+    errorBus.report(new AppError('WS_DISCONNECTED'));
+  };
+}
+
+/** 手动重连（由 StatusBar 重连按钮调用），重置重试计数 */
+export function manualReconnect(): void {
+  _wsRetryCount = 0;
+  connectWebSocket();
 }

@@ -103,7 +103,9 @@
     "connected": "Connected",
     "disconnected": "Disconnected",
     "serverNotReady": "Server not ready",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "reconnecting": "Reconnecting",
+    "reconnect": "Reconnect"
   },
   "input": {
     "placeholder": "Say something...",

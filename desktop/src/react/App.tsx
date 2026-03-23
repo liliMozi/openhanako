@@ -39,6 +39,7 @@ import { initJian, toggleJianSidebar } from './stores/desk-actions';
 import { initEditorEvents } from './stores/artifact-actions';
 import { WindowControls } from './components/WindowControls';
 import { ToastContainer } from './components/ToastContainer';
+import { StatusBar } from './components/StatusBar';
 import { initTheme, initDragPrevention } from './bootstrap';
 
 declare const i18n: {
@@ -486,6 +487,9 @@ function App() {
           onAction={hideFloat}
         />
       )}
+
+      {/* Connection status bar */}
+      <StatusBar />
 
       {/* Toast notifications */}
       <ToastContainer />
