@@ -9,6 +9,7 @@ user/
 # ═══════════════════════════════════════════
 .docs/
 docs/superpowers/
+.superpowers/
 archived/
 devlog/
 handoff-*.md
