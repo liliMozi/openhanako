@@ -340,7 +340,7 @@
     bottom: 100%;
     right: 0;
     background: var(--bg-card);
-    border: none;
+    border: 1px solid var(--border);
     border-radius: var(--radius-md);
     padding: var(--space-xs);
     margin-bottom: var(--space-xs);
