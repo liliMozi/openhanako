@@ -7,6 +7,7 @@
 import fs from "fs";
 import path from "path";
 import { loadConfig, saveConfig } from "../lib/memory/config-loader.js";
+import { safeReadFile, safeReadJSON } from "../shared/safe-fs.js";
 import { FactStore } from "../lib/memory/fact-store.js";
 import { SessionSummaryManager } from "../lib/memory/session-summary.js";
 import { createMemoryTicker } from "../lib/memory/memory-ticker.js";
@@ -431,13 +432,9 @@ export class Agent {
   /** 查询指定 session 的持久化记忆开关，缺省视为开启 */
   isSessionMemoryEnabledFor(sessionPath) {
     if (!sessionPath) return this._memorySessionEnabled;
-    try {
-      const metaPath = path.join(this.sessionDir, "session-meta.json");
-      const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-      return meta[path.basename(sessionPath)]?.memoryEnabled !== false;
-    } catch {
-      return true;
-    }
+    const metaPath = path.join(this.sessionDir, "session-meta.json");
+    const meta = safeReadJSON(metaPath, {});
+    return meta[path.basename(sessionPath)]?.memoryEnabled !== false;
   }
 
   /** 设置 agent 级别记忆总开关（同时重载 config 以获取 disabledSince/reenableAt） */
@@ -503,7 +500,7 @@ export class Agent {
       .replace(/\{\{userName\}\}/g, this.userName)
       .replace(/\{\{agentName\}\}/g, this.agentName)
       .replace(/\{\{agentId\}\}/g, path.basename(this.agentDir));
-    const readFile = (p) => { try { return fs.readFileSync(p, "utf-8"); } catch { return ""; } };
+    const readFile = (p) => safeReadFile(p, "");
     const langDir = isZh ? "" : "en/";
     const yuanType = this._config?.agent?.yuan || "hanako";
     const identityMd = readFile(path.join(this.agentDir, "identity.md"))
@@ -523,14 +520,13 @@ export class Agent {
     const yuanType = this._config?.agent?.yuan || "hanako";
     const isZh = String(this._config.locale || "").startsWith("zh");
     const langDir = isZh ? "" : "en/";
-    const readFile = (p) => { try { return fs.readFileSync(p, "utf-8"); } catch { return ""; } };
-    return readFile(path.join(this.productDir, "yuan", `${langDir}${yuanType}.md`))
-      || readFile(path.join(this.productDir, "yuan", `${yuanType}.md`));
+    return safeReadFile(path.join(this.productDir, "yuan", `${langDir}${yuanType}.md`), "")
+      || safeReadFile(path.join(this.productDir, "yuan", `${yuanType}.md`), "");
   }
 
   /** 读取对外意识（public-ishiki.md），guest 会话使用 */
   _readPublicIshiki() {
-    const readFile = (p) => { try { return fs.readFileSync(p, "utf-8"); } catch { return ""; } };
+    const readFile = (p) => safeReadFile(p, "");
     const fill = (text) => text
       .replace(/\{\{userName\}\}/g, this.userName)
       .replace(/\{\{agentName\}\}/g, this.agentName)
@@ -549,9 +545,7 @@ export class Agent {
   buildSystemPrompt() {
     const isZh = String(this._config.locale || "").startsWith("zh");
 
-    const readFile = (filePath) => {
-      try { return fs.readFileSync(filePath, "utf-8"); } catch { return ""; }
-    };
+    const readFile = (filePath) => safeReadFile(filePath, "");
 
     // identity + yuan + ishiki（复用 personality getter）
     const yuanType = this._config?.agent?.yuan || "hanako";

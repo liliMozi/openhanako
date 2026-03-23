@@ -12,6 +12,7 @@ import { extractZip } from "../../lib/extract-zip.js";
 import { saveConfig } from "../../lib/memory/config-loader.js";
 import { sanitizeSkillName, safetyReview } from "../../lib/tools/install-skill.js";
 import { t } from "../i18n.js";
+import { safeCopyDir } from "../../shared/safe-fs.js";
 
 function validateId(id) {
   return id && !id.includes("..") && !id.includes("/") && !id.includes("\\");
@@ -178,7 +179,7 @@ export default async function skillsRoute(app, { engine }) {
       const dstDir = path.join(userDir, safeName);
       if (skillDir === srcPath) {
         // 文件夹模式：复制
-        copyDirSync(skillDir, dstDir);
+        safeCopyDir(skillDir, dstDir);
       } else {
         // zip 解压模式：移动（从临时目录）
         if (fs.existsSync(dstDir)) rmDirSync(dstDir);
