@@ -22,6 +22,7 @@ import { ThinkingLevelButton } from './input/ThinkingLevelButton';
 import { ModelSelector } from './input/ModelSelector';
 import { SlashCommandMenu } from './input/SlashCommandMenu';
 import { SendButton } from './input/SendButton';
+import { QuotedSelectionCard } from './input/QuotedSelectionCard';
 import {
   XING_PROMPT, executeDiary, executeCompact, buildSlashCommands,
   type SlashCommand,
@@ -46,6 +47,7 @@ function InputAreaInner() {
   const sessionTodos = useStore(s => s.sessionTodos);
   const attachedFiles = useStore(s => s.attachedFiles);
   const docContextAttached = useStore(s => s.docContextAttached);
+  const quotedSelection = useStore(s => s.quotedSelection);
   const artifacts = useStore(s => s.artifacts);
   const activeTabId = useStore(s => s.activeTabId);
   const previewOpen = useStore(s => s.previewOpen);
@@ -161,7 +163,7 @@ function InputAreaInner() {
   }, []);
 
   // Can send?
-  const hasContent = inputText.trim().length > 0 || attachedFiles.length > 0 || docContextAttached;
+  const hasContent = inputText.trim().length > 0 || attachedFiles.length > 0 || docContextAttached || !!quotedSelection;
   const canSend = hasContent && connected && !isStreaming;
 
   // ── Auto resize ──
@@ -231,7 +233,7 @@ function InputAreaInner() {
     }
 
     const hasFiles = attachedFiles.length > 0;
-    if ((!text && !hasFiles && !docContextAttached) || !connected) return;
+    if ((!text && !hasFiles && !docContextAttached && !useStore.getState().quotedSelection) || !connected) return;
     if (isStreaming) return;
     if (sending) return;
     setSending(true);
@@ -284,6 +286,18 @@ function InputAreaInner() {
       }
       if (docContextAttached) setDocContextAttached(false);
 
+      // 引用片段
+      const qs = useStore.getState().quotedSelection;
+      if (qs) {
+        let quoteStr: string;
+        if (qs.sourceFilePath && qs.lineStart != null && qs.lineEnd != null) {
+          quoteStr = `[引用片段] ${qs.sourceTitle}（第${qs.lineStart}-${qs.lineEnd}行，共${qs.charCount}字）路径: ${qs.sourceFilePath}`;
+        } else {
+          quoteStr = `[引用片段] ${qs.text}`;
+        }
+        finalText = finalText ? `${finalText}\n\n${quoteStr}` : quoteStr;
+      }
+
       const allFiles = [...(hasFiles ? attachedFiles : [])];
       if (docForRender) allFiles.push({ path: docForRender.path, name: docForRender.name });
 
@@ -296,6 +310,7 @@ function InputAreaInner() {
           data: {
             id: `user-${Date.now()}`, role: 'user', text,
             textHtml: renderMarkdown(text),
+            quotedText: qs?.text,
             attachments: allFiles.length > 0 ? allFiles.map(f => {
               const cached = imageBase64Map.get(f.path);
               return {
@@ -311,6 +326,8 @@ function InputAreaInner() {
 
       setInputText('');
       clearAttachedFiles();
+      const qs2 = useStore.getState().quotedSelection;
+      if (qs2) useStore.getState().clearQuotedSelection();
 
       const ws = getWebSocket();
       const wsMsg: Record<string, unknown> = { type: 'prompt', text: finalText, sessionPath: useStore.getState().currentSessionPath };
@@ -364,6 +381,7 @@ function InputAreaInner() {
     <>
       <TodoDisplay todos={sessionTodos} />
       {attachedFiles.length > 0 && <AttachedFilesBar files={attachedFiles} onRemove={removeAttachedFile} />}
+      <QuotedSelectionCard />
       {slashMenuOpen && filteredCommands.length > 0 && (
         <SlashCommandMenu commands={filteredCommands} selected={slashSelected} busy={slashBusy}
           onSelect={(cmd) => cmd.execute()} onHover={(i) => setSlashSelected(i)} />

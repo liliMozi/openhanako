@@ -42,6 +42,21 @@ export const UserMessage = memo(function UserMessage({ message, showAvatar }: Pr
           )}
         </div>
       )}
+      {message.quotedText && (
+        <div className={styles.userAttachments}>
+          <div className={styles.attachFile}>
+            <span className={styles.attachFileIcon}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="6" y1="4" x2="6" y2="20" />
+                <line x1="18" y1="4" x2="18" y2="20" />
+                <line x1="6" y1="8" x2="18" y2="8" />
+                <line x1="6" y1="16" x2="18" y2="16" />
+              </svg>
+            </span>
+            <span className={styles.attachFileName}>{message.quotedText}</span>
+          </div>
+        </div>
+      )}
       {message.attachments && message.attachments.length > 0 && (
         <UserAttachmentsView attachments={message.attachments} deskContext={message.deskContext} />
       )}

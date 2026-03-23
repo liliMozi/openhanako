@@ -54,6 +54,7 @@ export interface ChatMessage {
   // User
   text?: string;
   textHtml?: string;
+  quotedText?: string;
   attachments?: UserAttachment[];
   deskContext?: DeskContext | null;
   // Assistant
