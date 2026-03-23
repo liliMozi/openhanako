@@ -14,6 +14,7 @@ const path = require("path");
 const { fork, execFileSync } = require("child_process");
 const fs = require("fs");
 const { initAutoUpdater, checkForUpdatesAuto, setMainWindow: setUpdaterMainWindow, setUpdateChannel } = require("./auto-updater.cjs");
+const { wrapIpcHandler, wrapIpcOn } = require('./ipc-wrapper.cjs');
 
 // macOS/Linux: Electron 从 Dock/Finder 启动时 PATH 只有系统默认值，
 // Homebrew、npm global 等路径全部丢失。用登录 shell 解析完整 PATH。
@@ -26,6 +27,11 @@ if (process.platform !== "win32") {
     }).trim();
     if (resolved) process.env.PATH = resolved;
   } catch {}
+}
+
+function safeReadJSON(filePath, fallback = null) {
+  try { return JSON.parse(fs.readFileSync(filePath, 'utf-8')); }
+  catch { return fallback; }
 }
 
 const hanakoHome = process.env.HANA_HOME
@@ -1359,12 +1365,12 @@ async function checkForUpdates() {
 }
 
 // ── IPC ──
-ipcMain.handle("get-server-port", () => serverPort);
-ipcMain.handle("get-server-token", () => serverToken);
-ipcMain.handle("get-app-version", () => app.getVersion());
+wrapIpcHandler("get-server-port", () => serverPort);
+wrapIpcHandler("get-server-token", () => serverToken);
+wrapIpcHandler("get-app-version", () => app.getVersion());
 // 旧版兼容：check-update 返回 auto-updater 状态中的可用版本信息
 const { getState: getUpdateState } = require("./auto-updater.cjs");
-ipcMain.handle("check-update", () => {
+wrapIpcHandler("check-update", () => {
   const s = getUpdateState();
   if (s.status === "available" || s.status === "downloaded") {
     return { version: s.version, downloadUrl: s.downloadUrl || s.releaseUrl };
@@ -1372,20 +1378,20 @@ ipcMain.handle("check-update", () => {
   return null;
 });
 
-ipcMain.handle("open-settings", (_event, tab, theme) => createSettingsWindow(tab, theme));
+wrapIpcHandler("open-settings", (_event, tab, theme) => createSettingsWindow(tab, theme));
 
 // 浏览器查看器窗口
-ipcMain.handle("open-browser-viewer", (_event, theme) => {
+wrapIpcHandler("open-browser-viewer", (_event, theme) => {
   if (theme) _browserViewerTheme = theme;
   createBrowserViewerWindow();
 });
-ipcMain.handle("browser-go-back", () => { if (_browserWebView) _browserWebView.webContents.goBack(); });
-ipcMain.handle("browser-go-forward", () => { if (_browserWebView) _browserWebView.webContents.goForward(); });
-ipcMain.handle("browser-reload", () => { if (_browserWebView) _browserWebView.webContents.reload(); });
-ipcMain.handle("close-browser-viewer", () => {
+wrapIpcHandler("browser-go-back", () => { if (_browserWebView) _browserWebView.webContents.goBack(); });
+wrapIpcHandler("browser-go-forward", () => { if (_browserWebView) _browserWebView.webContents.goForward(); });
+wrapIpcHandler("browser-reload", () => { if (_browserWebView) _browserWebView.webContents.reload(); });
+wrapIpcHandler("close-browser-viewer", () => {
   if (browserViewerWindow && !browserViewerWindow.isDestroyed()) browserViewerWindow.close();
 });
-ipcMain.handle("browser-emergency-stop", () => {
+wrapIpcHandler("browser-emergency-stop", () => {
   // 紧急停止：销毁当前浏览器实例，释放 AI 控制
   if (_browserWebView) {
     if (browserViewerWindow && !browserViewerWindow.isDestroyed()) {
@@ -1407,7 +1413,7 @@ ipcMain.handle("browser-emergency-stop", () => {
 let editorWindow = null;
 let _editorFileData = null; // { filePath, title, type, language }
 
-ipcMain.handle("open-editor-window", (_event, data) => {
+wrapIpcHandler("open-editor-window", (_event, data) => {
   _editorFileData = data;
   if (editorWindow && !editorWindow.isDestroyed()) {
     editorWindow.show();
@@ -1465,7 +1471,7 @@ ipcMain.handle("open-editor-window", (_event, data) => {
   });
 });
 
-ipcMain.handle("editor-dock", () => {
+wrapIpcHandler("editor-dock", () => {
   // 放回主面板：通知主窗口重新打开 preview，然后隐藏编辑器窗口
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("editor-detached", false);
@@ -1478,7 +1484,7 @@ ipcMain.handle("editor-dock", () => {
   }
 });
 
-ipcMain.handle("editor-close", () => {
+wrapIpcHandler("editor-close", () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("editor-detached", false);
   }
@@ -1488,7 +1494,7 @@ ipcMain.handle("editor-close", () => {
 });
 
 // 设置窗口 → 主窗口的消息转发
-ipcMain.on("settings-changed", (_event, type, data) => {
+wrapIpcOn("settings-changed", (_event, type, data) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("settings-changed", type, data);
   }
@@ -1517,7 +1523,7 @@ ipcMain.on("settings-changed", (_event, type, data) => {
 });
 
 // 获取头像本地路径（splash 用，不依赖 server）
-ipcMain.handle("get-avatar-path", (_event, role) => {
+wrapIpcHandler("get-avatar-path", (_event, role) => {
   if (role !== "agent" && role !== "user") return null;
   const agentId = getCurrentAgentId();
   // agent 头像在 agents/{id}/avatars/，user 头像在 user/avatars/
@@ -1534,7 +1540,7 @@ ipcMain.handle("get-avatar-path", (_event, role) => {
 });
 
 // 读取 config.yaml 基本信息（splash 用，不依赖 server）
-ipcMain.handle("get-splash-info", () => {
+wrapIpcHandler("get-splash-info", () => {
   try {
     const agentId = getCurrentAgentId();
     if (!agentId) return { agentName: null, locale: "zh-CN", yuan: "hanako" };
@@ -1555,7 +1561,7 @@ ipcMain.handle("get-splash-info", () => {
 });
 
 // 选择文件夹（系统原生对话框）
-ipcMain.handle("select-folder", async (event) => {
+wrapIpcHandler("select-folder", async (event) => {
   // 找到发起请求的窗口
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   if (!win) return null;
@@ -1568,7 +1574,7 @@ ipcMain.handle("select-folder", async (event) => {
 });
 
 // 选择技能文件/文件夹（支持 .zip / .skill / 文件夹）
-ipcMain.handle("select-skill", async (event) => {
+wrapIpcHandler("select-skill", async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   if (!win) return null;
   const result = await dialog.showOpenDialog(win, {
@@ -1584,7 +1590,7 @@ ipcMain.handle("select-skill", async (event) => {
 });
 
 // ── Skill 预览窗口 IPC ──
-ipcMain.handle("open-skill-viewer", (_event, data) => {
+wrapIpcHandler("open-skill-viewer", (_event, data) => {
   if (!data) return;
 
   // .skill / .zip 文件 → 优先查找已安装目录，否则解压临时目录
@@ -1646,7 +1652,7 @@ ipcMain.handle("open-skill-viewer", (_event, data) => {
   _showSkillViewer(data);
 });
 
-ipcMain.handle("skill-viewer-list-files", (_event, baseDir) => {
+wrapIpcHandler("skill-viewer-list-files", (_event, baseDir) => {
   if (!baseDir || !path.isAbsolute(baseDir)) return [];
   try {
     if (!fs.statSync(baseDir).isDirectory()) return [];
@@ -1656,7 +1662,7 @@ ipcMain.handle("skill-viewer-list-files", (_event, baseDir) => {
   }
 });
 
-ipcMain.handle("skill-viewer-read-file", (_event, filePath) => {
+wrapIpcHandler("skill-viewer-read-file", (_event, filePath) => {
   if (!filePath || !path.isAbsolute(filePath)) return null;
   // 安全检查：只允许读取文本文件，限制大小
   try {
@@ -1669,10 +1675,10 @@ ipcMain.handle("skill-viewer-read-file", (_event, filePath) => {
 });
 
 // close-skill-viewer: overlay 模式下由渲染进程 setState 关闭，保留 handler 避免 preload 报错
-ipcMain.handle("close-skill-viewer", () => {});
+wrapIpcHandler("close-skill-viewer", () => {});
 
 // 在系统文件管理器中打开文件夹（限制为目录且为绝对路径）
-ipcMain.handle("open-folder", (_event, folderPath) => {
+wrapIpcHandler("open-folder", (_event, folderPath) => {
   if (!folderPath || !path.isAbsolute(folderPath)) return;
   try {
     if (!fs.statSync(folderPath).isDirectory()) return;
@@ -1681,7 +1687,7 @@ ipcMain.handle("open-folder", (_event, folderPath) => {
 });
 
 // 原生拖拽：书桌文件拖到 Finder / 聊天区
-ipcMain.on("start-drag", async (event, filePaths) => {
+wrapIpcOn("start-drag", async (event, filePaths) => {
   const paths = Array.isArray(filePaths) ? filePaths : [filePaths];
   let icon;
   try {
@@ -1699,12 +1705,12 @@ ipcMain.on("start-drag", async (event, filePaths) => {
   }
 });
 
-ipcMain.handle("show-in-finder", (_event, filePath) => {
+wrapIpcHandler("show-in-finder", (_event, filePath) => {
   if (!filePath || !path.isAbsolute(filePath)) return;
   shell.showItemInFolder(filePath);
 });
 
-ipcMain.handle("open-file", (_event, filePath) => {
+wrapIpcHandler("open-file", (_event, filePath) => {
   if (!filePath || !path.isAbsolute(filePath)) return;
   try {
     if (!fs.statSync(filePath).isFile()) return;
@@ -1712,7 +1718,7 @@ ipcMain.handle("open-file", (_event, filePath) => {
   shell.openPath(filePath);
 });
 
-ipcMain.handle("open-external", (_event, url) => {
+wrapIpcHandler("open-external", (_event, url) => {
   if (!url) return;
   try {
     const parsed = new URL(url);
@@ -1723,7 +1729,7 @@ ipcMain.handle("open-external", (_event, url) => {
 });
 
 // 读取文件内容（仅文本文件，用于 Artifacts 预览）
-ipcMain.handle("read-file", (_event, filePath) => {
+wrapIpcHandler("read-file", (_event, filePath) => {
   if (!filePath || !path.isAbsolute(filePath)) return null;
   try {
     const stat = fs.statSync(filePath);
@@ -1735,7 +1741,7 @@ ipcMain.handle("read-file", (_event, filePath) => {
 });
 
 // 写入文本文件（artifact 编辑用）
-ipcMain.handle("write-file", (_event, filePath, content) => {
+wrapIpcHandler("write-file", (_event, filePath, content) => {
   if (!filePath || !path.isAbsolute(filePath)) return false;
   try {
     fs.writeFileSync(filePath, content, "utf-8");
@@ -1745,7 +1751,7 @@ ipcMain.handle("write-file", (_event, filePath, content) => {
 
 // 文件监听（artifact 编辑 — 外部变更刷新用）
 const _fileWatchers = new Map();
-ipcMain.handle("watch-file", (event, filePath) => {
+wrapIpcHandler("watch-file", (event, filePath) => {
   if (!filePath || !path.isAbsolute(filePath)) return false;
   // 取消旧的 watcher
   if (_fileWatchers.has(filePath)) {
@@ -1766,7 +1772,7 @@ ipcMain.handle("watch-file", (event, filePath) => {
   } catch { return false; }
 });
 
-ipcMain.handle("unwatch-file", (_event, filePath) => {
+wrapIpcHandler("unwatch-file", (_event, filePath) => {
   if (_fileWatchers.has(filePath)) {
     _fileWatchers.get(filePath).close();
     _fileWatchers.delete(filePath);
@@ -1775,7 +1781,7 @@ ipcMain.handle("unwatch-file", (_event, filePath) => {
 });
 
 // 读取二进制文件为 base64（图片、PDF 等）
-ipcMain.handle("read-file-base64", (_event, filePath) => {
+wrapIpcHandler("read-file-base64", (_event, filePath) => {
   if (!filePath || !path.isAbsolute(filePath)) return null;
   try {
     const stat = fs.statSync(filePath);
@@ -1786,7 +1792,7 @@ ipcMain.handle("read-file-base64", (_event, filePath) => {
 });
 
 // 读取 docx 文件并转为 HTML（mammoth）
-ipcMain.handle("read-docx-html", async (_event, filePath) => {
+wrapIpcHandler("read-docx-html", async (_event, filePath) => {
   if (!filePath || !path.isAbsolute(filePath)) return null;
   try {
     const stat = fs.statSync(filePath);
@@ -1799,7 +1805,7 @@ ipcMain.handle("read-docx-html", async (_event, filePath) => {
 });
 
 // 读取 xlsx 文件并转为 HTML 表格（ExcelJS）
-ipcMain.handle("read-xlsx-html", async (_event, filePath) => {
+wrapIpcHandler("read-xlsx-html", async (_event, filePath) => {
   if (!filePath || !path.isAbsolute(filePath)) return null;
   try {
     const stat = fs.statSync(filePath);
@@ -1825,14 +1831,14 @@ ipcMain.handle("read-xlsx-html", async (_event, filePath) => {
 });
 
 // 重新加载主窗口（DevTools 用）
-ipcMain.handle("reload-main-window", () => {
+wrapIpcHandler("reload-main-window", () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.reload();
   }
 });
 
 // 系统通知（由 agent 的 notify 工具触发）
-ipcMain.handle("show-notification", (_event, title, body) => {
+wrapIpcHandler("show-notification", (_event, title, body) => {
   if (!Notification.isSupported()) return;
   const notif = new Notification({
     title: title || "Hana",
@@ -1850,7 +1856,7 @@ ipcMain.handle("show-notification", (_event, title, body) => {
 });
 
 // Debug: 打开 Onboarding 窗口（DevTools 用）
-ipcMain.handle("debug-open-onboarding", () => {
+wrapIpcHandler("debug-open-onboarding", () => {
   if (onboardingWindow && !onboardingWindow.isDestroyed()) {
     onboardingWindow.focus();
     return;
@@ -1859,7 +1865,7 @@ ipcMain.handle("debug-open-onboarding", () => {
 });
 
 // Debug: 预览模式打开 Onboarding（不调 API 不写配置）
-ipcMain.handle("debug-open-onboarding-preview", () => {
+wrapIpcHandler("debug-open-onboarding-preview", () => {
   if (onboardingWindow && !onboardingWindow.isDestroyed()) {
     onboardingWindow.focus();
     return;
@@ -1868,7 +1874,7 @@ ipcMain.handle("debug-open-onboarding-preview", () => {
 });
 
 // Onboarding 完成后，写标记 → 创建主窗口
-ipcMain.handle("onboarding-complete", () => {
+wrapIpcHandler("onboarding-complete", () => {
   const prefsPath = path.join(hanakoHome, "user", "preferences.json");
   try {
     let prefs = {};
@@ -1883,23 +1889,23 @@ ipcMain.handle("onboarding-complete", () => {
 });
 
 // ── 窗口控制 IPC（Windows/Linux 自绘标题栏用）──
-ipcMain.handle("get-platform", () => process.platform);
-ipcMain.handle("window-minimize", (event) => {
+wrapIpcHandler("get-platform", () => process.platform);
+wrapIpcHandler("window-minimize", (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();
 });
-ipcMain.handle("window-maximize", (event) => {
+wrapIpcHandler("window-maximize", (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win?.isMaximized()) win.restore(); else win?.maximize();
 });
-ipcMain.handle("window-close", (event) => {
+wrapIpcHandler("window-close", (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close();
 });
-ipcMain.handle("window-is-maximized", (event) => {
+wrapIpcHandler("window-is-maximized", (event) => {
   return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
 });
 
 // 前端初始化完成后调用，关闭 splash / onboarding，显示主窗口
-ipcMain.handle("app-ready", () => {
+wrapIpcHandler("app-ready", () => {
   if (mainWindow) {
     mainWindow.show();
   }
@@ -2072,4 +2078,19 @@ app.on("before-quit", async (event) => {
     reusedServerPid = null;
     app.quit();
   }
+});
+
+// ── 全局错误兜底（结构化日志）──
+process.on('uncaughtException', (err) => {
+  if (err.code === 'EPIPE' || err.code === 'ERR_IPC_CHANNEL_CLOSED') return;
+  const traceId = Math.random().toString(16).slice(2, 10);
+  console.error(`[ErrorBus][${err.code || 'UNKNOWN'}][${traceId}] uncaughtException: ${err.message}`);
+  console.error(`[ErrorBus][${traceId}] ${err.stack || err.message}`);
+});
+
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  const traceId = Math.random().toString(16).slice(2, 10);
+  console.error(`[ErrorBus][${err.code || 'UNKNOWN'}][${traceId}] unhandledRejection: ${err.message}`);
+  console.error(`[ErrorBus][${traceId}] ${err.stack || err.message}`);
 });
