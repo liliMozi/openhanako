@@ -7,6 +7,7 @@
 import readline from "readline";
 import WebSocket from "ws";
 import { t } from "./i18n.js";
+import { safeParseJSON } from "../shared/safe-parse.js";
 
 // ── 终端颜色 ──
 const c = {
@@ -52,7 +53,8 @@ export function startCLI({ port, token, agentName, userName }) {
     });
 
     ws.on("message", (data) => {
-      const msg = JSON.parse(data.toString());
+      const msg = safeParseJSON(data.toString(), null);
+      if (!msg) return;
       handleMessage(msg);
     });
 

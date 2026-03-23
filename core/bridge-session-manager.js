@@ -14,6 +14,7 @@ import {
 import { debugLog } from "../lib/debug-log.js";
 import { READ_ONLY_BUILTIN_TOOLS } from "./config-coordinator.js";
 import { t, getLocale } from "../server/i18n.js";
+import { safeReadJSON } from "../shared/safe-fs.js";
 
 function getSteerPrefix() {
   const isZh = getLocale().startsWith("zh");
@@ -88,9 +89,7 @@ export class BridgeSessionManager {
 
   /** 读取 bridge session 索引 */
   readIndex(agent) {
-    try {
-      return JSON.parse(fs.readFileSync(this._indexPath(agent), "utf-8"));
-    } catch { return {}; }
+    return safeReadJSON(this._indexPath(agent), {});
   }
 
   /** 写入 bridge session 索引 */

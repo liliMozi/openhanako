@@ -9,6 +9,7 @@
 
 import fs from "fs";
 import path from "path";
+import { safeReadFile } from "../../shared/safe-fs.js";
 
 /** 安全路径校验：resolved 必须在 allowedRoots 之一内部 */
 function isSafePath(filePath, allowedRoots) {
@@ -37,12 +38,9 @@ export default async function fsRoute(app, { engine }) {
     if (!isSafePath(filePath, getAllowedRoots())) {
       return reply.code(403).send({ error: "path not allowed" });
     }
-    try {
-      const content = fs.readFileSync(filePath, "utf-8");
-      reply.type("text/plain").send(content);
-    } catch {
-      reply.code(404).send({ error: "file not found" });
-    }
+    const content = safeReadFile(filePath, null);
+    if (content === null) return reply.code(404).send({ error: "file not found" });
+    reply.type("text/plain").send(content);
   });
 
   // GET /api/fs/read-base64?path=... → base64 编码

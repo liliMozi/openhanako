@@ -11,6 +11,7 @@ import path from "path";
 import YAML from "js-yaml";
 import { loadGlobalProviders, resolveApiKeyFromAuth } from "../lib/memory/config-loader.js";
 import { t } from "../server/i18n.js";
+import { safeReadYAMLSync } from "../shared/safe-fs.js";
 
 /** @deprecated 仅作为 fallback，调用方应通过 opts.modelsJsonPath 传入 */
 function getDefaultModelsJsonPath() {
@@ -108,7 +109,7 @@ function resolveProviderCredentials(providerName, rawConfig, opts = {}) {
 export function syncFavoritesToModelsJson(configPath, opts = {}) {
   const MODELS_JSON_PATH = opts.modelsJsonPath || getDefaultModelsJsonPath();
   // ── 1. 读取 config.yaml ──
-  const rawConfig = YAML.load(fs.readFileSync(configPath, "utf-8")) || {};
+  const rawConfig = safeReadYAMLSync(configPath, {}, YAML) || {};
   const favorites = opts.favorites ?? rawConfig.models?.favorites ?? [];
   const models = rawConfig.models || {};
 
