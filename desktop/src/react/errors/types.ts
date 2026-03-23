@@ -18,7 +18,17 @@ export interface Breadcrumb {
 }
 
 export interface ErrorEntry {
-  error: import('../../../../shared/errors.js').AppError;
+  error: {
+    code: string;
+    severity: ErrorSeverity;
+    category: ErrorCategory;
+    retryable: boolean;
+    userMessageKey: string;
+    httpStatus: number;
+    context: Record<string, unknown>;
+    traceId: string;
+    message: string;
+  };
   timestamp: number;
   breadcrumbs: Breadcrumb[];
 }

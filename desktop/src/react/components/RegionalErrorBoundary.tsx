@@ -32,8 +32,10 @@ export class RegionalErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     // Import dynamically to avoid circular deps and TS issues with JS imports
-    import('../../../../shared/error-bus.js').then(({ errorBus }) => {
-      import('../../../../shared/errors.js').then(({ AppError }) => {
+    // @ts-expect-error -- shared JS module, no type declarations
+    import('../../../../shared/error-bus.js').then(({ errorBus }: { errorBus: { report: (e: unknown, opts?: unknown) => void } }) => {
+      // @ts-expect-error -- shared JS module, no type declarations
+      import('../../../../shared/errors.js').then(({ AppError }: { AppError: new (code: string, opts?: Record<string, unknown>) => Error }) => {
         errorBus.report(new AppError('RENDER_CRASH', {
           cause: error,
           context: { region: this.props.region, componentStack: info.componentStack?.slice(0, 500) },
