@@ -41,7 +41,7 @@
     flex: 1;
     overflow: auto;
     position: relative;
-    margin: 8px 10px 10px;
+    margin: 5px 10px 10px;
     border-radius: var(--radius-lg);
     background: var(--bg-card, var(--bg));
     border: 1px solid var(--overlay-light);

@@ -5,6 +5,10 @@
     display: flex;
     gap: 3px;
     z-index: 5;
+    background: var(--bg-card, var(--bg));
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .actionBtn {

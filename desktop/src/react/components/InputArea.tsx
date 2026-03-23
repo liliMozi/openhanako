@@ -379,13 +379,6 @@ function InputAreaInner() {
 
   return (
     <>
-      <TodoDisplay todos={sessionTodos} />
-      {attachedFiles.length > 0 && <AttachedFilesBar files={attachedFiles} onRemove={removeAttachedFile} />}
-      <QuotedSelectionCard />
-      {slashMenuOpen && filteredCommands.length > 0 && (
-        <SlashCommandMenu commands={filteredCommands} selected={slashSelected} busy={slashBusy}
-          onSelect={(cmd) => cmd.execute()} onHover={(i) => setSlashSelected(i)} />
-      )}
       {slashBusy && (
         <div className={styles['slash-busy-bar']}>
           <span className={styles['slash-busy-dot']} />
@@ -394,6 +387,19 @@ function InputAreaInner() {
       )}
       {!slashBusy && slashResult && (
         <div className={`${styles['slash-busy-bar']}${slashResult.type === 'error' ? ` ${styles['slash-result-error']}` : ''}`}><span>{slashResult.text}</span></div>
+      )}
+      {(attachedFiles.length > 0 || quotedSelection || sessionTodos.length > 0) && (
+        <div className={styles['input-context-row']}>
+          <div className={styles['input-context-left']}>
+            {attachedFiles.length > 0 && <AttachedFilesBar files={attachedFiles} onRemove={removeAttachedFile} />}
+            <QuotedSelectionCard />
+          </div>
+          <TodoDisplay todos={sessionTodos} />
+        </div>
+      )}
+      {slashMenuOpen && filteredCommands.length > 0 && (
+        <SlashCommandMenu commands={filteredCommands} selected={slashSelected} busy={slashBusy}
+          onSelect={(cmd) => cmd.execute()} onHover={(i) => setSlashSelected(i)} />
       )}
       <div className={styles['input-wrapper']}>
         <textarea ref={textareaRef} id="inputBox" className={styles['input-box']} placeholder={placeholder}

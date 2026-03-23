@@ -22,18 +22,23 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-sm);
+    flex-wrap: nowrap;
 }
 
 .input-actions {
     display: flex;
     align-items: center;
     gap: 0.2rem;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .input-controls {
     display: flex;
     align-items: center;
     gap: 0.35rem;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 /* Plan Mode 按钮 */
@@ -51,6 +56,9 @@
     cursor: pointer;
     transition: all var(--duration) var(--ease-out);
     -webkit-app-region: no-drag;
+    flex-shrink: 1;
+    min-width: 24px;
+    overflow: hidden;
 }
 
 .plan-mode-btn:hover {
@@ -66,6 +74,9 @@
 
 .plan-mode-label {
     letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
 }
 
 /* 书桌目录按钮 */
@@ -104,6 +115,9 @@
 
 .desk-context-label {
     letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
 }
 
 /* ── Context Usage Ring ── */
@@ -275,6 +289,8 @@
     position: relative;
     display: flex;
     align-items: center;
+    min-width: 0;
+    flex-shrink: 1;
 }
 
 .model-pill {
@@ -293,6 +309,10 @@
     cursor: pointer;
     transition: all var(--duration) var(--ease-out);
     -webkit-app-region: no-drag;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 160px;
 }
 
 .model-pill:hover {
@@ -493,6 +513,99 @@
     opacity: 0.5;
 }
 
+/* ── Todo Bar（accent 标签，靠右贴底） ── */
+
+.todo-bar {
+    position: relative;
+    margin-left: auto;
+    margin-right: 12px;
+    flex-shrink: 0;
+    align-self: flex-end;
+}
+
+.todo-bar-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.55rem;
+    font-family: inherit;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.9);
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: opacity 0.15s;
+    -webkit-app-region: no-drag;
+}
+
+.todo-bar-trigger:hover {
+    opacity: 0.9;
+}
+
+.todo-bar-icon {
+    font-size: 0.7rem;
+    line-height: 1;
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.todo-bar-preview {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    max-width: 180px;
+}
+
+.todo-bar-count {
+    font-size: 0.62rem;
+    opacity: 0.7;
+    flex-shrink: 0;
+    margin-left: 0.3rem;
+}
+
+/* 展开列表 — 绝对定位向上弹出，白色卡片，和标签有间距 */
+.todo-bar-list {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    min-width: 240px;
+    max-width: 360px;
+    padding: var(--space-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-md);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--text);
+    animation: dropdown-in 0.15s var(--ease-out);
+    z-index: 10;
+}
+
+.todo-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.1rem 0;
+}
+
+.todo-bar-done {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.todo-bar-check {
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    color: var(--accent);
+}
+
+.todo-bar-done .todo-bar-check {
+    opacity: 0.5;
+}
+
 /* 斜杠命令菜单 */
 .slash-menu {
     display: flex;
@@ -685,25 +798,44 @@
     color: white;
 }
 
+/* 输入框上方上下文行 */
+.input-context-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    padding: var(--space-sm) 0 var(--space-xs);
+}
+
+/* 左侧附件/引用区域 — 纵向排列 */
+.input-context-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    flex: 1;
+    min-width: 0;
+    padding-left: 4px;
+}
+
 /* 文件标签（输入框上方） */
 .attached-files {
     display: flex;
     flex-wrap: wrap;
     gap: 0.3rem;
-    padding: 0 0 var(--space-xs) 0;
 }
 
 .file-tag {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
-    padding: 0.2rem 0.5rem;
-    font-size: 0.75rem;
-    color: var(--accent);
-    background: var(--accent-light);
-    border: none;
-    border-radius: 100px;
-    max-width: 280px;
+    gap: 0.35rem;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-md);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    max-width: 185px;
 }
 
 .file-tag-name {
@@ -713,6 +845,8 @@
     display: flex;
     align-items: center;
     gap: 4px;
+    color: var(--text);
+    min-width: 0;
 }
 
 .file-tag-icon {
@@ -742,10 +876,10 @@
     font-size: 0.7rem;
     border-radius: 50%;
     flex-shrink: 0;
-    transition: color 0.15s, background 0.15s;
+    opacity: 0.5;
+    transition: opacity 0.12s;
 }
 
 .file-tag-remove:hover {
-    color: var(--coral);
-    background: rgba(var(--coral-rgb), 0.1);
+    opacity: 1;
 }
