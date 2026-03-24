@@ -48,6 +48,7 @@ export interface Model {
   isCurrent?: boolean;
   reasoning?: boolean;
   xhigh?: boolean;
+  vision?: boolean;
 }
 
 export interface Channel {
@@ -166,9 +167,10 @@ export interface PlatformApi {
   listSkillFiles?(baseDir: string): Promise<unknown[]>;
   readSkillFile?(filePath: string): Promise<string | null>;
 
-  // ── Splash ──
+  // ── Splash / Onboarding ──
   getAvatarPath?(role: string): Promise<string | null>;
   getSplashInfo?(): Promise<{ agentName?: string; locale?: string; yuan?: string } | null>;
+  onboardingComplete?(): Promise<void>;
 
   // ── Notification ──
   showNotification?(title: string, body: string): void;
