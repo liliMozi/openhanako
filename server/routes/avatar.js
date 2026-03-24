@@ -9,19 +9,26 @@
  */
 import fs from "fs/promises";
 import path from "path";
+import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import { safeJson } from "../hono-helpers.js";
 
 const VALID_ROLES = new Set(["agent", "user"]);
 
-export default async function avatarRoute(app, { engine }) {
+export function createAvatarRoute(engine) {
+  const route = new Hono();
+
   // 根据 role 选择存储目录
   function avatarDirFor(role) {
     const base = role === "user" ? engine.userDir : engine.agentDir;
     return path.join(base, "avatars");
   }
 
-  // 确保两个目录都存在
-  await fs.mkdir(avatarDirFor("agent"), { recursive: true });
-  await fs.mkdir(avatarDirFor("user"), { recursive: true });
+  // 确保两个目录都存在（立即执行）
+  (async () => {
+    await fs.mkdir(avatarDirFor("agent"), { recursive: true });
+    await fs.mkdir(avatarDirFor("user"), { recursive: true });
+  })();
 
   /** 查找 role 对应的头像文件（支持 png/jpg/webp） */
   async function findAvatar(role) {
@@ -37,44 +44,40 @@ export default async function avatarRoute(app, { engine }) {
   }
 
   // ── 获取头像 ──
-  app.get("/api/avatar/:role", async (req, reply) => {
-    const { role } = req.params;
+  route.get("/avatar/:role", async (c) => {
+    const role = c.req.param("role");
     if (!VALID_ROLES.has(role)) {
-      reply.code(400);
-      return { error: "role must be agent or user" };
+      return c.json({ error: "role must be agent or user" }, 400);
     }
 
     const found = await findAvatar(role);
     if (!found) {
-      reply.code(404);
-      return { error: "no custom avatar" };
+      return c.json({ error: "no custom avatar" }, 404);
     }
 
     const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };
     const buf = await fs.readFile(found.path);
-    reply.header("Content-Type", mimeMap[found.ext] || "image/png");
-    reply.header("Cache-Control", "no-cache");
-    return reply.send(buf);
+    c.header("Content-Type", mimeMap[found.ext] || "image/png");
+    c.header("Cache-Control", "no-cache");
+    return c.body(buf);
   });
 
   // ── 上传头像（base64） ──
-  app.post("/api/avatar/:role", { bodyLimit: 15 * 1024 * 1024 }, async (req, reply) => {
-    const { role } = req.params;
+  route.post("/avatar/:role", bodyLimit({ maxSize: 15 * 1024 * 1024 }), async (c) => {
+    const role = c.req.param("role");
     if (!VALID_ROLES.has(role)) {
-      reply.code(400);
-      return { error: "role must be agent or user" };
+      return c.json({ error: "role must be agent or user" }, 400);
     }
 
-    const { data } = req.body || {};
+    const body = await safeJson(c);
+    const { data } = body;
     if (!data || typeof data !== "string") {
-      reply.code(400);
-      return { error: "data (base64) is required" };
+      return c.json({ error: "data (base64) is required" }, 400);
     }
 
     const match = data.match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/);
     if (!match) {
-      reply.code(400);
-      return { error: "invalid data URL format" };
+      return c.json({ error: "invalid data URL format" }, 400);
     }
 
     const ext = match[1] === "jpeg" ? "jpg" : match[1];
@@ -88,21 +91,22 @@ export default async function avatarRoute(app, { engine }) {
 
     // 写入新头像
     await fs.writeFile(path.join(dir, `${role}.${ext}`), buf);
-    return { ok: true, ext };
+    return c.json({ ok: true, ext });
   });
 
   // ── 删除头像（恢复默认） ──
-  app.delete("/api/avatar/:role", async (req, reply) => {
-    const { role } = req.params;
+  route.delete("/avatar/:role", async (c) => {
+    const role = c.req.param("role");
     if (!VALID_ROLES.has(role)) {
-      reply.code(400);
-      return { error: "role must be agent or user" };
+      return c.json({ error: "role must be agent or user" }, 400);
     }
 
     const dir = avatarDirFor(role);
     for (const ext of ["png", "jpg", "jpeg", "webp"]) {
       try { await fs.unlink(path.join(dir, `${role}.${ext}`)); } catch {}
     }
-    return { ok: true };
+    return c.json({ ok: true });
   });
+
+  return route;
 }

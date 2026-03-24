@@ -23,6 +23,9 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
 import YAML from "js-yaml";
+import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import { safeJson } from "../hono-helpers.js";
 import { saveConfig, getAllProviders, saveGlobalProviders, clearConfigCache } from "../../lib/memory/config-loader.js";
 import { rebuildIndex } from "../../lib/tools/experience.js";
 import { splitByScope, injectGlobalFields } from '../../shared/config-scope.js';
@@ -51,84 +54,80 @@ function mask(key) {
   return key.slice(0, 4) + "..." + key.slice(-4);
 }
 
-export default async function agentsRoute(app, { engine }) {
+export function createAgentsRoute(engine) {
+  const route = new Hono();
 
   // ════════════════════════════
   //  列表 / 创建 / 切换 / 删除 / 主助手
   // ════════════════════════════
 
-  app.get("/api/agents", async (req, reply) => {
+  route.get("/agents", async (c) => {
     try {
-      return { agents: engine.listAgents() };
+      return c.json({ agents: engine.listAgents() });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.post("/api/agents", async (req, reply) => {
+  route.post("/agents", async (c) => {
     try {
-      const { name, id, yuan } = req.body || {};
+      const body = await safeJson(c);
+      const { name, id, yuan } = body;
       if (!name?.trim()) {
-        reply.code(400);
-        return { error: "name is required" };
+        return c.json({ error: "name is required" }, 400);
       }
       const result = await engine.createAgent({ name, id, yuan });
-      return { ok: true, ...result };
+      return c.json({ ok: true, ...result });
     } catch (err) {
-      reply.code(err.message.includes("已存在") ? 409 : 500);
-      return { error: err.message };
+      return c.json({ error: err.message }, err.message.includes("已存在") ? 409 : 500);
     }
   });
 
-  app.post("/api/agents/switch", async (req, reply) => {
+  route.post("/agents/switch", async (c) => {
     try {
-      const { id } = req.body || {};
+      const body = await safeJson(c);
+      const { id } = body;
       if (!id?.trim() || !validateId(id)) {
-        reply.code(400);
-        return { error: "invalid id" };
+        return c.json({ error: "invalid id" }, 400);
       }
       await engine.switchAgent(id);
-      return {
+      return c.json({
         ok: true,
         agent: {
           id: engine.currentAgentId,
           name: engine.agentName,
         },
-      };
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.delete("/api/agents/:id", async (req, reply) => {
+  route.delete("/agents/:id", async (c) => {
     try {
-      const { id } = req.params;
-      if (!validateId(id)) { reply.code(400); return { error: "invalid id" }; }
+      const id = c.req.param("id");
+      if (!validateId(id)) return c.json({ error: "invalid id" }, 400);
       await engine.deleteAgent(id);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       const code = err.message.includes("不能删除当前") ? 400
         : err.message.includes("不存在") ? 404
         : 500;
-      reply.code(code);
-      return { error: err.message };
+      return c.json({ error: err.message }, code);
     }
   });
 
-  app.put("/api/agents/primary", async (req, reply) => {
+  route.put("/agents/primary", async (c) => {
     try {
-      const { id } = req.body || {};
+      const body = await safeJson(c);
+      const { id } = body;
       if (!id?.trim()) {
-        reply.code(400);
-        return { error: "id is required" };
+        return c.json({ error: "id is required" }, 400);
       }
       engine.setPrimaryAgent(id);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -136,18 +135,17 @@ export default async function agentsRoute(app, { engine }) {
   //  排序
   // ════════════════════════════
 
-  app.put("/api/agents/order", async (req, reply) => {
+  route.put("/agents/order", async (c) => {
     try {
-      const { order } = req.body || {};
+      const body = await safeJson(c);
+      const { order } = body;
       if (!Array.isArray(order)) {
-        reply.code(400);
-        return { error: "order must be an array" };
+        return c.json({ error: "order must be an array" }, 400);
       }
       engine.saveAgentOrder(order);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -155,11 +153,10 @@ export default async function agentsRoute(app, { engine }) {
   //  头像
   // ════════════════════════════
 
-  app.get("/api/agents/:id/avatar", async (req, reply) => {
-    const { id } = req.params;
+  route.get("/agents/:id/avatar", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id)) {
-      reply.code(400);
-      return { error: "invalid id" };
+      return c.json({ error: "invalid id" }, 400);
     }
     const avatarPath = path.join(agentDir(engine, id), "avatars");
     const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };
@@ -168,30 +165,27 @@ export default async function agentsRoute(app, { engine }) {
       try {
         await fs.access(p);
         const buf = await fs.readFile(p);
-        reply.header("Content-Type", mimeMap[ext]);
-        reply.header("Cache-Control", "no-cache");
-        return reply.send(buf);
+        c.header("Content-Type", mimeMap[ext]);
+        c.header("Cache-Control", "no-cache");
+        return c.body(buf);
       } catch {}
     }
-    reply.code(404);
-    return { error: "no avatar" };
+    return c.json({ error: "no avatar" }, 404);
   });
 
-  app.post("/api/agents/:id/avatar", { bodyLimit: 15 * 1024 * 1024 }, async (req, reply) => {
-    const { id } = req.params;
+  route.post("/agents/:id/avatar", bodyLimit({ maxSize: 15 * 1024 * 1024 }), async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
-    const { data } = req.body || {};
+    const body = await safeJson(c);
+    const { data } = body;
     if (!data || typeof data !== "string") {
-      reply.code(400);
-      return { error: "data (base64) is required" };
+      return c.json({ error: "data (base64) is required" }, 400);
     }
     const match = data.match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/);
     if (!match) {
-      reply.code(400);
-      return { error: "invalid data URL format" };
+      return c.json({ error: "invalid data URL format" }, 400);
     }
     const ext = match[1] === "jpeg" ? "jpg" : match[1];
     const buf = Buffer.from(match[2], "base64");
@@ -201,31 +195,29 @@ export default async function agentsRoute(app, { engine }) {
       try { await fs.unlink(path.join(dir, `agent.${oldExt}`)); } catch {}
     }
     await fs.writeFile(path.join(dir, `agent.${ext}`), buf);
-    return { ok: true, ext };
+    return c.json({ ok: true, ext });
   });
 
-  app.delete("/api/agents/:id/avatar", async (req, reply) => {
-    const { id } = req.params;
+  route.delete("/agents/:id/avatar", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     const dir = path.join(agentDir(engine, id), "avatars");
     for (const ext of ["png", "jpg", "jpeg", "webp"]) {
       try { await fs.unlink(path.join(dir, `agent.${ext}`)); } catch {}
     }
-    return { ok: true };
+    return c.json({ ok: true });
   });
 
   // ════════════════════════════
   //  Config（config.yaml）
   // ════════════════════════════
 
-  app.get("/api/agents/:id/config", async (req, reply) => {
-    const { id } = req.params;
+  route.get("/agents/:id/config", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
       const configPath = path.join(agentDir(engine, id), "config.yaml");
@@ -266,24 +258,21 @@ export default async function agentsRoute(app, { engine }) {
         config.providers = {};
       }
 
-      return config;
+      return c.json(config);
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/agents/:id/config", async (req, reply) => {
-    const { id } = req.params;
+  route.put("/agents/:id/config", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
-      const partial = req.body;
+      const partial = await safeJson(c);
       if (!partial || typeof partial !== "object") {
-        reply.code(400);
-        return { error: "invalid JSON body" };
+        return c.json({ error: "invalid JSON body" }, 400);
       }
       // ── schema-driven 全局字段分流 ──
       const { global: globalFields, agent: agentPartial } = splitByScope(partial);
@@ -309,8 +298,7 @@ export default async function agentsRoute(app, { engine }) {
             ? block.provider.trim()
             : (agentCfg[blockName]?.provider || "").trim();
           if (!provName) {
-            reply.code(400);
-            return { error: `${blockName}.provider is required when saving credentials` };
+            return c.json({ error: `${blockName}.provider is required when saving credentials` }, 400);
           }
           const provUpdate = {};
           if (block.api_key) provUpdate.api_key = block.api_key;
@@ -331,7 +319,7 @@ export default async function agentsRoute(app, { engine }) {
       }
 
       if (Object.keys(agentPartial).length === 0) {
-        return { ok: true };
+        return c.json({ ok: true });
       }
 
       // 记忆总开关：写入时间戳（用于过滤关闭期间的 session）
@@ -355,10 +343,9 @@ export default async function agentsRoute(app, { engine }) {
       if (agentPartial.memory && "enabled" in agentPartial.memory) {
         engine.setMemoryMasterEnabled(id, agentPartial.memory.enabled !== false);
       }
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -366,41 +353,37 @@ export default async function agentsRoute(app, { engine }) {
   //  Identity（identity.md）
   // ════════════════════════════
 
-  app.get("/api/agents/:id/identity", async (req, reply) => {
-    const { id } = req.params;
+  route.get("/agents/:id/identity", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
       const content = await fs.readFile(path.join(agentDir(engine, id), "identity.md"), "utf-8");
-      return { content };
+      return c.json({ content });
     } catch (err) {
-      if (err.code === "ENOENT") return { content: "" };
-      reply.code(500);
-      return { error: err.message };
+      if (err.code === "ENOENT") return c.json({ content: "" });
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/agents/:id/identity", async (req, reply) => {
-    const { id } = req.params;
+  route.put("/agents/:id/identity", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
       await fs.writeFile(path.join(agentDir(engine, id), "identity.md"), content, "utf-8");
       engine.invalidateAgentListCache();
       if (isActiveAgent(engine, id)) await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -408,40 +391,36 @@ export default async function agentsRoute(app, { engine }) {
   //  Ishiki（ishiki.md）
   // ════════════════════════════
 
-  app.get("/api/agents/:id/ishiki", async (req, reply) => {
-    const { id } = req.params;
+  route.get("/agents/:id/ishiki", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
       const content = await fs.readFile(path.join(agentDir(engine, id), "ishiki.md"), "utf-8");
-      return { content };
+      return c.json({ content });
     } catch (err) {
-      if (err.code === "ENOENT") return { content: "" };
-      reply.code(500);
-      return { error: err.message };
+      if (err.code === "ENOENT") return c.json({ content: "" });
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/agents/:id/ishiki", async (req, reply) => {
-    const { id } = req.params;
+  route.put("/agents/:id/ishiki", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
       await fs.writeFile(path.join(agentDir(engine, id), "ishiki.md"), content, "utf-8");
       if (isActiveAgent(engine, id)) await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -449,40 +428,36 @@ export default async function agentsRoute(app, { engine }) {
   //  Public Ishiki（public-ishiki.md）
   // ════════════════════════════
 
-  app.get("/api/agents/:id/public-ishiki", async (req, reply) => {
-    const { id } = req.params;
+  route.get("/agents/:id/public-ishiki", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
       const content = await fs.readFile(path.join(agentDir(engine, id), "public-ishiki.md"), "utf-8");
-      return { content };
+      return c.json({ content });
     } catch (err) {
-      if (err.code === "ENOENT") return { content: "" };
-      reply.code(500);
-      return { error: err.message };
+      if (err.code === "ENOENT") return c.json({ content: "" });
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/agents/:id/public-ishiki", async (req, reply) => {
-    const { id } = req.params;
+  route.put("/agents/:id/public-ishiki", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
       await fs.writeFile(path.join(agentDir(engine, id), "public-ishiki.md"), content, "utf-8");
       if (isActiveAgent(engine, id)) await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -490,11 +465,10 @@ export default async function agentsRoute(app, { engine }) {
   //  Pinned（pinned.md）
   // ════════════════════════════
 
-  app.get("/api/agents/:id/pinned", async (req, reply) => {
-    const { id } = req.params;
+  route.get("/agents/:id/pinned", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
       const content = await fs.readFile(path.join(agentDir(engine, id), "pinned.md"), "utf-8");
@@ -503,25 +477,23 @@ export default async function agentsRoute(app, { engine }) {
         .map(line => line.trim())
         .filter(line => line.length > 0)
         .map(line => line.replace(/^-\s*/, ""));
-      return { pins };
+      return c.json({ pins });
     } catch (err) {
-      if (err.code === "ENOENT") return { pins: [] };
-      reply.code(500);
-      return { error: err.message };
+      if (err.code === "ENOENT") return c.json({ pins: [] });
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/agents/:id/pinned", async (req, reply) => {
-    const { id } = req.params;
+  route.put("/agents/:id/pinned", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
-      const { pins } = req.body || {};
+      const body = await safeJson(c);
+      const { pins } = body;
       if (!Array.isArray(pins)) {
-        reply.code(400);
-        return { error: "pins must be an array" };
+        return c.json({ error: "pins must be an array" }, 400);
       }
       const content = pins
         .map(p => (typeof p === "string" ? p.trim() : ""))
@@ -531,10 +503,9 @@ export default async function agentsRoute(app, { engine }) {
         + "\n";
       await fs.writeFile(path.join(agentDir(engine, id), "pinned.md"), content, "utf-8");
       if (isActiveAgent(engine, id)) await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -542,18 +513,17 @@ export default async function agentsRoute(app, { engine }) {
   //  Experience（experience/ 目录）
   // ════════════════════════════
 
-  app.get("/api/agents/:id/experience", async (req, reply) => {
-    const { id } = req.params;
+  route.get("/agents/:id/experience", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
       const expDir = path.join(agentDir(engine, id), "experience");
-      if (!fsSync.existsSync(expDir)) return { content: "" };
+      if (!fsSync.existsSync(expDir)) return c.json({ content: "" });
 
       const files = (await fs.readdir(expDir)).filter((f) => f.endsWith(".md")).sort();
-      if (files.length === 0) return { content: "" };
+      if (files.length === 0) return c.json({ content: "" });
 
       const blocks = [];
       for (const file of files) {
@@ -561,25 +531,23 @@ export default async function agentsRoute(app, { engine }) {
         const body = await fs.readFile(path.join(expDir, file), "utf-8");
         blocks.push(`# ${category}\n${body.trimEnd()}`);
       }
-      return { content: blocks.join("\n\n") + "\n" };
+      return c.json({ content: blocks.join("\n\n") + "\n" });
     } catch (err) {
-      if (err.code === "ENOENT") return { content: "" };
-      reply.code(500);
-      return { error: err.message };
+      if (err.code === "ENOENT") return c.json({ content: "" });
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/agents/:id/experience", async (req, reply) => {
-    const { id } = req.params;
+  route.put("/agents/:id/experience", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
 
       const dir = agentDir(engine, id);
@@ -607,11 +575,11 @@ export default async function agentsRoute(app, { engine }) {
       // 写入各分类文件
       const newFiles = new Set();
       for (const [cat, catLines] of categories) {
-        const body = catLines.join("\n").trim();
-        if (!body) continue;
+        const catBody = catLines.join("\n").trim();
+        if (!catBody) continue;
         const filename = `${cat}.md`;
         newFiles.add(filename);
-        await fs.writeFile(path.join(expDir, filename), body + "\n", "utf-8");
+        await fs.writeFile(path.join(expDir, filename), catBody + "\n", "utf-8");
       }
 
       // 清除不再存在的旧文件
@@ -628,10 +596,11 @@ export default async function agentsRoute(app, { engine }) {
       rebuildIndex(expDir, indexPath);
 
       if (isActiveAgent(engine, id)) await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
+
+  return route;
 }
