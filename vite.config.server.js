@@ -1,48 +1,38 @@
 import { defineConfig } from "vite";
 import { builtinModules } from "module";
 
-// Node.js built-in modules (with and without node: prefix)
 const nodeBuiltins = builtinModules.flatMap((m) => [m, `node:${m}`]);
 
 export default defineConfig({
   build: {
-    ssr: "server/index.js",
+    lib: {
+      entry: "server/index.js",
+      formats: ["es"],
+      fileName: () => "index.js",
+    },
     outDir: "dist-server-bundle",
     rollupOptions: {
       external: [
-        // Node.js built-in modules
         ...nodeBuiltins,
-
-        // Native addons
         "better-sqlite3",
-
-        // PI SDK ecosystem (jiti runtime loading + WASM photon-node)
         /^@mariozechner\//,
         "@silvia-odwyer/photon-node",
-
-        // Lark/Feishu SDK (protobufjs dynamic require)
         "@larksuiteoapi/node-sdk",
-
-        // Telegram bot (large CJS dep tree via @cypress/request)
         "node-telegram-bot-api",
-
-        // ExcelJS (large dep tree, dynamically imported — preserve lazy load)
         "exceljs",
-
-        // macOS native file watcher (optional, may not be installed)
         "fsevents",
       ],
       output: {
         entryFileNames: "[name].js",
         chunkFileNames: "chunks/[name]-[hash:8].js",
-        // Force shared source modules into dedicated chunks so that dynamic
-        // import chunks never need to import back from the entry — this
-        // prevents circular chunk references that cause runtime hangs.
+        // Provider plugins (lib/providers/) must be in the same chunk as
+        // provider-registry (core/) to avoid TDZ from circular init order.
+        // shared/ gets its own chunk since it has no circular deps with others.
         manualChunks(id) {
-          if (id.includes("/node_modules/")) return undefined; // let Rollup decide
+          if (id.includes("/node_modules/")) return undefined;
           if (id.includes("/shared/")) return "shared";
-          if (id.includes("/core/")) return "core";
-          if (id.includes("/lib/")) return "lib";
+          // core + lib (including providers) in one chunk to avoid TDZ
+          if (id.includes("/core/") || id.includes("/lib/")) return "core";
           if (id.includes("/hub/")) return "hub";
         },
       },
@@ -50,11 +40,6 @@ export default defineConfig({
     target: "node22",
     minify: false,
     sourcemap: false,
-  },
-  // SSR 模式默认把所有 node_modules 包 external 化。
-  // 用 noExternal 明确指定要 bundle 进来的纯 JS 包。
-  ssr: {
-    noExternal: true, // bundle 所有包（除了 rollupOptions.external 列出的）
   },
   logLevel: "info",
 });
