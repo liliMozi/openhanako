@@ -10,6 +10,8 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { execSync } from "child_process";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { parseSkillMetadata } from "../../lib/skills/skill-metadata.js";
 import { t } from "../i18n.js";
 
@@ -84,7 +86,8 @@ function listWorkspaceFiles(dir) {
     .sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
 }
 
-export default async function deskRoute(app, { engine, hub }) {
+export function createDeskRoute(engine, hub) {
+  const route = new Hono();
 
   /** 从所有 agent 的 activityStore 中按 ID 查找 entry */
   function findActivityEntry(activityId) {
@@ -101,7 +104,7 @@ export default async function deskRoute(app, { engine, hub }) {
   // ════════════════════════════
 
   /** 活动列表（合并所有 agent） */
-  app.get("/api/desk/activities", async () => {
+  route.get("/desk/activities", async (c) => {
     const allActivities = [];
     for (const ag of engine.listAgents()) {
       const store = engine.getActivityStore(ag.id);
@@ -116,20 +119,20 @@ export default async function deskRoute(app, { engine, hub }) {
     }
     // 按 startedAt 倒序
     allActivities.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
-    return { activities: allActivities };
+    return c.json({ activities: allActivities });
   });
 
   /** 读取指定活动的 session 对话消息（只读查看用） */
-  app.get("/api/desk/activities/:id/session", async (req) => {
-    const { id } = req.params;
+  route.get("/desk/activities/:id/session", async (c) => {
+    const id = c.req.param("id");
     // 从所有 agent 的 activityStore 中查找
     const { entry, agentId: foundAgentId } = findActivityEntry(id);
-    if (!entry) return { error: "activity not found" };
-    if (!entry.sessionFile) return { error: "no session file" };
+    if (!entry) return c.json({ error: "activity not found" });
+    if (!entry.sessionFile) return c.json({ error: "no session file" });
 
     const activityDir = path.join(engine.agentsDir, foundAgentId, "activity");
     const sessionPath = path.join(activityDir, entry.sessionFile);
-    if (!fs.existsSync(sessionPath)) return { error: "session file missing" };
+    if (!fs.existsSync(sessionPath)) return c.json({ error: "session file missing" });
 
     try {
       const raw = fs.readFileSync(sessionPath, "utf-8");
@@ -152,7 +155,7 @@ export default async function deskRoute(app, { engine, hub }) {
         messages.push({ role: msg.role, content });
       }
 
-      return {
+      return c.json({
         activity: {
           id: entry.id,
           type: entry.type,
@@ -164,53 +167,54 @@ export default async function deskRoute(app, { engine, hub }) {
           finishedAt: entry.finishedAt,
         },
         messages,
-      };
+      });
     } catch (err) {
-      return { error: err.message };
+      return c.json({ error: err.message });
     }
   });
 
   /** 将活动 session 提升为正常 session（从 activity/ 移到 sessions/） */
-  app.post("/api/desk/activities/:id/promote", async (req) => {
-    const { id } = req.params;
+  route.post("/desk/activities/:id/promote", async (c) => {
+    const id = c.req.param("id");
     const { entry, agentId: foundAgentId } = findActivityEntry(id);
-    if (!entry) return { error: "activity not found" };
-    if (!entry.sessionFile) return { error: "no session file" };
+    if (!entry) return c.json({ error: "activity not found" });
+    if (!entry.sessionFile) return c.json({ error: "no session file" });
 
     // promote 需要先切到对应 agent（promoteActivitySession 操作当前焦点 agent 的目录）
     if (foundAgentId !== engine.currentAgentId) {
-      return { error: t("error.activeSessionOnly") };
+      return c.json({ error: t("error.activeSessionOnly") });
     }
 
     const newPath = engine.promoteActivitySession(entry.sessionFile);
-    if (!newPath) return { error: "promote failed" };
+    if (!newPath) return c.json({ error: "promote failed" });
 
-    return { ok: true, sessionPath: newPath };
+    return c.json({ ok: true, sessionPath: newPath });
   });
 
   /** 用小工具模型快速摘要（DevTools 调试用） */
-  app.post("/api/desk/activities/summarize", async (req) => {
-    const { id } = req.body || {};
-    if (!id) return { error: "id required" };
+  route.post("/desk/activities/summarize", async (c) => {
+    const body = await safeJson(c);
+    const { id } = body;
+    if (!id) return c.json({ error: "id required" });
     try {
       const summary = await engine.summarizeActivityQuick(id);
-      return { summary: summary || null };
+      return c.json({ summary: summary || null });
     } catch (err) {
-      return { error: err.message };
+      return c.json({ error: err.message });
     }
   });
 
   /** DevTools 日志（历史） */
-  app.get("/api/desk/logs", async () => {
-    return { logs: engine.getDevLogs() };
+  route.get("/desk/logs", async (c) => {
+    return c.json({ logs: engine.getDevLogs() });
   });
 
   /** 手动触发心跳巡检（调试用） */
-  app.post("/api/desk/heartbeat", async () => {
+  route.post("/desk/heartbeat", async (c) => {
     const hb = hub?.scheduler?.heartbeat;
-    if (!hb) return { error: "Heartbeat not initialized" };
+    if (!hb) return c.json({ error: "Heartbeat not initialized" });
     hb.triggerNow();
-    return { ok: true, message: t("error.heartbeatTriggered") };
+    return c.json({ ok: true, message: t("error.heartbeatTriggered") });
   });
 
   // ════════════════════════════
@@ -218,52 +222,53 @@ export default async function deskRoute(app, { engine, hub }) {
   // ════════════════════════════
 
   /** 列出 cron 任务 */
-  app.get("/api/desk/cron", async () => {
+  route.get("/desk/cron", async (c) => {
     const store = engine.agent.cronStore;
-    if (!store) return { jobs: [] };
-    return { jobs: store.listJobs() };
+    if (!store) return c.json({ jobs: [] });
+    return c.json({ jobs: store.listJobs() });
   });
 
   /** 操作 cron 任务 */
-  app.post("/api/desk/cron", async (req) => {
+  route.post("/desk/cron", async (c) => {
     const store = engine.agent.cronStore;
-    if (!store) return { error: "Desk not initialized" };
+    if (!store) return c.json({ error: "Desk not initialized" });
 
-    const { action, ...params } = req.body || {};
+    const body = await safeJson(c);
+    const { action, ...params } = body;
 
     switch (action) {
       case "add": {
         if (!params.type || !params.schedule || !params.prompt) {
-          return { error: "type, schedule, prompt required" };
+          return c.json({ error: "type, schedule, prompt required" });
         }
         const job = store.addJob(params);
-        return { ok: true, job, jobs: store.listJobs() };
+        return c.json({ ok: true, job, jobs: store.listJobs() });
       }
 
       case "remove": {
-        if (!params.id) return { error: "id required" };
+        if (!params.id) return c.json({ error: "id required" });
         const ok = store.removeJob(params.id);
-        if (!ok) return { error: "not found" };
-        return { ok: true, jobs: store.listJobs() };
+        if (!ok) return c.json({ error: "not found" });
+        return c.json({ ok: true, jobs: store.listJobs() });
       }
 
       case "toggle": {
-        if (!params.id) return { error: "id required" };
+        if (!params.id) return c.json({ error: "id required" });
         const job = store.toggleJob(params.id);
-        if (!job) return { error: "not found" };
-        return { ok: true, job, jobs: store.listJobs() };
+        if (!job) return c.json({ error: "not found" });
+        return c.json({ ok: true, job, jobs: store.listJobs() });
       }
 
       case "update": {
-        if (!params.id) return { error: "id required" };
+        if (!params.id) return c.json({ error: "id required" });
         const { id, ...fields } = params;
         const job = store.updateJob(id, fields);
-        if (!job) return { error: "not found" };
-        return { ok: true, job, jobs: store.listJobs() };
+        if (!job) return c.json({ error: "not found" });
+        return c.json({ ok: true, job, jobs: store.listJobs() });
       }
 
       default:
-        return { error: `unknown action: ${action}` };
+        return c.json({ error: `unknown action: ${action}` });
     }
   });
 
@@ -272,10 +277,10 @@ export default async function deskRoute(app, { engine, hub }) {
   // ════════════════════════════
 
   /** 扫描工作空间下的项目级技能 */
-  app.get("/api/desk/skills", async (req) => {
-    const dir = req.query.dir ? decodeURIComponent(req.query.dir) : engine.deskCwd;
-    if (!dir) return { skills: [] };
-    if (req.query.dir && !isApprovedDir(dir, engine)) return { skills: [] };
+  route.get("/desk/skills", async (c) => {
+    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : engine.deskCwd;
+    if (!dir) return c.json({ skills: [] });
+    if (c.req.query("dir") && !isApprovedDir(dir, engine)) return c.json({ skills: [] });
 
     const CWD_SKILL_DIRS = [
       { sub: ".claude/skills",   label: "Claude Code" },
@@ -309,7 +314,7 @@ export default async function deskRoute(app, { engine, hub }) {
         }
       } catch {}
     }
-    return { skills: results };
+    return c.json({ skills: results });
   });
 
   /**
@@ -317,12 +322,12 @@ export default async function deskRoute(app, { engine, hub }) {
    * 接收文件路径，自动创建 .agents/skills/ 并安装
    * 支持文件夹（直接复制）和 .zip/.skill（解压）
    */
-  app.post("/api/desk/install-skill", async (req, reply) => {
-    const { filePath, dir } = req.body || {};
+  route.post("/desk/install-skill", async (c) => {
+    const body = await safeJson(c);
+    const { filePath, dir } = body;
     const cwd = dir || engine.deskCwd;
     if (!filePath || !cwd) {
-      reply.code(400);
-      return { error: "filePath and active workspace required" };
+      return c.json({ error: "filePath and active workspace required" }, 400);
     }
 
     try {
@@ -343,7 +348,7 @@ export default async function deskRoute(app, { engine, hub }) {
         const destName = path.basename(filePath);
         const dest = path.join(skillsDir, destName);
         fs.cpSync(filePath, dest, { recursive: true });
-        return { ok: true, name: destName };
+        return c.json({ ok: true, name: destName });
       }
 
       const ext = path.extname(filePath).toLowerCase();
@@ -371,29 +376,26 @@ export default async function deskRoute(app, { engine, hub }) {
           if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true });
           fs.renameSync(tmpDir, dest);
         }
-        return { ok: true, name: skillName };
+        return c.json({ ok: true, name: skillName });
       }
 
-      reply.code(400);
-      return { error: "Unsupported file type. Use folder, .zip or .skill" };
+      return c.json({ error: "Unsupported file type. Use folder, .zip or .skill" }, 400);
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   /** 删除项目技能 */
-  app.post("/api/desk/delete-skill", async (req, reply) => {
-    const { skillDir } = req.body || {};
+  route.post("/desk/delete-skill", async (c) => {
+    const body = await safeJson(c);
+    const { skillDir } = body;
     if (!skillDir) {
-      reply.code(400);
-      return { error: "skillDir is required" };
+      return c.json({ error: "skillDir is required" }, 400);
     }
     // 安全检查：必须在当前工作区的已知技能目录下
     const cwd = engine.deskCwd;
     if (!cwd) {
-      reply.code(400);
-      return { error: "No active workspace" };
+      return c.json({ error: "No active workspace" }, 400);
     }
     const ALLOWED_SKILL_SUBS = [
       ".claude/skills", ".codex/skills", ".openclaw/skills",
@@ -403,112 +405,112 @@ export default async function deskRoute(app, { engine, hub }) {
       isInsidePath(skillDir, path.join(cwd, sub))
     );
     if (!allowed) {
-      reply.code(403);
-      return { error: "Only skills in current workspace skill directories can be deleted" };
+      return c.json({ error: "Only skills in current workspace skill directories can be deleted" }, 403);
     }
     try {
       fs.rmSync(skillDir, { recursive: true, force: true });
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   /** 工作空间路径 */
-  app.get("/api/desk/path", async (req) => {
-    const dir = req.query.dir ? decodeURIComponent(req.query.dir) : engine.deskCwd;
-    if (!dir) return { path: null };
-    if (req.query.dir && !isApprovedDir(dir, engine)) return { error: t("error.dirNotAllowed") };
+  route.get("/desk/path", async (c) => {
+    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : engine.deskCwd;
+    if (!dir) return c.json({ path: null });
+    if (c.req.query("dir") && !isApprovedDir(dir, engine)) return c.json({ error: t("error.dirNotAllowed") });
     fs.mkdirSync(dir, { recursive: true });
-    return { path: dir };
+    return c.json({ path: dir });
   });
 
   /** 列出工作空间文件（支持 ?subdir=xxx 浏览子目录, ?dir=xxx 覆盖基目录） */
-  app.get("/api/desk/files", async (req) => {
-    const dir = req.query.dir ? decodeURIComponent(req.query.dir) : engine.deskCwd;
-    if (!dir) return { files: [], subdir: "", basePath: null };
-    if (req.query.dir && !isApprovedDir(dir, engine)) return { error: t("error.dirNotAllowed") };
-    const subdir = req.query.subdir || "";
+  route.get("/desk/files", async (c) => {
+    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : engine.deskCwd;
+    if (!dir) return c.json({ files: [], subdir: "", basePath: null });
+    if (c.req.query("dir") && !isApprovedDir(dir, engine)) return c.json({ error: t("error.dirNotAllowed") });
+    const subdir = c.req.query("subdir") || "";
     // 安全：禁止路径穿越
     if (subdir && (subdir.includes("\\") || subdir.includes("..") || subdir.startsWith("."))) {
-      return { error: "invalid subdir" };
+      return c.json({ error: "invalid subdir" });
     }
     const target = subdir ? path.join(dir, subdir) : dir;
-    if (!isInsidePath(target, dir)) return { error: "invalid path" };
-    return { files: listWorkspaceFiles(target), subdir: subdir || "", basePath: dir };
+    if (!isInsidePath(target, dir)) return c.json({ error: "invalid path" });
+    return c.json({ files: listWorkspaceFiles(target), subdir: subdir || "", basePath: dir });
   });
 
   /** 读取指定目录的 jian.md */
-  app.get("/api/desk/jian", async (req) => {
-    const dir = req.query.dir ? decodeURIComponent(req.query.dir) : engine.deskCwd;
-    if (!dir) return { content: null };
-    if (req.query.dir && !isApprovedDir(dir, engine)) return { error: t("error.dirNotAllowed") };
-    const subdir = req.query.subdir || "";
+  route.get("/desk/jian", async (c) => {
+    const dir = c.req.query("dir") ? decodeURIComponent(c.req.query("dir")) : engine.deskCwd;
+    if (!dir) return c.json({ content: null });
+    if (c.req.query("dir") && !isApprovedDir(dir, engine)) return c.json({ error: t("error.dirNotAllowed") });
+    const subdir = c.req.query("subdir") || "";
     if (subdir && (subdir.includes("\\") || subdir.includes("..") || subdir.startsWith("."))) {
-      return { error: "invalid subdir" };
+      return c.json({ error: "invalid subdir" });
     }
     const target = subdir ? path.join(dir, subdir) : dir;
-    if (!isInsidePath(target, dir)) return { error: "invalid path" };
+    if (!isInsidePath(target, dir)) return c.json({ error: "invalid path" });
     const jianPath = path.join(target, "jian.md");
-    if (!fs.existsSync(jianPath)) return { content: null };
+    if (!fs.existsSync(jianPath)) return c.json({ content: null });
     try {
-      return { content: fs.readFileSync(jianPath, "utf-8") };
+      return c.json({ content: fs.readFileSync(jianPath, "utf-8") });
     } catch {
-      return { content: null };
+      return c.json({ content: null });
     }
   });
 
   /** 保存指定目录的 jian.md（自动创建 / 内容为空时删除） */
-  app.post("/api/desk/jian", async (req) => {
-    const dir = req.body?.dir ? req.body.dir : engine.deskCwd;
-    if (!dir) return { error: t("error.noWorkspace") };
-    if (req.body?.dir && !isApprovedDir(dir, engine)) return { error: t("error.dirNotAllowed") };
-    const { subdir, content } = req.body || {};
+  route.post("/desk/jian", async (c) => {
+    const body = await safeJson(c);
+    const dir = body.dir ? body.dir : engine.deskCwd;
+    if (!dir) return c.json({ error: t("error.noWorkspace") });
+    if (body.dir && !isApprovedDir(dir, engine)) return c.json({ error: t("error.dirNotAllowed") });
+    const { subdir, content } = body;
     const sub = subdir || "";
     if (sub && (sub.includes("\\") || sub.includes("..") || sub.startsWith("."))) {
-      return { error: "invalid subdir" };
+      return c.json({ error: "invalid subdir" });
     }
     const target = sub ? path.join(dir, sub) : dir;
-    if (!isInsidePath(target, dir)) return { error: "invalid path" };
+    if (!isInsidePath(target, dir)) return c.json({ error: "invalid path" });
     const jianPath = path.join(target, "jian.md");
 
     try {
       if (content === null || content === undefined || content.trim() === "") {
         // 内容为空 → 删除 jian.md
         if (fs.existsSync(jianPath)) fs.unlinkSync(jianPath);
-        return { ok: true, content: null };
+        return c.json({ ok: true, content: null });
       }
       // 确保目录存在
       fs.mkdirSync(target, { recursive: true });
       fs.writeFileSync(jianPath, content, "utf-8");
-      return { ok: true, content };
+      return c.json({ ok: true, content });
     } catch (err) {
-      return { error: err.message };
+      return c.json({ error: err.message });
     }
   });
 
   /** 工作空间文件操作（支持 subdir + dir override） */
-  app.post("/api/desk/files", async (req) => {
-    const baseDir = req.body?.dir || engine.deskCwd;
-    if (!baseDir) return { error: t("error.noWorkspace") };
-    if (req.body?.dir && !isApprovedDir(baseDir, engine)) return { error: t("error.dirNotAllowed") };
+  route.post("/desk/files", async (c) => {
+    const body = await safeJson(c);
+    const baseDir = body.dir || engine.deskCwd;
+    if (!baseDir) return c.json({ error: t("error.noWorkspace") });
+    if (body.dir && !isApprovedDir(baseDir, engine)) return c.json({ error: t("error.dirNotAllowed") });
     fs.mkdirSync(baseDir, { recursive: true });
 
-    const { action, subdir: sub, paths, name, content, oldName, newName } = req.body || {};
+    const { action, subdir: sub, paths, name, content, oldName, newName } = body;
 
     // 解析子目录
     const subdirStr = sub || "";
     if (subdirStr && (subdirStr.includes("\\") || subdirStr.includes("..") || subdirStr.startsWith("."))) {
-      return { error: "invalid subdir" };
+      return c.json({ error: "invalid subdir" });
     }
     const dir = subdirStr ? path.join(baseDir, subdirStr) : baseDir;
-    if (!isInsidePath(dir, baseDir)) return { error: "invalid path" };
+    if (!isInsidePath(dir, baseDir)) return c.json({ error: "invalid path" });
 
     switch (action) {
       case "upload": {
         if (!Array.isArray(paths) || paths.length === 0) {
-          return { error: "paths required" };
+          return c.json({ error: "paths required" });
         }
         const results = [];
         for (const srcPath of paths) {
@@ -534,52 +536,52 @@ export default async function deskRoute(app, { engine, hub }) {
             results.push({ src: srcPath, error: err.message });
           }
         }
-        return { ok: true, results, files: listWorkspaceFiles(dir) };
+        return c.json({ ok: true, results, files: listWorkspaceFiles(dir) });
       }
 
       case "create": {
         if (!name || content === undefined) {
-          return { error: "name and content required" };
+          return c.json({ error: "name and content required" });
         }
         const createTarget = path.join(dir, path.basename(name));
-        if (!isInsidePath(createTarget, dir)) return { error: "invalid name" };
+        if (!isInsidePath(createTarget, dir)) return c.json({ error: "invalid name" });
         fs.writeFileSync(createTarget, content, "utf-8");
-        return { ok: true, files: listWorkspaceFiles(dir) };
+        return c.json({ ok: true, files: listWorkspaceFiles(dir) });
       }
 
       case "mkdir": {
-        if (!name) return { error: "name required" };
+        if (!name) return c.json({ error: "name required" });
         const mkTarget = path.join(dir, path.basename(name));
-        if (!isInsidePath(mkTarget, dir)) return { error: "invalid name" };
-        if (fs.existsSync(mkTarget)) return { error: "already exists" };
+        if (!isInsidePath(mkTarget, dir)) return c.json({ error: "invalid name" });
+        if (fs.existsSync(mkTarget)) return c.json({ error: "already exists" });
         fs.mkdirSync(mkTarget, { recursive: true });
-        return { ok: true, files: listWorkspaceFiles(dir) };
+        return c.json({ ok: true, files: listWorkspaceFiles(dir) });
       }
 
       case "rename": {
-        if (!oldName || !newName) return { error: "oldName and newName required" };
+        if (!oldName || !newName) return c.json({ error: "oldName and newName required" });
         const src = path.join(dir, path.basename(oldName));
         const dest = path.join(dir, path.basename(newName));
-        if (!isInsidePath(src, dir) || !isInsidePath(dest, dir)) return { error: "invalid name" };
-        if (!fs.existsSync(src)) return { error: "not found" };
-        if (fs.existsSync(dest)) return { error: "target already exists" };
+        if (!isInsidePath(src, dir) || !isInsidePath(dest, dir)) return c.json({ error: "invalid name" });
+        if (!fs.existsSync(src)) return c.json({ error: "not found" });
+        if (fs.existsSync(dest)) return c.json({ error: "target already exists" });
         fs.renameSync(src, dest);
-        return { ok: true, files: listWorkspaceFiles(dir) };
+        return c.json({ ok: true, files: listWorkspaceFiles(dir) });
       }
 
       case "move": {
-        const names = req.body?.names;
-        const destFolder = req.body?.destFolder;
+        const names = body.names;
+        const destFolder = body.destFolder;
         if (!Array.isArray(names) || names.length === 0 || !destFolder) {
-          return { error: "names[] and destFolder required" };
+          return c.json({ error: "names[] and destFolder required" });
         }
         if (names.includes(destFolder)) {
-          return { error: "cannot move folder into itself" };
+          return c.json({ error: "cannot move folder into itself" });
         }
         const destDir = path.join(dir, path.basename(destFolder));
-        if (!isInsidePath(destDir, dir)) return { error: "invalid destFolder" };
+        if (!isInsidePath(destDir, dir)) return c.json({ error: "invalid destFolder" });
         if (!fs.existsSync(destDir) || !fs.statSync(destDir).isDirectory()) {
-          return { error: "destFolder is not a directory" };
+          return c.json({ error: "destFolder is not a directory" });
         }
         const results = [];
         for (const n of names) {
@@ -595,20 +597,22 @@ export default async function deskRoute(app, { engine, hub }) {
             results.push({ name: n, error: err.message });
           }
         }
-        return { ok: true, results, files: listWorkspaceFiles(dir) };
+        return c.json({ ok: true, results, files: listWorkspaceFiles(dir) });
       }
 
       case "remove": {
-        if (!name) return { error: "name required" };
+        if (!name) return c.json({ error: "name required" });
         const rmTarget = path.join(dir, path.basename(name));
-        if (!isInsidePath(rmTarget, dir)) return { error: "invalid name" };
-        if (!fs.existsSync(rmTarget)) return { error: "not found" };
+        if (!isInsidePath(rmTarget, dir)) return c.json({ error: "invalid name" });
+        if (!fs.existsSync(rmTarget)) return c.json({ error: "not found" });
         fs.rmSync(rmTarget, { recursive: true, force: true });
-        return { ok: true, files: listWorkspaceFiles(dir) };
+        return c.json({ ok: true, files: listWorkspaceFiles(dir) });
       }
 
       default:
-        return { error: `unknown action: ${action}` };
+        return c.json({ error: `unknown action: ${action}` });
     }
   });
+
+  return route;
 }
