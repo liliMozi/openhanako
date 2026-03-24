@@ -15,6 +15,7 @@ import path from "path";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
+import { WebSocketServer } from "ws";
 import { AppError } from "../shared/errors.js";
 import { errorBus } from "../shared/error-bus.js";
 import { HanaEngine } from "../core/engine.js";
@@ -43,7 +44,8 @@ import { createBridgeRoute } from "./routes/bridge.js";
 import { createAuthRoute } from "./routes/auth.js";
 import { createDiaryRoute } from "./routes/diary.js";
 import { createConfirmRoute } from "./routes/confirm.js";
-import internalBrowserRoute from "./routes/internal-browser.js";
+// internal-browser WS is handled directly via raw ws.WebSocketServer in the
+// upgrade handler below (WsTransport needs raw ws .on()/.off() methods)
 import { ConfirmStore } from "../lib/confirm-store.js";
 import { BridgeManager } from "../lib/bridge/bridge-manager.js";
 import { Hub } from "../hub/index.js";
@@ -183,7 +185,7 @@ app.route("/api", createBridgeRoute(engine, bridgeManager));
 app.route("/api", createAuthRoute(engine));
 app.route("/api", createDiaryRoute(engine));
 app.route("/api", createConfirmRoute(confirmStore, engine));
-// app.register(internalBrowserRoute);
+// internal-browser WS — see unified upgrade handler in server startup below
 
 // 健康检查 + 身份信息
 app.get("/api/health", async (c) => {
@@ -241,7 +243,61 @@ const host = "127.0.0.1";
 let server;
 try {
   server = serve({ fetch: app.fetch, port, hostname: host });
-  injectWebSocket(server);
+
+  // ── Internal browser control WS (raw ws) ──
+  // WsTransport requires raw ws .on()/.off() event methods that Hono's WSContext
+  // doesn't expose, so we handle /internal/browser via a standalone WebSocketServer.
+  //
+  // To avoid both handlers firing on the same upgrade request (which would corrupt
+  // the socket), we pass injectWebSocket a proxy that filters out /internal/browser
+  // upgrades before they reach Hono's handler.
+  const browserWss = new WebSocketServer({ noServer: true });
+
+  server.on("upgrade", (req, socket, head) => {
+    const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+    if (url.pathname !== "/internal/browser") return; // let Hono handle it
+
+    const token = url.searchParams.get("token");
+    if (token !== SERVER_TOKEN) {
+      socket.destroy();
+      return;
+    }
+    browserWss.handleUpgrade(req, socket, head, (ws) => {
+      browserWss.emit("connection", ws, req);
+    });
+  });
+
+  browserWss.on("connection", (ws) => {
+    const bm = BrowserManager.instance();
+    bm.setWsTransport(ws);
+
+    ws.on("close", () => {
+      if (bm._transport?._ws === ws) bm.setWsTransport(null);
+      console.log("[server] Electron browser control WS disconnected");
+    });
+    ws.on("error", (err) => {
+      console.error("[server] Electron browser control WS error:", err.message);
+      if (bm._transport?._ws === ws) bm.setWsTransport(null);
+    });
+    console.log("[server] Electron browser control WS connected");
+  });
+
+  // Inject Hono WS for chat and other WS routes, but skip /internal/browser
+  // to prevent double-handling the same upgrade request
+  injectWebSocket({
+    on(event, handler) {
+      if (event === "upgrade") {
+        server.on("upgrade", (req, socket, head) => {
+          const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+          if (url.pathname === "/internal/browser") return; // already handled above
+          handler(req, socket, head);
+        });
+      } else {
+        server.on(event, handler);
+      }
+    },
+  });
+
   const address = server.address();
   const actualPort = address.port;
 
