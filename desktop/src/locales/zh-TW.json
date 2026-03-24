@@ -1039,6 +1039,7 @@
     "unsupportedImageFormat": "不支援的圖片格式: {mime}",
     "imageTooLarge": "單張圖片不得超過 20MB",
     "viewImage": "（看圖）",
+    "modelNoVision": "目前模型不支援圖片，請切換到支援圖片的模型後再試",
     "searchProviderNotConfigured": "未設定搜尋 provider",
     "searchProviderMissingKey": "搜尋 provider \"{provider}\" 缺少 API Key",
     "searchProviderUnknown": "未知搜尋 provider: {provider}",

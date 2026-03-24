@@ -1039,6 +1039,7 @@
     "unsupportedImageFormat": "サポートされていない画像形式: {mime}",
     "imageTooLarge": "1枚の画像は20MBを超えてはいけません",
     "viewImage": "（画像を見る）",
+    "modelNoVision": "現在のモデルは画像に対応していません。画像対応モデルに切り替えてください",
     "searchProviderNotConfigured": "検索プロバイダーが設定されていません",
     "searchProviderMissingKey": "検索プロバイダー \"{provider}\" の API Key がありません",
     "searchProviderUnknown": "不明な検索プロバイダー: {provider}",

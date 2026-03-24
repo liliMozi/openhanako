@@ -1039,6 +1039,7 @@
     "unsupportedImageFormat": "지원하지 않는 이미지 형식: {mime}",
     "imageTooLarge": "이미지 한 장당 20MB를 초과할 수 없어요",
     "viewImage": "(이미지 보기)",
+    "modelNoVision": "현재 모델은 이미지를 지원하지 않아요. 이미지를 지원하는 모델로 전환해 주세요",
     "searchProviderNotConfigured": "검색 provider가 설정되지 않았어요",
     "searchProviderMissingKey": "검색 provider \"{provider}\"의 API Key가 없어요",
     "searchProviderUnknown": "알 수 없는 검색 provider: {provider}",

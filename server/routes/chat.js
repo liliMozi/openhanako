@@ -630,6 +630,15 @@ export default async function chatRoute(app, { engine, hub }) {
             }
           }
         }
+        // vision 能力检查：模型不支持图片时拦截，防止坏消息污染会话历史
+        if (msg.images?.length) {
+          const model = engine.currentModel;
+          const provider = model?.provider && engine.providerRegistry.get(model.provider);
+          if (provider && provider.capabilities?.vision === false) {
+            wsSend(ws, { type: "error", message: t("error.modelNoVision") });
+            return;
+          }
+        }
         // 只发图片没文字时补一个占位文本，防止空 text 导致某些 API 异常
         let promptText = msg.text || "";
         if (!promptText.trim() && msg.images?.length) {
