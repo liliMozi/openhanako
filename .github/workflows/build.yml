@@ -49,6 +49,9 @@ jobs:
             node scripts/build-server.mjs win32 ${{ matrix.arch }}
           fi
 
+      - name: Build main bundle
+        run: npm run build:main
+
       - name: Build renderer
         run: npm run build:renderer
 
