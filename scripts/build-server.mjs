@@ -349,7 +349,7 @@ if (fs.existsSync(koffiBuilds)) {
   }
 }
 
-// ── 9. 更新 package.json（加入 version 供运行时读取） ──
+// ── 9. 更新 package.json ──
 // npm ci 之后 package.json 仍在，确保它包含 version 字段
 // fromRoot("package.json") 在运行时读取版本号
 // 保留 dependencies 字段（node_modules 解析需要）
@@ -360,7 +360,7 @@ fs.writeFileSync(
   JSON.stringify(installedPkg, null, 2) + "\n",
 );
 
-// ── 9. Wrapper 脚本 ──
+// ── 10. Wrapper 脚本 ──
 if (isWin) {
   fs.writeFileSync(
     path.join(outDir, "hana-server.cmd"),

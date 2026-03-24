@@ -8,6 +8,7 @@
  * agent 头像存在 agentDir/avatars/，user 头像存在 userDir/avatars/
  */
 import fs from "fs/promises";
+import fsSync from "node:fs";
 import path from "path";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -24,11 +25,9 @@ export function createAvatarRoute(engine) {
     return path.join(base, "avatars");
   }
 
-  // 确保两个目录都存在（立即执行）
-  (async () => {
-    await fs.mkdir(avatarDirFor("agent"), { recursive: true });
-    await fs.mkdir(avatarDirFor("user"), { recursive: true });
-  })();
+  // 确保两个目录都存在（同步创建，避免首个请求的 race condition）
+  fsSync.mkdirSync(avatarDirFor("agent"), { recursive: true });
+  fsSync.mkdirSync(avatarDirFor("user"), { recursive: true });
 
   /** 查找 role 对应的头像文件（支持 png/jpg/webp） */
   async function findAvatar(role) {
