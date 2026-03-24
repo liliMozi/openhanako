@@ -19,6 +19,7 @@ handoff-*.md
 # ═══════════════════════════════════════════
 dist/
 dist-server/
+.cache/
 desktop/dist-renderer/
 vendor/
 inbox/

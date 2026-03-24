@@ -117,7 +117,61 @@ if (platform === "win32") {
 }
 console.log("[build-server] wrapper created");
 
-// ── 5. Node.js runtime ──
-console.log(`[build-server] ⚠ 请手动将 Node.js ${platform}-${arch} runtime 放到 ${outDir}/node`);
-console.log("[build-server] 下载地址: https://nodejs.org/dist/latest-v22.x/");
+// ── 5. Node.js runtime（自动下载 + 缓存） ──
+const NODE_VERSION = "v22.16.0";
+const cacheDir = path.join(ROOT, ".cache", "node-runtime");
+fs.mkdirSync(cacheDir, { recursive: true });
+
+const nodeMap = {
+  "darwin-arm64": `node-${NODE_VERSION}-darwin-arm64`,
+  "darwin-x64": `node-${NODE_VERSION}-darwin-x64`,
+  "linux-x64": `node-${NODE_VERSION}-linux-x64`,
+  "win32-x64": `node-${NODE_VERSION}-win-x64`,
+};
+
+const nodeDir = nodeMap[`${platform}-${arch}`];
+if (!nodeDir) {
+  console.error(`[build-server] ⚠ 不支持的平台: ${platform}-${arch}，请手动放置 node runtime`);
+} else {
+  const ext = platform === "win32" ? "zip" : "tar.gz";
+  const filename = `${nodeDir}.${ext}`;
+  const cachedArchive = path.join(cacheDir, filename);
+  const cachedBin = path.join(cacheDir, nodeDir, "bin", platform === "win32" ? "node.exe" : "node");
+  const cachedBinWin = path.join(cacheDir, nodeDir, "node.exe"); // Windows 结构不同
+
+  // 检查缓存
+  const binPath = platform === "win32" ? cachedBinWin : cachedBin;
+  if (!fs.existsSync(binPath)) {
+    const url = `https://nodejs.org/dist/${NODE_VERSION}/${filename}`;
+    console.log(`[build-server] 下载 Node.js ${NODE_VERSION} for ${platform}-${arch}...`);
+    console.log(`[build-server] ${url}`);
+
+    const { execSync } = await import("child_process");
+    execSync(`curl -L -o "${cachedArchive}" "${url}"`, { stdio: "inherit" });
+
+    // 解压
+    if (platform === "win32") {
+      // Windows: unzip
+      execSync(`powershell -command "Expand-Archive -Path '${cachedArchive}' -DestinationPath '${cacheDir}' -Force"`, { stdio: "inherit" });
+    } else {
+      // macOS/Linux: tar
+      execSync(`tar xzf "${cachedArchive}" -C "${cacheDir}"`, { stdio: "inherit" });
+    }
+
+    // 清理压缩包
+    try { fs.unlinkSync(cachedArchive); } catch {}
+    console.log("[build-server] Node.js runtime 已缓存");
+  } else {
+    console.log(`[build-server] 使用缓存的 Node.js ${NODE_VERSION}`);
+  }
+
+  // 复制 node 二进制到 dist
+  const destNode = path.join(outDir, platform === "win32" ? "node.exe" : "node");
+  fs.copyFileSync(binPath, destNode);
+  if (platform !== "win32") {
+    fs.chmodSync(destNode, 0o755);
+  }
+  console.log("[build-server] Node.js runtime copied");
+}
+
 console.log("[build-server] Done!");
