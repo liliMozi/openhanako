@@ -14,6 +14,7 @@ import {
 } from '../../stores/channel-actions';
 import { toggleSidebar } from '../SidebarLayout';
 import { ContextMenu } from '../ContextMenu';
+import { ChannelWarningModal } from './ChannelWarningModal';
 import type { ContextMenuItem } from '../ContextMenu';
 import type { Channel, Agent } from '../../types';
 import { yuanFallbackAvatar } from '../../utils/agent-helpers';
@@ -111,57 +112,6 @@ export function MemberAvatar({ info, className }: { info: MemberInfo; className?
   return <>{(info.displayName || '?').charAt(0).toUpperCase()}</>;
 }
 
-// ── Warning 弹窗（频道启用确认） ──
-
-function showChannelWarning(): Promise<boolean> {
-  return new Promise((resolve) => {
-    const t = window.t;
-    const overlay = document.createElement('div');
-    overlay.className = 'hana-warning-overlay';
-
-    const box = document.createElement('div');
-    box.className = 'hana-warning-box';
-
-    const title = document.createElement('h3');
-    title.className = 'hana-warning-title';
-    title.textContent = t('channel.warningTitle');
-    box.appendChild(title);
-
-    const body = document.createElement('div');
-    body.className = 'hana-warning-body';
-    const text = t('channel.warningBody') || '';
-    for (const para of text.split('\n\n')) {
-      const p = document.createElement('p');
-      const lines = para.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        if (i > 0) p.appendChild(document.createElement('br'));
-        p.appendChild(document.createTextNode(lines[i]));
-      }
-      body.appendChild(p);
-    }
-    box.appendChild(body);
-
-    const actions = document.createElement('div');
-    actions.className = 'hana-warning-actions';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'hana-warning-cancel';
-    cancelBtn.textContent = t('channel.createCancel');
-    cancelBtn.addEventListener('click', () => { overlay.remove(); resolve(false); });
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'hana-warning-confirm';
-    confirmBtn.textContent = t('channel.warningConfirm');
-    confirmBtn.addEventListener('click', () => { overlay.remove(); resolve(true); });
-
-    actions.appendChild(cancelBtn);
-    actions.appendChild(confirmBtn);
-    box.appendChild(actions);
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-  });
-}
-
 // ══════════════════════════════════════════════════════
 // ChannelListSidebar — 左侧边栏中的频道列表区块
 // ══════════════════════════════════════════════════════
@@ -170,14 +120,24 @@ export function ChannelListSidebar() {
   const { t } = useI18n();
   const channelsEnabled = useStore(s => s.channelsEnabled);
   const setChannelCreateOverlayVisible = useStore(s => s.setChannelCreateOverlayVisible);
+  const [warningOpen, setWarningOpen] = useState(false);
 
-  const handleToggle = useCallback(async () => {
+  const handleToggle = useCallback(() => {
     const turningOn = !useStore.getState().channelsEnabled;
     if (turningOn) {
-      const accepted = await showChannelWarning();
-      if (!accepted) return;
+      setWarningOpen(true);
+      return;
     }
-    await toggleChannelsEnabled();
+    toggleChannelsEnabled();
+  }, []);
+
+  const handleWarningConfirm = useCallback(() => {
+    setWarningOpen(false);
+    toggleChannelsEnabled();
+  }, []);
+
+  const handleWarningCancel = useCallback(() => {
+    setWarningOpen(false);
   }, []);
 
   const handleCreate = useCallback(() => {
@@ -226,6 +186,11 @@ export function ChannelListSidebar() {
           ></button>
         </div>
       </div>
+      <ChannelWarningModal
+        open={warningOpen}
+        onConfirm={handleWarningConfirm}
+        onCancel={handleWarningCancel}
+      />
     </>
   );
 }
