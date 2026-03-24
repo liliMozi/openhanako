@@ -266,9 +266,62 @@ function removeBinDirs(nmDir) {
 }
 removeBinDirs(path.join(outDir, "node_modules"));
 
-console.log("[build-server] dependencies ready");
+console.log("[build-server] dependencies installed");
 
-// ── 8. 更新 package.json（加入 version 供运行时读取） ──
+// ── 8. @vercel/nft 追踪：只保留运行时实际需要的文件 ──
+// 从 bundle 入口出发，静态分析所有 import/require 链，
+// 删除 node_modules 里没被追踪到的文件（.d.ts、.map、多余平台二进制等）
+console.log("[build-server] running nft trace...");
+
+// nft 是 ESM，用动态 import
+const { nodeFileTrace } = await import("@vercel/nft");
+const { fileList } = await nodeFileTrace(
+  [path.join(outDir, "bundle", "index.js")],
+  { base: outDir, conditions: ["node", "import"] },
+);
+
+// 把追踪结果转成绝对路径 Set
+const tracedFiles = new Set();
+for (const f of fileList) {
+  tracedFiles.add(path.resolve(outDir, f));
+}
+
+// 遍历 node_modules，删除未追踪的文件
+const nmDir = path.join(outDir, "node_modules");
+let removedFiles = 0;
+let removedSize = 0;
+
+function pruneDir(dir) {
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      pruneDir(full);
+      // 删完子文件后如果目录空了，也删掉
+      try {
+        const remaining = fs.readdirSync(full);
+        if (remaining.length === 0) fs.rmdirSync(full);
+      } catch {}
+    } else if (entry.isFile() || entry.isSymbolicLink()) {
+      if (!tracedFiles.has(full)) {
+        const size = entry.isFile() ? (fs.statSync(full).size || 0) : 0;
+        fs.unlinkSync(full);
+        removedFiles++;
+        removedSize += size;
+      }
+    }
+  }
+}
+
+pruneDir(nmDir);
+
+const keptFiles = fileList.size;
+const MB = (n) => (n / 1024 / 1024).toFixed(0);
+console.log(`[build-server] nft: kept ${keptFiles} files, removed ${removedFiles} files (${MB(removedSize)}MB)`);
+
+// ── 9. 更新 package.json（加入 version 供运行时读取） ──
 // npm ci 之后 package.json 仍在，确保它包含 version 字段
 // fromRoot("package.json") 在运行时读取版本号
 // 保留 dependencies 字段（node_modules 解析需要）

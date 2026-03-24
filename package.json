@@ -76,6 +76,7 @@
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vercel/nft": "^1.5.0",
     "@vitejs/plugin-react": "^5.1.4",
     "electron": "^38.8.4",
     "electron-builder": "^26.8.1",
