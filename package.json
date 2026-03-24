@@ -28,10 +28,11 @@
     "typecheck": "tsc --noEmit",
     "cli": "node scripts/launch.js cli",
     "server": "node scripts/launch.js server",
-    "pack": "npm run build:server && npm run build:renderer && electron-builder --dir",
+    "build:main": "vite build --config vite.config.main.js",
+    "pack": "npm run build:server && npm run build:main && npm run build:renderer && electron-builder --dir",
     "install:local": "npm run pack && rm -rf /Applications/Hanako.app && cp -R dist/mac-arm64/Hanako.app /Applications/ && node scripts/sign-local.cjs",
-    "dist": "npm run build:server && npm run build:renderer && electron-builder --mac dmg",
-    "dist:win": "npm run build:server && npm run build:renderer && electron-builder --win nsis",
+    "dist": "npm run build:server && npm run build:main && npm run build:renderer && electron-builder --mac dmg",
+    "dist:win": "npm run build:server && npm run build:main && npm run build:renderer && electron-builder --win nsis",
     "test": "vitest run",
     "build:server": "node scripts/build-server.mjs",
     "lint": "eslint desktop/src/ server/",
@@ -92,10 +93,17 @@
     "productName": "Hanako",
     "asar": true,
     "afterPack": "./scripts/fix-modules.cjs",
+    "extraMetadata": {
+      "main": "desktop/main.bundle.cjs"
+    },
     "files": [
-      "desktop/**",
+      "desktop/main.bundle.cjs",
+      "desktop/preload.cjs",
+      "desktop/dist-renderer/**",
+      "desktop/src/**/*.{html,icns,png,svg,json}",
+      "desktop/src/assets/**",
       "package.json",
-      "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,LICENSE,license,test,tests,__tests__,docs,doc,.github}"
+      "!**/node_modules/**"
     ],
     "extraResources": [
       {
