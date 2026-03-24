@@ -244,6 +244,13 @@ let server;
 try {
   server = serve({ fetch: app.fetch, port, hostname: host });
 
+  // @hono/node-server 的 serve() 内部调用 server.listen()，
+  // port=0 时需等 listening 事件才能拿到实际端口
+  await new Promise((resolve) => {
+    if (server.listening) resolve();
+    else server.on("listening", resolve);
+  });
+
   // ── Internal browser control WS (raw ws) ──
   // WsTransport requires raw ws .on()/.off() event methods that Hono's WSContext
   // doesn't expose, so we handle /internal/browser via a standalone WebSocketServer.
