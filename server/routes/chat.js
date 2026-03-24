@@ -15,6 +15,8 @@ import {
   finishSessionStream,
   appendSessionStreamEvent,
   resumeSessionStream,
+  isStreamStale,
+  STALE_STREAM_MS,
 } from "../session-stream-store.js";
 import { AppError } from "../../shared/errors.js";
 import { errorBus } from "../../shared/error-bus.js";
@@ -89,6 +91,29 @@ export default async function chatRoute(app, { engine, hub }) {
   }
 
   const clients = new Set();
+
+  // ── 离线消息暂存：streaming 忙碌时的 error 在此缓存，客户端重连时补发 ──
+  const pendingErrors = [];          // { msg, ts }
+  const PENDING_ERROR_TTL_MS = 30_000; // 30 秒后过期
+  const MAX_PENDING_ERRORS = 10;
+
+  function queuePendingError(msg) {
+    const now = Date.now();
+    // 清理过期条目
+    while (pendingErrors.length && now - pendingErrors[0].ts > PENDING_ERROR_TTL_MS) {
+      pendingErrors.shift();
+    }
+    if (pendingErrors.length < MAX_PENDING_ERRORS) {
+      pendingErrors.push({ msg, ts: now });
+    }
+  }
+
+  function flushPendingErrors(ws) {
+    for (const item of pendingErrors) {
+      wsSend(ws, item.msg);
+    }
+    pendingErrors.length = 0;
+  }
 
   function broadcast(msg) {
     for (const client of clients) {
@@ -496,6 +521,8 @@ export default async function chatRoute(app, { engine, hub }) {
     activeWsClients++;
     clients.add(ws);
     cancelDisconnectAbort();
+    // 补发断连期间的 error 消息
+    flushPendingErrors(ws);
     debugLog()?.log("ws", "client connected");
 
     // 注意：token 校验由 server/index.js 的 onRequest hook 统一处理，
@@ -639,8 +666,18 @@ export default async function chatRoute(app, { engine, hub }) {
         // Phase 2: 客户端可指定 sessionPath，否则用焦点 session
         const promptSessionPath = msg.sessionPath || engine.currentSessionPath;
         if (engine.isSessionStreaming(promptSessionPath)) {
-          wsSend(ws, { type: "error", message: t("error.stillStreaming", { name: engine.agentName }) });
-          return;
+          // 检查是否卡住（长时间无事件输出但仍标记为 streaming）
+          const ss = getState(promptSessionPath);
+          if (ss && isStreamStale(ss)) {
+            debugLog()?.log("ws", `streaming stale for ${promptSessionPath} (${Math.round((Date.now() - ss.lastEventTs) / 1000)}s idle), auto-aborting`);
+            try { await engine.abortSession(promptSessionPath); } catch { /* best-effort */ }
+            // fall through → 正常处理 prompt
+          } else {
+            const errorMsg = { type: "error", message: t("error.stillStreaming", { name: engine.agentName }) };
+            queuePendingError(errorMsg);
+            wsSend(ws, errorMsg);
+            return;
+          }
         }
         const ss = getState(promptSessionPath);
         try {

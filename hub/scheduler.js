@@ -271,8 +271,13 @@ export class Scheduler {
 
   /**
    * active agent 的心跳活动（保留向后兼容）
+   * 如果 agent 正在回复用户，跳过本次心跳避免资源争抢
    */
   _executeActivity(prompt, type, label, opts = {}) {
+    if (this._engine.isStreaming) {
+      this._engine.emitDevLog("[heartbeat] 跳过：agent 正在回复用户", "heartbeat");
+      return Promise.resolve();
+    }
     return this._executeActivityForAgent(this._engine.currentAgentId, prompt, type, label, opts);
   }
 }

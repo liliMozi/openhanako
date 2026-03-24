@@ -7,6 +7,9 @@
 
 const DEFAULT_MAX_EVENTS = 200;
 
+/** 默认卡住判定阈值：120 秒无新事件视为 stale */
+export const STALE_STREAM_MS = 120_000;
+
 /** 创建初始流状态 */
 export function createSessionStreamState(opts = {}) {
   return {
@@ -15,6 +18,7 @@ export function createSessionStreamState(opts = {}) {
     isStreaming: false,
     startedAt: 0,
     endedAt: 0,
+    lastEventTs: 0,
     events: [],
     maxEvents: Math.max(1, opts.maxEvents || DEFAULT_MAX_EVENTS),
   };
@@ -43,6 +47,7 @@ export function appendSessionStreamEvent(state, event) {
   };
 
   state.events.push(entry);
+  state.lastEventTs = entry.ts;
   trimEvents(state);
   return entry;
 }
@@ -51,6 +56,19 @@ export function appendSessionStreamEvent(state, event) {
 export function finishSessionStream(state) {
   state.isStreaming = false;
   state.endedAt = Date.now();
+}
+
+/**
+ * 判断当前流是否卡住（长时间无事件但仍标记为 streaming）
+ * @param {object} state
+ * @param {number} [staleMs] 卡住阈值，默认 STALE_STREAM_MS
+ * @returns {boolean}
+ */
+export function isStreamStale(state, staleMs) {
+  if (!state.isStreaming) return false;
+  const threshold = staleMs || STALE_STREAM_MS;
+  if (!state.lastEventTs || !state.startedAt) return true;
+  return (Date.now() - state.lastEventTs) > threshold;
 }
 
 /**
