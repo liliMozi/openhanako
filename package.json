@@ -33,6 +33,7 @@
     "dist": "npm run build:renderer && electron-builder --mac dmg",
     "dist:win": "npm run build:renderer && electron-builder --win nsis",
     "test": "vitest run",
+    "build:server": "node scripts/build-server.mjs",
     "lint": "eslint desktop/src/ server/",
     "test:watch": "vitest",
     "postinstall": "node scripts/patch-pi-sdk.cjs && electron-rebuild -f -w better-sqlite3"
@@ -77,6 +78,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "electron": "^38.8.4",
     "electron-builder": "^26.8.1",
+    "esbuild": "^0.27.4",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^5.2.0",
     "patch-package": "^8.0.1",

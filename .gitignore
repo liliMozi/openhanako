@@ -18,6 +18,7 @@ handoff-*.md
 # 构建产物
 # ═══════════════════════════════════════════
 dist/
+dist-server/
 desktop/dist-renderer/
 vendor/
 inbox/
