@@ -275,11 +275,21 @@ console.log("[build-server] running nft trace...");
 
 // nft 是 ESM，用动态 import
 const { nodeFileTrace } = await import("@vercel/nft");
-const { fileList } = await nodeFileTrace(
-  [path.join(outDir, "bundle", "index.js")],
-  { base: outDir, conditions: ["node", "import"] },
-);
+let fileList;
+try {
+  ({ fileList } = await nodeFileTrace(
+    [path.join(outDir, "bundle", "index.js")],
+    { base: outDir, conditions: ["node", "import"] },
+  ));
+} catch (e) {
+  // Windows CI 上 nft 可能因用户目录不存在而报错，跳过裁剪
+  console.warn(`[build-server] nft trace failed (${e.message}), skipping prune`);
+  fileList = null;
+}
 
+const nmDir = path.join(outDir, "node_modules");
+
+if (fileList) {
 // 把追踪结果转成绝对路径 Set
 const tracedFiles = new Set();
 for (const f of fileList) {
@@ -287,7 +297,6 @@ for (const f of fileList) {
 }
 
 // 遍历 node_modules，删除未追踪的文件
-const nmDir = path.join(outDir, "node_modules");
 let removedFiles = 0;
 let removedSize = 0;
 
@@ -320,6 +329,25 @@ pruneDir(nmDir);
 const keptFiles = fileList.size;
 const MB = (n) => (n / 1024 / 1024).toFixed(0);
 console.log(`[build-server] nft: kept ${keptFiles} files, removed ${removedFiles} files (${MB(removedSize)}MB)`);
+} // end if (fileList)
+
+// ── 8b. 删除 koffi 多余平台二进制 ──
+// koffi 带了 18 个平台的 .node 文件，nft 全部追踪到了（因为 require 路径指向包根）。
+// 非当前平台的二进制在 macOS 上无法被 codesign 签名（ELF/PE 格式），会导致签名卡死。
+const koffiBuilds = path.join(nmDir, "koffi", "build", "koffi");
+if (fs.existsSync(koffiBuilds)) {
+  const target = `${platform === "darwin" ? "darwin" : platform === "win32" ? "win32" : "linux"}_${arch}`;
+  let koffiRemoved = 0;
+  for (const entry of fs.readdirSync(koffiBuilds)) {
+    if (entry !== target) {
+      fs.rmSync(path.join(koffiBuilds, entry), { recursive: true, force: true });
+      koffiRemoved++;
+    }
+  }
+  if (koffiRemoved > 0) {
+    console.log(`[build-server] koffi: kept ${target}, removed ${koffiRemoved} other platform binaries`);
+  }
+}
 
 // ── 9. 更新 package.json（加入 version 供运行时读取） ──
 // npm ci 之后 package.json 仍在，确保它包含 version 字段
