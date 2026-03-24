@@ -5,9 +5,12 @@
  * PUT  /api/preferences/models  — 更新全局模型 + 搜索配置
  */
 
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { debugLog } from "../../lib/debug-log.js";
 
-export default async function preferencesRoute(app, { engine }) {
+export function createPreferencesRoute(engine) {
+  const route = new Hono();
 
   const mask = (key) => {
     if (!key) return "";
@@ -16,13 +19,13 @@ export default async function preferencesRoute(app, { engine }) {
   };
 
   // 读取全局模型 + 搜索配置
-  app.get("/api/preferences/models", async (req, reply) => {
+  route.get("/preferences/models", async (c) => {
     try {
       const models = engine.getSharedModels();
       const search = engine.getSearchConfig();
       const utilityApi = engine.getUtilityApi();
 
-      return {
+      return c.json({
         models,
         search: {
           provider: search.provider || "",
@@ -33,20 +36,18 @@ export default async function preferencesRoute(app, { engine }) {
           base_url: utilityApi.base_url || "",
           api_key: mask(utilityApi.api_key),
         },
-      };
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 更新全局模型 + 搜索配置
-  app.put("/api/preferences/models", async (req, reply) => {
+  route.put("/preferences/models", async (c) => {
     try {
-      const body = req.body;
+      const body = await safeJson(c);
       if (!body || typeof body !== "object") {
-        reply.code(400);
-        return { error: "invalid JSON body" };
+        return c.json({ error: "invalid JSON body" }, 400);
       }
 
       const sections = [];
@@ -77,11 +78,12 @@ export default async function preferencesRoute(app, { engine }) {
       }
 
       debugLog()?.log("api", `PUT /api/preferences/models sections=[${sections.join(",")}]`);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/preferences/models failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
+
+  return route;
 }

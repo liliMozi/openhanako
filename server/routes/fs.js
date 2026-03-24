@@ -9,6 +9,7 @@
 
 import fs from "fs";
 import path from "path";
+import { Hono } from "hono";
 import { safeReadFile } from "../../shared/safe-fs.js";
 
 /** 安全路径校验：resolved 必须在 allowedRoots 之一内部 */
@@ -19,7 +20,8 @@ function isSafePath(filePath, allowedRoots) {
   );
 }
 
-export default async function fsRoute(app, { engine }) {
+export function createFsRoute(engine) {
+  const route = new Hono();
   const hanakoHome = path.resolve(engine.hanakoHome);
 
   // 收集允许的根目录
@@ -31,30 +33,32 @@ export default async function fsRoute(app, { engine }) {
     return roots;
   }
 
-  // GET /api/fs/read?path=... → UTF-8 文本
-  app.get("/api/fs/read", async (req, reply) => {
-    const filePath = req.query.path;
-    if (!filePath) return reply.code(400).send({ error: "missing path" });
+  // GET /fs/read?path=... → UTF-8 文本
+  route.get("/fs/read", async (c) => {
+    const filePath = c.req.query("path");
+    if (!filePath) return c.json({ error: "missing path" }, 400);
     if (!isSafePath(filePath, getAllowedRoots())) {
-      return reply.code(403).send({ error: "path not allowed" });
+      return c.json({ error: "path not allowed" }, 403);
     }
     const content = safeReadFile(filePath, null);
-    if (content === null) return reply.code(404).send({ error: "file not found" });
-    reply.type("text/plain").send(content);
+    if (content === null) return c.json({ error: "file not found" }, 404);
+    return c.text(content);
   });
 
-  // GET /api/fs/read-base64?path=... → base64 编码
-  app.get("/api/fs/read-base64", async (req, reply) => {
-    const filePath = req.query.path;
-    if (!filePath) return reply.code(400).send({ error: "missing path" });
+  // GET /fs/read-base64?path=... → base64 编码
+  route.get("/fs/read-base64", async (c) => {
+    const filePath = c.req.query("path");
+    if (!filePath) return c.json({ error: "missing path" }, 400);
     if (!isSafePath(filePath, getAllowedRoots())) {
-      return reply.code(403).send({ error: "path not allowed" });
+      return c.json({ error: "path not allowed" }, 403);
     }
     try {
       const buf = fs.readFileSync(filePath);
-      reply.type("text/plain").send(buf.toString("base64"));
+      return c.text(buf.toString("base64"));
     } catch {
-      reply.code(404).send({ error: "file not found" });
+      return c.json({ error: "file not found" }, 404);
     }
   });
+
+  return route;
 }

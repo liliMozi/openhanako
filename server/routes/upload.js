@@ -16,6 +16,8 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { t } from "../i18n.js";
 
 const MAX_FILES = 9;
@@ -52,11 +54,14 @@ function cleanOldUploads(uploadsDir) {
   } catch {}
 }
 
-export default async function uploadRoute(app, { engine }) {
-  app.post("/api/upload", async (req, reply) => {
-    const { paths } = req.body || {};
+export function createUploadRoute(engine) {
+  const route = new Hono();
+
+  route.post("/upload", async (c) => {
+    const body = await safeJson(c);
+    const { paths } = body;
     if (!Array.isArray(paths) || paths.length === 0) {
-      return reply.code(400).send({ error: t("error.pathsRequired") });
+      return c.json({ error: t("error.pathsRequired") }, 400);
     }
 
     // 统计总文件数（文件夹递归计数）
@@ -65,11 +70,11 @@ export default async function uploadRoute(app, { engine }) {
       totalFiles += countFiles(p);
     }
     if (totalFiles > MAX_FILES) {
-      return reply.code(400).send({
+      return c.json({
         error: t("error.tooManyFiles", { max: MAX_FILES, n: totalFiles }),
         totalFiles,
         max: MAX_FILES,
-      });
+      }, 400);
     }
 
     // 确定 uploads 目录
@@ -126,6 +131,8 @@ export default async function uploadRoute(app, { engine }) {
       }
     }
 
-    return { uploads: results, uploadsDir };
+    return c.json({ uploads: results, uploadsDir });
   });
+
+  return route;
 }

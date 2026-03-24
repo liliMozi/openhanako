@@ -10,16 +10,18 @@
 
 import fs from "fs";
 import path from "path";
+import { Hono } from "hono";
 import { parseChannel } from "../../lib/channels/channel-store.js";
 
-export default async function dmRoute(app, { engine }) {
+export function createDmRoute(engine) {
+  const route = new Hono();
 
   // ── 列出所有 DM 对话（包含未聊过的 agent 作为占位） ──
-  app.get("/api/dm", async (_req, reply) => {
+  route.get("/dm", async (c) => {
     try {
       const agent = engine.agent;
       if (!agent) {
-        return { dms: [] };
+        return c.json({ dms: [] });
       }
 
       const currentAgentId = engine.currentAgentId;
@@ -68,33 +70,29 @@ export default async function dmRoute(app, { engine }) {
         return a.peerName.localeCompare(b.peerName);
       });
 
-      return { dms };
+      return c.json({ dms });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 获取 DM 消息 ──
-  app.get("/api/dm/:peerId", async (req, reply) => {
+  route.get("/dm/:peerId", async (c) => {
     try {
-      const { peerId } = req.params;
+      const peerId = c.req.param("peerId");
       const agent = engine.agent;
       if (!agent) {
-        reply.code(400);
-        return { error: "No active agent" };
+        return c.json({ error: "No active agent" }, 400);
       }
 
       // 安全校验
       if (/[\/\\]|\.\./.test(peerId)) {
-        reply.code(400);
-        return { error: "Invalid peerId" };
+        return c.json({ error: "Invalid peerId" }, 400);
       }
 
       const dmFile = path.join(agent.agentDir, "dm", `${peerId}.md`);
       if (!fs.existsSync(dmFile)) {
-        reply.code(404);
-        return { error: "DM not found" };
+        return c.json({ error: "DM not found" }, 404);
       }
 
       const content = fs.readFileSync(dmFile, "utf-8");
@@ -103,14 +101,15 @@ export default async function dmRoute(app, { engine }) {
       const peerAgent = engine.getAgent(peerId);
       const peerName = peerAgent?.agentName || peerId;
 
-      return {
+      return c.json({
         peerId,
         peerName,
         messages,
-      };
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
+
+  return route;
 }
