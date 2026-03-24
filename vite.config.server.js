@@ -51,5 +51,10 @@ export default defineConfig({
     minify: false,
     sourcemap: false,
   },
+  // SSR 模式默认把所有 node_modules 包 external 化。
+  // 用 noExternal 明确指定要 bundle 进来的纯 JS 包。
+  ssr: {
+    noExternal: true, // bundle 所有包（除了 rollupOptions.external 列出的）
+  },
   logLevel: "info",
 });
