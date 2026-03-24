@@ -56,17 +56,15 @@
 
 .tbTabBadge {
     position: absolute;
-    top: 2px;
-    right: -2px;
-    min-width: 7px;
-    height: 7px;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
     background: var(--accent);
+    opacity: 0.45;
     pointer-events: none;
-}
-
-.tbTabBadgeHidden {
-    display: none;
 }
 
 /* ========================================
@@ -284,7 +282,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px var(--space-lg);
-    padding-top: 56px;
+    padding-top: 60px;
     border-bottom: 1px solid var(--overlay-light);
     flex-shrink: 0;
 }
@@ -447,7 +445,21 @@
     align-items: flex-end;
     gap: var(--space-sm);
     max-width: 646px;
+    margin-left: auto;
+    margin-right: auto;
     position: relative;
+    background: var(--bg-card);
+    border: 1px solid rgba(var(--accent-rgb), 0.12);
+    border-radius: var(--radius-lg);
+    padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+    box-shadow: 0 3px 10px var(--shadow);
+    transition: border-color 0.5s var(--ease-out),
+                box-shadow 0.5s var(--ease-out);
+}
+
+.channelInputWrapper:focus-within {
+    border-color: rgba(0, 0, 0, 0.10);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.07);
 }
 
 /* @ 联想下拉框 */
@@ -505,33 +517,41 @@
 .channelInputBox {
     flex: 1;
     resize: none;
-    border: 1px solid var(--overlay-medium);
-    border-radius: var(--radius-md);
-    padding: 8px 12px;
-    font-family: var(--font-ui);
-    font-size: 0.88rem;
-    background: var(--bg-card);
+    border: none;
+    padding: 4px 0;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    background: none;
     color: var(--text);
     outline: none;
+    max-height: 120px;
+    overflow-y: auto;
+    scrollbar-width: none;
     line-height: 1.5;
     transition: border-color 0.15s;
 }
 
-.channelInputBox:focus {
-    border-color: var(--accent);
+.channelInputBox::-webkit-scrollbar {
+    display: none;
+}
+
+.channelInputBox::placeholder {
+    color: var(--text-muted);
 }
 
 .channelSendBtn {
-    width: 36px;
-    align-self: stretch;
-    border-radius: var(--radius-md);
-    border: none;
-    background: var(--accent);
-    color: white;
-    cursor: pointer;
-    display: flex;
+    flex-shrink: 0;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    padding: 0.35rem 0.65rem;
+    background: var(--accent);
+    color: white;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--duration) var(--ease-out);
     flex-shrink: 0;
     transition: opacity 0.15s;
 }

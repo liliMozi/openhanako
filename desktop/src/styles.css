@@ -2171,6 +2171,12 @@ body.resizing .jian-sidebar-inner {
     scroll-behavior: smooth;
 }
 
+.channel-messages > * {
+    max-width: 646px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 /* ── 频道输入区 ── */
 .channel-input-area {
     flex-shrink: 0;

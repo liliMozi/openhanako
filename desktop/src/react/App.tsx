@@ -107,6 +107,37 @@ function ChannelInputArea() {
 
 function JianChannelInfo() {
   const channelInfoName = useStore(s => s.channelInfoName);
+  const isDM = useStore(s => s.channelIsDM);
+  const channelMembers = useStore(s => s.channelMembers);
+  const agents = useStore(s => s.agents);
+  const currentAgentId = useStore(s => s.currentAgentId);
+
+  if (isDM) {
+    const peerId = channelMembers[0] || '';
+    const mainAgent = agents.find(a => a.id === currentAgentId);
+    const peerAgent = agents.find(a => a.id === peerId || a.name === peerId);
+    const dmAgents = [mainAgent, peerAgent].filter(Boolean);
+    return (
+      <div className="jian-card">
+        <div className="channel-info-section">
+          <div className="channel-info-label">{t('channel.dmLabel')}</div>
+          <div className="channel-members-list">
+            {dmAgents.map(a => (
+              <div key={a!.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                <img
+                  src={`/api/agents/${a!.id}/avatar`}
+                  style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <span>{a!.name || a!.id}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="jian-card">
       <div className="channel-info-section">
@@ -136,6 +167,7 @@ function App() {
   const welcomeVisible = useStore(s => s.welcomeVisible);
   const currentSessionPath = useStore(s => s.currentSessionPath);
   const currentAgentId = useStore(s => s.currentAgentId);
+  const currentChannel = useStore(s => s.currentChannel);
   const hasPanels = !welcomeVisible && !!currentSessionPath;
   const { floatCard, show: showFloat, scheduleHide: scheduleFloatHide, cancelHide: cancelFloatHide, hide: hideFloat } = useFloatCard();
 
@@ -274,11 +306,19 @@ function App() {
           </div>
 
           <div className={`channel-view${currentTab === 'channels' ? ' active' : ''}`}>
-            <ChannelHeader />
-            <div className="channel-messages">
-              <ChannelMessages />
-            </div>
-            <ChannelInputArea />
+            {currentChannel ? (
+              <>
+                <ChannelHeader />
+                <div className="channel-messages">
+                  <ChannelMessages />
+                </div>
+                <ChannelInputArea />
+              </>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                {t('channel.selectHint')}
+              </div>
+            )}
           </div>
 
           {/* Floating panels render into main-content */}

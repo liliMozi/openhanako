@@ -41,7 +41,16 @@ export function ensureFirstRun(hanakoHome, productDir) {
     syncSkills(skillsSrc, skillsDst);
   }
 
-  // 4. 确保 user/preferences.json 存在
+  // 4. 确保可选文件存在（老用户升级 + 新 agent 都覆盖）
+  const touchIfMissing = (p) => { if (!fs.existsSync(p)) fs.writeFileSync(p, '', 'utf-8'); };
+  touchIfMissing(path.join(hanakoHome, 'user', 'user.md'));
+  const agents = fs.readdirSync(agentsDir, { withFileTypes: true });
+  for (const entry of agents) {
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+    touchIfMissing(path.join(agentsDir, entry.name, 'pinned.md'));
+  }
+
+  // 5. 确保 user/preferences.json 存在
   const prefsPath = path.join(hanakoHome, "user", "preferences.json");
   if (!fs.existsSync(prefsPath)) {
     fs.writeFileSync(

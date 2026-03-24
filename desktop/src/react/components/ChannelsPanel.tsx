@@ -18,19 +18,20 @@ export function ChannelsPanel() {
   const channels = useStore(s => s.channels);
   const serverPort = useStore(s => s.serverPort);
 
-  // 启动/切换时加载频道数据，或同步 disabled 状态到后端
+  // 启动时从后端读频道开关状态；开启时加载频道列表
   useEffect(() => {
     if (!serverPort) return;
-    if (channelsEnabled) {
-      loadChannels();
-    } else {
-      hanaFetch('/api/channels/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: false }),
-      }).catch(err => console.warn('[channels] toggle failed:', err));
-    }
-  }, [serverPort, channelsEnabled]);
+    hanaFetch('/api/config').then(r => r.json()).then(cfg => {
+      const enabled = cfg?.channels?.enabled !== false;
+      useStore.getState().setChannelsEnabled(enabled);
+      if (enabled) loadChannels();
+    }).catch(err => console.warn('[channels] init failed:', err));
+  }, [serverPort]);
+
+  // 开关变化后加载频道列表
+  useEffect(() => {
+    if (channelsEnabled && serverPort) loadChannels();
+  }, [channelsEnabled, serverPort]);
 
   return null;
 }

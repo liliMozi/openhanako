@@ -63,22 +63,32 @@ export async function openChannel(channelId: string, isDM?: boolean): Promise<vo
   const isThisDM = isDM ?? ch?.isDM ?? false;
   const t = window.t;
 
-  useStore.setState({ currentChannel: channelId });
+  // 立刻切换 + 清空旧数据，防止残留上一个频道的内容
+  // DM 时从 channel 列表提取 peerId，即使 API 失败也能显示 agent 信息
+  const peerId = isThisDM ? (ch?.peerId || channelId.replace('dm:', '')) : '';
+  const peerName = isThisDM ? (ch?.name || peerId) : '';
+  useStore.setState({
+    currentChannel: channelId,
+    channelMessages: [],
+    channelMembers: isThisDM ? [peerId] : [],
+    channelHeaderName: isThisDM ? peerName : '',
+    channelHeaderMembersText: '',
+    channelIsDM: isThisDM,
+    channelInfoName: isThisDM ? peerName : '',
+  });
 
   try {
     if (isThisDM) {
-      const peerId = ch?.peerId || channelId.replace('dm:', '');
       const res = await hanaFetch(`/api/dm/${encodeURIComponent(peerId)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      useStore.setState({
-        channelMessages: data.messages || [],
-        channelMembers: [peerId],
-        channelHeaderName: data.peerName || peerId,
-        channelHeaderMembersText: '',
-        channelIsDM: true,
-        channelInfoName: data.peerName || peerId,
-      });
+      if (res.ok) {
+        const data = await res.json();
+        useStore.setState({
+          channelMessages: data.messages || [],
+          channelHeaderName: data.peerName || peerName,
+          channelInfoName: data.peerName || peerName,
+        });
+      }
+      // 404 = 没有历史，基本信息已在上方设置，不需要额外处理
     } else {
       const res = await hanaFetch(`/api/channels/${encodeURIComponent(channelId)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -192,7 +202,6 @@ export async function deleteChannel(channelId: string): Promise<void> {
 export async function toggleChannelsEnabled(): Promise<boolean> {
   const s = useStore.getState();
   const newEnabled = !s.channelsEnabled;
-  localStorage.setItem('hana-channels-enabled', String(newEnabled));
   useStore.setState({ channelsEnabled: newEnabled });
 
   if (newEnabled) {

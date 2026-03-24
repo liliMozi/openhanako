@@ -1,6 +1,6 @@
 {
   "name": "hanako",
-  "version": "0.65.1",
+  "version": "0.66.0",
   "type": "module",
   "description": "Hanako - a personal AI agent with memory and soul",
   "license": "Apache-2.0",
@@ -33,8 +33,9 @@
     "dist": "npm run build:renderer && electron-builder --mac dmg",
     "dist:win": "npm run build:renderer && electron-builder --win nsis",
     "test": "vitest run",
+    "lint": "eslint desktop/src/ server/",
     "test:watch": "vitest",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "postinstall": "node scripts/patch-pi-sdk.cjs && electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.0",
@@ -69,13 +70,18 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",
+    "@eslint/js": "^9.39.4",
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "electron": "^38.8.4",
     "electron-builder": "^26.8.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "patch-package": "^8.0.1",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.2",
     "vite": "^7.3.1",
     "vitest": "^4.0.18"
   },
@@ -96,30 +102,29 @@
       "package.json",
       "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,LICENSE,license,test,tests,__tests__,docs,doc,.github}"
     ],
+    "afterSign": "./scripts/notarize.cjs",
     "mac": {
       "target": "dmg",
       "category": "public.app-category.productivity",
       "icon": "desktop/src/icon.icns",
-      "artifactName": "${productName}-${version}-macOS-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-macOS-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "desktop/entitlements.mac.plist",
+      "entitlementsInherit": "desktop/entitlements.mac.plist"
     },
     "dmg": {
       "title": "Hanako",
       "contents": [
         {
-          "x": 120,
+          "x": 180,
           "y": 220
         },
         {
-          "x": 390,
+          "x": 420,
           "y": 220,
           "type": "link",
           "path": "/Applications"
-        },
-        {
-          "x": 270,
-          "y": 220,
-          "type": "file",
-          "path": "desktop/如果提示已损坏请看这里.txt"
         }
       ]
     },

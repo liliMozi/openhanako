@@ -7,9 +7,11 @@ export function safeReadFile(filePath, fallback = '') {
   try {
     return fs.readFileSync(filePath, 'utf-8');
   } catch (err) {
-    const code = err.code === 'ENOENT' ? 'FS_NOT_FOUND'
-      : err.code === 'EACCES' ? 'FS_PERMISSION' : 'UNKNOWN';
-    errorBus.report(new AppError(code, { cause: err, context: { filePath } }));
+    // ENOENT 是 fallback 的合法场景（可选文件不存在），不上报 ErrorBus
+    if (err.code !== 'ENOENT') {
+      const code = err.code === 'EACCES' ? 'FS_PERMISSION' : 'UNKNOWN';
+      errorBus.report(new AppError(code, { cause: err, context: { filePath } }));
+    }
     return fallback;
   }
 }

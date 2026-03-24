@@ -103,14 +103,6 @@ export function SkillsTab() {
       if (data.error) throw new Error(data.error);
       showToast(t('settings.skills.installSuccess', { name: data.skill?.name || '' }), 'success');
       await loadSkills();
-      if (data.skill?.baseDir) {
-        platform?.openSkillViewer?.({
-          name: data.skill.name,
-          baseDir: data.skill.baseDir,
-          filePath: data.skill.filePath,
-          installed: true,
-        });
-      }
     } catch (err: unknown) {
       showToast(t('settings.skills.installError') + ': ' + (err instanceof Error ? err.message : String(err)), 'error');
     }

@@ -85,9 +85,7 @@ export function ChannelTabBar() {
       </button>
       <button ref={channelsTabRef} className={`${styles.tbTab}${currentTab === 'channels' ? ` ${styles.tbTabActive}` : ''}`} data-tab="channels">
         {t('channel.tab')}
-        <span className={`${styles.tbTabBadge}${channelTotalUnread > 0 ? '' : ` ${styles.tbTabBadgeHidden}`}`}>
-          {channelTotalUnread > 0 ? String(channelTotalUnread) : ''}
-        </span>
+        {channelTotalUnread > 0 && <span className={styles.tbTabBadge} />}
       </button>
     </div>
   );

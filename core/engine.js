@@ -444,6 +444,14 @@ export class HanaEngine {
     await this._agentMgr.initAllAgents(log, this._agentMgr.activeAgentId);
     log(`[init] 2/5 ${this._agentMgr.agents.size} 个 agent 已就绪`);
 
+    // 2b. 确保所有 agent 都有 channels.md（老用户升级兼容）
+    for (const [id] of this._agentMgr.agents) {
+      const channelsMd = path.join(this.agentsDir, id, 'channels.md');
+      if (!fs.existsSync(channelsMd)) {
+        this._channels.setupChannelsForNewAgent(id);
+      }
+    }
+
     // 3. ResourceLoader + Skills
     log(`[init] 3/5 ResourceLoader 初始化...`);
     const t_rl = Date.now();

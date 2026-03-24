@@ -26,7 +26,7 @@ export const createChannelSlice = (
   channelMessages: [],
   channelMembers: [],
   channelTotalUnread: 0,
-  channelsEnabled: (() => { try { return localStorage.getItem('hana-channels-enabled') === 'true'; } catch { return false; } })(),
+  channelsEnabled: false,
   channelHeaderName: '',
   channelHeaderMembersText: '',
   channelInfoName: '',
@@ -35,8 +35,5 @@ export const createChannelSlice = (
   setCurrentChannel: (channel) => set({ currentChannel: channel }),
   setChannelMessages: (messages) => set({ channelMessages: messages }),
   setChannelTotalUnread: (count) => set({ channelTotalUnread: count }),
-  setChannelsEnabled: (enabled) => {
-    localStorage.setItem('hana-channels-enabled', String(enabled));
-    set({ channelsEnabled: enabled });
-  },
+  setChannelsEnabled: (enabled) => set({ channelsEnabled: enabled }),
 });

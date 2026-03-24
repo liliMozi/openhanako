@@ -239,6 +239,10 @@ export class AgentManager {
       fs.copyFileSync(publicIshikiSrc, path.join(agentDir, "public-ishiki.md"));
     }
 
+    // 可选文件：确保存在（即使为空），避免运行时 ENOENT
+    const touchIfMissing = (p) => { if (!fs.existsSync(p)) fs.writeFileSync(p, '', 'utf-8'); };
+    touchIfMissing(path.join(agentDir, 'pinned.md'));
+
     // 频道系统
     this._d.getChannelManager().setupChannelsForNewAgent(agentId);
 

@@ -207,7 +207,8 @@ export function handleServerMessage(msg: any): void {
 
     case 'channel_new_message': {
       const store = useStore.getState();
-      if (msg.channelName && store.currentChannel === msg.channelName) {
+      const isViewing = store.currentTab === 'channels' && store.currentChannel === msg.channelName && document.visibilityState === 'visible';
+      if (msg.channelName && isViewing) {
         openChannelAction(msg.channelName);
       } else if (msg.channelName) {
         loadChannelsAction();
@@ -218,7 +219,8 @@ export function handleServerMessage(msg: any): void {
     case 'dm_new_message': {
       const dmId = `dm:${msg.from}`;
       const store2 = useStore.getState();
-      if (store2.currentChannel === dmId) {
+      const isViewingDM = store2.currentTab === 'channels' && store2.currentChannel === dmId && document.visibilityState === 'visible';
+      if (isViewingDM) {
         openChannelAction(dmId, true);
       } else {
         loadChannelsAction();

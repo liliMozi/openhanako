@@ -1,185 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { useSettingsStore } from '../store';
+import React from 'react';
 import { hanaFetch } from '../api';
 import { t } from '../helpers';
-import { KeyInput } from '../widgets/KeyInput';
 import { Toggle } from '../widgets/Toggle';
+import { PlatformSection } from './bridge/PlatformSection';
+import { WechatSection } from './bridge/WechatSection';
+import { useBridgeState, isMasked } from './bridge/useBridgeState';
 import styles from '../Settings.module.css';
-import bridgeStyles from './BridgeTab.module.css';
-
-const platform = window.platform;
-
-// ── Types ──
-
-interface PlatformStatusBase {
-  status?: string;
-  error?: string;
-  enabled?: boolean;
-}
-
-interface TelegramStatus extends PlatformStatusBase {
-  tokenMasked?: string;
-}
-
-interface FeishuStatus extends PlatformStatusBase {
-  appId?: string;
-  appSecretMasked?: string;
-}
-
-interface QQStatus extends PlatformStatusBase {
-  appID?: string;
-  appSecretMasked?: string;
-}
-
-interface WechatStatus extends PlatformStatusBase {
-  tokenMasked?: string;
-}
-
-interface KnownUser {
-  userId: string;
-  name?: string;
-}
-
-interface BridgeStatus {
-  telegram: TelegramStatus;
-  feishu: FeishuStatus;
-  whatsapp: PlatformStatusBase;
-  qq: QQStatus;
-  wechat: WechatStatus;
-  readOnly: boolean;
-  knownUsers: { telegram?: KnownUser[]; feishu?: KnownUser[]; whatsapp?: KnownUser[]; qq?: KnownUser[]; wechat?: KnownUser[] };
-  owner: { telegram?: string; feishu?: string; whatsapp?: string; qq?: string; wechat?: string };
-}
-
-type BridgePlatform = 'telegram' | 'feishu' | 'whatsapp' | 'qq' | 'wechat';
 
 export function BridgeTab() {
-  const store = useSettingsStore();
-  const { showToast } = store;
-  const [status, setStatus] = useState<BridgeStatus | null>(null);
-  const [testingPlatform, setTestingPlatform] = useState<BridgePlatform | null>(null);
-
-  // Public Ishiki
-  const [publicIshiki, setPublicIshiki] = useState('');
-  const [publicIshikiOriginal, setPublicIshikiOriginal] = useState('');
-
-  useEffect(() => {
-    const agentId = store.getSettingsAgentId();
-    if (!agentId) return;
-    hanaFetch(`/api/agents/${agentId}/public-ishiki`)
-      .then(r => r.json())
-      .then(data => { setPublicIshiki(data.content || ''); setPublicIshikiOriginal(data.content || ''); })
-      .catch(err => console.warn('[bridge] fetch public-ishiki failed:', err));
-  }, [store.settingsConfig]);
-
-  const savePublicIshiki = async () => {
-    const agentId = store.getSettingsAgentId();
-    if (!agentId || publicIshiki === publicIshikiOriginal) return;
-    try {
-      await hanaFetch(`/api/agents/${agentId}/public-ishiki`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: publicIshiki }),
-      });
-      setPublicIshikiOriginal(publicIshiki);
-      showToast(t('settings.saved'), 'success');
-    } catch (err: unknown) {
-      showToast(t('settings.saveFailed') + ': ' + (err instanceof Error ? err.message : String(err)), 'error');
-    }
-  };
-
-  // Telegram fields
-  const [tgToken, setTgToken] = useState('');
-  // Feishu fields
-  const [fsAppId, setFsAppId] = useState('');
-  const [fsAppSecret, setFsAppSecret] = useState('');
-  // QQ fields
-  const [qqAppId, setQqAppId] = useState('');
-  const [qqAppSecret, setQqAppSecret] = useState('');
-
-  const isMasked = (v: string) => v.includes('••••');
-
-  const loadStatus = async () => {
-    try {
-      const res = await hanaFetch('/api/bridge/status');
-      const data = await res.json();
-      setStatus(data);
-      // 回填非敏感值
-      if (data.feishu?.appId) setFsAppId(data.feishu.appId);
-      if (data.qq?.appID) setQqAppId(data.qq.appID);
-      // 回填遮掩值到输入框（让用户看到"已保存"）
-      setTgToken(data.telegram?.tokenMasked || '');
-      setFsAppSecret(data.feishu?.appSecretMasked || '');
-      setQqAppSecret(data.qq?.appSecretMasked || '');
-    } catch (err) {
-      console.error('[bridge] load status failed:', err);
-    }
-  };
-
-  useEffect(() => { loadStatus(); }, []);
-
-  // 扫码 overlay 成功后触发刷新
-  useEffect(() => {
-    const handler = () => loadStatus();
-    window.addEventListener('hana-bridge-reload', handler);
-    return () => window.removeEventListener('hana-bridge-reload', handler);
-  }, []);
-
-  const saveBridgeConfig = async (platform_: string, credentials: Record<string, string> | null, enabled?: boolean) => {
-    try {
-      await hanaFetch('/api/bridge/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: platform_, credentials, enabled }),
-      });
-      showToast(t('settings.saved'), 'success');
-      await loadStatus();
-    } catch (err: unknown) {
-      showToast(t('settings.saveFailed') + ': ' + (err instanceof Error ? err.message : String(err)), 'error');
-    }
-  };
-
-  const testPlatform = async (platform_: BridgePlatform, credentials: Record<string, string>) => {
-    setTestingPlatform(platform_);
-    try {
-      const res = await hanaFetch('/api/bridge/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: platform_, credentials }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        const info = platform_ === 'telegram' ? ` @${data.info?.username || ''}` : '';
-        showToast(t('settings.bridge.testOk') + info, 'success');
-      } else {
-        showToast(t('settings.bridge.testFail') + ': ' + (data.error || ''), 'error');
-      }
-    } catch (err: unknown) {
-      showToast(t('settings.bridge.testFail') + ': ' + (err instanceof Error ? err.message : String(err)), 'error');
-    } finally {
-      setTestingPlatform(null);
-    }
-  };
-
-  const setOwner = async (platform_: string, userId: string) => {
-    try {
-      await hanaFetch('/api/bridge/owner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: platform_, userId: userId || null }),
-      });
-      showToast(t('settings.bridge.ownerSaved'), 'success');
-    } catch {
-      showToast(t('settings.saveFailed'), 'error');
-    }
-  };
-
-  const tgInfo = status?.telegram || {};
-  const fsInfo = status?.feishu || {};
-  const waInfo = status?.whatsapp || {};
-  const qqInfo = status?.qq || {};
-  const wxInfo = status?.wechat || {};
-  const readOnly = !!status?.readOnly;
+  const b = useBridgeState();
+  const tgInfo = b.status?.telegram || {};
+  const fsInfo = b.status?.feishu || {};
+  const waInfo = b.status?.whatsapp || {};
+  const qqInfo = b.status?.qq || {};
+  const wxInfo = b.status?.wechat || {};
+  const readOnly = !!b.status?.readOnly;
 
   return (
     <div className={`${styles['settings-tab-content']} ${styles['active']}`} data-tab="bridge">
@@ -191,309 +26,129 @@ export function BridgeTab() {
             className={styles['settings-textarea']}
             rows={6}
             spellCheck={false}
-            value={publicIshiki}
-            onChange={(e) => setPublicIshiki(e.target.value)}
-            onBlur={savePublicIshiki}
+            value={b.publicIshiki}
+            onChange={(e) => b.setPublicIshiki(e.target.value)}
+            onBlur={b.savePublicIshiki}
           />
           <span className={styles['settings-field-hint']}>{t('settings.agent.publicIshikiHint')}</span>
         </div>
       </section>
 
-      {/* 教程链接 */}
       <div className="bridge-help-link-row">
-        <span
-          className="bridge-help-link"
-          onClick={() => window.dispatchEvent(new Event('hana-show-bridge-tutorial'))}
-        >
+        <span className="bridge-help-link" onClick={() => window.dispatchEvent(new Event('hana-show-bridge-tutorial'))}>
           {t('settings.bridge.howTo')}
         </span>
       </div>
 
       {/* Telegram */}
-      <section className={styles['settings-section']}>
-        <h2 className={styles['settings-section-title']}>{t('settings.bridge.telegram')}</h2>
-        <div className="bridge-platform-header">
-          <BridgeStatusDot status={tgInfo.status} />
-          <BridgeStatusText status={tgInfo.status} error={tgInfo.error} />
-          <Toggle
-            on={!!tgInfo.enabled}
-            onChange={async (on) => {
-              const hasRealToken = tgToken && !isMasked(tgToken);
-              const hasSaved = !!status?.telegram?.tokenMasked;
-              if (on && !hasRealToken && !hasSaved) {
-                showToast(t('settings.bridge.noToken'), 'error');
-                return;
-              }
-              await saveBridgeConfig('telegram', hasRealToken ? { token: tgToken } : null, on);
-            }}
-          />
-        </div>
-        <div className={styles['settings-field']}>
-          <label className={styles['settings-field-label']}>{t('settings.bridge.telegramToken')}</label>
-          <div className="bridge-input-row">
-            <KeyInput
-              value={tgToken}
-              onChange={setTgToken}
-              placeholder=""
-              onBlur={async () => {
-                const trimmed = tgToken.trim();
-                if (trimmed && !isMasked(trimmed)) await saveBridgeConfig('telegram', { token: trimmed }, undefined);
-              }}
-            />
-            <button
-              className="bridge-test-btn"
-              disabled={testingPlatform === 'telegram'}
-              onClick={() => {
-                const trimmed = tgToken.trim();
-                if (!trimmed || isMasked(trimmed)) { showToast(t('settings.bridge.noToken'), 'error'); return; }
-                testPlatform('telegram', { token: trimmed });
-              }}
-            >
-              {testingPlatform === 'telegram' ? '...' : t('settings.bridge.test')}
-            </button>
-          </div>
-          <span className={styles['settings-field-hint']}>{t('settings.bridge.telegramHint')}</span>
-        </div>
-        <OwnerSelect
-          platform_="telegram"
-          users={status?.knownUsers?.telegram || []}
-          currentOwner={status?.owner?.telegram}
-          onChange={(userId) => setOwner('telegram', userId)}
-        />
-      </section>
+      <PlatformSection
+        platform="telegram"
+        title={t('settings.bridge.telegram')}
+        status={tgInfo}
+        credentialFields={[
+          { key: 'token', label: t('settings.bridge.telegramToken'), type: 'secret', value: b.tgToken, onChange: b.setTgToken },
+        ]}
+        onToggle={async (on) => {
+          const hasRealToken = b.tgToken && !isMasked(b.tgToken);
+          if (on && !hasRealToken && !b.status?.telegram?.tokenMasked) { b.showToast(t('settings.bridge.noToken'), 'error'); return; }
+          await b.saveBridgeConfig('telegram', hasRealToken ? { token: b.tgToken } : null, on);
+        }}
+        onTest={() => {
+          const trimmed = b.tgToken.trim();
+          if (!trimmed || isMasked(trimmed)) { b.showToast(t('settings.bridge.noToken'), 'error'); return; }
+          b.testPlatform('telegram', { token: trimmed });
+        }}
+        onCredentialBlur={async () => {
+          const trimmed = b.tgToken.trim();
+          if (trimmed && !isMasked(trimmed)) await b.saveBridgeConfig('telegram', { token: trimmed }, undefined);
+        }}
+        testing={b.testingPlatform === 'telegram'}
+        hint={t('settings.bridge.telegramHint')}
+        ownerUsers={b.status?.knownUsers?.telegram || []}
+        currentOwner={b.status?.owner?.telegram}
+        onOwnerChange={(userId) => b.setOwner('telegram', userId)}
+      />
 
       {/* 飞书 */}
-      <section className={styles['settings-section']}>
-        <h2 className={styles['settings-section-title']}>{t('settings.bridge.feishu')}</h2>
-        <div className="bridge-platform-header">
-          <BridgeStatusDot status={fsInfo.status} />
-          <BridgeStatusText status={fsInfo.status} error={fsInfo.error} />
-          <Toggle
-            on={!!fsInfo.enabled}
-            onChange={async (on) => {
-              const hasSaved = !!fsInfo.appSecretMasked;
-              const hasRealSecret = fsAppSecret && !isMasked(fsAppSecret);
-              if (on && !hasRealSecret && !hasSaved) {
-                showToast(t('settings.bridge.noCredentials'), 'error');
-                return;
-              }
-              // If secret is masked and already saved on backend, don't send credentials at all
-              // to avoid overwriting real values with partial data
-              const creds: Record<string, string> | null = hasRealSecret ? { appId: fsAppId, appSecret: fsAppSecret } : null;
-              await saveBridgeConfig('feishu', creds, on);
-            }}
-          />
-        </div>
-        <div className={styles['settings-field']}>
-          <label className={styles['settings-field-label']}>{t('settings.bridge.feishuAppId')}</label>
-          <input
-            className={styles['settings-input']}
-            type="text"
-            value={fsAppId}
-            onChange={(e) => setFsAppId(e.target.value)}
-            onBlur={async () => {
-              if (fsAppId.trim() && fsAppSecret.trim() && !isMasked(fsAppSecret)) {
-                await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, undefined);
-              }
-            }}
-          />
-        </div>
-        <div className={styles['settings-field']}>
-          <label className={styles['settings-field-label']}>{t('settings.bridge.feishuAppSecret')}</label>
-          <div className="bridge-input-row">
-            <KeyInput
-              value={fsAppSecret}
-              onChange={setFsAppSecret}
-              placeholder=""
-              onBlur={async () => {
-                if (fsAppId.trim() && fsAppSecret.trim() && !isMasked(fsAppSecret)) {
-                  await saveBridgeConfig('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() }, undefined);
-                }
-              }}
-            />
-            <button
-              className="bridge-test-btn"
-              disabled={testingPlatform === 'feishu'}
-              onClick={() => {
-                if (!fsAppId.trim() || !fsAppSecret.trim() || isMasked(fsAppSecret)) { showToast(t('settings.bridge.noCredentials'), 'error'); return; }
-                testPlatform('feishu', { appId: fsAppId.trim(), appSecret: fsAppSecret.trim() });
-              }}
-            >
-              {testingPlatform === 'feishu' ? '...' : t('settings.bridge.test')}
-            </button>
-          </div>
-          <span className={styles['settings-field-hint']}>{t('settings.bridge.feishuHint')}</span>
-        </div>
-        <OwnerSelect
-          platform_="feishu"
-          users={status?.knownUsers?.feishu || []}
-          currentOwner={status?.owner?.feishu}
-          onChange={(userId) => setOwner('feishu', userId)}
-        />
-      </section>
+      <PlatformSection
+        platform="feishu"
+        title={t('settings.bridge.feishu')}
+        status={fsInfo}
+        credentialFields={[
+          { key: 'appId', label: t('settings.bridge.feishuAppId'), type: 'text', value: b.fsAppId, onChange: b.setFsAppId },
+          { key: 'appSecret', label: t('settings.bridge.feishuAppSecret'), type: 'secret', value: b.fsAppSecret, onChange: b.setFsAppSecret },
+        ]}
+        onToggle={async (on) => {
+          const hasRealSecret = b.fsAppSecret && !isMasked(b.fsAppSecret);
+          if (on && !hasRealSecret && !fsInfo.appSecretMasked) { b.showToast(t('settings.bridge.noCredentials'), 'error'); return; }
+          await b.saveBridgeConfig('feishu', hasRealSecret ? { appId: b.fsAppId, appSecret: b.fsAppSecret } : null, on);
+        }}
+        onTest={() => {
+          if (!b.fsAppId.trim() || !b.fsAppSecret.trim() || isMasked(b.fsAppSecret)) { b.showToast(t('settings.bridge.noCredentials'), 'error'); return; }
+          b.testPlatform('feishu', { appId: b.fsAppId.trim(), appSecret: b.fsAppSecret.trim() });
+        }}
+        onCredentialBlur={async () => {
+          if (b.fsAppId.trim() && b.fsAppSecret.trim() && !isMasked(b.fsAppSecret))
+            await b.saveBridgeConfig('feishu', { appId: b.fsAppId.trim(), appSecret: b.fsAppSecret.trim() }, undefined);
+        }}
+        testing={b.testingPlatform === 'feishu'}
+        hint={t('settings.bridge.feishuHint')}
+        ownerUsers={b.status?.knownUsers?.feishu || []}
+        currentOwner={b.status?.owner?.feishu}
+        onOwnerChange={(userId) => b.setOwner('feishu', userId)}
+      />
 
       {/* QQ */}
-      <section className={styles['settings-section']}>
-        <h2 className={styles['settings-section-title']}>QQ</h2>
-        <div className="bridge-platform-header">
-          <BridgeStatusDot status={qqInfo.status} />
-          <BridgeStatusText status={qqInfo.status} error={qqInfo.error} />
-          <Toggle
-            on={!!qqInfo.enabled}
-            onChange={async (on) => {
-              const hasSaved = !!(qqInfo.appID && qqInfo.appSecretMasked);
-              const hasRealCreds = qqAppId && qqAppSecret && !isMasked(qqAppSecret);
-              if (on && !hasRealCreds && !hasSaved) {
-                showToast(t('settings.bridge.noCredentials'), 'error');
-                return;
-              }
-              const creds = hasRealCreds ? { appID: qqAppId, appSecret: qqAppSecret } : null;
-              await saveBridgeConfig('qq', creds, on);
-            }}
-          />
-        </div>
-        <div className={styles['settings-field']}>
-          <label className={styles['settings-field-label']}>{t('settings.bridge.qqAppId')}</label>
-          <input
-            className={styles['settings-input']}
-            type="text"
-            value={qqAppId}
-            onChange={(e) => setQqAppId(e.target.value)}
-            onBlur={async () => {
-              if (qqAppId.trim() && qqAppSecret.trim() && !isMasked(qqAppSecret)) {
-                await saveBridgeConfig('qq', { appID: qqAppId.trim(), appSecret: qqAppSecret.trim() }, undefined);
-              }
-            }}
-          />
-        </div>
-        <div className={styles['settings-field']}>
-          <label className={styles['settings-field-label']}>{t('settings.bridge.qqAppSecret')}</label>
-          <div className="bridge-input-row">
-            <KeyInput
-              value={qqAppSecret}
-              onChange={setQqAppSecret}
-              placeholder=""
-              onBlur={async () => {
-                if (qqAppId.trim() && qqAppSecret.trim() && !isMasked(qqAppSecret)) {
-                  await saveBridgeConfig('qq', { appID: qqAppId.trim(), appSecret: qqAppSecret.trim() }, undefined);
-                }
-              }}
-            />
-            <button
-              className="bridge-test-btn"
-              disabled={testingPlatform === 'qq'}
-              onClick={() => {
-                if (!qqAppId.trim() || !qqAppSecret.trim() || isMasked(qqAppSecret)) { showToast(t('settings.bridge.noCredentials'), 'error'); return; }
-                testPlatform('qq', { appID: qqAppId.trim(), appSecret: qqAppSecret.trim() });
-              }}
-            >
-              {testingPlatform === 'qq' ? '...' : t('settings.bridge.test')}
-            </button>
-          </div>
-          <span className={styles['settings-field-hint']}>{t('settings.bridge.qqHint')}</span>
-        </div>
-        <OwnerSelect
-          platform_="qq"
-          users={status?.knownUsers?.qq || []}
-          currentOwner={status?.owner?.qq}
-          onChange={(userId) => setOwner('qq', userId)}
-        />
-      </section>
+      <PlatformSection
+        platform="qq"
+        title="QQ"
+        status={qqInfo}
+        credentialFields={[
+          { key: 'appID', label: t('settings.bridge.qqAppId'), type: 'text', value: b.qqAppId, onChange: b.setQqAppId },
+          { key: 'appSecret', label: t('settings.bridge.qqAppSecret'), type: 'secret', value: b.qqAppSecret, onChange: b.setQqAppSecret },
+        ]}
+        onToggle={async (on) => {
+          const hasRealCreds = b.qqAppId && b.qqAppSecret && !isMasked(b.qqAppSecret);
+          if (on && !hasRealCreds && !(qqInfo.appID && qqInfo.appSecretMasked)) { b.showToast(t('settings.bridge.noCredentials'), 'error'); return; }
+          await b.saveBridgeConfig('qq', hasRealCreds ? { appID: b.qqAppId, appSecret: b.qqAppSecret } : null, on);
+        }}
+        onTest={() => {
+          if (!b.qqAppId.trim() || !b.qqAppSecret.trim() || isMasked(b.qqAppSecret)) { b.showToast(t('settings.bridge.noCredentials'), 'error'); return; }
+          b.testPlatform('qq', { appID: b.qqAppId.trim(), appSecret: b.qqAppSecret.trim() });
+        }}
+        onCredentialBlur={async () => {
+          if (b.qqAppId.trim() && b.qqAppSecret.trim() && !isMasked(b.qqAppSecret))
+            await b.saveBridgeConfig('qq', { appID: b.qqAppId.trim(), appSecret: b.qqAppSecret.trim() }, undefined);
+        }}
+        testing={b.testingPlatform === 'qq'}
+        hint={t('settings.bridge.qqHint')}
+        ownerUsers={b.status?.knownUsers?.qq || []}
+        currentOwner={b.status?.owner?.qq}
+        onOwnerChange={(userId) => b.setOwner('qq', userId)}
+      />
 
       {/* 微信 */}
-      <section className={styles['settings-section']}>
-        <h2 className={styles['settings-section-title']}>{t('settings.bridge.wechat')}</h2>
-        <div className="bridge-platform-header">
-          <BridgeStatusDot status={wxInfo.status} />
-          <BridgeStatusText status={wxInfo.status} error={wxInfo.error} />
-          <Toggle
-            on={!!wxInfo.enabled}
-            onChange={async (on) => {
-              if (on && !wxInfo.tokenMasked) {
-                showToast(t('settings.bridge.wechatNeedScan'), 'error');
-                return;
-              }
-              await saveBridgeConfig('wechat', null, on);
-            }}
-          />
-        </div>
-        <div className={styles['settings-field']}>
-          {wxInfo.tokenMasked ? (
-            <div className={bridgeStyles['wechat-logged-in']}>
-              <span className={bridgeStyles['wechat-login-info']}>
-                {t('settings.bridge.wechatLoggedIn')}: {wxInfo.tokenMasked}
-              </span>
-              <div className={bridgeStyles['wechat-btn-row']}>
-                <button
-                  className="bridge-test-btn"
-                  onClick={() => window.dispatchEvent(new Event('hana-show-wechat-qrcode'))}
-                >
-                  {t('settings.bridge.wechatRescan')}
-                </button>
-                <button
-                  className="bridge-test-btn"
-                  onClick={async () => {
-                    try {
-                      await Promise.all([
-                        hanaFetch('/api/bridge/config', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ platform: 'wechat', credentials: { botToken: '' }, enabled: false }),
-                        }),
-                        hanaFetch('/api/bridge/owner', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ platform: 'wechat', userId: null }),
-                        }),
-                      ]);
-                      showToast(t('settings.bridge.wechatUnbound'), 'success');
-                    } catch {
-                      showToast(t('settings.saveFailed'), 'error');
-                    }
-                    await loadStatus();
-                  }}
-                >
-                  {t('settings.bridge.wechatUnbind')}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className={bridgeStyles['wechat-scan-row']}>
-              <button
-                className="bridge-test-btn"
-                onClick={() => window.dispatchEvent(new Event('hana-show-wechat-qrcode'))}
-              >
-                {t('settings.bridge.wechatScan')}
-              </button>
-            </div>
-          )}
-          <span className={styles['settings-field-hint']}>{t('settings.bridge.wechatHint')}</span>
-        </div>
-      </section>
+      <WechatSection
+        status={wxInfo}
+        showToast={b.showToast}
+        onSaveConfig={(creds, enabled) => b.saveBridgeConfig('wechat', creds, enabled)}
+        onReload={b.loadStatus}
+      />
 
       {/* WhatsApp */}
-      <section className={styles['settings-section']}>
-        <h2 className={styles['settings-section-title']}>WhatsApp</h2>
-        <div className="bridge-platform-header">
-          <BridgeStatusDot status={waInfo.status} />
-          <BridgeStatusText status={waInfo.status} error={waInfo.error} />
-          <Toggle
-            on={!!waInfo.enabled}
-            onChange={async (on) => {
-              await saveBridgeConfig('whatsapp', null, on);
-            }}
-          />
-        </div>
-        <div className={styles['settings-field']}>
-          <span className={styles['settings-field-hint']}>{t('settings.bridge.whatsappHint')}</span>
-        </div>
-        <OwnerSelect
-          platform_="whatsapp"
-          users={status?.knownUsers?.whatsapp || []}
-          currentOwner={status?.owner?.whatsapp}
-          onChange={(userId) => setOwner('whatsapp', userId)}
-        />
-      </section>
+      <PlatformSection
+        platform="whatsapp"
+        title="WhatsApp"
+        status={waInfo}
+        credentialFields={[]}
+        onToggle={async (on) => { await b.saveBridgeConfig('whatsapp', null, on); }}
+        onTest={() => {}}
+        testing={false}
+        hint={t('settings.bridge.whatsappHint')}
+        ownerUsers={b.status?.knownUsers?.whatsapp || []}
+        currentOwner={b.status?.owner?.whatsapp}
+        onOwnerChange={(userId) => b.setOwner('whatsapp', userId)}
+      />
 
       {/* 只读模式 */}
       <section className={styles['settings-section']}>
@@ -509,89 +164,15 @@ export function BridgeTab() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ readOnly: on }),
                 });
-                showToast(t('settings.saved'), 'success');
-                await loadStatus();
+                b.showToast(t('settings.saved'), 'success');
+                await b.loadStatus();
               } catch {
-                showToast(t('settings.saveFailed'), 'error');
+                b.showToast(t('settings.saveFailed'), 'error');
               }
             }}
           />
         </div>
       </section>
-    </div>
-  );
-}
-
-function BridgeStatusDot({ status }: { status?: string }) {
-  let cls = 'bridge-status-dot';
-  if (status === 'connected') cls += ' bridge-dot-ok';
-  else if (status === 'error') cls += ' bridge-dot-err';
-  else cls += ' bridge-dot-off';
-  return <span className={cls} />;
-}
-
-function BridgeStatusText({ status, error }: { status?: string; error?: string }) {
-  let text = t('settings.bridge.disconnected');
-  if (status === 'connected') text = t('settings.bridge.connected');
-  else if (status === 'error') text = t('settings.bridge.error') + (error ? `: ${error}` : '');
-  return <span className="bridge-status-text">{text}</span>;
-}
-
-function OwnerSelect({ platform_, users, currentOwner, onChange }: {
-  platform_: string; users: KnownUser[]; currentOwner?: string; onChange: (userId: string) => void;
-}) {
-  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
-
-  const handleChange = (value: string) => {
-    if (!value) {
-      onChange(value);
-      return;
-    }
-    setPendingUserId(value);
-  };
-
-  const confirm = () => {
-    if (pendingUserId !== null) {
-      onChange(pendingUserId);
-      setPendingUserId(null);
-    }
-  };
-
-  const cancel = () => setPendingUserId(null);
-
-  return (
-    <div className={`${styles['settings-field']} ${'bridge-owner-field'}`}>
-      <label className={`${styles['settings-field-label']} ${'bridge-owner-label'}`}>{t('settings.bridge.ownerSelect')}</label>
-      <p className="bridge-owner-warning">{t('settings.bridge.ownerWarning')}</p>
-      <select
-        className={`${styles['settings-input']} ${'bridge-owner-select'}`}
-        value={currentOwner || ''}
-        onChange={(e) => handleChange(e.target.value)}
-        disabled={users.length === 0}
-      >
-        <option value="">{users.length > 0 ? '—' : t('settings.bridge.ownerNone')}</option>
-        {users.map((u) => (
-          <option key={u.userId} value={u.userId}>{u.name || u.userId}</option>
-        ))}
-      </select>
-
-      {pendingUserId !== null && (
-        <div className={`${styles['memory-confirm-overlay']} ${styles['visible']}`} onClick={(e) => { if (e.target === e.currentTarget) cancel(); }}>
-          <div className={styles['memory-confirm-card']}>
-            <p className={styles['memory-confirm-text']}>
-              {t('settings.bridge.ownerConfirmText')}
-            </p>
-            <div className={styles['memory-confirm-actions']}>
-              <button className={styles['memory-confirm-cancel']} onClick={cancel}>
-                {t('settings.bridge.ownerConfirmCancel')}
-              </button>
-              <button className={styles['memory-confirm-primary']} onClick={confirm}>
-                {t('settings.bridge.ownerConfirmSave')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
