@@ -79,11 +79,11 @@ export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
     >
       {items.map((item, i) => {
         if (item.divider) {
-          return <div key={i} className="context-menu-divider" />;
+          return <div key={`divider-${i}`} className="context-menu-divider" />;
         }
         return (
           <div
-            key={i}
+            key={`${item.label || 'item'}-${i}`}
             className={`context-menu-item${item.danger ? ' danger' : ''}`}
             onClick={(e) => handleItemClick(e, item.action)}
           >

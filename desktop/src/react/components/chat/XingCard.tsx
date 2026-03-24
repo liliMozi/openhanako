@@ -23,7 +23,7 @@ export const XingCard = memo(function XingCard({ title, content, sealed, agentNa
   }, [content]);
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(content).catch(() => {});
+    navigator.clipboard.writeText(content).catch(() => {}); // clipboard may reject without focus/permission — non-critical
   }, [content]);
 
   const html = sealed ? renderMarkdown(content) : '';

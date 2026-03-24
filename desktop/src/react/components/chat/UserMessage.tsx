@@ -79,7 +79,7 @@ const UserAttachmentsView = memo(function UserAttachmentsView({ attachments, des
         if (isImage(att) && att.base64Data) {
           return (
             <img
-              key={i}
+              key={att.name || `att-${i}`}
               className={styles.attachImage}
               src={`data:${att.mimeType || 'image/png'};base64,${att.base64Data}`}
               alt={att.name}
@@ -89,7 +89,7 @@ const UserAttachmentsView = memo(function UserAttachmentsView({ attachments, des
         }
         return (
           <AttachmentChip
-            key={i}
+            key={att.name || `att-${i}`}
             icon={att.isDir ? <FolderIcon /> : <FileIcon />}
             name={att.name}
           />

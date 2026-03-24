@@ -170,7 +170,7 @@ export function DeskFileItem({
     }
     if (!bulkNames) {
       items.push({ label: tFn('desk.ctx.rename'), action: () => onRenameStart(file.name) });
-      items.push({ label: tFn('desk.ctx.copyPath'), action: () => { const p = deskFullPath(file.name); if (p) navigator.clipboard.writeText(p).catch(() => {}); } });
+      items.push({ label: tFn('desk.ctx.copyPath'), action: () => { const p = deskFullPath(file.name); if (p) navigator.clipboard.writeText(p).catch(() => {}); /* clipboard may reject without focus/permission — non-critical */ } });
     }
     items.push({ divider: true });
     const deleteLabel = bulkNames ? tFn('desk.ctx.deleteN', { n: bulkNames.length }) : tFn('desk.ctx.delete');

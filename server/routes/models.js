@@ -50,6 +50,7 @@ export default async function modelsRoute(app, { engine }) {
           isCurrent: id === engine.currentModel?.id,
           reasoning: m ? !!m.reasoning : false,
           xhigh: m ? supportsXhigh(m) : false,
+          vision: m?.provider ? (engine.providerRegistry.get(m.provider)?.capabilities?.vision !== false) : true,
         };
       });
 
@@ -75,7 +76,7 @@ export default async function modelsRoute(app, { engine }) {
       if (!model) { reply.code(404); return { error: `model "${modelId}" not found` }; }
 
       // 凭证解析：providers.yaml → auth.json OAuth（含 resourceUrl）→ 模型对象自带 baseUrl
-      const creds = engine._resolveProviderCredentials(model.provider);
+      const creds = engine.resolveProviderCredentials(model.provider);
 
       // OAuth provider 可能有 resourceUrl（实际使用的域名，可能和内置不同）
       const oauthCred = engine.authStorage.get(model.provider);

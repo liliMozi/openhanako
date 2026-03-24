@@ -129,8 +129,8 @@ export function SkillViewerOverlay() {
         <div className="sv-body">
           {/* 文件树 */}
           <div className="sv-sidebar">
-            {files.map((item, i) => (
-              <TreeNode key={i} item={item} activeFile={activeFile} onSelect={loadFile} />
+            {files.map((item) => (
+              <TreeNode key={item.path || item.name} item={item} activeFile={activeFile} onSelect={loadFile} />
             ))}
           </div>
 
@@ -185,8 +185,8 @@ function TreeNode({ item, activeFile, onSelect }: {
         </div>
         {!collapsed && (
           <div className="sv-tree-children">
-            {item.children?.map((child, i) => (
-              <TreeNode key={i} item={child} activeFile={activeFile} onSelect={onSelect} />
+            {item.children?.map((child) => (
+              <TreeNode key={child.path || child.name} item={child} activeFile={activeFile} onSelect={onSelect} />
             ))}
           </div>
         )}

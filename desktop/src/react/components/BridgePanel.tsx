@@ -283,7 +283,7 @@ export function BridgePanel() {
                   {messages.length === 0 ? (
                     <div className={fp.bridgeChatNoMsg}>{t('bridge.noMessages')}</div>
                   ) : (
-                    messages.map((m, i) => <ChatBubble key={i} message={m} />)
+                    messages.map((m, i) => <ChatBubble key={`bridge-msg-${i}`} message={m} />)
                   )}
                 </div>
               </>

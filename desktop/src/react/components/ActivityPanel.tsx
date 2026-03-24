@@ -272,7 +272,7 @@ function DetailBody({ messages }: { messages: DetailMessage[] }) {
         if (m.role === 'assistant') {
           const { mood, text } = parseMoodFromContent(m.content);
           return (
-            <div key={i} className={`${fp.activityDetailMsg} ${fp.activityDetailMsgAssistant}`}>
+            <div key={`msg-${i}`} className={`${fp.activityDetailMsg} ${fp.activityDetailMsgAssistant}`}>
               <div className={fp.activityDetailBubble}>
                 {mood && (
                   <details className={chatStyles.moodWrapper}>
@@ -295,7 +295,7 @@ function DetailBody({ messages }: { messages: DetailMessage[] }) {
           );
         }
         return (
-          <div key={i} className={`${fp.activityDetailMsg} ${fp.activityDetailMsgUser}`}>
+          <div key={`msg-${i}`} className={`${fp.activityDetailMsg} ${fp.activityDetailMsgUser}`}>
             <div className={fp.activityDetailBubble}>{m.content}</div>
           </div>
         );

@@ -59,6 +59,7 @@ function InputAreaInner() {
   const setThinkingLevel = useStore(s => s.setThinkingLevel);
 
   const currentModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
+  const supportsVision = currentModelInfo?.vision !== false;
   const chatSessions = useStore(s => s.chatSessions);
   const sessionHasMessages = !!(currentSessionPath && chatSessions[currentSessionPath]?.items?.length);
 
@@ -190,6 +191,7 @@ function InputAreaInner() {
     if (!items) return;
     for (const item of items) {
       if (!item.type.startsWith('image/')) continue;
+      if (!supportsVision) { e.preventDefault(); return; }
       e.preventDefault();
       const file = item.getAsFile();
       if (!file) continue;
@@ -210,14 +212,14 @@ function InputAreaInner() {
       reader.readAsDataURL(file);
       break;
     }
-  }, [addAttachedFile, t]);
+  }, [addAttachedFile, t, supportsVision]);
 
   // ── Load thinking level on mount + listen for plan mode sync ──
   useEffect(() => {
     hanaFetch('/api/config')
       .then(r => r.json())
       .then(d => { if (d.thinking_level) setThinkingLevel(d.thinking_level as ThinkingLevel); })
-      .catch(() => {});
+      .catch((err: unknown) => console.warn('[InputArea] load config failed', err));
 
     const handler = (e: Event) => {
       setPlanMode((e as CustomEvent).detail?.enabled ?? false);
@@ -249,9 +251,9 @@ function InputAreaInner() {
         loadSessions();
       }
 
-      // 分离图片和非图片附件
-      const imageFiles = hasFiles ? attachedFiles.filter(f => !f.isDirectory && isImageFile(f.name)) : [];
-      const otherFiles = hasFiles ? attachedFiles.filter(f => f.isDirectory || !isImageFile(f.name)) : [];
+      // 分离图片和非图片附件（模型不支持 vision 时，图片降级为普通附件路径）
+      const imageFiles = hasFiles && supportsVision ? attachedFiles.filter(f => !f.isDirectory && isImageFile(f.name)) : [];
+      const otherFiles = hasFiles ? attachedFiles.filter(f => f.isDirectory || !isImageFile(f.name) || !supportsVision) : [];
 
       let finalText = text;
       if (otherFiles.length > 0) {

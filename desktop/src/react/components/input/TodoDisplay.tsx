@@ -14,7 +14,7 @@ export function TodoDisplay({ todos }: { todos: Array<{ text: string; done: bool
       {open && (
         <div className={styles['todo-bar-list']}>
           {todos.map((td, i) => (
-            <div key={i} className={`${styles['todo-bar-item']}${td.done ? ` ${styles['todo-bar-done']}` : ''}`}>
+            <div key={`todo-${i}`} className={`${styles['todo-bar-item']}${td.done ? ` ${styles['todo-bar-done']}` : ''}`}>
               <span className={styles['todo-bar-check']}>{td.done ? '✓' : '○'}</span>
               <span>{td.text}</span>
             </div>

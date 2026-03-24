@@ -24,9 +24,6 @@ declare global {
     // ── Desk skills reload callback ──
     __loadDeskSkills?: () => void;
 
-    // ── OAuth session tracking ──
-    __oauthSessionId?: string;
-
     // ── Notification bridge ──
     showNotification?: (title: string, body: string) => void;
     updateBrowserViewer?: (data: { url: string; thumbnail?: string }) => void;

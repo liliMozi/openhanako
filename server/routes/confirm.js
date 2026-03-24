@@ -19,7 +19,7 @@ export default async function confirmRoute(app, { confirmStore, engine }) {
     }
 
     // 广播状态变更，让前端更新卡片
-    engine._emitEvent({
+    engine.emitEvent({
       type: "confirmation_resolved",
       confirmId,
       action,

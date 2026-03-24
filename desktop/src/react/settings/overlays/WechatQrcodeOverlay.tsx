@@ -86,7 +86,7 @@ export function WechatQrcodeOverlay() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ platform: 'wechat', userId: data.userId }),
-              }).catch(() => {});
+              }).catch((err: unknown) => console.warn('[WechatQrcodeOverlay] set owner failed', err));
             }
             window.dispatchEvent(new Event('hana-bridge-reload'));
             setTimeout(close, 1200);

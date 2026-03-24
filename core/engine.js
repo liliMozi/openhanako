@@ -405,6 +405,7 @@ export class HanaEngine {
   _resolveThinkingLevel(l) { return this._models.resolveThinkingLevel(l); }
   _resolveExecutionModel(r) { return this._models.resolveExecutionModel(r); }
   _resolveProviderCredentials(p) { return this._models.resolveProviderCredentials(p, this.agent.config); }
+  resolveProviderCredentials(p) { return this._resolveProviderCredentials(p); }
   _inferModelProvider(id) { return this._models.inferModelProvider(id); }
   async refreshAvailableModels() { return this._models.refreshAvailable(); }
 
@@ -584,6 +585,8 @@ export class HanaEngine {
       }
     }
   }
+
+  emitEvent(event, sessionPath) { this._emitEvent(event, sessionPath); }
 
   emitDevLog(text, level = "info") {
     const entry = { text, level, ts: Date.now() };

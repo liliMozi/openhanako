@@ -58,7 +58,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {});
+    }).catch(() => {}); // clipboard may reject without focus/permission — non-critical
   }, [blocks]);
 
   return (
@@ -90,7 +90,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
       )}
       <div className={`${styles.message} ${styles.messageAssistant}`}>
         {blocks.map((block, i) => (
-          <ContentBlockView key={i} block={block} agentName={displayName} yuan={displayYuan} />
+          <ContentBlockView key={`block-${i}`} block={block} agentName={displayName} yuan={displayYuan} />
         ))}
       </div>
       <button className={`${styles.msgCopyBtn}${copied ? ` ${styles.msgCopyBtnCopied}` : ''}`} onClick={handleCopy} title={t('common.copyText')}>

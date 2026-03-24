@@ -102,7 +102,7 @@ export async function openChannel(channelId: string, isDM?: boolean): Promise<vo
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ timestamp: lastMsg.timestamp }),
-        }).catch(() => {});
+        }).catch((err: unknown) => console.warn('[channel-actions] mark-as-read failed', err));
 
         // 重新取 store 最新状态，避免覆盖 await 期间的并发更新
         const fresh = useStore.getState();
