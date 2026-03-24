@@ -18,7 +18,17 @@ export default async function internalBrowserRoute(app) {
 
     socket.on("close", () => {
       console.log("[server] Electron browser control WS disconnected");
-      bm.setWsTransport(null);
+      // 只有当前 socket 仍是活跃连接时才 detach（防止新连接被旧 close 事件误清）
+      if (bm._transport?._ws === socket) {
+        bm.setWsTransport(null);
+      }
+    });
+
+    socket.on("error", (err) => {
+      console.error("[server] Electron browser control WS error:", err.message);
+      if (bm._transport?._ws === socket) {
+        bm.setWsTransport(null);
+      }
     });
   });
 }
