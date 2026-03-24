@@ -3,7 +3,7 @@
  *
  * 职责：
  * 1. 创建启动窗口（splash）
- * 2. fork() 启动 Hanako Server
+ * 2. spawn() 启动 Hanako Server
  * 3. 等待 server 就绪 + 主窗口初始化完成
  * 4. 关闭 splash，显示主窗口
  * 5. 优雅关闭
@@ -11,7 +11,7 @@
 const { app, BrowserWindow, WebContentsView, globalShortcut, ipcMain, dialog, session, shell, nativeTheme, Tray, Menu, nativeImage, systemPreferences, Notification } = require("electron");
 const os = require("os");
 const path = require("path");
-const { fork, execFileSync } = require("child_process");
+const { spawn, execFileSync } = require("child_process");
 const fs = require("fs");
 const { initAutoUpdater, checkForUpdatesAuto, setMainWindow: setUpdaterMainWindow, setUpdateChannel } = require("./auto-updater.cjs");
 const { wrapIpcHandler, wrapIpcOn } = require('./ipc-wrapper.cjs');
@@ -242,6 +242,44 @@ function hasExistingConfig() {
 // 收集 server 的 stdout/stderr 用于崩溃诊断
 let _serverLogs = [];
 
+/**
+ * 轮询 server-info.json 等待 server 就绪
+ */
+function pollServerInfo(infoPath, { timeout = 60000, interval = 200, process: proc } = {}) {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeout;
+    let exited = false;
+
+    if (proc) {
+      proc.on("exit", (code, signal) => {
+        exited = true;
+        reject(new Error(
+          signal
+            ? mt("dialog.serverKilledBySignal", { signal })
+            : mt("dialog.serverExitedWithCode", { code })
+        ));
+      });
+    }
+
+    const check = () => {
+      if (exited) return;
+      if (Date.now() > deadline) {
+        reject(new Error(mt("dialog.serverStartTimeout", null, "Server start timed out (60s)")));
+        return;
+      }
+      try {
+        const info = JSON.parse(fs.readFileSync(infoPath, "utf-8"));
+        // 确认 PID 存活
+        try { process.kill(info.pid, 0); } catch { setTimeout(check, interval); return; }
+        resolve(info);
+      } catch {
+        setTimeout(check, interval);
+      }
+    };
+    check();
+  });
+}
+
 async function startServer() {
   const serverInfoPath = path.join(hanakoHome, "server-info.json");
 
@@ -249,7 +287,7 @@ async function startServer() {
   let existingInfo = null;
   try {
     existingInfo = JSON.parse(fs.readFileSync(serverInfoPath, "utf-8"));
-  } catch { /* 文件不存在或解析失败，直接 fork */ }
+  } catch { /* 文件不存在或解析失败，启动新 server */ }
 
   if (existingInfo) {
     const pidAlive = (() => {
@@ -273,7 +311,7 @@ async function startServer() {
         }
       } catch { /* health check 网络抖动，继续 kill 旧 server */ }
 
-      if (reused) return; // 跳过 fork
+      if (reused) return; // 跳过启动
 
       // PID 存活但 health 失败（无响应或异常）：主动 kill，避免双 server 并存
       console.log(`[desktop] 旧 server (PID ${existingInfo.pid}) 无响应，正在终止...`);
@@ -290,92 +328,81 @@ async function startServer() {
     try { fs.unlinkSync(serverInfoPath); } catch {}
   }
 
-  // ── 2. Fork 新 server ──
+  // ── 2. 启动新 server ──
   _serverLogs = [];
-  // boot.cjs 包装 ESM 入口，捕获 native module 加载失败等错误
-  const serverPath = path.join(__dirname, "..", "server", "boot.cjs");
 
-  await new Promise((resolve, reject) => {
-    // 用 Electron 自带的 Node.js 跑 server（ELECTRON_RUN_AS_NODE=1 让它以纯 Node 模式运行）
-    // native addon（better-sqlite3 等）需要通过 electron-rebuild 编译到对应 ABI
-    // detached: true — server 成为独立进程组，Electron crash 后 server 可继续运行
-    // Windows: 把内嵌 Git Portable 的 bin 目录注入 PATH，让 PI SDK 的 bash 探测能找到
-    const serverEnv = {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: "1",
-      HANA_HOME: hanakoHome,
-    };
-    if (process.platform === "win32") {
-      // MinGit-busybox 结构：cmd/git.exe, mingw64/bin/git.exe+sh.exe
-      const gitRoot = path.join(process.resourcesPath || "", "git");
-      const gitPaths = [
-        path.join(gitRoot, "mingw64", "bin"),
-        path.join(gitRoot, "cmd"),
-      ].filter(p => fs.existsSync(p));
-      if (gitPaths.length) {
-        // Windows 的 PATH 环境变量 key 可能是 "Path"（title case）或 "PATH"，
-        // { ...process.env } 展开后变成普通对象（区分大小写）。
-        // 必须找到原始 key 并删除，否则会同时存在 Path 和 PATH 两个 key，
-        // 导致 fork 子进程的 PATH 不可预测。
-        const pathKey = Object.keys(serverEnv).find(k => k.toLowerCase() === "path") || "PATH";
-        const existingPath = serverEnv[pathKey] || "";
-        if (pathKey !== "PATH") delete serverEnv[pathKey];
-        serverEnv.PATH = gitPaths.join(";") + ";" + existingPath;
-      }
+  const serverEnv = { ...process.env, HANA_HOME: hanakoHome };
+
+  // Windows: 注入 MinGit 路径
+  if (process.platform === "win32") {
+    // MinGit-busybox 结构：cmd/git.exe, mingw64/bin/git.exe+sh.exe
+    const gitRoot = path.join(process.resourcesPath || "", "git");
+    const gitPaths = [
+      path.join(gitRoot, "mingw64", "bin"),
+      path.join(gitRoot, "cmd"),
+    ].filter(p => fs.existsSync(p));
+    if (gitPaths.length) {
+      // Windows 的 PATH 环境变量 key 可能是 "Path"（title case）或 "PATH"，
+      // { ...process.env } 展开后变成普通对象（区分大小写）。
+      // 必须找到原始 key 并删除，否则会同时存在 Path 和 PATH 两个 key，
+      // 导致 spawn 子进程的 PATH 不可预测。
+      const pathKey = Object.keys(serverEnv).find(k => k.toLowerCase() === "path") || "PATH";
+      const existingPath = serverEnv[pathKey] || "";
+      if (pathKey !== "PATH") delete serverEnv[pathKey];
+      serverEnv.PATH = gitPaths.join(";") + ";" + existingPath;
     }
+  }
 
-    serverProcess = fork(serverPath, [], {
-      detached: true,
-      windowsHide: true,
-      env: serverEnv,
-      stdio: ["pipe", "pipe", "pipe", "ipc"],
-    });
+  // 选择 server 启动方式
+  let serverBin, serverArgs;
+  const bundledServer = path.join(process.resourcesPath || "", "server", "hana-server");
+  if (fs.existsSync(bundledServer) || fs.existsSync(bundledServer + ".exe")) {
+    // 打包模式：使用 extraResources 里的独立 server
+    const bin = process.platform === "win32" ? bundledServer + ".exe" : bundledServer;
+    serverBin = bin;
+    serverArgs = [];
+    serverEnv.HANA_ROOT = path.join(process.resourcesPath, "server");
+  } else {
+    // 开发模式：用 Electron 自带的 Node（ELECTRON_RUN_AS_NODE=1）跑源码
+    // native addon（better-sqlite3 等）通过 electron-rebuild 编译到对应 ABI，
+    // 必须用 Electron 的 Node 才能加载，用系统 node 会 ABI 不匹配
+    serverBin = process.execPath;
+    serverArgs = [path.join(__dirname, "..", "server", "index.js")];
+    serverEnv.ELECTRON_RUN_AS_NODE = "1";
+  }
 
-    // 捕获 stdout/stderr 到 buffer（打包后 console 不可见，崩溃时需要这些信息）
-    serverProcess.stdout?.on("data", (chunk) => {
-      const text = chunk.toString();
-      try { process.stdout.write(text); } catch {}
-      _serverLogs.push(text);
-      if (_serverLogs.length > 500) _serverLogs.splice(0, _serverLogs.length - 500);
-    });
-    serverProcess.stderr?.on("data", (chunk) => {
-      const text = chunk.toString();
-      try { process.stderr.write(text); } catch {}
-      _serverLogs.push("[stderr] " + text);
-      if (_serverLogs.length > 500) _serverLogs.splice(0, _serverLogs.length - 500);
-    });
+  // 删除旧 server-info.json
+  try { fs.unlinkSync(serverInfoPath); } catch {}
 
-    const timeout = setTimeout(() => {
-      try { serverProcess.kill(); } catch {}
-      reject(new Error(mt("dialog.serverStartTimeout", null, "Server start timed out (60s)")));
-    }, 60000);
-
-    serverProcess.on("message", (msg) => {
-      if (msg?.type === "ready") {
-        clearTimeout(timeout);
-        serverPort = msg.port;
-        serverToken = msg.token;
-        serverProcess.unref(); // 脱离 Electron 事件循环，允许 Electron 独立退出
-        resolve(msg.port);
-      }
-    });
-
-    serverProcess.on("error", (err) => {
-      clearTimeout(timeout);
-      reject(err);
-    });
-
-    serverProcess.on("exit", (code, signal) => {
-      if (signal) {
-        // 被信号终止（如 SIGSEGV），立即报错而非等 60s 超时
-        clearTimeout(timeout);
-        reject(new Error(mt("dialog.serverKilledBySignal", { signal })));
-      } else if (code !== 0 && code !== null) {
-        clearTimeout(timeout);
-        reject(new Error(mt("dialog.serverExitedWithCode", { code })));
-      }
-    });
+  serverProcess = spawn(serverBin, serverArgs, {
+    detached: true,
+    windowsHide: true,
+    env: serverEnv,
+    stdio: ["pipe", "pipe", "pipe"],
   });
+
+  // 捕获 stdout/stderr 到 buffer（打包后 console 不可见，崩溃时需要这些信息）
+  serverProcess.stdout?.on("data", (chunk) => {
+    const text = chunk.toString();
+    try { process.stdout.write(text); } catch {}
+    _serverLogs.push(text);
+    if (_serverLogs.length > 500) _serverLogs.splice(0, _serverLogs.length - 500);
+  });
+  serverProcess.stderr?.on("data", (chunk) => {
+    const text = chunk.toString();
+    try { process.stderr.write(text); } catch {}
+    _serverLogs.push("[stderr] " + text);
+    if (_serverLogs.length > 500) _serverLogs.splice(0, _serverLogs.length - 500);
+  });
+
+  // 等待 server ready（通过轮询 server-info.json）
+  const info = await pollServerInfo(serverInfoPath, {
+    timeout: 60000,
+    process: serverProcess,
+  });
+  serverPort = info.port;
+  serverToken = info.token;
+  serverProcess.unref(); // 脱离 Electron 事件循环，允许 Electron 独立退出
 }
 
 /**
@@ -871,7 +898,7 @@ function createBrowserViewerWindow(opts = {}) {
 
 // ══════════════════════════════════════════
 //  嵌入式浏览器控制
-//  Server 进程通过 IPC 发送 browser-cmd，
+//  Server 通过 WebSocket (/internal/browser) 发送 browser-cmd，
 //  主进程在 WebContentsView 上执行操作
 // ══════════════════════════════════════════
 
@@ -1309,23 +1336,44 @@ async function handleBrowserCommand(cmd, params) {
   }
 }
 
-/** 监听 server 进程的浏览器命令 */
+/** 通过 WebSocket 监听 server 的浏览器命令 */
 function setupBrowserCommands() {
-  if (!serverProcess) return;
-  serverProcess.on("message", async (msg) => {
-    if (msg?.type !== "browser-cmd") return;
-    const { id, cmd, params } = msg;
-    try {
-      const result = await handleBrowserCommand(cmd, params || {});
-      if (serverProcess && !serverProcess.killed) {
-        serverProcess.send({ type: "browser-result", id, result });
+  if (!serverPort || !serverToken) return;
+
+  const WebSocket = require("ws");
+  const url = `ws://127.0.0.1:${serverPort}/internal/browser?token=${serverToken}`;
+  let ws;
+
+  function connect() {
+    ws = new WebSocket(url);
+    ws.on("open", () => {
+      console.log("[desktop] Browser control WS connected");
+    });
+    ws.on("message", async (data) => {
+      let msg;
+      try { msg = JSON.parse(data); } catch { return; }
+      if (msg?.type !== "browser-cmd") return;
+      const { id, cmd, params } = msg;
+      try {
+        const result = await handleBrowserCommand(cmd, params || {});
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: "browser-result", id, result }));
+        }
+      } catch (err) {
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: "browser-result", id, error: err.message }));
+        }
       }
-    } catch (err) {
-      if (serverProcess && !serverProcess.killed) {
-        serverProcess.send({ type: "browser-result", id, error: err.message });
+    });
+    ws.on("close", () => {
+      if (!isQuitting) {
+        setTimeout(connect, 2000);
       }
-    }
-  });
+    });
+    ws.on("error", () => {}); // close event handles reconnect
+  }
+
+  connect();
 }
 
 // ── 创建 Onboarding 窗口 ──
@@ -2034,11 +2082,24 @@ app.on("before-quit", async (event) => {
   _browserWebView = null;
   _currentBrowserSession = null;
 
-  // 完全退出：同时 kill server
+  // 完全退出：同时关闭 server
   if (serverProcess && !serverProcess.killed) {
     event.preventDefault();
     console.log("[desktop] 正在关闭 Server...");
-    try { serverProcess.send({ type: "shutdown" }); } catch {}
+
+    if (process.platform === "win32") {
+      // Windows：用 HTTP 关闭（信号不可靠）
+      try {
+        await fetch(`http://127.0.0.1:${serverPort}/api/shutdown`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${serverToken}` },
+          signal: AbortSignal.timeout(5000),
+        });
+      } catch {}
+    } else {
+      // macOS/Linux：SIGTERM
+      try { serverProcess.kill("SIGTERM"); } catch {}
+    }
 
     await new Promise((resolve) => {
       const timeout = setTimeout(() => {
