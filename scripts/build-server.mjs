@@ -2,26 +2,41 @@
 /**
  * build-server.mjs — 构建 server 独立分发包
  *
- * 策略：直接复制源码 + production npm install + Node.js runtime
- * 不使用 esbuild（ESM+CJS 混用项目无法 bundle，见 memory 记录）
+ * 策略：Vite bundle + 外部依赖 npm install + Node.js runtime
+ * Vite 把 server/core/lib/shared/hub 源码打成几个 chunk，
+ * 只有 native addon 和无法 bundle 的 SDK 作为 external 走 npm ci。
  *
  * 关键设计：用目标 Node.js runtime 来装依赖和编译 native addon，
  * 确保 better-sqlite3 的 ABI 跟运行时一致（系统 Node 版本可能不同）。
+ * Vite build 用系统 Node 跑（构建时工具，不涉及 ABI）。
  *
  * 产出结构：
  *   dist-server/{platform}-{arch}/
  *     hana-server             ← shell wrapper（设置 HANA_ROOT 并启动）
  *     node                    ← Node.js runtime
- *     package.json            ← "type": "module" + dependencies
- *     package-lock.json       ← 锁定依赖版本
- *     server/                 ← HTTP / WS / CLI
- *     core/                   ← engine / agent / session
- *     lib/                    ← 工具、provider、数据文件
- *     shared/                 ← 跨平台工具
- *     hub/                    ← 多 agent 编排
- *     skills2set/             ← 技能包
+ *     bundle/                 ← Vite bundle 产出
+ *       index.js              ← 入口（~750KB）
+ *       chunks/               ← 按模块拆分的 chunk
+ *         shared-XXXX.js
+ *         core-XXXX.js
+ *         lib-XXXX.js
+ *         hub-XXXX.js
+ *     lib/                    ← 数据文件（非源码，运行时 fromRoot() 读取）
+ *       known-models.json
+ *       default-models.json
+ *       config.example.yaml
+ *       identity.example.md
+ *       ishiki.example.md
+ *       pinned.example.md
+ *       identity-templates/
+ *       ishiki-templates/
+ *       public-ishiki-templates/
+ *       yuan/
  *     desktop/src/locales/    ← i18n 资源
- *     node_modules/           ← production dependencies
+ *     skills2set/             ← 技能包
+ *     package.json            ← external deps + version（node_modules 解析 + 运行时版本读取）
+ *     package-lock.json       ← 锁定依赖版本
+ *     node_modules/           ← 仅 external deps（~50 packages）
  */
 import fs from "fs";
 import path from "path";
@@ -43,7 +58,7 @@ fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
 // ── 1. 下载 / 缓存 Node.js runtime ──
-// 先拿到目标 Node，后续 npm ci + rebuild 全用它跑，保证 ABI 一致
+// 先拿到目标 Node，后续 npm ci 全用它跑，保证 ABI 一致
 const NODE_VERSION = "v22.16.0";
 const cacheDir = path.join(ROOT, ".cache", "node-runtime");
 fs.mkdirSync(cacheDir, { recursive: true });
@@ -114,15 +129,59 @@ function runWithTargetNode(cmd, opts = {}) {
   });
 }
 
-// ── 2. 复制源码 ──
-const SOURCE_DIRS = ["server", "core", "lib", "shared", "hub"];
-for (const dir of SOURCE_DIRS) {
-  const src = path.join(ROOT, dir);
+// ── 2. Vite bundle ──
+// 用系统 Node 跑 Vite（构建时工具，不涉及 native addon ABI）
+// 产出到 dist-server-bundle/，然后复制到 outDir/bundle/
+console.log("[build-server] running Vite bundle...");
+const viteBundleDir = path.join(ROOT, "dist-server-bundle");
+execSync("npx vite build --config vite.config.server.js", {
+  cwd: ROOT,
+  stdio: "inherit",
+});
+
+// 复制 bundle 产出
+const bundleOutDir = path.join(outDir, "bundle");
+fs.cpSync(viteBundleDir, bundleOutDir, { recursive: true });
+console.log("[build-server] Vite bundle copied to bundle/");
+
+// ── 3. 复制运行时数据文件 ──
+// 这些文件由 fromRoot() / fs.readFileSync() 在运行时读取，无法打进 bundle
+
+// lib/ 下的数据文件（json, yaml, md）
+const LIB_DATA_GLOBS = [
+  "known-models.json",
+  "default-models.json",
+  "config.example.yaml",
+  "identity.example.md",
+  "ishiki.example.md",
+  "pinned.example.md",
+];
+const libOutDir = path.join(outDir, "lib");
+fs.mkdirSync(libOutDir, { recursive: true });
+for (const file of LIB_DATA_GLOBS) {
+  const src = path.join(ROOT, "lib", file);
   if (fs.existsSync(src)) {
-    fs.cpSync(src, path.join(outDir, dir), { recursive: true });
-    console.log(`[build-server]   ${dir}/`);
+    fs.copyFileSync(src, path.join(libOutDir, file));
+    console.log(`[build-server]   lib/${file}`);
   } else {
-    console.warn(`[build-server] ⚠ ${dir}/ not found, skipping`);
+    console.warn(`[build-server] ⚠ lib/${file} not found, skipping`);
+  }
+}
+
+// lib/ 下的模板目录（递归复制）
+const LIB_TEMPLATE_DIRS = [
+  "identity-templates",
+  "ishiki-templates",
+  "public-ishiki-templates",
+  "yuan",
+];
+for (const dir of LIB_TEMPLATE_DIRS) {
+  const src = path.join(ROOT, "lib", dir);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, path.join(libOutDir, dir), { recursive: true });
+    console.log(`[build-server]   lib/${dir}/`);
+  } else {
+    console.warn(`[build-server] ⚠ lib/${dir}/ not found, skipping`);
   }
 }
 
@@ -139,28 +198,51 @@ fs.mkdirSync(path.join(outDir, "desktop", "src", "locales"), { recursive: true }
 fs.cpSync(localesSrc, path.join(outDir, "desktop", "src", "locales"), { recursive: true });
 console.log("[build-server]   desktop/src/locales/");
 
-console.log("[build-server] source files copied");
+console.log("[build-server] resource files copied");
 
-// ── 3. Production dependencies（用目标 Node 的 npm） ──
-for (const f of ["package.json", "package-lock.json"]) {
-  fs.copyFileSync(path.join(ROOT, f), path.join(outDir, f));
+// ── 4. External dependencies ──
+// 只装 Vite config 中 external 的包（native addon + 无法 bundle 的 SDK）
+// 比全量 npm ci 少很多（~50 packages vs ~500+）
+const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf-8"));
+
+// 从根 package.json 动态读取版本，保持同步
+const EXTERNAL_DEPS = [
+  "better-sqlite3",
+  "@mariozechner/pi-coding-agent",
+  "@larksuiteoapi/node-sdk",
+  "node-telegram-bot-api",
+  "exceljs",
+];
+const externalDeps = {};
+for (const dep of EXTERNAL_DEPS) {
+  if (rootPkg.dependencies[dep]) externalDeps[dep] = rootPkg.dependencies[dep];
+  else console.warn(`[build-server] ⚠ ${dep} not in root package.json`);
 }
 
-// 精简 package.json
-const pkg = JSON.parse(fs.readFileSync(path.join(outDir, "package.json"), "utf-8"));
-delete pkg.devDependencies;
-delete pkg.build;
-delete pkg.main;
-pkg.scripts = {};
-fs.writeFileSync(path.join(outDir, "package.json"), JSON.stringify(pkg, null, 2) + "\n");
+const externalPkg = {
+  name: "hanako-server",
+  version: rootPkg.version,
+  type: "module",
+  dependencies: externalDeps,
+};
 
-// 用目标 Node 的 npm 安装依赖
-// 不加 --ignore-scripts：better-sqlite3 的 install 脚本需要跑（prebuild-install 下载正确 ABI 的预编译）
-// 我们的 postinstall（patch-pi-sdk）已被 pkg.scripts={} 清空，不会误触
-console.log("[build-server] installing production dependencies...");
-runWithTargetNode(`"${cachedNpmCli}" ci --omit=dev`);
+fs.writeFileSync(
+  path.join(outDir, "package.json"),
+  JSON.stringify(externalPkg, null, 2) + "\n",
+);
 
-// PI SDK patch（package.json 的 postinstall 被清空，手动补跑）
+// 不复制 lockfile：精简后的 package.json 只有 5 个依赖，
+// 跟完整 lockfile 不匹配，npm ci 会报错。用 npm install 代替。
+
+// ── 5. 用目标 Node 的 npm 安装 external deps ──
+// 不加 --ignore-scripts：better-sqlite3 的 install 脚本需要跑
+// （prebuild-install 下载正确 ABI 的预编译二进制）
+// 用 npm install 而非 npm ci：lockfile 跟精简 package.json 不匹配
+console.log("[build-server] installing external dependencies...");
+runWithTargetNode(`"${cachedNpmCli}" install --omit=dev`);
+
+// ── 6. PI SDK patch ──
+// package.json 没有 postinstall，手动跑补丁
 const patchScript = path.join(ROOT, "scripts", "patch-pi-sdk.cjs");
 if (fs.existsSync(patchScript)) {
   fs.mkdirSync(path.join(outDir, "scripts"), { recursive: true });
@@ -169,7 +251,8 @@ if (fs.existsSync(patchScript)) {
   fs.rmSync(path.join(outDir, "scripts"), { recursive: true });
 }
 
-// 清理 node_modules/.bin（符号链接指向构建机器的绝对路径，codesign 会报错）
+// ── 7. 清理 node_modules/.bin ──
+// 符号链接指向构建机器的绝对路径，codesign 会报错
 // server 运行时不需要这些 CLI 工具
 function removeBinDirs(nmDir) {
   const topBin = path.join(nmDir, ".bin");
@@ -185,11 +268,22 @@ removeBinDirs(path.join(outDir, "node_modules"));
 
 console.log("[build-server] dependencies ready");
 
-// ── 4. Wrapper 脚本 ──
+// ── 8. 更新 package.json（加入 version 供运行时读取） ──
+// npm ci 之后 package.json 仍在，确保它包含 version 字段
+// fromRoot("package.json") 在运行时读取版本号
+// 保留 dependencies 字段（node_modules 解析需要）
+const installedPkg = JSON.parse(fs.readFileSync(path.join(outDir, "package.json"), "utf-8"));
+installedPkg.version = rootPkg.version;
+fs.writeFileSync(
+  path.join(outDir, "package.json"),
+  JSON.stringify(installedPkg, null, 2) + "\n",
+);
+
+// ── 9. Wrapper 脚本 ──
 if (isWin) {
   fs.writeFileSync(
     path.join(outDir, "hana-server.cmd"),
-    '@echo off\r\nset "HANA_ROOT=%~dp0"\r\n"%~dp0node.exe" "%~dp0server\\index.js" %*\r\n',
+    '@echo off\r\nset "HANA_ROOT=%~dp0"\r\n"%~dp0node.exe" "%~dp0bundle\\index.js" %*\r\n',
   );
 } else {
   const wrapper = path.join(outDir, "hana-server");
@@ -197,7 +291,7 @@ if (isWin) {
     "#!/bin/sh",
     'DIR="$(cd "$(dirname "$0")" && pwd)"',
     'export HANA_ROOT="$DIR"',
-    'exec "$DIR/node" "$DIR/server/index.js" "$@"',
+    'exec "$DIR/node" "$DIR/bundle/index.js" "$@"',
     "",
   ].join("\n"));
   fs.chmodSync(wrapper, 0o755);
