@@ -1,14 +1,2 @@
-import { AppError } from '../../shared/errors.js';
-import { errorBus } from '../../shared/error-bus.js';
-
-export function registerErrorHandler(app) {
-  app.setErrorHandler((error, request, reply) => {
-    const appErr = AppError.wrap(error);
-    errorBus.report(appErr, {
-      context: { method: request.method, url: request.url },
-    });
-    reply.status(appErr.httpStatus).send({
-      error: { code: appErr.code, message: appErr.message, traceId: appErr.traceId },
-    });
-  });
-}
+// Error handling is now inline in server/index.js via app.onError()
+// This file is kept for backwards compatibility but is no longer used.

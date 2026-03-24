@@ -12,9 +12,11 @@ import fs from "fs";
 import { setMaxListeners } from "events";
 import os from "os";
 import path from "path";
-import Fastify from "fastify";
-import websocket from "@fastify/websocket";
-import { registerErrorHandler } from './middleware/error-handler.js';
+import { Hono } from "hono";
+import { serve } from "@hono/node-server";
+import { createNodeWebSocket } from "@hono/node-ws";
+import { AppError } from "../shared/errors.js";
+import { errorBus } from "../shared/error-bus.js";
 import { HanaEngine } from "../core/engine.js";
 import { ensureFirstRun } from "../core/first-run.js";
 import { initDebugLog } from "../lib/debug-log.js";
@@ -114,38 +116,43 @@ loadLocale(engine.config?.locale);
 // ── 启动令牌（阻止本机其他程序随意访问） ──
 const SERVER_TOKEN = process.env.HANA_TOKEN || crypto.randomBytes(16).toString("hex");
 
-// ── 创建 Fastify 实例 ──
-const app = Fastify({ logger: false });
+// ── 创建 Hono 实例 ──
+const app = new Hono();
+const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
-// CORS（默认仅允许 localhost，HANA_CORS_ORIGIN 可放宽）
+// CORS（默认仅允许 localhost，HANA_CORS_ORIGIN 可放宽）+ 鉴权
 const corsAllowedOrigin = process.env.HANA_CORS_ORIGIN;
-app.addHook("onRequest", (req, reply, done) => {
-  const origin = req.headers.origin || "";
+app.use("*", async (c, next) => {
+  const origin = c.req.header("origin") || "";
   const isAllowed = corsAllowedOrigin
     ? origin === corsAllowedOrigin
     : /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
   if (origin && isAllowed) {
-    reply.header("Access-Control-Allow-Origin", origin);
+    c.header("Access-Control-Allow-Origin", origin);
   }
-  reply.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  reply.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") {
-    reply.code(204).send();
-    return;
-  }
+  c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (c.req.method === "OPTIONS") return c.text("", 204);
+
   // 验证 token（WebSocket 升级请求通过 URL 参数传 token，在 chat.js 中校验）
-  const token = req.headers.authorization?.replace("Bearer ", "")
-    || req.query?.token;
-  if (token !== SERVER_TOKEN) {
-    reply.code(403).send({ error: "forbidden" });
-    return;
-  }
-  done();
+  const token = c.req.header("authorization")?.replace("Bearer ", "")
+    || c.req.query("token");
+  if (token !== SERVER_TOKEN) return c.json({ error: "forbidden" }, 403);
+
+  await next();
 });
 
-// WebSocket 支持
-await app.register(websocket);
-registerErrorHandler(app);
+// 全局错误处理
+app.onError((err, c) => {
+  const appErr = AppError.wrap(err);
+  errorBus.report(appErr, {
+    context: { method: c.req.method, url: c.req.url },
+  });
+  return c.json(
+    { error: { code: appErr.code, message: appErr.message, traceId: appErr.traceId } },
+    appErr.httpStatus
+  );
+});
 
 // ── 阻塞式确认存储 ──
 const confirmStore = new ConfirmStore();
@@ -158,29 +165,29 @@ engine._confirmStore = confirmStore;
 const bridgeManager = new BridgeManager({ engine, hub });
 hub.bridgeManager = bridgeManager;
 
-// 注册路由
-app.register(chatRoute, { engine, hub });
-app.register(sessionsRoute, { engine });
-app.register(modelsRoute, { engine });
-app.register(configRoute, { engine });
-app.register(uploadRoute, { engine });
-app.register(providersRoute, { engine });
-app.register(avatarRoute, { engine });
-app.register(agentsRoute, { engine });
-app.register(deskRoute, { engine, hub });
-app.register(skillsRoute, { engine });
-app.register(channelsRoute, { engine, hub });
-app.register(dmRoute, { engine });
-app.register(fsRoute, { engine });
-app.register(preferencesRoute, { engine });
-app.register(bridgeRoute, { engine, bridgeManager });
-app.register(authRoute, { engine });
-app.register(diaryRoute, { engine });
-app.register(confirmRoute, { confirmStore, engine });
-app.register(internalBrowserRoute);
+// TODO: migrate routes to Hono
+// app.register(chatRoute, { engine, hub });
+// app.register(sessionsRoute, { engine });
+// app.register(modelsRoute, { engine });
+// app.register(configRoute, { engine });
+// app.register(uploadRoute, { engine });
+// app.register(providersRoute, { engine });
+// app.register(avatarRoute, { engine });
+// app.register(agentsRoute, { engine });
+// app.register(deskRoute, { engine, hub });
+// app.register(skillsRoute, { engine });
+// app.register(channelsRoute, { engine, hub });
+// app.register(dmRoute, { engine });
+// app.register(fsRoute, { engine });
+// app.register(preferencesRoute, { engine });
+// app.register(bridgeRoute, { engine, bridgeManager });
+// app.register(authRoute, { engine });
+// app.register(diaryRoute, { engine });
+// app.register(confirmRoute, { confirmStore, engine });
+// app.register(internalBrowserRoute);
 
 // 健康检查 + 身份信息
-app.get("/api/health", async () => {
+app.get("/api/health", async (c) => {
   // 检查自定义头像是否存在（避免前端 HEAD 请求 404）
   const avatars = {};
   for (const role of ['agent', 'user']) {
@@ -191,48 +198,52 @@ app.get("/api/health", async () => {
       avatars[role] = files.some(f => /\.(png|jpe?g|webp)$/i.test(f));
     } catch {}
   }
-  return {
+  return c.json({
     status: "ok",
     agent: engine.agentName,
     user: engine.userName,
     model: engine.currentModel?.name,
     avatars,
-  };
+  });
 });
 
 // 前端日志上报（desktop 端把错误 POST 到 server 写进持久化日志）
-app.post("/api/log", async (req) => {
-  const { level, module, message } = req.body || {};
-  if (!message) return { ok: false };
+app.post("/api/log", async (c) => {
+  const { level, module, message } = await c.req.json().catch(() => ({}));
+  if (!message) return c.json({ ok: false });
   if (level === "error") dlog.error(module || "desktop", message);
   else if (level === "warn") dlog.warn(module || "desktop", message);
   else dlog.log(module || "desktop", message);
-  return { ok: true };
+  return c.json({ ok: true });
 });
 
 // Plan Mode（只读探索模式）
-app.get("/api/plan-mode", async () => ({ enabled: engine.planMode }));
-app.post("/api/plan-mode", async (req) => {
-  const { enabled } = req.body || {};
+app.get("/api/plan-mode", async (c) => {
+  return c.json({ enabled: engine.planMode });
+});
+app.post("/api/plan-mode", async (c) => {
+  const { enabled } = await c.req.json().catch(() => ({}));
   engine.setPlanMode(!!enabled);
-  return { ok: true, enabled: engine.planMode };
+  return c.json({ ok: true, enabled: engine.planMode });
 });
 
 // 远程关闭（供 desktop 端复用 server 退出时调用，跨平台可靠的 graceful shutdown）
-app.post("/api/shutdown", async () => {
+app.post("/api/shutdown", async (c) => {
   console.log("[server] 收到 HTTP shutdown 请求，正在清理...");
   // 异步执行，先返回响应
   setTimeout(() => gracefulShutdown(), 100);
-  return { ok: true };
+  return c.json({ ok: true });
 });
 
 // ── 启动服务器 ──
 const port = parseInt(process.env.HANA_PORT) || 0; // 0 = OS 分配
 const host = "127.0.0.1";
 
+let server;
 try {
-  await app.listen({ port, host });
-  const address = app.server.address();
+  server = serve({ fetch: app.fetch, port, hostname: host });
+  injectWebSocket(server);
+  const address = server.address();
   const actualPort = address.port;
 
   console.log(`[server] Hanako Server 运行在 http://${host}:${actualPort}`);
@@ -252,9 +263,6 @@ try {
 
   // 通知就绪（server-info.json 已在上方写入，无需额外动作）
   console.log(`[server] ready: port=${actualPort}`);
-
-  // 注意：SIGTERM handler 已在下方 line 330 注册
-  // process.on("SIGTERM", gracefulShutdown);
 
   // 独立运行模式：启动 CLI（TTY 环境下自动进入交互模式）
   if (process.stdin.isTTY) {
@@ -288,9 +296,9 @@ async function gracefulShutdown() {
 
   try {
     // 1. 先停止接受新请求
-    await app.close();
-    console.log("[server] Fastify 已关闭");
-    dlog.log("server", "Fastify closed");
+    server.close();
+    console.log("[server] HTTP server 已关闭");
+    dlog.log("server", "HTTP server closed");
 
     // 2. 挂起浏览器（保留冷保存，重启后可恢复卡片）
     try {
