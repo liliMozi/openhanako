@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const saveGlobalProviders = vi.fn();
@@ -22,8 +22,8 @@ describe("model sync related routes", () => {
   });
 
   it("provider-only config updates trigger model registry sync", async () => {
-    const { default: configRoute } = await import("../server/routes/config.js");
-    const app = Fastify();
+    const { createConfigRoute } = await import("../server/routes/config.js");
+    const app = new Hono();
     const engine = {
       config: {},
       setHomeFolder: vi.fn(),
@@ -31,12 +31,12 @@ describe("model sync related routes", () => {
       syncModelsAndRefresh: vi.fn().mockResolvedValue(true),
     };
 
-    await configRoute(app, { engine });
+    app.route("/api", createConfigRoute(engine));
 
-    const res = await app.inject({
+    const res = await app.request("/api/config", {
       method: "PUT",
-      url: "/api/config",
-      payload: {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         providers: {
           dashscope: {
             base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -45,21 +45,19 @@ describe("model sync related routes", () => {
             models: ["qwen-plus"],
           },
         },
-      },
+      }),
     });
 
-    expect(res.statusCode).toBe(200);
+    expect(res.status).toBe(200);
     expect(saveGlobalProviders).toHaveBeenCalledTimes(1);
     expect(clearConfigCache).toHaveBeenCalledTimes(1);
     expect(engine.updateConfig).toHaveBeenCalledWith({});
     expect(engine.syncModelsAndRefresh).toHaveBeenCalledTimes(1);
-
-    await app.close();
   });
 
   it("shared model preference updates trigger model registry sync", async () => {
-    const { default: preferencesRoute } = await import("../server/routes/preferences.js");
-    const app = Fastify();
+    const { createPreferencesRoute } = await import("../server/routes/preferences.js");
+    const app = new Hono();
     const engine = {
       getSharedModels: vi.fn(() => ({})),
       getSearchConfig: vi.fn(() => ({ provider: null, api_key: null })),
@@ -70,28 +68,26 @@ describe("model sync related routes", () => {
       syncModelsAndRefresh: vi.fn().mockResolvedValue(true),
     };
 
-    await preferencesRoute(app, { engine });
+    app.route("/api", createPreferencesRoute(engine));
 
-    const res = await app.inject({
+    const res = await app.request("/api/preferences/models", {
       method: "PUT",
-      url: "/api/preferences/models",
-      payload: {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         models: {
           utility: "test-model",
         },
-      },
+      }),
     });
 
-    expect(res.statusCode).toBe(200);
+    expect(res.status).toBe(200);
     expect(engine.setSharedModels).toHaveBeenCalledWith({ utility: "test-model" });
     expect(engine.syncModelsAndRefresh).toHaveBeenCalledTimes(1);
-
-    await app.close();
   });
 
   it("inline 凭证缺少显式 provider 时返回 400", async () => {
-    const { default: configRoute } = await import("../server/routes/config.js");
-    const app = Fastify();
+    const { createConfigRoute } = await import("../server/routes/config.js");
+    const app = new Hono();
     const engine = {
       config: {},
       configPath: "/tmp/test-config.yaml",
@@ -106,27 +102,26 @@ describe("model sync related routes", () => {
       getLearnSkills: vi.fn(() => false),
     };
 
-    await configRoute(app, { engine });
+    app.route("/api", createConfigRoute(engine));
 
-    const res = await app.inject({
+    const res = await app.request("/api/config", {
       method: "PUT",
-      url: "/api/config",
-      payload: {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         api: {
           api_key: "sk-test",
         },
-      },
+      }),
     });
 
-    expect(res.statusCode).toBe(400);
-    expect(res.json().error).toContain("api.provider is required");
-
-    await app.close();
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("api.provider is required");
   });
 
   it("model routes expose stable ids and readable display names", async () => {
-    const { default: modelsRoute } = await import("../server/routes/models.js");
-    const app = Fastify();
+    const { createModelsRoute } = await import("../server/routes/models.js");
+    const app = new Hono();
     const engine = {
       availableModels: [
         {
@@ -138,28 +133,28 @@ describe("model sync related routes", () => {
       ],
       currentModel: { id: "gpt-5.4", name: "Gpt 5.4" },
       readFavorites: vi.fn(() => ["gpt-5.4"]),
+      config: {},
+      providerRegistry: { get: () => ({ capabilities: {} }) },
     };
 
-    await modelsRoute(app, { engine });
+    app.route("/api", createModelsRoute(engine));
 
-    const allRes = await app.inject({ method: "GET", url: "/api/models" });
-    const allData = allRes.json();
-    expect(allRes.statusCode).toBe(200);
+    const allRes = await app.request("/api/models");
+    const allData = await allRes.json();
+    expect(allRes.status).toBe(200);
     expect(allData.models[0].id).toBe("gpt-5.4");
     expect(allData.models[0].name).toBe("Gpt 5.4");
 
-    const favRes = await app.inject({ method: "GET", url: "/api/models/favorites" });
-    const favData = favRes.json();
-    expect(favRes.statusCode).toBe(200);
+    const favRes = await app.request("/api/models/favorites");
+    const favData = await favRes.json();
+    expect(favRes.status).toBe(200);
     expect(favData.models[0].id).toBe("gpt-5.4");
     expect(favData.models[0].name).toBe("Gpt 5.4");
-
-    await app.close();
   });
 
   it("provider fetch prefers Pi registry models for oauth providers", async () => {
-    const { default: providersRoute } = await import("../server/routes/providers.js");
-    const app = Fastify();
+    const { createProvidersRoute } = await import("../server/routes/providers.js");
+    const app = new Hono();
     const engine = {
       availableModels: [
         {
@@ -178,19 +173,20 @@ describe("model sync related routes", () => {
       configPath: "/tmp/test-config.yaml",
     };
 
-    await providersRoute(app, { engine });
+    app.route("/api", createProvidersRoute(engine));
 
-    const res = await app.inject({
+    const res = await app.request("/api/providers/fetch-models", {
       method: "POST",
-      url: "/api/providers/fetch-models",
-      payload: {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         name: "openai-codex",
-      },
+      }),
     });
 
-    expect(res.statusCode).toBe(200);
+    expect(res.status).toBe(200);
     expect(engine.refreshAvailableModels).toHaveBeenCalledTimes(1);
-    expect(res.json()).toEqual({
+    const data = await res.json();
+    expect(data).toEqual({
       source: "registry",
       models: [
         {
@@ -201,13 +197,11 @@ describe("model sync related routes", () => {
         },
       ],
     });
-
-    await app.close();
   });
 
   it("oauth provider fetch reports registry issue instead of remote /models fallback", async () => {
-    const { default: providersRoute } = await import("../server/routes/providers.js");
-    const app = Fastify();
+    const { createProvidersRoute } = await import("../server/routes/providers.js");
+    const app = new Hono();
     const engine = {
       availableModels: [],
       refreshAvailableModels: vi.fn().mockResolvedValue(undefined),
@@ -218,27 +212,26 @@ describe("model sync related routes", () => {
       configPath: "/tmp/test-config.yaml",
     };
 
-    await providersRoute(app, { engine });
+    app.route("/api", createProvidersRoute(engine));
 
-    const res = await app.inject({
+    const res = await app.request("/api/providers/fetch-models", {
       method: "POST",
-      url: "/api/providers/fetch-models",
-      payload: {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         name: "openai-codex",
         base_url: "https://chatgpt.com/backend-api",
         api: "openai-codex-responses",
-      },
+      }),
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(res.json().error).toContain('Pi registry has no available models for provider "openai-codex"');
-
-    await app.close();
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.error).toContain('Pi registry has no available models for provider "openai-codex"');
   });
 
   it("oauth-named provider with explicit api config uses remote catalog", async () => {
-    const { default: providersRoute } = await import("../server/routes/providers.js");
-    const app = Fastify();
+    const { createProvidersRoute } = await import("../server/routes/providers.js");
+    const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -260,35 +253,34 @@ describe("model sync related routes", () => {
       configPath: "/tmp/test-config.yaml",
     };
 
-    await providersRoute(app, { engine });
+    app.route("/api", createProvidersRoute(engine));
 
-    const res = await app.inject({
+    const res = await app.request("/api/providers/fetch-models", {
       method: "POST",
-      url: "/api/providers/fetch-models",
-      payload: {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         name: "minimax",
         base_url: "https://api.minimaxi.com/v1",
         api: "openai-completions",
         api_key: "sk-test",
-      },
+      }),
     });
 
-    expect(res.statusCode).toBe(200);
+    expect(res.status).toBe(200);
     expect(engine.refreshAvailableModels).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(res.json()).toEqual({
+    const data = await res.json();
+    expect(data).toEqual({
       models: [
         { id: "MiniMax-M2.5", name: "MiniMax-M2.5", context: 1000000, maxOutput: 80000 },
         { id: "MiniMax-M2", name: "MiniMax-M2", context: 1000000, maxOutput: 80000 },
       ],
     });
-
-    await app.close();
   });
 
   it("non-oauth provider fetch uses remote catalog instead of Pi runtime subset", async () => {
-    const { default: providersRoute } = await import("../server/routes/providers.js");
-    const app = Fastify();
+    const { createProvidersRoute } = await import("../server/routes/providers.js");
+    const app = new Hono();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -326,29 +318,28 @@ describe("model sync related routes", () => {
       configPath: "/tmp/test-config.yaml",
     };
 
-    await providersRoute(app, { engine });
+    app.route("/api", createProvidersRoute(engine));
 
-    const res = await app.inject({
+    const res = await app.request("/api/providers/fetch-models", {
       method: "POST",
-      url: "/api/providers/fetch-models",
-      payload: {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         name: "dashscope",
         base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
         api: "openai-completions",
-      },
+      }),
     });
 
-    expect(res.statusCode).toBe(200);
+    expect(res.status).toBe(200);
     expect(engine.refreshAvailableModels).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(res.json()).toEqual({
+    const data = await res.json();
+    expect(data).toEqual({
       models: [
         { id: "qwen3.5-flash", name: "qwen3.5-flash", context: 131072, maxOutput: 16384 },
         { id: "qwen3.5-plus", name: "qwen3.5-plus", context: 1048576, maxOutput: 65536 },
         { id: "qwen3-max", name: "qwen3-max", context: 262144, maxOutput: 32768 },
       ],
     });
-
-    await app.close();
   });
 });
