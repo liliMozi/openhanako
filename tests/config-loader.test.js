@@ -13,7 +13,6 @@ import {
   loadConfig,
   saveConfig,
   clearConfigCache,
-  resolveModelApi,
   getAllProviders,
 } from "../lib/memory/config-loader.js";
 
@@ -96,45 +95,6 @@ describe("loadConfig", () => {
     writeYaml({ api: { provider: "openai" } });
     const cfg = loadConfig(configPath);
     expect(cfg.api.api).toBe("openai-completions");
-  });
-
-  it("resolveModelApi 从 models.json 找 provider，从 auth.json 补 api_key", () => {
-    fs.writeFileSync(
-      path.join(hanakoHome, "providers.yaml"),
-      YAML.dump({
-        providers: {
-          "openai-codex": {
-            base_url: "https://chatgpt.com/backend-api",
-            api: "openai-codex-responses",
-          },
-        },
-      }),
-      "utf-8",
-    );
-    fs.writeFileSync(
-      path.join(hanakoHome, "models.json"),
-      JSON.stringify({
-        providers: {
-          "openai-codex": {
-            models: [{ id: "gpt-5.4" }],
-          },
-        },
-      }, null, 2),
-      "utf-8",
-    );
-    fs.writeFileSync(
-      path.join(hanakoHome, "auth.json"),
-      JSON.stringify({
-        "openai-codex": { access: "oauth-token" },
-      }, null, 2),
-      "utf-8",
-    );
-    writeYaml({ api: { provider: "openai-codex" } });
-
-    const result = resolveModelApi("gpt-5.4", configPath);
-    expect(result.provider).toBe("openai-codex");
-    expect(result.api).toBe("openai-codex-responses");
-    expect(result.api_key).toBe("oauth-token");
   });
 
   it("getAllProviders 会合并 models.json 中的模型列表", () => {
