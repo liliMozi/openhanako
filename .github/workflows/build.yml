@@ -14,7 +14,7 @@ jobs:
           - os: macos-latest
             target: dmg
             arch: arm64
-          - os: macos-13-large
+          - os: macos-13
             target: dmg
             arch: x64
           - os: windows-latest
@@ -72,6 +72,8 @@ jobs:
         if: runner.os == 'macOS'
         run: npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
         env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
