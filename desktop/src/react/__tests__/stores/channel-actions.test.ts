@@ -127,10 +127,6 @@ describe('channel-actions', () => {
     it('切换开关状态', async () => {
       mockState.channelsEnabled = true;
 
-      // Mock localStorage
-      const setItem = vi.fn();
-      vi.stubGlobal('localStorage', { setItem, getItem: vi.fn() });
-
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({ channels: [] }),
@@ -140,9 +136,11 @@ describe('channel-actions', () => {
       const result = await toggleChannelsEnabled();
 
       expect(result).toBe(false); // toggled from true to false
-      expect(setItem).toHaveBeenCalledWith('hana-channels-enabled', 'false');
-
-      vi.unstubAllGlobals();
+      // 状态通过后端 /api/channels/toggle 持久化，不再用 localStorage
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/channels/toggle'),
+        expect.objectContaining({ method: 'POST' }),
+      );
     });
   });
 });
