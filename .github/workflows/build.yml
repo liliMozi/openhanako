@@ -52,22 +52,7 @@ jobs:
       - name: Build renderer
         run: npm run build:renderer
 
-      # macOS: 导入签名证书
-      - name: Import macOS signing certificate
-        if: runner.os == 'macOS'
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-        run: |
-          echo "$CSC_LINK" | base64 --decode > certificate.p12
-          security create-keychain -p actions build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p actions build.keychain
-          security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
-          rm certificate.p12
-
-      # macOS 打包（签名 + 公证）
+      # macOS 打包（签名 + 公证，electron-builder 通过 CSC_LINK 自动管理 keychain）
       - name: Build macOS DMG
         if: runner.os == 'macOS'
         run: npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
