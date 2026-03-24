@@ -121,38 +121,47 @@ export default async function sessionsRoute(app, { engine }) {
         agentName: s.agentName || null,
       }));
 
-      // 合并 bridge sessions
+      // 合并所有 agents 的 bridge sessions
       try {
-        const index = engine.getBridgeIndex();
-        const bridgeDir = path.join(engine.sessionDir, "bridge");
-        for (const [sessionKey, raw] of Object.entries(index)) {
-          const entry = typeof raw === "string" ? { file: raw } : raw;
-          if (!entry.file) continue;
-          const { platform, chatType } = parseSessionKey(sessionKey);
+        const seenKeys = new Set();
+        const agents = engine.listAgents();
+        for (const ag of agents) {
+          const bridgeDir = path.join(engine.agentsDir, ag.id, "sessions", "bridge");
+          const indexPath = path.join(bridgeDir, "bridge-sessions.json");
+          let index;
+          try { index = JSON.parse(fsSync.readFileSync(indexPath, "utf-8")); } catch { continue; }
 
-          let lastActive = null;
-          const fp = path.join(bridgeDir, entry.file);
-          try {
-            const stat = fsSync.statSync(fp);
-            lastActive = stat.mtime.toISOString();
-          } catch {}
+          for (const [sessionKey, raw] of Object.entries(index)) {
+            if (seenKeys.has(sessionKey)) continue;
+            seenKeys.add(sessionKey);
+            const entry = typeof raw === "string" ? { file: raw } : raw;
+            if (!entry.file) continue;
+            const { platform, chatType } = parseSessionKey(sessionKey);
 
-          result.push({
-            path: `bridge:${sessionKey}`,
-            title: entry.name || sessionKey,
-            firstMessage: "",
-            modified: lastActive,
-            messageCount: 0,
-            cwd: null,
-            agentId: engine.currentAgentId || null,
-            agentName: engine.agentName || null,
-            bridge: true,
-            bridgePlatform: platform,
-            bridgeChatType: chatType,
-            bridgeSessionKey: sessionKey,
-            bridgeDisplayName: entry.name || null,
-            bridgeAvatarUrl: entry.avatarUrl || null,
-          });
+            let lastActive = null;
+            const fp = path.join(bridgeDir, entry.file);
+            try {
+              const stat = fsSync.statSync(fp);
+              lastActive = stat.mtime.toISOString();
+            } catch {}
+
+            result.push({
+              path: `bridge:${sessionKey}`,
+              title: entry.name || sessionKey,
+              firstMessage: "",
+              modified: lastActive,
+              messageCount: 0,
+              cwd: null,
+              agentId: ag.id,
+              agentName: ag.name || ag.id,
+              bridge: true,
+              bridgePlatform: platform,
+              bridgeChatType: chatType,
+              bridgeSessionKey: sessionKey,
+              bridgeDisplayName: entry.name || null,
+              bridgeAvatarUrl: entry.avatarUrl || null,
+            });
+          }
         }
       } catch {}
 

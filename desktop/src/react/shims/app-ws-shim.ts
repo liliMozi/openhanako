@@ -507,6 +507,9 @@ function handleServerMessage(msg: any): void {
       if (msg.message) {
         (window as any).__hanaBridgeOnMessage?.(msg.message);
 
+        // 刷新侧边栏 session 列表（新 bridge session 可能刚创建）
+        _sb().loadSessions().catch(() => {});
+
         // 如果当前处于 bridge 接管模式且消息属于当前 session，在主聊天区域追加气泡
         const bridgeState = (window as any).__hanaGetState?.()?.bridgeSession;
         if (bridgeState && msg.message.sessionKey === bridgeState.sessionKey) {

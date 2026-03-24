@@ -55,14 +55,64 @@ export class ConfigCoordinator {
 
   // ── Home Folder ──
 
+  /**
+   * 获取当前 agent 的工作目录
+   * 优先级：
+   * 1. 当前 agent config.yaml 中的 home_folder（agent 级别）
+   * 2. 全局 preferences 中的 home_folder（全局级别，向后兼容）
+   * 3. fallback 到桌面
+   */
   getHomeFolder() {
-    const configured = this._prefs().home_folder;
-    if (configured && fs.existsSync(configured)) return configured;
-    // 配置的文件夹已被删除 → fallback 到桌面
+    // 1. 先检查当前 agent 的 config（agent 级别配置）
+    const agent = this._d.getAgent();
+    const agentHomeFolder = agent?.config?.home_folder;
+    if (agentHomeFolder && fs.existsSync(agentHomeFolder)) {
+      return agentHomeFolder;
+    }
+
+    // 2. 检查全局 preferences（向后兼容）
+    const globalHomeFolder = this._prefs().home_folder;
+    if (globalHomeFolder && fs.existsSync(globalHomeFolder)) {
+      return globalHomeFolder;
+    }
+
+    // 3. 配置的文件夹已被删除 → fallback 到桌面
     return path.join(os.homedir(), "Desktop");
   }
 
+  /**
+   * 设置当前 agent 的工作目录
+   * 同时写入 agent config 和全局 preferences（保持向后兼容）
+   * @param {string|null} folder - 工作目录路径，null 表示清除
+   */
   setHomeFolder(folder) {
+    const agent = this._d.getAgent();
+    
+    // 1. 写入 agent config（agent 级别配置）
+    if (agent) {
+      const configPath = agent.configPath;
+      try {
+        const raw = fs.readFileSync(configPath, "utf-8");
+        const config = YAML.load(raw) || {};
+        
+        if (folder) {
+          config.home_folder = folder;
+        } else {
+          delete config.home_folder;
+        }
+        
+        const header = "# Hanako 系统配置\n# 由设置页面管理，手动编辑也可以\n\n";
+        const yamlStr = header + YAML.dump(config, {
+          indent: 2, lineWidth: -1, sortKeys: false, quotingType: '"', forceQuotes: false,
+        });
+        fs.writeFileSync(configPath, yamlStr, "utf-8");
+        log.log(`setHomeFolder (agent): ${folder || "(cleared)"}`);
+      } catch (err) {
+        console.error(`[config] setHomeFolder (agent) failed: ${err.message}`);
+      }
+    }
+
+    // 2. 同时更新全局 preferences（向后兼容）
     const prefs = this._prefs();
     if (folder) {
       prefs.home_folder = folder;
@@ -70,7 +120,7 @@ export class ConfigCoordinator {
       delete prefs.home_folder;
     }
     this._savePrefs(prefs);
-    log.log(`setHomeFolder: ${folder || "(cleared)"}`);
+    log.log(`setHomeFolder (global): ${folder || "(cleared)"}`);
   }
 
   // ── Shared Models ──

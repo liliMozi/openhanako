@@ -11,6 +11,21 @@ import { MoodParser } from "./core/events.js";
 import os from "os";
 import path from "path";
 
+// ── CLI 参数解析 ──
+const args = process.argv.slice(2);
+let agentId = null;
+let setCwd = null;
+
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--agent" && i + 1 < args.length) {
+    agentId = args[i + 1];
+    i++; // skip next arg
+  } else if (args[i] === "--cwd" && i + 1 < args.length) {
+    setCwd = args[i + 1];
+    i++; // skip next arg
+  }
+}
+
 const projectRoot = import.meta.dirname;
 const productDir = projectRoot + "/lib";
 
@@ -24,7 +39,7 @@ process.env.HANA_HOME = hanakoHome;
 ensureFirstRun(hanakoHome, productDir);
 
 // ── 初始化引擎 ──
-const engine = new HanaEngine({ hanakoHome, productDir });
+const engine = new HanaEngine({ hanakoHome, productDir, agentId });
 
 try {
   await engine.init((msg) => console.log(msg));
@@ -37,6 +52,23 @@ try {
   console.error("  4. 缺少依赖：npm install js-yaml");
   process.exit(1);
 }
+
+// ── 处理 CLI 参数 ──
+// 如果指定了 --cwd，设置该 agent 的工作目录
+if (setCwd) {
+  const resolvedCwd = path.resolve(setCwd.replace(/^~/, os.homedir()));
+  if (fs.existsSync(resolvedCwd)) {
+    engine.setHomeFolder(resolvedCwd);
+    console.log(`✿ 已设置工作目录: ${resolvedCwd}`);
+  } else {
+    console.error(`✿ 指定的目录不存在: ${resolvedCwd}`);
+  }
+}
+
+// 显示当前 agent 和工作目录信息
+const currentHomeCwd = engine.getHomeFolder();
+console.log(`\n\x1b[36m当前助手:\x1b[0m ${engine.agentName}`);
+console.log(`\x1b36m当前工作目录:\x1b[0m ${currentHomeCwd}\n`);
 
 const { userName, agentName } = engine;
 const available = engine.availableModels;

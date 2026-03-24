@@ -60,6 +60,7 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
           appId,
           appSecretMasked: appSecret ? mask(appSecret) : "",
           label: cfg.label || null,
+          role: cfg.role || "ai",
         };
       } else if (base === "qq") {
         const secret = cfg.appSecret || cfg.token;
@@ -73,6 +74,18 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
           appSecretMasked: secret ? mask(secret) : "",
           label: cfg.label || null,
         };
+      } else if (base === "wechat") {
+        const token = cfg.token || "";
+        instances[id] = {
+          basePlatform: base,
+          configured: !!token,
+          enabled: !!cfg.enabled,
+          status: liveEntry.status || "disconnected",
+          error: liveEntry.error || null,
+          tokenMasked: token ? mask(token) : "",
+          baseUrl: cfg.baseUrl || "",
+          label: cfg.label || null,
+        };
       }
     }
 
@@ -80,11 +93,13 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     const tgDef = instances["telegram"] || {};
     const fsDef = instances["feishu"] || {};
     const qqDef = instances["qq"] || {};
+    const wxDef = instances["wechat"] || {};
 
     return {
       telegram: tgDef,
       feishu: fsDef,
       qq: qqDef,
+      wechat: wxDef,
       instances,
       readOnly: !!bridge.readOnly,
       knownUsers: collectKnownUsers(engine.getBridgeIndex()),
@@ -136,6 +151,11 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     // 更新标签（用于 UI 显示，如"Hanako 飞书"、"Owner 飞书"）
     if (typeof label === "string") {
       prefs.bridge[platform].label = label;
+    }
+
+    // 更新角色（"ai" = Hanako AI 自动回复, "owner" = 桌面端 Owner 转发通道）
+    if (typeof req.body?.role === "string" && ["ai", "owner"].includes(req.body.role)) {
+      prefs.bridge[platform].role = req.body.role;
     }
 
     engine.savePreferences(prefs);
@@ -190,45 +210,55 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     return { messages: bridgeManager.getMessages(limit) };
   });
 
-  /** 获取 bridge session 列表 */
+  /** 获取 bridge session 列表（跨所有 agents） */
   app.get("/api/bridge/sessions", async (req) => {
     const platform = req.query?.platform; // optional filter
-    const index = engine.getBridgeIndex();
-    const bridgeDir = path.join(engine.agent.sessionDir, "bridge");
     const prefs = engine.getPreferences();
     const owner = prefs.bridge?.owner || {};
     const sessions = [];
+    const seenKeys = new Set();
 
-    for (const [sessionKey, raw] of Object.entries(index)) {
-      // 兼容旧格式（字符串）和新格式（对象）
-      const entry = typeof raw === "string" ? { file: raw } : raw;
-      const file = entry.file;
-      if (!file) continue;
+    const agents = engine.listAgents();
+    for (const ag of agents) {
+      const bridgeDir = path.join(engine.agentsDir, ag.id, "sessions", "bridge");
+      const indexPath = path.join(bridgeDir, "bridge-sessions.json");
+      let index;
+      try { index = JSON.parse(fs.readFileSync(indexPath, "utf-8")); } catch { continue; }
 
-      // 解析 sessionKey → 平台 + 类型
-      const { platform: plat, chatType, chatId } = parseSessionKey(sessionKey);
+      for (const [sessionKey, raw] of Object.entries(index)) {
+        if (seenKeys.has(sessionKey)) continue;
+        seenKeys.add(sessionKey);
 
-      // 按平台过滤
-      if (platform && plat !== platform) continue;
+        // 兼容旧格式（字符串）和新格式（对象）
+        const entry = typeof raw === "string" ? { file: raw } : raw;
+        const file = entry.file;
+        if (!file) continue;
 
-      // 获取最后修改时间
-      let lastActive = null;
-      const fp = path.join(bridgeDir, file);
-      try {
-        const stat = fs.statSync(fp);
-        lastActive = stat.mtimeMs;
-      } catch {}
+        // 解析 sessionKey → 平台 + 类型
+        const { platform: plat, chatType, chatId } = parseSessionKey(sessionKey);
 
-      // isOwner 运行时计算：entry.userId 匹配 prefs.bridge.owner[platform]
-      const ownerUserId = owner[plat] || null;
-      const isOwner = !!(entry.userId && ownerUserId && entry.userId === ownerUserId);
+        // 按平台过滤
+        if (platform && plat !== platform) continue;
 
-      sessions.push({
-        sessionKey, platform: plat, chatType, chatId, file, lastActive,
-        displayName: entry.name || null,
-        avatarUrl: entry.avatarUrl || null,
-        isOwner,
-      });
+        // 获取最后修改时间
+        let lastActive = null;
+        const fp = path.join(bridgeDir, file);
+        try {
+          const stat = fs.statSync(fp);
+          lastActive = stat.mtimeMs;
+        } catch {}
+
+        // isOwner 运行时计算：entry.userId 匹配 prefs.bridge.owner[platform]
+        const ownerUserId = owner[plat] || null;
+        const isOwner = !!(entry.userId && ownerUserId && entry.userId === ownerUserId);
+
+        sessions.push({
+          sessionKey, platform: plat, chatType, chatId, file, lastActive,
+          displayName: entry.name || null,
+          avatarUrl: entry.avatarUrl || null,
+          isOwner,
+        });
+      }
     }
 
     // 按最后活跃时间排序
@@ -236,15 +266,27 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     return { sessions };
   });
 
-  /** 读取指定 bridge session 的消息 */
+  /** 读取指定 bridge session 的消息（跨所有 agents 查找） */
   app.get("/api/bridge/sessions/:sessionKey/messages", async (req) => {
     const { sessionKey } = req.params;
-    const index = engine.getBridgeIndex();
-    const raw = index[sessionKey];
-    const file = typeof raw === "string" ? raw : raw?.file;
-    if (!file) return { error: "session not found", messages: [] };
 
-    const bridgeDir = path.join(engine.agent.sessionDir, "bridge");
+    // 在所有 agents 中查找该 sessionKey 的消息文件
+    let file = null;
+    let bridgeDir = null;
+    const agents = engine.listAgents();
+    for (const ag of agents) {
+      const agBridgeDir = path.join(engine.agentsDir, ag.id, "sessions", "bridge");
+      const indexPath = path.join(agBridgeDir, "bridge-sessions.json");
+      try {
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        const raw = index[sessionKey];
+        const f = typeof raw === "string" ? raw : raw?.file;
+        if (f) { file = f; bridgeDir = agBridgeDir; break; }
+      } catch { continue; }
+    }
+
+    if (!file || !bridgeDir) return { error: "session not found", messages: [] };
+
     const fp = path.resolve(bridgeDir, file);
 
     // 防止 path traversal
@@ -396,5 +438,43 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     } catch (err) {
       return { ok: false, error: err.message };
     }
+  });
+
+  // ── 微信 ClawBot 扫码登录 API ─────────────────────────────
+
+  /** 发起微信扫码登录：获取二维码 */
+  app.post("/api/bridge/wechat-login-start", async () => {
+    const { startWechatLogin } = await import("../../lib/bridge/wechat-adapter.js");
+    const result = await startWechatLogin();
+    return result;
+  });
+
+  /** 轮询微信扫码结果（长轮询） */
+  app.post("/api/bridge/wechat-login-poll", async (req) => {
+    const { qrcode, timeoutMs } = req.body || {};
+    if (!qrcode) {
+      return { connected: false, message: "qrcode required" };
+    }
+    const { pollWechatLogin } = await import("../../lib/bridge/wechat-adapter.js");
+    const result = await pollWechatLogin({ qrcode, timeoutMs: timeoutMs || 120_000 });
+
+    // 登录成功：自动保存凭证并启动适配器
+    if (result.connected && result.botToken) {
+      const prefs = engine.getPreferences();
+      if (!prefs.bridge) prefs.bridge = {};
+      if (!prefs.bridge.wechat) prefs.bridge.wechat = {};
+      prefs.bridge.wechat.token = result.botToken;
+      if (result.baseUrl) prefs.bridge.wechat.baseUrl = result.baseUrl;
+      prefs.bridge.wechat.enabled = true;
+      prefs.bridge.wechat.accountId = result.accountId || null;
+      prefs.bridge.wechat.userId = result.userId || null;
+      engine.savePreferences(prefs);
+
+      // 自动启动
+      bridgeManager.startPlatformFromConfig("wechat", prefs.bridge.wechat);
+      debugLog()?.log("api", `wechat login success, adapter started`);
+    }
+
+    return result;
   });
 }

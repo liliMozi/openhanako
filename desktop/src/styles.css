@@ -2616,6 +2616,19 @@ html[data-platform="linux"] .tb-toggle-right {
     padding: 4px 8px;
 }
 
+.bridge-role-select {
+    flex-shrink: 0;
+    width: auto;
+    min-width: 130px;
+    font-size: 0.82rem;
+    padding: 4px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
+}
+
 .bridge-remove-instance-btn {
     flex-shrink: 0;
     display: inline-flex;
@@ -2635,6 +2648,65 @@ html[data-platform="linux"] .tb-toggle-right {
     background: var(--coral);
     color: #fff;
     border-color: var(--coral);
+}
+
+/* 微信 ClawBot 扫码登录 */
+.bridge-wechat-login-btn {
+    display: inline-block;
+    padding: 8px 20px;
+    margin: 6px 0;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.bridge-wechat-login-btn:hover {
+    opacity: 0.85;
+}
+.bridge-wechat-relogin-btn {
+    display: inline-block;
+    padding: 4px 12px;
+    margin: 4px 0;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--fg-dim);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.bridge-wechat-relogin-btn:hover {
+    color: var(--fg);
+    border-color: var(--fg-dim);
+}
+.bridge-wechat-qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 8px;
+    background: var(--bg-alt, var(--bg));
+    border: 1px solid var(--border);
+}
+.bridge-wechat-qr-wrapper {
+    padding: 8px;
+    background: #fff;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+.bridge-wechat-qr-img {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+}
+.bridge-wechat-login-msg {
+    font-size: 0.85rem;
+    color: var(--fg-dim);
+    margin: 6px 0;
+    text-align: center;
 }
 
 .bridge-instance-tag {

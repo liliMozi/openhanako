@@ -14,6 +14,7 @@ interface InstanceStatus {
   status?: string;
   error?: string | null;
   label?: string | null;
+  role?: string;  // "ai" | "owner"
   // Telegram
   tokenMasked?: string;
   // Feishu
@@ -21,6 +22,8 @@ interface InstanceStatus {
   appSecretMasked?: string;
   // QQ
   appID?: string;
+  // Wechat
+  baseUrl?: string;
 }
 
 interface BridgeStatus {
@@ -28,10 +31,11 @@ interface BridgeStatus {
   feishu: any;
   whatsapp: any;
   qq: any;
+  wechat: any;
   instances: Record<string, InstanceStatus>;
   readOnly: boolean;
-  knownUsers: { telegram?: any[]; feishu?: any[]; whatsapp?: any[]; qq?: any[] };
-  owner: { telegram?: string; feishu?: string; whatsapp?: string; qq?: string };
+  knownUsers: { telegram?: any[]; feishu?: any[]; whatsapp?: any[]; qq?: any[]; wechat?: any[] };
+  owner: { telegram?: string; feishu?: string; whatsapp?: string; qq?: string; wechat?: string };
 }
 
 export function BridgeTab() {
@@ -71,7 +75,7 @@ export function BridgeTab() {
   // Telegram fields
   const [tgToken, setTgToken] = useState('');
   // Feishu fields — 多实例
-  const [feishuInstances, setFeishuInstances] = useState<{ id: string; appId: string; appSecret: string; label: string }[]>([]);
+  const [feishuInstances, setFeishuInstances] = useState<{ id: string; appId: string; appSecret: string; label: string; role: string }[]>([]);
   // QQ fields
   const [qqAppId, setQqAppId] = useState('');
   const [qqAppSecret, setQqAppSecret] = useState('');
@@ -95,6 +99,7 @@ export function BridgeTab() {
             appId: instances[id]?.appId || '',
             appSecret: '',
             label: instances[id]?.label || '',
+            role: instances[id]?.role || 'ai',
           }));
         }
         return prev;
@@ -112,7 +117,7 @@ export function BridgeTab() {
     let next = 2;
     while (existing.includes(`feishu:${next}`)) next++;
     const newId = `feishu:${next}`;
-    setFeishuInstances(prev => [...prev, { id: newId, appId: '', appSecret: '', label: '' }]);
+    setFeishuInstances(prev => [...prev, { id: newId, appId: '', appSecret: '', label: '', role: 'ai' }]);
   };
 
   const removeFeishuInstance = async (instanceId: string) => {
@@ -139,12 +144,12 @@ export function BridgeTab() {
 
   useEffect(() => { loadStatus(); }, []);
 
-  const saveBridgeConfig = async (platform_: string, credentials: any, enabled?: boolean, label?: string) => {
+  const saveBridgeConfig = async (platform_: string, credentials: any, enabled?: boolean, label?: string, role?: string) => {
     try {
       await hanaFetch('/api/bridge/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: platform_, credentials, enabled, label }),
+        body: JSON.stringify({ platform: platform_, credentials, enabled, label, role }),
       });
       showToast(t('settings.saved'), 'success');
       await loadStatus();
@@ -193,7 +198,49 @@ export function BridgeTab() {
   const tgInfo = status?.telegram || {};
   const waInfo = status?.whatsapp || {};
   const qqInfo = status?.qq || {};
+  const wxInfo = status?.wechat || {};
   const readOnly = !!status?.readOnly;
+
+  // 微信扫码登录状态
+  const [wxLoginState, setWxLoginState] = useState<'idle' | 'qr' | 'polling' | 'success' | 'error'>('idle');
+  const [wxQrcodeUrl, setWxQrcodeUrl] = useState('');
+  const [wxLoginMsg, setWxLoginMsg] = useState('');
+
+  const startWxLogin = async () => {
+    setWxLoginState('qr');
+    setWxLoginMsg('正在获取二维码...');
+    try {
+      const res = await hanaFetch('/api/bridge/wechat-login-start', { method: 'POST' });
+      const data = await res.json();
+      if (data.qrcodeUrl) {
+        setWxQrcodeUrl(data.qrcodeUrl);
+        setWxLoginMsg(data.message || '请使用微信扫描二维码');
+        // 自动开始轮询
+        setWxLoginState('polling');
+        const pollRes = await hanaFetch('/api/bridge/wechat-login-poll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ qrcode: data.qrcode, timeoutMs: 120000 }),
+        });
+        const pollData = await pollRes.json();
+        if (pollData.connected) {
+          setWxLoginState('success');
+          setWxLoginMsg(pollData.message || '✅ 连接成功！');
+          showToast('微信连接成功！', 'success');
+          await loadStatus();
+        } else {
+          setWxLoginState('error');
+          setWxLoginMsg(pollData.message || '连接失败');
+        }
+      } else {
+        setWxLoginState('error');
+        setWxLoginMsg(data.message || '获取二维码失败');
+      }
+    } catch (err: any) {
+      setWxLoginState('error');
+      setWxLoginMsg('请求失败: ' + err.message);
+    }
+  };
 
   return (
     <div className="settings-tab-content active" data-tab="bridge">
@@ -287,10 +334,11 @@ export function BridgeTab() {
           const instanceInfo = status?.instances?.[inst.id] || {};
           const isDefault = !inst.id.includes(':');
           const displayLabel = inst.label || instanceInfo.label || (isDefault ? '' : inst.id.split(':')[1]);
+          const currentRole = inst.role || (instanceInfo as any).role || 'ai';
           return (
             <div key={inst.id} className="bridge-instance-block">
-              {!isDefault && (
-                <div className="bridge-instance-header">
+              <div className="bridge-instance-header">
+                {!isDefault && (
                   <input
                     className="settings-input bridge-instance-label-input"
                     type="text"
@@ -303,13 +351,27 @@ export function BridgeTab() {
                       }
                     }}
                   />
+                )}
+                <select
+                  className="settings-input bridge-role-select"
+                  value={currentRole}
+                  onChange={async (e) => {
+                    const newRole = e.target.value;
+                    updateFeishuField(inst.id, 'role', newRole);
+                    await saveBridgeConfig(inst.id, null, undefined, undefined, newRole);
+                  }}
+                >
+                  <option value="ai">🤖 AI 自动回复</option>
+                  <option value="owner">👤 Owner 通道</option>
+                </select>
+                {!isDefault && (
                   <button
                     className="bridge-remove-instance-btn"
                     onClick={() => removeFeishuInstance(inst.id)}
                     title="删除此实例"
                   >✕</button>
-                </div>
-              )}
+                )}
+              </div>
               <div className="bridge-platform-header">
                 <BridgeStatusDot status={instanceInfo.status} />
                 <BridgeStatusText status={instanceInfo.status} error={instanceInfo.error} />
@@ -442,6 +504,82 @@ export function BridgeTab() {
           users={status?.knownUsers?.qq || []}
           currentOwner={status?.owner?.qq}
           onChange={(userId) => setOwner('qq', userId)}
+        />
+      </section>
+
+      {/* 微信 ClawBot */}
+      <section className="settings-section">
+        <h2 className="settings-section-title">微信 ClawBot</h2>
+        <div className="bridge-platform-header">
+          <BridgeStatusDot status={wxInfo.status} />
+          <BridgeStatusText status={wxInfo.status} error={wxInfo.error} />
+          {wxInfo.configured && (
+            <Toggle
+              on={!!wxInfo.enabled}
+              onChange={async (on) => {
+                await saveBridgeConfig('wechat', null, on);
+              }}
+            />
+          )}
+        </div>
+
+        {/* 未配置：显示登录按钮 */}
+        {!wxInfo.configured && wxLoginState === 'idle' && (
+          <div className="settings-field">
+            <button className="bridge-wechat-login-btn" onClick={startWxLogin}>
+              🔗 扫码连接微信
+            </button>
+            <span className="settings-field-hint">
+              通过微信 ClawBot 插件连接，扫码后即可在微信中与 Hanako 对话
+            </span>
+          </div>
+        )}
+
+        {/* 已配置：显示状态信息 */}
+        {wxInfo.configured && (
+          <div className="settings-field">
+            <span className="settings-field-hint">
+              已连接微信 ClawBot{wxInfo.tokenMasked ? `（Token: ${wxInfo.tokenMasked}）` : ''}
+            </span>
+            <button
+              className="bridge-wechat-relogin-btn"
+              onClick={() => { setWxLoginState('idle'); startWxLogin(); }}
+            >
+              重新扫码连接
+            </button>
+          </div>
+        )}
+
+        {/* 扫码登录流程 */}
+        {wxLoginState !== 'idle' && (
+          <div className="bridge-wechat-qr-section">
+            {wxQrcodeUrl && (
+              <div className="bridge-wechat-qr-wrapper">
+                <img src={wxQrcodeUrl} alt="微信扫码" className="bridge-wechat-qr-img" />
+              </div>
+            )}
+            <p className="bridge-wechat-login-msg">
+              {wxLoginState === 'polling' && '⏳ '}
+              {wxLoginState === 'success' && '✅ '}
+              {wxLoginState === 'error' && '❌ '}
+              {wxLoginMsg}
+            </p>
+            {(wxLoginState === 'error' || wxLoginState === 'success') && (
+              <button
+                className="bridge-wechat-login-btn"
+                onClick={() => { setWxLoginState('idle'); if (wxLoginState === 'error') startWxLogin(); }}
+              >
+                {wxLoginState === 'error' ? '重试' : '完成'}
+              </button>
+            )}
+          </div>
+        )}
+
+        <OwnerSelect
+          platform_="wechat"
+          users={status?.knownUsers?.wechat || []}
+          currentOwner={status?.owner?.wechat}
+          onChange={(userId) => setOwner('wechat', userId)}
         />
       </section>
 
