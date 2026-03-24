@@ -40,10 +40,11 @@ export function wsSend(ws, msg) {
   }
 }
 
-/** 安全地解析 WebSocket 消息 */
+/** 安全地解析 WebSocket 消息（兼容 Buffer / string / ArrayBuffer） */
 export function wsParse(data) {
   try {
-    return JSON.parse(data.toString());
+    const str = typeof data === "string" ? data : (data?.toString?.() ?? String(data));
+    return JSON.parse(str);
   } catch {
     return null;
   }

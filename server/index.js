@@ -25,7 +25,7 @@ import { initDebugLog } from "../lib/debug-log.js";
 setMaxListeners(50);
 
 import { loadLocale } from "./i18n.js";
-import chatRoute from "./routes/chat.js";
+import { createChatRoute } from "./routes/chat.js";
 import { createSessionsRoute } from "./routes/sessions.js";
 import { createModelsRoute } from "./routes/models.js";
 import { createConfigRoute } from "./routes/config.js";
@@ -165,8 +165,7 @@ engine._confirmStore = confirmStore;
 const bridgeManager = new BridgeManager({ engine, hub });
 hub.bridgeManager = bridgeManager;
 
-// TODO: migrate routes to Hono
-// app.register(chatRoute, { engine, hub });
+app.route("/api", createChatRoute(engine, hub, { upgradeWebSocket }));
 app.route("/api", createSessionsRoute(engine));
 app.route("/api", createModelsRoute(engine));
 app.route("/api", createConfigRoute(engine));

@@ -4,6 +4,7 @@
  * 桥接 Pi SDK streaming 事件 → WebSocket 消息
  * 支持多 session 并发：后台 session 静默运行，只转发当前活跃 session 的事件
  */
+import { Hono } from "hono";
 import { MoodParser, XingParser, ThinkTagParser } from "../../core/events.js";
 import { wsSend, wsParse } from "../ws-protocol.js";
 import { debugLog } from "../../lib/debug-log.js";
@@ -34,7 +35,9 @@ function extractText(content) {
     .join("");
 }
 
-export default async function chatRoute(app, { engine, hub }) {
+export function createChatRoute(engine, hub, { upgradeWebSocket }) {
+  const route = new Hono();
+
   let activeWsClients = 0;
   let disconnectAbortTimer = null;
   const DISCONNECT_ABORT_GRACE_MS = 15_000;
@@ -474,224 +477,227 @@ export default async function chatRoute(app, { engine, hub }) {
     }
   });
 
-  function wrapWsHandler(ws, handler) {
-    return async (raw) => {
-      const msg = wsParse(raw);
-      if (!msg) return;
-      try {
-        await handler(msg, ws);
-      } catch (err) {
-        const appErr = AppError.wrap(err);
-        errorBus.report(appErr, { context: { wsMessageType: msg.type } });
-        if (!appErr.message?.includes('aborted')) {
-          wsSend(ws, { type: 'error', error: appErr.toJSON() });
-        }
-      }
-    };
-  }
+  // ── WebSocket 路由 ──
 
-  app.get("/ws", { websocket: true }, (socket, req) => {
-    const ws = socket;
-    let closed = false;
-    activeWsClients++;
-    clients.add(ws);
-    cancelDisconnectAbort();
-    debugLog()?.log("ws", "client connected");
+  route.get("/ws",
+    upgradeWebSocket((c) => {
+      let closed = false;
 
-    // 注意：token 校验由 server/index.js 的 onRequest hook 统一处理，
-    // Fastify @fastify/websocket 的 WS 升级请求也会经过该 hook
+      return {
+        onOpen(event, ws) {
+          activeWsClients++;
+          clients.add(ws);
+          cancelDisconnectAbort();
+          debugLog()?.log("ws", "client connected");
+        },
 
-    // 处理客户端消息
-    ws.on("message", wrapWsHandler(ws, async (msg, ws) => {
+        onMessage(event, ws) {
+          // Hono @hono/node-ws delivers event.data as a string for text frames
+          const msg = wsParse(event.data);
+          if (!msg) return;
 
-      if (msg.type === "abort") {
-        const abortPath = msg.sessionPath || engine.currentSessionPath;
-        if (engine.isSessionStreaming(abortPath)) {
-          try { await hub.abort(abortPath); } catch {}
-        }
-        return;
-      }
-
-      if (msg.type === "steer" && msg.text) {
-        debugLog()?.log("ws", `steer (${msg.text.length} chars)`);
-        const steerPath = msg.sessionPath || engine.currentSessionPath;
-        if (engine.steerSession(steerPath, msg.text)) {
-          wsSend(ws, { type: "steered" });
-          return;
-        }
-        // agent 已停止，降级为正常 prompt（下面的 prompt 分支会处理）
-        debugLog()?.log("ws", `steer missed, falling back to prompt`);
-        msg.type = "prompt";
-      }
-
-      // session 切回时，前端请求补发离屏期间的流式内容
-      if (msg.type === "resume_stream") {
-        const currentPath = msg.sessionPath || engine.currentSessionPath;
-        const ss = sessionState.get(currentPath);
-        if (ss) {
-          const resumed = resumeSessionStream(ss, {
-            streamId: msg.streamId,
-            sinceSeq: msg.sinceSeq,
-          });
-          wsSend(ws, {
-            type: "stream_resume",
-            sessionPath: currentPath,
-            streamId: resumed.streamId,
-            sinceSeq: resumed.sinceSeq,
-            nextSeq: resumed.nextSeq,
-            reset: resumed.reset,
-            truncated: resumed.truncated,
-            isStreaming: resumed.isStreaming,
-            events: resumed.events,
-          });
-        } else {
-          wsSend(ws, {
-            type: "stream_resume",
-            sessionPath: currentPath,
-            streamId: null,
-            sinceSeq: Number.isFinite(msg.sinceSeq) ? Math.max(0, msg.sinceSeq) : 0,
-            nextSeq: 1,
-            reset: false,
-            truncated: false,
-            isStreaming: false,
-            events: [],
-          });
-        }
-        return;
-      }
-
-      if (msg.type === "context_usage") {
-        const usage = engine.session?.getContextUsage?.();
-        wsSend(ws, {
-          type: "context_usage",
-          tokens: usage?.tokens ?? null,
-          contextWindow: usage?.contextWindow ?? null,
-          percent: usage?.percent ?? null,
-        });
-        return;
-      }
-
-      if (msg.type === "compact") {
-        const session = engine.session;
-        if (!session) {
-          wsSend(ws, { type: "error", message: t("error.noActiveSession") });
-          return;
-        }
-        if (session.isCompacting) {
-          wsSend(ws, { type: "error", message: t("error.compacting") });
-          return;
-        }
-        // streaming 时不允许手动压缩，避免与 prompt 并发
-        if (engine.isStreaming) {
-          wsSend(ws, { type: "error", message: t("error.waitForReply") });
-          return;
-        }
-        broadcast({ type: "compaction_start" });
-        try {
-          await session.compact();
-          const usage = session.getContextUsage?.();
-          broadcast({
-            type: "compaction_end",
-            tokens: usage?.tokens ?? null,
-            contextWindow: usage?.contextWindow ?? null,
-            percent: usage?.percent ?? null,
-          });
-        } catch (err) {
-          // Already compacted / Nothing to compact 不算错误
-          const msg = err.message || "";
-          if (msg.includes("Already compacted") || msg.includes("Nothing to compact")) {
-            broadcast({ type: "compaction_end" });
-          } else {
-            broadcast({ type: "compaction_end" });
-            wsSend(ws, { type: "error", message: t("error.compactFailed", { msg }) });
-          }
-        }
-        return;
-      }
-
-      if (msg.type === "prompt" && (msg.text || msg.images?.length)) {
-        // 图片校验：最多 10 张，单张 ≤ 20MB，仅允许常见图片 MIME
-        if (msg.images?.length) {
-          const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
-          const MAX_IMAGES = 10;
-          const MAX_BYTES = 20 * 1024 * 1024; // 20MB base64 ≈ 15MB 原始
-          if (msg.images.length > MAX_IMAGES) {
-            wsSend(ws, { type: "error", message: t("error.maxImages", { max: MAX_IMAGES }) });
-            return;
-          }
-          for (const img of msg.images) {
-            if (!img?.mimeType || !ALLOWED_MIME.has(img.mimeType)) {
-              wsSend(ws, { type: "error", message: t("error.unsupportedImageFormat", { mime: img?.mimeType || "unknown" }) });
+          // Wrap the async handler with error handling (replaces wrapWsHandler)
+          (async () => {
+            if (msg.type === "abort") {
+              const abortPath = msg.sessionPath || engine.currentSessionPath;
+              if (engine.isSessionStreaming(abortPath)) {
+                try { await hub.abort(abortPath); } catch {}
+              }
               return;
             }
-            if (img.data && img.data.length > MAX_BYTES) {
-              wsSend(ws, { type: "error", message: t("error.imageTooLarge") });
+
+            if (msg.type === "steer" && msg.text) {
+              debugLog()?.log("ws", `steer (${msg.text.length} chars)`);
+              const steerPath = msg.sessionPath || engine.currentSessionPath;
+              if (engine.steerSession(steerPath, msg.text)) {
+                wsSend(ws, { type: "steered" });
+                return;
+              }
+              // agent 已停止，降级为正常 prompt（下面的 prompt 分支会处理）
+              debugLog()?.log("ws", `steer missed, falling back to prompt`);
+              msg.type = "prompt";
+            }
+
+            // session 切回时，前端请求补发离屏期间的流式内容
+            if (msg.type === "resume_stream") {
+              const currentPath = msg.sessionPath || engine.currentSessionPath;
+              const ss = sessionState.get(currentPath);
+              if (ss) {
+                const resumed = resumeSessionStream(ss, {
+                  streamId: msg.streamId,
+                  sinceSeq: msg.sinceSeq,
+                });
+                wsSend(ws, {
+                  type: "stream_resume",
+                  sessionPath: currentPath,
+                  streamId: resumed.streamId,
+                  sinceSeq: resumed.sinceSeq,
+                  nextSeq: resumed.nextSeq,
+                  reset: resumed.reset,
+                  truncated: resumed.truncated,
+                  isStreaming: resumed.isStreaming,
+                  events: resumed.events,
+                });
+              } else {
+                wsSend(ws, {
+                  type: "stream_resume",
+                  sessionPath: currentPath,
+                  streamId: null,
+                  sinceSeq: Number.isFinite(msg.sinceSeq) ? Math.max(0, msg.sinceSeq) : 0,
+                  nextSeq: 1,
+                  reset: false,
+                  truncated: false,
+                  isStreaming: false,
+                  events: [],
+                });
+              }
               return;
             }
-          }
-        }
-        // vision 能力检查：模型不支持图片时拦截，防止坏消息污染会话历史
-        if (msg.images?.length) {
-          const model = engine.currentModel;
-          const provider = model?.provider && engine.providerRegistry.get(model.provider);
-          if (provider && provider.capabilities?.vision === false) {
-            wsSend(ws, { type: "error", message: t("error.modelNoVision") });
-            return;
-          }
-        }
-        // 只发图片没文字时补一个占位文本，防止空 text 导致某些 API 异常
-        let promptText = msg.text || "";
-        if (!promptText.trim() && msg.images?.length) {
-          promptText = t("error.viewImage");
-        }
-        debugLog()?.log("ws", `user message (${promptText.length} chars, ${msg.images?.length || 0} images)`);
-        // Phase 2: 客户端可指定 sessionPath，否则用焦点 session
-        const promptSessionPath = msg.sessionPath || engine.currentSessionPath;
-        if (engine.isSessionStreaming(promptSessionPath)) {
-          wsSend(ws, { type: "error", message: t("error.stillStreaming", { name: engine.agentName }) });
-          return;
-        }
-        const ss = getState(promptSessionPath);
-        try {
-          ss.thinkTagParser.reset();
-          ss.moodParser.reset();
-          ss.xingParser.reset();
-          ss.titleRequested = false;
-          ss.titlePreview = "";
-          beginSessionStream(ss);
-          broadcast({ type: "status", isStreaming: true, sessionPath: promptSessionPath });
-          await hub.send(promptText, msg.images ? { images: msg.images, sessionPath: promptSessionPath } : { sessionPath: promptSessionPath });
-          broadcast({ type: "status", isStreaming: false, sessionPath: promptSessionPath });
-        } catch (err) {
-          if (!err.message?.includes("aborted")) {
-            wsSend(ws, { type: "error", message: err.message });
-          }
-          broadcast({ type: "status", isStreaming: false, sessionPath: promptSessionPath });
-        }
-      }
-    }));
 
-    ws.on("error", (err) => {
-      console.error("[ws] error:", err.message);
-      debugLog()?.error("ws", err.message);
-    });
+            if (msg.type === "context_usage") {
+              const usage = engine.session?.getContextUsage?.();
+              wsSend(ws, {
+                type: "context_usage",
+                tokens: usage?.tokens ?? null,
+                contextWindow: usage?.contextWindow ?? null,
+                percent: usage?.percent ?? null,
+              });
+              return;
+            }
 
-    // 清理：WS 断开时只中断前台 session（后台 channel triage / cron 不受影响）
-    ws.on("close", () => {
-      if (closed) return;
-      closed = true;
-      activeWsClients = Math.max(0, activeWsClients - 1);
-      clients.delete(ws);
-      debugLog()?.log("ws", "client disconnected");
-      scheduleDisconnectAbort();
-      // 无活跃客户端时，清理非流式 session 状态（防止 Map 无限增长）
-      if (activeWsClients === 0) {
-        for (const [sp, ss] of sessionState) {
-          if (!ss.isStreaming) sessionState.delete(sp);
-        }
-      }
-    });
-  });
+            if (msg.type === "compact") {
+              const session = engine.session;
+              if (!session) {
+                wsSend(ws, { type: "error", message: t("error.noActiveSession") });
+                return;
+              }
+              if (session.isCompacting) {
+                wsSend(ws, { type: "error", message: t("error.compacting") });
+                return;
+              }
+              // streaming 时不允许手动压缩，避免与 prompt 并发
+              if (engine.isStreaming) {
+                wsSend(ws, { type: "error", message: t("error.waitForReply") });
+                return;
+              }
+              broadcast({ type: "compaction_start" });
+              try {
+                await session.compact();
+                const usage = session.getContextUsage?.();
+                broadcast({
+                  type: "compaction_end",
+                  tokens: usage?.tokens ?? null,
+                  contextWindow: usage?.contextWindow ?? null,
+                  percent: usage?.percent ?? null,
+                });
+              } catch (err) {
+                // Already compacted / Nothing to compact 不算错误
+                const errMsg = err.message || "";
+                if (errMsg.includes("Already compacted") || errMsg.includes("Nothing to compact")) {
+                  broadcast({ type: "compaction_end" });
+                } else {
+                  broadcast({ type: "compaction_end" });
+                  wsSend(ws, { type: "error", message: t("error.compactFailed", { msg: errMsg }) });
+                }
+              }
+              return;
+            }
+
+            if (msg.type === "prompt" && (msg.text || msg.images?.length)) {
+              // 图片校验：最多 10 张，单张 ≤ 20MB，仅允许常见图片 MIME
+              if (msg.images?.length) {
+                const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+                const MAX_IMAGES = 10;
+                const MAX_BYTES = 20 * 1024 * 1024; // 20MB base64 ≈ 15MB 原始
+                if (msg.images.length > MAX_IMAGES) {
+                  wsSend(ws, { type: "error", message: t("error.maxImages", { max: MAX_IMAGES }) });
+                  return;
+                }
+                for (const img of msg.images) {
+                  if (!img?.mimeType || !ALLOWED_MIME.has(img.mimeType)) {
+                    wsSend(ws, { type: "error", message: t("error.unsupportedImageFormat", { mime: img?.mimeType || "unknown" }) });
+                    return;
+                  }
+                  if (img.data && img.data.length > MAX_BYTES) {
+                    wsSend(ws, { type: "error", message: t("error.imageTooLarge") });
+                    return;
+                  }
+                }
+              }
+              // vision 能力检查：模型不支持图片时拦截，防止坏消息污染会话历史
+              if (msg.images?.length) {
+                const model = engine.currentModel;
+                const provider = model?.provider && engine.providerRegistry.get(model.provider);
+                if (provider && provider.capabilities?.vision === false) {
+                  wsSend(ws, { type: "error", message: t("error.modelNoVision") });
+                  return;
+                }
+              }
+              // 只发图片没文字时补一个占位文本，防止空 text 导致某些 API 异常
+              let promptText = msg.text || "";
+              if (!promptText.trim() && msg.images?.length) {
+                promptText = t("error.viewImage");
+              }
+              debugLog()?.log("ws", `user message (${promptText.length} chars, ${msg.images?.length || 0} images)`);
+              // Phase 2: 客户端可指定 sessionPath，否则用焦点 session
+              const promptSessionPath = msg.sessionPath || engine.currentSessionPath;
+              if (engine.isSessionStreaming(promptSessionPath)) {
+                wsSend(ws, { type: "error", message: t("error.stillStreaming", { name: engine.agentName }) });
+                return;
+              }
+              const ss = getState(promptSessionPath);
+              try {
+                ss.thinkTagParser.reset();
+                ss.moodParser.reset();
+                ss.xingParser.reset();
+                ss.titleRequested = false;
+                ss.titlePreview = "";
+                beginSessionStream(ss);
+                broadcast({ type: "status", isStreaming: true, sessionPath: promptSessionPath });
+                await hub.send(promptText, msg.images ? { images: msg.images, sessionPath: promptSessionPath } : { sessionPath: promptSessionPath });
+                broadcast({ type: "status", isStreaming: false, sessionPath: promptSessionPath });
+              } catch (err) {
+                if (!err.message?.includes("aborted")) {
+                  wsSend(ws, { type: "error", message: err.message });
+                }
+                broadcast({ type: "status", isStreaming: false, sessionPath: promptSessionPath });
+              }
+            }
+          })().catch((err) => {
+            const appErr = AppError.wrap(err);
+            errorBus.report(appErr, { context: { wsMessageType: msg.type } });
+            if (!appErr.message?.includes('aborted')) {
+              wsSend(ws, { type: 'error', error: appErr.toJSON() });
+            }
+          });
+        },
+
+        onError(event, ws) {
+          const err = event.error || event;
+          console.error("[ws] error:", err.message || err);
+          debugLog()?.error("ws", err.message || String(err));
+        },
+
+        // 清理：WS 断开时只中断前台 session（后台 channel triage / cron 不受影响）
+        onClose(event, ws) {
+          if (closed) return;
+          closed = true;
+          activeWsClients = Math.max(0, activeWsClients - 1);
+          clients.delete(ws);
+          debugLog()?.log("ws", "client disconnected");
+          scheduleDisconnectAbort();
+          // 无活跃客户端时，清理非流式 session 状态（防止 Map 无限增长）
+          if (activeWsClients === 0) {
+            for (const [sp, ss] of sessionState) {
+              if (!ss.isStreaming) sessionState.delete(sp);
+            }
+          }
+        },
+      };
+    })
+  );
+
+  return route;
 }
 
 /**
