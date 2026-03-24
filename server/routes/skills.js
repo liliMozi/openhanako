@@ -1,13 +1,15 @@
 /**
  * Skills 管理路由
  *
- * GET    /api/skills              — 列出所有可用 skill（含当前 agent 的 enabled 状态）
- * PUT    /api/agents/:id/skills   — 更新指定 agent 的 enabled skills 列表
- * POST   /api/skills/install      — 安装用户技能（文件夹路径 / .zip / .skill）
- * DELETE /api/skills/:name        — 删除用户技能
+ * GET    /skills              — 列出所有可用 skill（含当前 agent 的 enabled 状态）
+ * PUT    /agents/:id/skills   — 更新指定 agent 的 enabled skills 列表
+ * POST   /skills/install      — 安装用户技能（文件夹路径 / .zip / .skill）
+ * DELETE /skills/:name        — 删除用户技能
  */
 import path from "path";
 import fs from "fs";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { extractZip } from "../../lib/extract-zip.js";
 import { saveConfig } from "../../lib/memory/config-loader.js";
 import { sanitizeSkillName, safetyReview } from "../../lib/tools/install-skill.js";
@@ -54,29 +56,28 @@ function rmDirSync(dir) {
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
-export default async function skillsRoute(app, { engine }) {
+export function createSkillsRoute(engine) {
+  const route = new Hono();
 
-  app.get("/api/skills", async (req, reply) => {
+  route.get("/skills", async (c) => {
     try {
-      const { agentId } = req.query;
-      return { skills: engine.getAllSkills(agentId || undefined) };
+      const agentId = c.req.query("agentId");
+      return c.json({ skills: engine.getAllSkills(agentId || undefined) });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/agents/:id/skills", async (req, reply) => {
-    const { id } = req.params;
+  route.put("/agents/:id/skills", async (c) => {
+    const id = c.req.param("id");
     if (!validateId(id) || !agentExists(engine, id)) {
-      reply.code(404);
-      return { error: "agent not found" };
+      return c.json({ error: "agent not found" }, 404);
     }
     try {
-      const { enabled } = req.body || {};
+      const body = await safeJson(c);
+      const { enabled } = body;
       if (!Array.isArray(enabled)) {
-        reply.code(400);
-        return { error: "enabled must be an array of skill names" };
+        return c.json({ error: "enabled must be an array of skill names" }, 400);
       }
 
       const partial = { skills: { enabled } };
@@ -88,25 +89,23 @@ export default async function skillsRoute(app, { engine }) {
         await engine.updateConfig(partial);
       }
 
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 安装用户技能 ──
-  app.post("/api/skills/install", async (req, reply) => {
+  route.post("/skills/install", async (c) => {
     try {
-      const { path: srcPath } = req.body || {};
+      const body = await safeJson(c);
+      const { path: srcPath } = body;
       if (!srcPath || !path.isAbsolute(srcPath)) {
-        reply.code(400);
-        return { error: t("error.skillNeedAbsolutePath") };
+        return c.json({ error: t("error.skillNeedAbsolutePath") }, 400);
       }
 
       if (!fs.existsSync(srcPath)) {
-        reply.code(400);
-        return { error: t("error.skillPathNotExists") };
+        return c.json({ error: t("error.skillPathNotExists") }, 400);
       }
 
       const userDir = engine.userSkillsDir;
@@ -117,16 +116,14 @@ export default async function skillsRoute(app, { engine }) {
       if (stat.isDirectory()) {
         // 直接是文件夹
         if (!fs.existsSync(path.join(srcPath, "SKILL.md"))) {
-          reply.code(400);
-          return { error: t("error.skillMissingSkillMd") };
+          return c.json({ error: t("error.skillMissingSkillMd") }, 400);
         }
         skillDir = srcPath;
       } else {
         // .zip 或 .skill 文件
         const ext = path.extname(srcPath).toLowerCase();
         if (ext !== ".zip" && ext !== ".skill") {
-          reply.code(400);
-          return { error: t("error.skillUnsupportedFormat") };
+          return c.json({ error: t("error.skillUnsupportedFormat") }, 400);
         }
 
         // 解压到临时目录
@@ -146,14 +143,12 @@ export default async function skillsRoute(app, { engine }) {
               skillDir = path.join(tmpDir, found.name);
             } else {
               rmDirSync(tmpDir);
-              reply.code(400);
-              return { error: t("error.skillMissingSkillMdInZip") };
+              return c.json({ error: t("error.skillMissingSkillMdInZip") }, 400);
             }
           }
         } catch (err) {
           rmDirSync(tmpDir);
-          reply.code(400);
-          return { error: t("error.skillExtractFailed", { msg: err.message }) };
+          return c.json({ error: t("error.skillExtractFailed", { msg: err.message }) }, 400);
         }
       }
 
@@ -162,15 +157,13 @@ export default async function skillsRoute(app, { engine }) {
       if (!skillName) {
         // 清理临时目录
         if (skillDir !== srcPath) rmDirSync(path.dirname(skillDir) === userDir ? skillDir : path.join(userDir, ".tmp-install-" + Date.now()));
-        reply.code(400);
-        return { error: t("error.skillMissingName") };
+        return c.json({ error: t("error.skillMissingName") }, 400);
       }
 
       // 安全校验名称
       const safeName = sanitizeSkillName(skillName);
       if (!safeName) {
-        reply.code(400);
-        return { error: t("error.skillNameInvalid", { name: skillName }) };
+        return c.json({ error: t("error.skillNameInvalid", { name: skillName }) }, 400);
       }
 
       // 手动安装（用户行为）不做安全审查，直接放行
@@ -215,66 +208,59 @@ export default async function skillsRoute(app, { engine }) {
       }
 
       const skill = engine.getAllSkills().find(s => s.name === safeName);
-      return {
+      return c.json({
         ok: true,
         skill: skill || { name: safeName, type: "user" },
-      };
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 外部兼容技能路径 ──
-  app.get("/api/skills/external-paths", async (_req, reply) => {
+  route.get("/skills/external-paths", async (c) => {
     try {
-      return engine.getExternalSkillPaths();
+      return c.json(engine.getExternalSkillPaths());
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/skills/external-paths", async (req, reply) => {
+  route.put("/skills/external-paths", async (c) => {
     try {
-      const { paths } = req.body || {};
+      const body = await safeJson(c);
+      const { paths } = body;
       if (!Array.isArray(paths)) {
-        reply.code(400);
-        return { error: "paths must be an array" };
+        return c.json({ error: "paths must be an array" }, 400);
       }
       for (const p of paths) {
         if (!path.isAbsolute(p)) {
-          reply.code(400);
-          return { error: t("error.skillPathMustBeAbsolute", { path: p }) };
+          return c.json({ error: t("error.skillPathMustBeAbsolute", { path: p }) }, 400);
         }
         if (path.resolve(p) === path.resolve(engine.skillsDir)) {
-          reply.code(400);
-          return { error: t("error.skillCannotAddSelfDir") };
+          return c.json({ error: t("error.skillCannotAddSelfDir") }, 400);
         }
       }
       await engine.setExternalSkillPaths(paths);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 删除技能 ──
-  app.delete("/api/skills/:name", async (req, reply) => {
+  route.delete("/skills/:name", async (c) => {
     try {
-      const { name } = req.params;
+      const name = c.req.param("name");
       if (!sanitizeSkillName(name)) {
-        reply.code(400);
-        return { error: t("error.skillInvalidName") };
+        return c.json({ error: t("error.skillInvalidName") }, 400);
       }
 
       // 外部技能不可删除
       const allSkills = engine.getAllSkills();
       const target = allSkills.find(s => s.name === name);
       if (target?.readonly) {
-        reply.code(403);
-        return { error: t("error.skillExternalCannotDelete") };
+        return c.json({ error: t("error.skillExternalCannotDelete") }, 403);
       }
 
       // 优先查用户技能目录，再查 agent 自学目录
@@ -288,8 +274,7 @@ export default async function skillsRoute(app, { engine }) {
       } else if (learnedSkillPath && fs.existsSync(learnedSkillPath)) {
         skillPath = learnedSkillPath;
       } else {
-        reply.code(404);
-        return { error: t("error.skillNotExists") };
+        return c.json({ error: t("error.skillNotExists") }, 404);
       }
 
       // 删除目录
@@ -316,30 +301,31 @@ export default async function skillsRoute(app, { engine }) {
       // 重新加载 skills
       await engine.reloadSkills();
 
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  // POST /api/skills/reload — 强制重新加载所有技能
-  app.post("/api/skills/reload", async (_req, reply) => {
+  // POST /skills/reload — 强制重新加载所有技能
+  route.post("/skills/reload", async (c) => {
     try {
       await engine.reloadSkills();
-      return { ok: true, skills: engine.getAllSkills() };
+      return c.json({ ok: true, skills: engine.getAllSkills() });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  // POST /api/skills/translate — 用工具模型翻译技能名
-  app.post("/api/skills/translate", async (request, reply) => {
-    const { names, lang } = request.body || {};
+  // POST /skills/translate — 用工具模型翻译技能名
+  route.post("/skills/translate", async (c) => {
+    const body = await safeJson(c);
+    const { names, lang } = body;
     if (!Array.isArray(names) || !lang || lang === "en") {
-      return {};
+      return c.json({});
     }
-    return engine.translateSkillNames(names, lang);
+    return c.json(await engine.translateSkillNames(names, lang));
   });
+
+  return route;
 }

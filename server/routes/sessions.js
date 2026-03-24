@@ -3,6 +3,8 @@
  */
 import fs from "fs/promises";
 import path from "path";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { t } from "../i18n.js";
 import { BrowserManager } from "../../lib/browser/browser-manager.js";
 import { isToolCallBlock, getToolArgs } from "../../core/llm-utils.js";
@@ -105,13 +107,14 @@ function isValidSessionPath(sessionPath, baseDir) {
   return resolved.startsWith(base + path.sep) || resolved === base;
 }
 
-export default async function sessionsRoute(app, { engine }) {
+export function createSessionsRoute(engine) {
+  const route = new Hono();
 
   // 列出所有 agent 的历史 session
-  app.get("/api/sessions", async (req, reply) => {
+  route.get("/sessions", async (c) => {
     try {
       const sessions = await engine.listSessions();
-      return sessions.map(s => ({
+      return c.json(sessions.map(s => ({
         path: s.path,
         title: s.title || null,
         firstMessage: (s.firstMessage || "").slice(0, 100),
@@ -120,26 +123,24 @@ export default async function sessionsRoute(app, { engine }) {
         cwd: s.cwd || null,
         agentId: s.agentId || null,
         agentName: s.agentName || null,
-      }));
+      })));
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 获取 session 的消息（支持 ?path= 指定 session，否则读焦点 session）
-  app.get("/api/sessions/messages", async (req, reply) => {
+  route.get("/sessions/messages", async (c) => {
     try {
-      const queryPath = req.query?.path || null;
+      const queryPath = c.req.query("path") || null;
       if (queryPath && !isValidSessionPath(queryPath, engine.agentsDir)) {
-        reply.code(403);
-        return { error: "Invalid session path" };
+        return c.json({ error: "Invalid session path" }, 403);
       }
       const sourceMessages = await loadSessionHistoryMessages(engine, queryPath);
 
       // 分页参数
-      const beforeId = req.query?.before != null ? Number(req.query.before) : null;
-      const limit = Math.min(Number(req.query?.limit) || 50, 200);
+      const beforeId = c.req.query("before") != null ? Number(c.req.query("before")) : null;
+      const limit = Math.min(Number(c.req.query("limit")) || 50, 200);
 
       // 提取可显示的消息（user/assistant 文本 + 文件/artifact 工具结果）
       // 每条消息带稳定 id（原始 sourceMessages 索引）
@@ -213,17 +214,17 @@ export default async function sessionsRoute(app, { engine }) {
         }
       }
 
-      return { messages, todos, fileOutputs: slicedFileOutputs, artifacts: slicedArtifacts, hasMore };
+      return c.json({ messages, todos, fileOutputs: slicedFileOutputs, artifacts: slicedArtifacts, hasMore });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 新建 session（可选指定工作目录和 agentId）
-  app.post("/api/sessions/new", async (req, reply) => {
+  route.post("/sessions/new", async (c) => {
     try {
-      const { cwd, memoryEnabled, agentId } = req.body || {};
+      const body = await safeJson(c);
+      const { cwd, memoryEnabled, agentId } = body;
       const memFlag = memoryEnabled !== false; // 默认 true
       console.log("[sessions] 新建 session", {
         hasCwd: !!cwd,
@@ -253,7 +254,7 @@ export default async function sessionsRoute(app, { engine }) {
       }
 
       console.log("[sessions] session 创建完成");
-      return {
+      return c.json({
         ok: true,
         path: engine.currentSessionPath,
         cwd: engine.cwd,
@@ -261,25 +262,23 @@ export default async function sessionsRoute(app, { engine }) {
         agentName: engine.agentName,
         planMode: engine.planMode,
         memoryModelUnavailableReason: engine.memoryModelUnavailableReason || null,
-      };
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 切换 session（支持跨 agent）
-  app.post("/api/sessions/switch", async (req, reply) => {
+  route.post("/sessions/switch", async (c) => {
     try {
-      const { path: sessionPath } = req.body || {};
+      const body = await safeJson(c);
+      const { path: sessionPath } = body;
       if (!sessionPath) {
-        reply.code(400);
-        return { error: t("error.missingParam", { param: "path" }) };
+        return c.json({ error: t("error.missingParam", { param: "path" }) }, 400);
       }
       // 校验路径在 agentsDir 范围内（支持跨 agent session）
       if (!isValidSessionPath(sessionPath, engine.agentsDir)) {
-        reply.code(403);
-        return { error: "Invalid session path" };
+        return c.json({ error: "Invalid session path" }, 403);
       }
       // 切换前挂起浏览器（保存当前 session 的浏览器状态）
       const bm = BrowserManager.instance();
@@ -291,7 +290,7 @@ export default async function sessionsRoute(app, { engine }) {
       // 恢复目标 session 的浏览器（若有）
       await bm.resumeForSession(sessionPath);
 
-      return {
+      return c.json({
         ok: true,
         messageCount: engine.messages.length,
         memoryEnabled: engine.memoryEnabled,
@@ -303,32 +302,33 @@ export default async function sessionsRoute(app, { engine }) {
         browserRunning: bm.isRunning,
         browserUrl: bm.currentUrl || null,
         isStreaming: engine.isStreaming,
-      };
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 获取所有有浏览器的 session
-  app.get("/api/browser/sessions", async () => {
+  route.get("/browser/sessions", async (c) => {
     const bm = BrowserManager.instance();
-    return bm.getBrowserSessions();
+    return c.json(bm.getBrowserSessions());
   });
 
   // 关闭指定 session 的浏览器
-  app.post("/api/browser/close-session", async (req) => {
-    const { sessionPath } = req.body || {};
-    if (!sessionPath) return { error: "missing sessionPath" };
+  route.post("/browser/close-session", async (c) => {
+    const body = await safeJson(c);
+    const { sessionPath } = body;
+    if (!sessionPath) return c.json({ error: "missing sessionPath" });
     const bm = BrowserManager.instance();
     await bm.closeBrowserForSession(sessionPath);
-    return { ok: true };
+    return c.json({ ok: true });
   });
 
   // 清理过期归档 session
-  app.post("/api/sessions/cleanup", async (req, reply) => {
+  route.post("/sessions/cleanup", async (c) => {
     try {
-      const { maxAgeDays = 90 } = req.body || {};
+      const body = await safeJson(c);
+      const { maxAgeDays = 90 } = body;
       const cutoff = Date.now() - maxAgeDays * 86400000;
       let deleted = 0;
 
@@ -352,33 +352,30 @@ export default async function sessionsRoute(app, { engine }) {
         }
       }
 
-      return { ok: true, deleted, maxAgeDays };
+      return c.json({ ok: true, deleted, maxAgeDays });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 归档 session（支持跨 agent）
-  app.post("/api/sessions/archive", async (req, reply) => {
+  route.post("/sessions/archive", async (c) => {
     try {
-      const { path: sessionPath } = req.body || {};
+      const body = await safeJson(c);
+      const { path: sessionPath } = body;
       if (!sessionPath) {
-        reply.code(400);
-        return { error: t("error.missingParam", { param: "path" }) };
+        return c.json({ error: t("error.missingParam", { param: "path" }) }, 400);
       }
       // 校验路径在 agentsDir 范围内
       if (!isValidSessionPath(sessionPath, engine.agentsDir)) {
-        reply.code(403);
-        return { error: "Invalid session path" };
+        return c.json({ error: "Invalid session path" }, 403);
       }
 
       // 确认文件存在
       try {
         await fs.access(sessionPath);
       } catch {
-        reply.code(404);
-        return { error: t("error.sessionNotFound") };
+        return c.json({ error: t("error.sessionNotFound") }, 404);
       }
 
       // 先从 engine 的 session map 中移除（如果正在后台跑会被 abort）
@@ -393,10 +390,11 @@ export default async function sessionsRoute(app, { engine }) {
       const destPath = path.join(archiveDir, fileName);
       await fs.rename(sessionPath, destPath);
 
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
+
+  return route;
 }

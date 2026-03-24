@@ -1,6 +1,8 @@
 /**
  * 供应商管理 REST 路由
  */
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { getAllProviders } from "../../lib/memory/config-loader.js";
 import { buildProviderAuthHeaders, buildProbeUrl } from "../../lib/llm/provider-client.js";
 
@@ -9,7 +11,8 @@ function maskKey(key) {
   return key.slice(0, 4) + "..." + key.slice(-4);
 }
 
-export default async function providersRoute(app, { engine }) {
+export function createProvidersRoute(engine) {
+  const route = new Hono();
 
   // ── Provider Summary ──
 
@@ -17,7 +20,7 @@ export default async function providersRoute(app, { engine }) {
    * 统一概览：合并 providers.yaml + OAuth status + favorites + SDK 模型
    * 前端新 ProvidersTab 的核心数据源
    */
-  app.get("/api/providers/summary", async () => {
+  route.get("/providers/summary", async (c) => {
     const providers = getAllProviders(engine.configPath);
 
     // ProviderRegistry 作为 OAuth 判断的权威来源
@@ -161,7 +164,7 @@ export default async function providersRoute(app, { engine }) {
       }
     }
 
-    return { providers: result, favorites };
+    return c.json({ providers: result, favorites });
   });
 
   // ── Fetch / Test ──
@@ -179,11 +182,11 @@ export default async function providersRoute(app, { engine }) {
    * 从供应商的 /v1/models (OpenAI 兼容) 端点拉取模型列表
    * body: { name, base_url, api, api_key? }
    */
-  app.post("/api/providers/fetch-models", async (req, reply) => {
-    const { name, base_url, api: explicitApi, api_key } = req.body || {};
+  route.post("/providers/fetch-models", async (c) => {
+    const body = await safeJson(c);
+    const { name, base_url, api: explicitApi, api_key } = body;
     if (!name && !base_url) {
-      reply.code(400);
-      return { error: "name or base_url is required" };
+      return c.json({ error: "name or base_url is required" }, 400);
     }
 
     const providers = name ? getAllProviders(engine.configPath) : {};
@@ -203,21 +206,20 @@ export default async function providersRoute(app, { engine }) {
         await engine.refreshAvailableModels();
         const registryModels = engine.availableModels.filter((model) => model.provider === name);
         if (registryModels.length > 0) {
-          return { source: "registry", models: normalizeRegistryModels(registryModels) };
+          return c.json({ source: "registry", models: normalizeRegistryModels(registryModels) });
         }
 
-        return {
+        return c.json({
           error: `Pi registry has no available models for provider "${name}" yet. Please finish login or re-login, then try again.`,
           models: [],
-        };
+        });
       } catch (err) {
-        return { error: err.message, models: [] };
+        return c.json({ error: err.message, models: [] });
       }
     }
 
     if (!base_url) {
-      reply.code(400);
-      return { error: "base_url is required for remote model fetch" };
+      return c.json({ error: "base_url is required for remote model fetch" }, 400);
     }
 
     // 解析 api_key：显式传入 > providers 块 > auth.json OAuth token
@@ -240,17 +242,17 @@ export default async function providersRoute(app, { engine }) {
         ? engine.modelRegistry.getAll().filter((m) => m.provider === name)
         : [];
       if (registryModels.length > 0) {
-        return { source: "registry", models: normalizeRegistryModels(registryModels) };
+        return c.json({ source: "registry", models: normalizeRegistryModels(registryModels) });
       }
       // fallback：从 default-models.json 返回默认模型列表
       const defaults = engine.providerRegistry?.getDefaultModels(name) || [];
       if (defaults.length > 0) {
-        return {
+        return c.json({
           source: "builtin",
           models: defaults.map(id => ({ id, name: id, context: null, maxOutput: null })),
-        };
+        });
       }
-      return { error: "No built-in models found for this provider", models: [] };
+      return c.json({ error: "No built-in models found for this provider", models: [] });
     }
 
     try {
@@ -258,7 +260,7 @@ export default async function providersRoute(app, { engine }) {
       let headers = { "Content-Type": "application/json" };
       if (key) {
         if (!api) {
-          return { error: "api is required when api_key is present", models: [] };
+          return c.json({ error: "api is required when api_key is present", models: [] });
         }
         headers = buildProviderAuthHeaders(api, key);
       }
@@ -268,7 +270,7 @@ export default async function providersRoute(app, { engine }) {
       });
 
       if (!res.ok) {
-        return { error: `HTTP ${res.status}: ${res.statusText}`, models: [] };
+        return c.json({ error: `HTTP ${res.status}: ${res.statusText}`, models: [] });
       }
 
       const data = await res.json();
@@ -281,9 +283,9 @@ export default async function providersRoute(app, { engine }) {
         maxOutput: m.max_completion_tokens || m.max_output_tokens || null,
       }));
 
-      return { models };
+      return c.json({ models });
     } catch (err) {
-      return { error: err.message, models: [] };
+      return c.json({ error: err.message, models: [] });
     }
   });
 
@@ -291,13 +293,13 @@ export default async function providersRoute(app, { engine }) {
    * 测试供应商连接
    * body: { base_url, api, api_key }
    */
-  app.post("/api/providers/test", async (req, reply) => {
-    const { base_url, api } = req.body || {};
+  route.post("/providers/test", async (c) => {
+    const body = await safeJson(c);
+    const { base_url, api } = body;
     // 清洗 API key：去除非 ASCII 字符（防止粘贴时输入法带入中文）
-    const api_key = (req.body?.api_key || "").replace(/[^\x20-\x7E]/g, "").trim();
+    const api_key = (body.api_key || "").replace(/[^\x20-\x7E]/g, "").trim();
     if (!base_url) {
-      reply.code(400);
-      return { error: "base_url is required" };
+      return c.json({ error: "base_url is required" }, 400);
     }
 
     try {
@@ -313,14 +315,13 @@ export default async function providersRoute(app, { engine }) {
         });
         // 401/403 = key 无效，其他错误（400 model not found 等）说明认证通过了
         const authOk = res.status !== 401 && res.status !== 403;
-        return { ok: authOk, status: res.status };
+        return c.json({ ok: authOk, status: res.status });
       }
 
       let headers = {};
       if (api_key) {
         if (!api) {
-          reply.code(400);
-          return { error: "api is required when api_key is present" };
+          return c.json({ error: "api is required when api_key is present" }, 400);
         }
         headers = buildProviderAuthHeaders(api, api_key);
       }
@@ -328,9 +329,11 @@ export default async function providersRoute(app, { engine }) {
         headers,
         signal: AbortSignal.timeout(10000),
       });
-      return { ok: res.ok, status: res.status };
+      return c.json({ ok: res.ok, status: res.status });
     } catch (err) {
-      return { ok: false, error: err.message };
+      return c.json({ ok: false, error: err.message });
     }
   });
+
+  return route;
 }

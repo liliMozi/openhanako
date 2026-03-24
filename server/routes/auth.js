@@ -6,13 +6,16 @@
  *   - 设备码流程 (MiniMax)：服务端轮询，用户在浏览器授权
  *
  * 交互：
- *   1. POST /api/auth/oauth/start    → { sessionId, url, instructions? }
- *   2. POST /api/auth/oauth/callback → 提交授权码（授权码流程）
- *   3. GET  /api/auth/oauth/poll/:id → 轮询登录状态（设备码流程）
+ *   1. POST /auth/oauth/start    → { sessionId, url, instructions? }
+ *   2. POST /auth/oauth/callback → 提交授权码（授权码流程）
+ *   3. GET  /auth/oauth/poll/:id → 轮询登录状态（设备码流程）
  */
 import crypto from "crypto";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 
-export default async function authRoute(app, { engine }) {
+export function createAuthRoute(engine) {
+  const route = new Hono();
 
   /** 进行中的 OAuth 流程 */
   const pendingFlows = new Map();
@@ -23,11 +26,11 @@ export default async function authRoute(app, { engine }) {
    * → { sessionId, url, instructions? }
    *   instructions 存在时为设备码流程（值为 user_code）
    */
-  app.post("/api/auth/oauth/start", async (req, reply) => {
-    const { provider } = req.body || {};
+  route.post("/auth/oauth/start", async (c) => {
+    const body = await safeJson(c);
+    const { provider } = body;
     if (!provider) {
-      reply.code(400);
-      return { error: "provider is required" };
+      return c.json({ error: "provider is required" }, 400);
     }
 
     const sessionId = crypto.randomUUID();
@@ -96,10 +99,9 @@ export default async function authRoute(app, { engine }) {
       const resp = { sessionId, url };
       if (authInstructions) resp.instructions = authInstructions;
       if (usesCallbackServer) resp.polling = true;
-      return resp;
+      return c.json(resp);
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -107,12 +109,12 @@ export default async function authRoute(app, { engine }) {
    * 提交授权码（授权码流程）
    * body: { sessionId, code }
    */
-  app.post("/api/auth/oauth/callback", async (req, reply) => {
-    const { sessionId, code } = req.body || {};
+  route.post("/auth/oauth/callback", async (c) => {
+    const body = await safeJson(c);
+    const { sessionId, code } = body;
     const flow = pendingFlows.get(sessionId);
     if (!flow) {
-      reply.code(400);
-      return { error: "No pending login flow" };
+      return c.json({ error: "No pending login flow" }, 400);
     }
 
     flow.resolveCode(code);
@@ -127,11 +129,10 @@ export default async function authRoute(app, { engine }) {
         console.error("[auth] post-login model sync failed:", err.message);
       }
 
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       pendingFlows.delete(sessionId);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -139,18 +140,18 @@ export default async function authRoute(app, { engine }) {
    * 轮询登录状态（设备码流程）
    * → { status: "pending" | "done" | "error", error? }
    */
-  app.get("/api/auth/oauth/poll/:sessionId", async (req, reply) => {
-    const flow = pendingFlows.get(req.params.sessionId);
+  route.get("/auth/oauth/poll/:sessionId", async (c) => {
+    const sessionId = c.req.param("sessionId");
+    const flow = pendingFlows.get(sessionId);
     if (!flow) {
-      reply.code(400);
-      return { status: "error", error: "No pending login flow" };
+      return c.json({ status: "error", error: "No pending login flow" }, 400);
     }
 
     if (!flow.result) {
-      return { status: "pending" };
+      return c.json({ status: "pending" });
     }
 
-    pendingFlows.delete(req.params.sessionId);
+    pendingFlows.delete(sessionId);
 
     if (flow.result.ok) {
       try {
@@ -158,17 +159,17 @@ export default async function authRoute(app, { engine }) {
       } catch (err) {
         console.error("[auth] post-login model sync failed:", err.message);
       }
-      return { status: "done" };
+      return c.json({ status: "done" });
     }
 
-    return { status: "error", error: flow.result.error };
+    return c.json({ status: "error", error: flow.result.error });
   });
 
   /**
    * 查询 OAuth 状态
    * → { anthropic: { name, loggedIn }, minimax: { name, loggedIn }, ... }
    */
-  app.get("/api/auth/oauth/status", async () => {
+  route.get("/auth/oauth/status", async (c) => {
     const providers = engine.authStorage.getOAuthProviders();
     const status = {};
     for (const p of providers) {
@@ -182,56 +183,60 @@ export default async function authRoute(app, { engine }) {
         modelCount,
       };
     }
-    return status;
+    return c.json(status);
   });
 
   /**
    * 登出
    * body: { provider }
    */
-  app.post("/api/auth/oauth/logout", async (req, reply) => {
-    const { provider } = req.body || {};
+  route.post("/auth/oauth/logout", async (c) => {
+    const body = await safeJson(c);
+    const { provider } = body;
     if (!provider) {
-      reply.code(400);
-      return { error: "provider is required" };
+      return c.json({ error: "provider is required" }, 400);
     }
     engine.authStorage.logout(provider);
-    return { ok: true };
+    return c.json({ ok: true });
   });
 
   // ── OAuth 自定义模型 ──
 
   /** 获取某个 OAuth provider 的自定义模型列表 */
-  app.get("/api/auth/oauth/:provider/custom-models", async (req) => {
+  route.get("/auth/oauth/:provider/custom-models", async (c) => {
+    const provider = c.req.param("provider");
     const custom = engine.preferences.getOAuthCustomModels();
-    return { models: custom[req.params.provider] || [] };
+    return c.json({ models: custom[provider] || [] });
   });
 
   /** 添加自定义模型到 OAuth provider */
-  app.post("/api/auth/oauth/:provider/custom-models", async (req, reply) => {
-    const { provider } = req.params;
-    const { modelId } = req.body || {};
+  route.post("/auth/oauth/:provider/custom-models", async (c) => {
+    const provider = c.req.param("provider");
+    const body = await safeJson(c);
+    const { modelId } = body;
     if (!modelId || typeof modelId !== "string" || !modelId.trim()) {
-      reply.code(400);
-      return { error: "modelId is required" };
+      return c.json({ error: "modelId is required" }, 400);
     }
     const id = modelId.trim();
     const custom = engine.preferences.getOAuthCustomModels();
     const list = custom[provider] || [];
-    if (list.includes(id)) return { ok: true, models: list };
+    if (list.includes(id)) return c.json({ ok: true, models: list });
     list.push(id);
     engine.preferences.setOAuthCustomModels(provider, list);
     await engine.refreshModels();
-    return { ok: true, models: list };
+    return c.json({ ok: true, models: list });
   });
 
   /** 删除 OAuth provider 的某个自定义模型 */
-  app.delete("/api/auth/oauth/:provider/custom-models/:modelId", async (req, reply) => {
-    const { provider, modelId } = req.params;
+  route.delete("/auth/oauth/:provider/custom-models/:modelId", async (c) => {
+    const provider = c.req.param("provider");
+    const modelId = c.req.param("modelId");
     const custom = engine.preferences.getOAuthCustomModels();
     const list = (custom[provider] || []).filter(id => id !== modelId);
     engine.preferences.setOAuthCustomModels(provider, list);
     await engine.refreshModels();
-    return { ok: true, models: list };
+    return c.json({ ok: true, models: list });
   });
+
+  return route;
 }

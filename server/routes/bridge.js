@@ -6,14 +6,17 @@
 
 import fs from "fs";
 import path from "path";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { parseSessionKey, collectKnownUsers, KNOWN_PLATFORMS } from "../../lib/bridge/session-key.js";
 import { t } from "../i18n.js";
 
-export default async function bridgeRoute(app, { engine, bridgeManager }) {
+export function createBridgeRoute(engine, bridgeManager) {
+  const route = new Hono();
 
   /** 获取所有平台连接状态 */
-  app.get("/api/bridge/status", async () => {
+  route.get("/bridge/status", async (c) => {
     const prefs = engine.getPreferences();
     const bridge = prefs.bridge || {};
     const live = bridgeManager.getStatus();
@@ -24,7 +27,7 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     const fsAppSecret = bridge.feishu?.appSecret || "";
     const mask = (s) => s.length <= 8 ? "••••" : s.slice(0, 4) + "••••" + s.slice(-4);
 
-    return {
+    return c.json({
       telegram: {
         configured: !!tgToken,
         enabled: !!bridge.telegram?.enabled,
@@ -58,14 +61,15 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
       readOnly: !!bridge.readOnly,
       knownUsers: collectKnownUsers(engine.getBridgeIndex()),
       owner: bridge.owner || {},
-    };
+    });
   });
 
   /** 设置 owner（哪个账号是你） */
-  app.post("/api/bridge/owner", async (req) => {
-    const { platform, userId } = req.body || {};
+  route.post("/bridge/owner", async (c) => {
+    const body = await safeJson(c);
+    const { platform, userId } = body;
     if (!platform || !KNOWN_PLATFORMS.includes(platform)) {
-      return { ok: false, error: "invalid platform" };
+      return c.json({ ok: false, error: "invalid platform" });
     }
     const prefs = engine.getPreferences();
     if (!prefs.bridge) prefs.bridge = {};
@@ -77,15 +81,15 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     }
     engine.savePreferences(prefs);
     debugLog()?.log("api", `POST /api/bridge/owner platform=${platform} owner=${userId ? "[set]" : "[cleared]"}`);
-    return { ok: true };
+    return c.json({ ok: true });
   });
 
   /** 保存凭证 + 启停平台 */
-  app.post("/api/bridge/config", async (req, reply) => {
-    const { platform, credentials, enabled } = req.body || {};
+  route.post("/bridge/config", async (c) => {
+    const body = await safeJson(c);
+    const { platform, credentials, enabled } = body;
     if (!platform || !KNOWN_PLATFORMS.includes(platform)) {
-      reply.code(400);
-      return { error: "invalid platform" };
+      return c.json({ error: "invalid platform" }, 400);
     }
 
     const prefs = engine.getPreferences();
@@ -113,26 +117,27 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     }
 
     debugLog()?.log("api", `POST /api/bridge/config platform=${platform} enabled=${!!cfg.enabled}`);
-    return { ok: true };
+    return c.json({ ok: true });
   });
 
   /** 更新 bridge 全局设置（readOnly 等） */
-  app.post("/api/bridge/settings", async (req) => {
-    const { readOnly } = req.body || {};
+  route.post("/bridge/settings", async (c) => {
+    const body = await safeJson(c);
+    const { readOnly } = body;
     const prefs = engine.getPreferences();
     if (!prefs.bridge) prefs.bridge = {};
     if (typeof readOnly === "boolean") prefs.bridge.readOnly = readOnly;
     engine.savePreferences(prefs);
     debugLog()?.log("api", `POST /api/bridge/settings readOnly=${prefs.bridge.readOnly}`);
-    return { ok: true };
+    return c.json({ ok: true });
   });
 
   /** 停止指定平台 */
-  app.post("/api/bridge/stop", async (req, reply) => {
-    const { platform } = req.body || {};
+  route.post("/bridge/stop", async (c) => {
+    const body = await safeJson(c);
+    const { platform } = body;
     if (!platform) {
-      reply.code(400);
-      return { error: "platform required" };
+      return c.json({ error: "platform required" }, 400);
     }
 
     bridgeManager.stopPlatform(platform);
@@ -145,18 +150,18 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     }
 
     debugLog()?.log("api", `POST /api/bridge/stop platform=${platform}`);
-    return { ok: true };
+    return c.json({ ok: true });
   });
 
   /** 获取最近消息日志（实时内存缓冲） */
-  app.get("/api/bridge/messages", async (req) => {
-    const limit = parseInt(req.query?.limit) || 50;
-    return { messages: bridgeManager.getMessages(limit) };
+  route.get("/bridge/messages", async (c) => {
+    const limit = parseInt(c.req.query("limit")) || 50;
+    return c.json({ messages: bridgeManager.getMessages(limit) });
   });
 
   /** 获取 bridge session 列表 */
-  app.get("/api/bridge/sessions", async (req) => {
-    const platform = req.query?.platform; // optional filter
+  route.get("/bridge/sessions", async (c) => {
+    const platform = c.req.query("platform"); // optional filter
     const index = engine.getBridgeIndex();
     const bridgeDir = path.join(engine.agent.sessionDir, "bridge");
     const prefs = engine.getPreferences();
@@ -197,28 +202,28 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
 
     // 按最后活跃时间排序
     sessions.sort((a, b) => (b.lastActive || 0) - (a.lastActive || 0));
-    return { sessions };
+    return c.json({ sessions });
   });
 
   /** 读取指定 bridge session 的消息 */
-  app.get("/api/bridge/sessions/:sessionKey/messages", async (req) => {
-    const { sessionKey } = req.params;
+  route.get("/bridge/sessions/:sessionKey/messages", async (c) => {
+    const sessionKey = c.req.param("sessionKey");
     const index = engine.getBridgeIndex();
     const raw = index[sessionKey];
     const file = typeof raw === "string" ? raw : raw?.file;
-    if (!file) return { error: "session not found", messages: [] };
+    if (!file) return c.json({ error: "session not found", messages: [] });
 
     const bridgeDir = path.join(engine.agent.sessionDir, "bridge");
     const fp = path.resolve(bridgeDir, file);
 
     // 防止 path traversal
     if (!fp.startsWith(path.resolve(bridgeDir) + path.sep)) {
-      return { error: "invalid session path", messages: [] };
+      return c.json({ error: "invalid session path", messages: [] });
     }
 
     try {
-      const raw = fs.readFileSync(fp, "utf-8");
-      const lines = raw.trim().split("\n").map(l => {
+      const rawContent = fs.readFileSync(fp, "utf-8");
+      const lines = rawContent.trim().split("\n").map(l => {
         try { return JSON.parse(l); } catch { return null; }
       }).filter(Boolean);
 
@@ -249,18 +254,18 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         });
       }
 
-      return { messages };
+      return c.json({ messages });
     } catch (err) {
-      return { error: err.message, messages: [] };
+      return c.json({ error: err.message, messages: [] });
     }
   });
 
   /** 重置 bridge session（清除上下文，下次消息新建 session） */
-  app.post("/api/bridge/sessions/:sessionKey/reset", async (req) => {
-    const { sessionKey } = req.params;
+  route.post("/bridge/sessions/:sessionKey/reset", async (c) => {
+    const sessionKey = c.req.param("sessionKey");
     const index = engine.getBridgeIndex();
     const raw = index[sessionKey];
-    if (!raw) return { ok: false, error: "session not found" };
+    if (!raw) return c.json({ ok: false, error: "session not found" });
 
     // 保留元数据（name, avatarUrl），只删 file 引用
     const entry = typeof raw === "string" ? {} : { ...raw };
@@ -268,15 +273,15 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     index[sessionKey] = entry;
     engine.saveBridgeIndex(index);
 
-    return { ok: true };
+    return c.json({ ok: true });
   });
 
   /** 发送媒体到 bridge 平台（桌面端推送文件） */
-  app.post("/api/bridge/send-media", async (req, reply) => {
-    const { platform, chatId, filePath } = req.body || {};
+  route.post("/bridge/send-media", async (c) => {
+    const body = await safeJson(c);
+    const { platform, chatId, filePath } = body;
     if (!platform || !chatId || !filePath) {
-      reply.code(400);
-      return { error: "platform, chatId, filePath required" };
+      return c.json({ error: "platform, chatId, filePath required" }, 400);
     }
 
     // 路径安全检查（对齐 fs.js 的 getAllowedRoots 逻辑）
@@ -288,21 +293,19 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     // 先检查文件是否存在
     const resolved = path.resolve(filePath);
     if (!fs.existsSync(resolved)) {
-      reply.code(404);
-      return { error: "file not found" };
+      return c.json({ error: "file not found" }, 404);
     }
 
     // 用 realpathSync 解析 symlink，防止 symlink 绕过白名单
     let realPath;
     try { realPath = fs.realpathSync(resolved); }
-    catch { return reply.code(404).send({ error: "file not found" }); }
+    catch { return c.json({ error: "file not found" }, 404); }
 
     const isSafe = allowedRoots.some(root =>
       realPath === root || realPath.startsWith(root + path.sep)
     );
     if (!isSafe) {
-      reply.code(403);
-      return { error: "path outside allowed roots" };
+      return c.json({ error: "path outside allowed roots" }, 403);
     }
 
     // Fix 3: 文件大小保护（50MB 上限，避免同步读大文件卡事件循环）
@@ -310,31 +313,28 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     try {
       const stat = fs.statSync(realPath);
       if (stat.size > MAX_MEDIA_SIZE) {
-        reply.code(413);
-        return { error: `file too large: ${(stat.size / 1024 / 1024).toFixed(1)}MB (max 50MB)` };
+        return c.json({ error: `file too large: ${(stat.size / 1024 / 1024).toFixed(1)}MB (max 50MB)` }, 413);
       }
-    } catch { return reply.code(404).send({ error: "file not found" }); }
+    } catch { return c.json({ error: "file not found" }, 404); }
 
     try {
       await bridgeManager.sendMediaFile(platform, chatId, realPath);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   /** 测试凭证（不启动轮询） */
-  app.post("/api/bridge/test", async (req, reply) => {
-    const { platform, credentials } = req.body || {};
+  route.post("/bridge/test", async (c) => {
+    const body = await safeJson(c);
+    const { platform, credentials } = body;
     if (!platform || !credentials) {
-      reply.code(400);
-      return { error: "platform and credentials required" };
+      return c.json({ error: "platform and credentials required" }, 400);
     }
 
     if (!KNOWN_PLATFORMS.includes(platform)) {
-      reply.code(400);
-      return { error: "unknown platform" };
+      return c.json({ error: "unknown platform" }, 400);
     }
 
     try {
@@ -342,7 +342,7 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         const TelegramBot = (await import("node-telegram-bot-api")).default;
         const bot = new TelegramBot(credentials.token);
         const me = await bot.getMe();
-        return { ok: true, info: { username: me.username, name: me.first_name } };
+        return c.json({ ok: true, info: { username: me.username, name: me.first_name } });
       } else if (platform === "feishu") {
         const resp = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
           method: "POST",
@@ -354,9 +354,9 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         });
         const data = await resp.json();
         if (data.code === 0) {
-          return { ok: true, info: { msg: t("error.tokenSuccess") } };
+          return c.json({ ok: true, info: { msg: t("error.tokenSuccess") } });
         }
-        return { ok: false, error: data.msg || t("error.verifyFailed") };
+        return c.json({ ok: false, error: data.msg || t("error.verifyFailed") });
       } else if (platform === "qq") {
         // v2 鉴权：appID + appSecret → access_token → /users/@me
         const tokenRes = await fetch("https://bots.qq.com/app/getAppAccessToken", {
@@ -366,16 +366,16 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         });
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) {
-          return { ok: false, error: tokenData.message || t("error.tokenFetchFailed") };
+          return c.json({ ok: false, error: tokenData.message || t("error.tokenFetchFailed") });
         }
         const meRes = await fetch("https://api.sgroup.qq.com/users/@me", {
           headers: { Authorization: `QQBot ${tokenData.access_token}` },
         });
         const me = await meRes.json();
         if (me.id) {
-          return { ok: true, info: { username: me.username, name: me.username } };
+          return c.json({ ok: true, info: { username: me.username, name: me.username } });
         }
-        return { ok: false, error: me.message || t("error.botInfoFailed") };
+        return c.json({ ok: false, error: me.message || t("error.botInfoFailed") });
       }
       if (platform === "wechat") {
         // 用 getconfig 验证 token（不污染 cursor）
@@ -394,26 +394,29 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
         });
         const data = await res.json();
         if (data.ret && data.ret !== 0) {
-          return { ok: false, error: data.errmsg || `errcode ${data.ret}` };
+          return c.json({ ok: false, error: data.errmsg || `errcode ${data.ret}` });
         }
-        return { ok: true, info: { msg: "微信 iLink 连接成功" } };
+        return c.json({ ok: true, info: { msg: "微信 iLink 连接成功" } });
       }
-      return { ok: false, error: t("error.platformTestUnsupported") };
+      return c.json({ ok: false, error: t("error.platformTestUnsupported") });
     } catch (err) {
-      return { ok: false, error: err.message };
+      return c.json({ ok: false, error: err.message });
     }
   });
 
   /** 获取微信扫码登录二维码 */
-  app.post("/api/bridge/wechat/qrcode", async () => {
+  route.post("/bridge/wechat/qrcode", async (c) => {
     const { getWechatQrcode } = await import("../../lib/bridge/wechat-login.js");
-    return getWechatQrcode();
+    return c.json(await getWechatQrcode());
   });
 
   /** 轮询微信扫码状态 */
-  app.post("/api/bridge/wechat/qrcode-status", async (req) => {
-    const { qrcodeId } = req.body || {};
+  route.post("/bridge/wechat/qrcode-status", async (c) => {
+    const body = await safeJson(c);
+    const { qrcodeId } = body;
     const { pollWechatQrcodeStatus } = await import("../../lib/bridge/wechat-login.js");
-    return pollWechatQrcodeStatus(qrcodeId);
+    return c.json(await pollWechatQrcodeStatus(qrcodeId));
   });
+
+  return route;
 }

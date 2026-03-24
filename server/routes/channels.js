@@ -4,16 +4,18 @@
  * Channel ID 化：文件名为 ch_{id}.md，frontmatter 含 id/name/description/members。
  *
  * 端点：
- * GET    /api/channels              — 列出所有频道 + 用户 bookmark + 未读数
- * POST   /api/channels              — 创建新频道
- * GET    /api/channels/:id          — 获取频道消息 + 成员列表
- * POST   /api/channels/:id/messages — 用户发送群聊消息
- * POST   /api/channels/:id/read     — 更新用户已读 bookmark
- * DELETE /api/channels/:id          — 删除频道
+ * GET    /channels              — 列出所有频道 + 用户 bookmark + 未读数
+ * POST   /channels              — 创建新频道
+ * GET    /channels/:id          — 获取频道消息 + 成员列表
+ * POST   /channels/:id/messages — 用户发送群聊消息
+ * POST   /channels/:id/read     — 更新用户已读 bookmark
+ * DELETE /channels/:id          — 删除频道
  */
 
 import fs from "fs";
 import path from "path";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { debugLog } from "../../lib/debug-log.js";
 import {
   parseChannel,
@@ -25,7 +27,8 @@ import {
   getChannelMeta,
 } from "../../lib/channels/channel-store.js";
 
-export default async function channelsRoute(app, { engine, hub }) {
+export function createChannelsRoute(engine, hub) {
+  const route = new Hono();
 
   /** 用户 bookmark 文件路径 */
   function userBookmarkPath() {
@@ -44,11 +47,11 @@ export default async function channelsRoute(app, { engine, hub }) {
   }
 
   // ── 列出所有频道 ──
-  app.get("/api/channels", async (_req, reply) => {
+  route.get("/channels", async (c) => {
     try {
       const channelsDir = engine.channelsDir;
       if (!channelsDir || !fs.existsSync(channelsDir)) {
-        return { channels: [], bookmarks: {} };
+        return c.json({ channels: [], bookmarks: {} });
       }
 
       const files = fs.readdirSync(channelsDir).filter(f => f.endsWith(".md"));
@@ -92,25 +95,23 @@ export default async function channelsRoute(app, { engine, hub }) {
       const bookmarksObj = {};
       for (const [k, v] of bookmarks) bookmarksObj[k] = v;
 
-      return { channels, bookmarks: bookmarksObj };
+      return c.json({ channels, bookmarks: bookmarksObj });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 创建新频道 ──
-  app.post("/api/channels", async (req, reply) => {
+  route.post("/channels", async (c) => {
     try {
-      const { name, description, members, intro } = req.body || {};
+      const body = await safeJson(c);
+      const { name, description, members, intro } = body;
 
       if (!name || typeof name !== "string") {
-        reply.code(400);
-        return { error: "name is required" };
+        return c.json({ error: "name is required" }, 400);
       }
       if (!Array.isArray(members) || members.length < 2) {
-        reply.code(400);
-        return { error: "members must be an array with at least 2 items" };
+        return c.json({ error: "members must be an array with at least 2 items" }, 400);
       }
 
       const channelsDir = engine.channelsDir;
@@ -137,63 +138,58 @@ export default async function channelsRoute(app, { engine, hub }) {
       addBookmarkEntry(userBookmarkPath(), channelId);
 
       debugLog()?.log("api", `POST /channels — created "${channelId}" (${name}) members=[${members}]`);
-      return { ok: true, id: channelId, name, members };
+      return c.json({ ok: true, id: channelId, name, members });
     } catch (err) {
       if (err.message?.includes("已存在")) {
-        reply.code(409);
-      } else {
-        reply.code(500);
+        return c.json({ error: err.message }, 409);
       }
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 获取频道消息 ──
-  app.get("/api/channels/:name", async (req, reply) => {
+  route.get("/channels/:name", async (c) => {
     try {
-      const { name } = req.params;
+      const name = c.req.param("name");
       const filePath = safeChannelPath(name);
-      if (!filePath) { reply.code(400); return { error: "Invalid channel id" }; }
+      if (!filePath) return c.json({ error: "Invalid channel id" }, 400);
 
       if (!fs.existsSync(filePath)) {
-        reply.code(404);
-        return { error: "Channel not found" };
+        return c.json({ error: "Channel not found" }, 404);
       }
 
       const content = fs.readFileSync(filePath, "utf-8");
       const { meta, messages } = parseChannel(content);
       const members = Array.isArray(meta.members) ? meta.members : [];
 
-      return {
+      return c.json({
         id: meta.id || name,
         name: meta.name || name,
         description: meta.description || "",
         messages,
         members,
-      };
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 用户发送消息 ──
-  app.post("/api/channels/:name/messages", async (req, reply) => {
+  route.post("/channels/:name/messages", async (c) => {
     try {
-      const { name } = req.params;
+      const name = c.req.param("name");
       const filePath = safeChannelPath(name);
-      if (!filePath) { reply.code(400); return { error: "Invalid channel id" }; }
+      if (!filePath) return c.json({ error: "Invalid channel id" }, 400);
 
-      const { body } = req.body || {};
+      const reqBody = await safeJson(c);
+      const { body } = reqBody;
 
       if (!body) {
-        reply.code(400);
-        return { error: "body is required" };
+        return c.json({ error: "body is required" }, 400);
       }
 
       if (!fs.existsSync(filePath)) {
-        reply.code(404);
-        return { error: "Channel not found" };
+        return c.json({ error: "Channel not found" }, 404);
       }
 
       const senderName = engine.userName || "user";
@@ -223,60 +219,59 @@ export default async function channelsRoute(app, { engine, hub }) {
         console.error(`[channel] 触发立即 triage 失败: ${err.message}`)
       );
 
-      return { ok: true, timestamp: result.timestamp };
+      return c.json({ ok: true, timestamp: result.timestamp });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 更新用户已读 bookmark ──
-  app.post("/api/channels/:name/read", async (req, reply) => {
+  route.post("/channels/:name/read", async (c) => {
     try {
-      const { name } = req.params;
+      const name = c.req.param("name");
       const filePath = safeChannelPath(name);
-      if (!filePath) { reply.code(400); return { error: "Invalid channel id" }; }
+      if (!filePath) return c.json({ error: "Invalid channel id" }, 400);
 
-      const { timestamp } = req.body || {};
+      const body = await safeJson(c);
+      const { timestamp } = body;
 
       if (!timestamp) {
-        reply.code(400);
-        return { error: "timestamp is required" };
+        return c.json({ error: "timestamp is required" }, 400);
       }
 
       updateBookmark(userBookmarkPath(), name, timestamp);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 删除频道 ──
-  app.delete("/api/channels/:name", async (req, reply) => {
+  route.delete("/channels/:name", async (c) => {
     try {
-      const { name } = req.params;
+      const name = c.req.param("name");
       const filePath = safeChannelPath(name);
-      if (!filePath) { reply.code(400); return { error: "Invalid channel id" }; }
+      if (!filePath) return c.json({ error: "Invalid channel id" }, 400);
 
       engine.deleteChannelByName(name);
       debugLog()?.log("api", `DELETE /channels/${name}`);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       if (err.message?.includes("不存在")) {
-        reply.code(404);
-      } else {
-        reply.code(500);
+        return c.json({ error: err.message }, 404);
       }
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 频道开关（启停 channelTicker）──
-  app.post("/api/channels/toggle", async (req, _reply) => {
-    const { enabled } = req.body || {};
+  route.post("/channels/toggle", async (c) => {
+    const body = await safeJson(c);
+    const { enabled } = body;
     await hub.toggleChannels(!!enabled);
     debugLog()?.log("api", `POST /channels/toggle enabled=${!!enabled}`);
-    return { ok: true, enabled: !!enabled };
+    return c.json({ ok: true, enabled: !!enabled });
   });
+
+  return route;
 }

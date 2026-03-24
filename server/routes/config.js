@@ -4,16 +4,19 @@
 import fs from "fs/promises";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { t } from "../i18n.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { getRawConfig, getAllProviders, saveGlobalProviders, clearConfigCache } from "../../lib/memory/config-loader.js";
 import { FactStore } from "../../lib/memory/fact-store.js";
 import { splitByScope, injectGlobalFields } from '../../shared/config-scope.js';
 
-export default async function configRoute(app, { engine }) {
+export function createConfigRoute(engine) {
+  const route = new Hono();
 
   // 读取配置（脱敏：隐藏 API key，附带 _raw 原始结构 + providers）
-  app.get("/api/config", async (req, reply) => {
+  route.get("/config", async (c) => {
     try {
       const config = { ...engine.config };
       const raw = getRawConfig(engine.configPath) || {};
@@ -65,20 +68,18 @@ export default async function configRoute(app, { engine }) {
         config.cwd_history = config.cwd_history.filter(p => existsSync(p));
       }
 
-      return config;
+      return c.json(config);
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 更新配置
-  app.put("/api/config", async (req, reply) => {
+  route.put("/config", async (c) => {
     try {
-      const partial = req.body;
+      const partial = await safeJson(c);
       if (!partial || typeof partial !== "object") {
-        reply.code(400);
-        return { error: t("error.invalidJson") };
+        return c.json({ error: t("error.invalidJson") }, 400);
       }
       // ── schema-driven 全局字段分流 ──
       const { global: globalFields, agent: agentPartial } = splitByScope(partial);
@@ -136,8 +137,7 @@ export default async function configRoute(app, { engine }) {
             ? block.provider.trim()
             : (rawConfig?.[blockName]?.provider || "").trim();
           if (!provName) {
-            reply.code(400);
-            return { error: `${blockName}.provider is required when saving credentials` };
+            return c.json({ error: `${blockName}.provider is required when saving credentials` }, 400);
           }
           const provUpdate = {};
           if (block.api_key) provUpdate.api_key = block.api_key;
@@ -159,10 +159,10 @@ export default async function configRoute(app, { engine }) {
             debugLog()?.warn("api", `syncModelsAndRefresh after provider change: ${e.message}`);
           }
         }
-        return { ok: true };
+        return c.json({ ok: true });
       }
 
-      if (Object.keys(agentPartial).length === 0) return { ok: true };
+      if (Object.keys(agentPartial).length === 0) return c.json({ ok: true });
       debugLog()?.log("api", `PUT /api/config keys=[${Object.keys(agentPartial).join(",")}]`);
       if (providersChanged) clearConfigCache();
       await engine.updateConfig(agentPartial);
@@ -171,140 +171,132 @@ export default async function configRoute(app, { engine }) {
           debugLog()?.warn("api", `syncModelsAndRefresh after config update: ${e.message}`);
         }
       }
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/config failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── System Prompt（只读，供 DevTools 查看）──
 
-  app.get("/api/system-prompt", async (req, reply) => {
+  route.get("/system-prompt", async (c) => {
     try {
-      return { content: engine.agent.systemPrompt || "" };
+      return c.json({ content: engine.agent.systemPrompt || "" });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 人格文件（ishiki.md）──
 
   // 读取 ishiki.md 内容
-  app.get("/api/ishiki", async (req, reply) => {
+  route.get("/ishiki", async (c) => {
     try {
       const ishikiPath = engine.agentDir + "/ishiki.md";
       const content = await fs.readFile(ishikiPath, "utf-8");
-      return { content };
+      return c.json({ content });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 保存 ishiki.md 内容，并触发 system prompt 重建
-  app.put("/api/ishiki", async (req, reply) => {
+  route.put("/ishiki", async (c) => {
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
       const ishikiPath = engine.agentDir + "/ishiki.md";
       await fs.writeFile(ishikiPath, content, "utf-8");
       debugLog()?.log("api", `PUT /api/ishiki (saved, ${content.length} chars)`);
       // 触发 system prompt 重建（updateConfig 内部会重新读取 ishiki.md）
       await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/ishiki failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 身份简介（identity.md）──
 
-  app.get("/api/identity", async (req, reply) => {
+  route.get("/identity", async (c) => {
     try {
       const identityPath = engine.agentDir + "/identity.md";
       const content = await fs.readFile(identityPath, "utf-8");
-      return { content };
+      return c.json({ content });
     } catch (err) {
-      if (err.code === "ENOENT") return { content: "" };
-      reply.code(500);
-      return { error: err.message };
+      if (err.code === "ENOENT") return c.json({ content: "" });
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/identity", async (req, reply) => {
+  route.put("/identity", async (c) => {
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
       const identityPath = engine.agentDir + "/identity.md";
       await fs.writeFile(identityPath, content, "utf-8");
       debugLog()?.log("api", `PUT /api/identity (saved, ${content.length} chars)`);
       await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/identity failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 用户档案（user.md）──
 
   // 读取 user.md 内容
-  app.get("/api/user-profile", async (req, reply) => {
+  route.get("/user-profile", async (c) => {
     try {
       const userPath = engine.userDir + "/user.md";
       const content = await fs.readFile(userPath, "utf-8");
-      return { content };
+      return c.json({ content });
     } catch (err) {
       // 文件不存在时返回空字符串（user.md 是可选的）
-      if (err.code === "ENOENT") return { content: "" };
-      reply.code(500);
-      return { error: err.message };
+      if (err.code === "ENOENT") return c.json({ content: "" });
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 保存 user.md 内容，并触发 system prompt 重建
-  app.put("/api/user-profile", async (req, reply) => {
+  route.put("/user-profile", async (c) => {
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
       const userPath = engine.userDir + "/user.md";
       await fs.writeFile(userPath, content, "utf-8");
       debugLog()?.log("api", `PUT /api/user-profile (saved, ${content.length} chars)`);
       await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/user-profile failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 置顶记忆（pinned.md）──
 
   // 读取 pinned.md，解析为逐条数组
-  app.get("/api/pinned", async (req, reply) => {
+  route.get("/pinned", async (c) => {
     try {
       const pinnedPath = engine.agentDir + "/pinned.md";
       let content = "";
       try {
         content = await fs.readFile(pinnedPath, "utf-8");
       } catch (err) {
-        if (err.code === "ENOENT") return { pins: [] };
+        if (err.code === "ENOENT") return c.json({ pins: [] });
         throw err;
       }
       const pins = content
@@ -312,20 +304,19 @@ export default async function configRoute(app, { engine }) {
         .map(line => line.trim())
         .filter(line => line.length > 0)
         .map(line => line.replace(/^-\s*/, ""));
-      return { pins };
+      return c.json({ pins });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 保存 pinned.md（覆盖写入），触发 system prompt 重建
-  app.put("/api/pinned", async (req, reply) => {
+  route.put("/pinned", async (c) => {
     try {
-      const { pins } = req.body || {};
+      const body = await safeJson(c);
+      const { pins } = body;
       if (!Array.isArray(pins)) {
-        reply.code(400);
-        return { error: "pins must be an array" };
+        return c.json({ error: "pins must be an array" }, 400);
       }
       const content = pins
         .map(p => (typeof p === "string" ? p.trim() : ""))
@@ -338,11 +329,10 @@ export default async function configRoute(app, { engine }) {
       debugLog()?.log("api", `PUT /api/pinned (${pins.length} items)`);
       // 触发 system prompt 重建（updateConfig 内部会重新读取 pinned.md）
       await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/pinned failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -372,40 +362,38 @@ export default async function configRoute(app, { engine }) {
   }
 
   // 获取所有元事实
-  app.get("/api/memories", async (req, reply) => {
+  route.get("/memories", async (c) => {
     let tempStore = null;
     try {
-      const { store, isTemp } = getStoreForAgent(req.query.agentId);
+      const { store, isTemp } = getStoreForAgent(c.req.query("agentId"));
       if (isTemp) tempStore = store;
-      return { memories: store.exportAll() };
+      return c.json({ memories: store.exportAll() });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     } finally {
       tempStore?.close();
     }
   });
 
   // 读取编译后的 memory.md
-  app.get("/api/memories/compiled", async (req, reply) => {
+  route.get("/memories/compiled", async (c) => {
     try {
-      const agentId = req.query.agentId;
+      const agentId = c.req.query("agentId");
       const activeId = path.basename(engine.agent.agentDir);
       const mdPath = (!agentId || agentId === activeId)
         ? engine.memoryMdPath
         : path.join(engine.agentsDir, agentId, "memory", "memory.md");
       const content = await fs.readFile(mdPath, "utf-8").catch(() => "");
-      return { content };
+      return c.json({ content });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 清除编译产物（today/week/longterm/facts/memory.md + fingerprints）
-  app.delete("/api/memories/compiled", async (req, reply) => {
+  route.delete("/memories/compiled", async (c) => {
     try {
-      const agentId = req.query.agentId;
+      const agentId = c.req.query("agentId");
       const activeId = path.basename(engine.agent.agentDir);
       const memDir = (!agentId || agentId === activeId)
         ? path.dirname(engine.memoryMdPath)
@@ -418,18 +406,17 @@ export default async function configRoute(app, { engine }) {
       }
       debugLog()?.log("api", `DELETE /api/memories/compiled agent=${agentId || activeId}`);
       if (!agentId || agentId === activeId) await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 清除所有记忆（facts.db + memory.md）
-  app.delete("/api/memories", async (req, reply) => {
+  route.delete("/memories", async (c) => {
     let tempStore = null;
     try {
-      const agentId = req.query.agentId;
+      const agentId = c.req.query("agentId");
       const { store, isTemp } = getStoreForAgent(agentId);
       if (isTemp) tempStore = store;
       store.clearAll();
@@ -440,44 +427,42 @@ export default async function configRoute(app, { engine }) {
       await fs.writeFile(mdPath, "", "utf-8");
       debugLog()?.log("api", `DELETE /api/memories agent=${agentId || activeId}`);
       if (!isTemp) await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     } finally {
       tempStore?.close();
     }
   });
 
   // 导出记忆（JSON）
-  app.get("/api/memories/export", async (req, reply) => {
+  route.get("/memories/export", async (c) => {
     let tempStore = null;
     try {
-      const { store, isTemp } = getStoreForAgent(req.query.agentId);
+      const { store, isTemp } = getStoreForAgent(c.req.query("agentId"));
       if (isTemp) tempStore = store;
-      return {
+      return c.json({
         version: 2,
         exportedAt: new Date().toISOString(),
         facts: store.exportAll(),
-      };
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     } finally {
       tempStore?.close();
     }
   });
 
   // 导入记忆（直接写入，无需 embedding）
-  app.post("/api/memories/import", async (req, reply) => {
+  route.post("/memories/import", async (c) => {
     let tempStore = null;
     try {
-      const { facts, memories } = req.body || {};
+      const body = await safeJson(c);
+      const { facts, memories } = body;
       // 兼容 v1 导出格式（memories 字段）和 v2 格式（facts 字段）
       const entries = facts || memories;
       if (!Array.isArray(entries) || entries.length === 0) {
-        reply.code(400);
-        return { error: "facts must be a non-empty array" };
+        return c.json({ error: "facts must be a non-empty array" }, 400);
       }
 
       const importEntries = entries.map((e) => ({
@@ -487,14 +472,13 @@ export default async function configRoute(app, { engine }) {
         session_id: e.session_id || "imported",
       }));
 
-      const { store, isTemp } = getStoreForAgent(req.query.agentId);
+      const { store, isTemp } = getStoreForAgent(c.req.query("agentId"));
       if (isTemp) tempStore = store;
       store.importAll(importEntries);
       debugLog()?.log("api", `POST /api/memories/import: ${importEntries.length} entries`);
-      return { ok: true, imported: importEntries.length };
+      return c.json({ ok: true, imported: importEntries.length });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     } finally {
       tempStore?.close();
     }
@@ -502,43 +486,40 @@ export default async function configRoute(app, { engine }) {
 
   // ── 全局 Favorites（跨 agent 共享的收藏模型列表）──
 
-  app.get("/api/favorites", async (req, reply) => {
+  route.get("/favorites", async (c) => {
     try {
-      return { favorites: engine.readFavorites() };
+      return c.json({ favorites: engine.readFavorites() });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/favorites", async (req, reply) => {
+  route.put("/favorites", async (c) => {
     try {
-      const { favorites } = req.body || {};
+      const body = await safeJson(c);
+      const { favorites } = body;
       if (!Array.isArray(favorites)) {
-        reply.code(400);
-        return { error: "favorites must be an array" };
+        return c.json({ error: "favorites must be an array" }, 400);
       }
       debugLog()?.log("api", `PUT /api/favorites (${favorites.length} items)`);
       await engine.saveFavorites(favorites);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/favorites failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 搜索 API Key 验证 ──
 
-  app.post("/api/search/verify", async (req, reply) => {
-    const { provider, api_key } = req.body || {};
+  route.post("/search/verify", async (c) => {
+    const body = await safeJson(c);
+    const { provider, api_key } = body;
     if (!provider) {
-      reply.code(400);
-      return { ok: false, error: "provider is required" };
+      return c.json({ ok: false, error: "provider is required" }, 400);
     }
     if (!api_key) {
-      reply.code(400);
-      return { ok: false, error: "api_key is required" };
+      return c.json({ ok: false, error: "api_key is required" }, 400);
     }
     try {
       const { verifySearchKey } = await import("../../lib/tools/web-search.js");
@@ -546,10 +527,12 @@ export default async function configRoute(app, { engine }) {
       engine.setSearchConfig({ provider, api_key });
       await engine.updateConfig({ search: { provider, api_key } });
       debugLog()?.log("api", `POST /api/search/verify provider=${provider} (ok)`);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.warn("api", `POST /api/search/verify provider=${provider} failed: ${err.message}`);
-      return { ok: false, error: err.message };
+      return c.json({ ok: false, error: err.message });
     }
   });
+
+  return route;
 }
