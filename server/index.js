@@ -12,7 +12,6 @@ import fs from "fs";
 import { setMaxListeners } from "events";
 import os from "os";
 import path from "path";
-import { fileURLToPath } from "url";
 import Fastify from "fastify";
 import websocket from "@fastify/websocket";
 import { registerErrorHandler } from './middleware/error-handler.js';
@@ -46,10 +45,9 @@ import { ConfirmStore } from "../lib/confirm-store.js";
 import { BridgeManager } from "../lib/bridge/bridge-manager.js";
 import { Hub } from "../hub/index.js";
 import { startCLI } from "./cli.js";
+import { fromRoot } from "../shared/hana-root.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, "..");
-const productDir = path.join(projectRoot, "lib");
+const productDir = fromRoot("lib");
 
 // 用户数据存放在 ~/.hanako/（打包后与产品代码分离）
 // 开发时可通过 HANA_HOME 环境变量隔离数据目录，如：HANA_HOME=~/.hanako-dev node server/index.js
@@ -68,7 +66,7 @@ const dlog = initDebugLog(path.join(hanakoHome, "logs"));
 // 读取版本号
 let appVersion = "?";
 try {
-  const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf-8"));
+  const pkg = JSON.parse(fs.readFileSync(fromRoot("package.json"), "utf-8"));
   appVersion = pkg.version || "?";
 } catch {}
 

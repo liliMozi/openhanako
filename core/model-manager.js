@@ -10,7 +10,6 @@
  */
 import path from "path";
 import { readFileSync } from "fs";
-import { createRequire } from "module";
 import {
   AuthStorage,
   ModelRegistry,
@@ -22,9 +21,9 @@ import { t } from "../server/i18n.js";
 import { ProviderRegistry } from "./provider-registry.js";
 import { AuthStore } from "./auth-store.js";
 import { ExecutionRouter } from "./execution-router.js";
+import { fromRoot } from "../shared/hana-root.js";
 
-const _require = createRequire(import.meta.url);
-const _knownModels = _require("../lib/known-models.json");
+const _knownModels = JSON.parse(readFileSync(fromRoot("lib", "known-models.json"), "utf-8"));
 
 function isLocalBaseUrl(url) {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(String(url || ""));

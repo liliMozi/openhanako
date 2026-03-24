@@ -12,13 +12,12 @@
 
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import YAML from "js-yaml";
 import { safeReadYAMLSync } from "../shared/safe-fs.js";
+import { fromRoot } from "../shared/hana-root.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const _defaultModels = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "../lib/default-models.json"), "utf-8"),
+  fs.readFileSync(fromRoot("lib", "default-models.json"), "utf-8"),
 );
 
 // ── 内置插件 ────────────────────────────────────────────────────────────────

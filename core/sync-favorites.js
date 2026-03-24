@@ -35,10 +35,10 @@ function humanizeName(id) {
   return name;
 }
 
-import { createRequire } from "module";
-const _require = createRequire(import.meta.url);
-const _knownModels = _require("../lib/known-models.json");
-const _defaultModels = _require("../lib/default-models.json");
+import { fromRoot } from "../shared/hana-root.js";
+
+const _knownModels = JSON.parse(fs.readFileSync(fromRoot("lib", "known-models.json"), "utf-8"));
+const _defaultModels = JSON.parse(fs.readFileSync(fromRoot("lib", "default-models.json"), "utf-8"));
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 

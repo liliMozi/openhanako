@@ -1,11 +1,12 @@
 /**
  * 模型管理 REST 路由
  */
+import { readFileSync } from "fs";
 import { supportsXhigh } from "@mariozechner/pi-ai";
 import { t } from "../i18n.js";
-import { createRequire } from "module";
-const _require = createRequire(import.meta.url);
-const _knownModels = _require("../../lib/known-models.json");
+import { fromRoot } from "../../shared/hana-root.js";
+
+const _knownModels = JSON.parse(readFileSync(fromRoot("lib", "known-models.json"), "utf-8"));
 
 /** 查询模型显示名：overrides > SDK name > known-models > id */
 function resolveModelName(id, sdkName, overrides) {

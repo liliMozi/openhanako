@@ -3,10 +3,9 @@
  */
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fromRoot } from "../shared/hana-root.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const localesDir = path.join(__dirname, "..", "desktop", "src", "locales");
+const localesDir = fromRoot("desktop", "src", "locales");
 
 let data = {};
 let currentLocale = "zh";
