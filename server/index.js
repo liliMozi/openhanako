@@ -250,17 +250,14 @@ try {
   bridgeManager.autoStart();
   dlog.log("server", "bridge autoStart done");
 
-  if (process.send) {
-    // Electron fork 模式：通知父进程
-    process.send({ type: "ready", port: actualPort, token: SERVER_TOKEN });
-    process.on("message", async (msg) => {
-      if (msg?.type === "shutdown") {
-        console.log("[server] 收到关闭信号，正在清理...");
-        await gracefulShutdown();
-      }
-    });
-  } else {
-    // 独立运行模式：启动 CLI
+  // 通知就绪（server-info.json 已在上方写入，无需额外动作）
+  console.log(`[server] ready: port=${actualPort}`);
+
+  // 注意：SIGTERM handler 已在下方 line 330 注册
+  // process.on("SIGTERM", gracefulShutdown);
+
+  // 独立运行模式：启动 CLI（TTY 环境下自动进入交互模式）
+  if (process.stdin.isTTY) {
     startCLI({
       port: actualPort,
       token: SERVER_TOKEN,
