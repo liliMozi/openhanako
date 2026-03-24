@@ -2,18 +2,30 @@
 /**
  * build-server.mjs — 构建 server 独立分发包
  *
+ * 策略：直接复制源码 + production npm install + Node.js runtime
+ * 不使用 esbuild（ESM+CJS 混用项目无法 bundle，见 memory 记录）
+ *
+ * 关键设计：用目标 Node.js runtime 来装依赖和编译 native addon，
+ * 确保 better-sqlite3 的 ABI 跟运行时一致（系统 Node 版本可能不同）。
+ *
  * 产出结构：
  *   dist-server/{platform}-{arch}/
- *     hana-server           ← shell wrapper
- *     hana-server.mjs       ← esbuild bundle
- *     node_modules/         ← external deps (native addon + PI SDK)
- *     desktop/src/locales/  ← i18n 资源
- *     lib/                  ← JSON 资源文件
- *     skills2set/           ← 技能包
+ *     hana-server             ← shell wrapper（设置 HANA_ROOT 并启动）
+ *     node                    ← Node.js runtime
+ *     package.json            ← "type": "module" + dependencies
+ *     package-lock.json       ← 锁定依赖版本
+ *     server/                 ← HTTP / WS / CLI
+ *     core/                   ← engine / agent / session
+ *     lib/                    ← 工具、provider、数据文件
+ *     shared/                 ← 跨平台工具
+ *     hub/                    ← 多 agent 编排
+ *     skills2set/             ← 技能包
+ *     desktop/src/locales/    ← i18n 资源
+ *     node_modules/           ← production dependencies
  */
-import { build } from "esbuild";
 import fs from "fs";
 import path from "path";
+import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,100 +38,12 @@ const outDir = path.join(ROOT, "dist-server", `${osDirName}-${arch}`);
 
 console.log(`[build-server] Building for ${platform}-${arch}...`);
 
-// 清理
+// ── 0. 清理 ──
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
-// ── 1. esbuild bundle ──
-await build({
-  entryPoints: [path.join(ROOT, "server", "index.js")],
-  bundle: true,
-  platform: "node",
-  format: "esm",
-  target: "node20",
-  outfile: path.join(outDir, "hana-server.mjs"),
-  external: [
-    "better-sqlite3",
-    "@mariozechner/*",
-  ],
-  banner: {
-    js: `import { createRequire } from "module"; const require = createRequire(import.meta.url);`,
-  },
-  sourcemap: false,
-  minify: false,
-});
-console.log("[build-server] esbuild bundle done");
-
-// ── 2. 复制 external 依赖 ──
-// Copy the @mariozechner scope (PI SDK + all its deps)
-const scopeSrc = path.join(ROOT, "node_modules", "@mariozechner");
-const scopeDst = path.join(outDir, "node_modules", "@mariozechner");
-if (fs.existsSync(scopeSrc)) {
-  fs.cpSync(scopeSrc, scopeDst, { recursive: true });
-}
-
-// Copy better-sqlite3 (native addon)
-const betterSqlite3Src = path.join(ROOT, "node_modules", "better-sqlite3");
-const betterSqlite3Dst = path.join(outDir, "node_modules", "better-sqlite3");
-if (fs.existsSync(betterSqlite3Src)) {
-  fs.cpSync(betterSqlite3Src, betterSqlite3Dst, { recursive: true });
-}
-
-// Copy any transitive deps that PI SDK needs but aren't bundled
-// List common ones that are likely native or have specific file structures
-const piSdkDeps = ["bindings", "file-uri-to-path", "prebuild-install", "node-addon-api"];
-for (const dep of piSdkDeps) {
-  const src = path.join(ROOT, "node_modules", dep);
-  const dst = path.join(outDir, "node_modules", dep);
-  if (fs.existsSync(src) && !fs.existsSync(dst)) {
-    fs.cpSync(src, dst, { recursive: true });
-  }
-}
-
-console.log("[build-server] external deps copied");
-
-// ── 3. 复制资源文件 ──
-// i18n locales
-const localesSrc = path.join(ROOT, "desktop", "src", "locales");
-const localesDst = path.join(outDir, "desktop", "src", "locales");
-fs.mkdirSync(localesDst, { recursive: true });
-fs.cpSync(localesSrc, localesDst, { recursive: true });
-
-// JSON 配置文件
-for (const file of ["known-models.json", "default-models.json"]) {
-  const src = path.join(ROOT, "lib", file);
-  if (fs.existsSync(src)) {
-    const dst = path.join(outDir, "lib", file);
-    fs.mkdirSync(path.dirname(dst), { recursive: true });
-    fs.copyFileSync(src, dst);
-  }
-}
-
-// skills2set
-const skillsSrc = path.join(ROOT, "skills2set");
-if (fs.existsSync(skillsSrc)) {
-  fs.cpSync(skillsSrc, path.join(outDir, "skills2set"), { recursive: true });
-}
-
-console.log("[build-server] resources copied");
-
-// ── 4. 创建 wrapper 脚本 ──
-if (platform === "win32") {
-  fs.writeFileSync(
-    path.join(outDir, "hana-server.cmd"),
-    `@echo off\r\n"%~dp0node.exe" "%~dp0hana-server.mjs" %*\r\n`,
-  );
-} else {
-  const wrapper = path.join(outDir, "hana-server");
-  fs.writeFileSync(
-    wrapper,
-    `#!/bin/sh\nexec "$(dirname "$0")/node" "$(dirname "$0")/hana-server.mjs" "$@"\n`,
-  );
-  fs.chmodSync(wrapper, 0o755);
-}
-console.log("[build-server] wrapper created");
-
-// ── 5. Node.js runtime（自动下载 + 缓存） ──
+// ── 1. 下载 / 缓存 Node.js runtime ──
+// 先拿到目标 Node，后续 npm ci + rebuild 全用它跑，保证 ABI 一致
 const NODE_VERSION = "v22.16.0";
 const cacheDir = path.join(ROOT, ".cache", "node-runtime");
 fs.mkdirSync(cacheDir, { recursive: true });
@@ -128,52 +52,156 @@ const nodeMap = {
   "darwin-arm64": `node-${NODE_VERSION}-darwin-arm64`,
   "darwin-x64": `node-${NODE_VERSION}-darwin-x64`,
   "linux-x64": `node-${NODE_VERSION}-linux-x64`,
+  "linux-arm64": `node-${NODE_VERSION}-linux-arm64`,
   "win32-x64": `node-${NODE_VERSION}-win-x64`,
 };
 
-const nodeDir = nodeMap[`${platform}-${arch}`];
-if (!nodeDir) {
-  console.error(`[build-server] ⚠ 不支持的平台: ${platform}-${arch}，请手动放置 node runtime`);
-} else {
-  const ext = platform === "win32" ? "zip" : "tar.gz";
-  const filename = `${nodeDir}.${ext}`;
-  const cachedArchive = path.join(cacheDir, filename);
-  const cachedBin = path.join(cacheDir, nodeDir, "bin", platform === "win32" ? "node.exe" : "node");
-  const cachedBinWin = path.join(cacheDir, nodeDir, "node.exe"); // Windows 结构不同
-
-  // 检查缓存
-  const binPath = platform === "win32" ? cachedBinWin : cachedBin;
-  if (!fs.existsSync(binPath)) {
-    const url = `https://nodejs.org/dist/${NODE_VERSION}/${filename}`;
-    console.log(`[build-server] 下载 Node.js ${NODE_VERSION} for ${platform}-${arch}...`);
-    console.log(`[build-server] ${url}`);
-
-    const { execSync } = await import("child_process");
-    execSync(`curl -L -o "${cachedArchive}" "${url}"`, { stdio: "inherit" });
-
-    // 解压
-    if (platform === "win32") {
-      // Windows: unzip
-      execSync(`powershell -command "Expand-Archive -Path '${cachedArchive}' -DestinationPath '${cacheDir}' -Force"`, { stdio: "inherit" });
-    } else {
-      // macOS/Linux: tar
-      execSync(`tar xzf "${cachedArchive}" -C "${cacheDir}"`, { stdio: "inherit" });
-    }
-
-    // 清理压缩包
-    try { fs.unlinkSync(cachedArchive); } catch {}
-    console.log("[build-server] Node.js runtime 已缓存");
-  } else {
-    console.log(`[build-server] 使用缓存的 Node.js ${NODE_VERSION}`);
-  }
-
-  // 复制 node 二进制到 dist
-  const destNode = path.join(outDir, platform === "win32" ? "node.exe" : "node");
-  fs.copyFileSync(binPath, destNode);
-  if (platform !== "win32") {
-    fs.chmodSync(destNode, 0o755);
-  }
-  console.log("[build-server] Node.js runtime copied");
+const nodeDirName = nodeMap[`${platform}-${arch}`];
+if (!nodeDirName) {
+  console.error(`[build-server] ⚠ 不支持的平台: ${platform}-${arch}`);
+  process.exit(1);
 }
+
+const isWin = platform === "win32";
+const ext = isWin ? "zip" : "tar.gz";
+const filename = `${nodeDirName}.${ext}`;
+const cachedArchive = path.join(cacheDir, filename);
+const cachedNodeBin = isWin
+  ? path.join(cacheDir, nodeDirName, "node.exe")
+  : path.join(cacheDir, nodeDirName, "bin", "node");
+const cachedNpmCli = isWin
+  ? path.join(cacheDir, nodeDirName, "node_modules", "npm", "bin", "npm-cli.js")
+  : path.join(cacheDir, nodeDirName, "lib", "node_modules", "npm", "bin", "npm-cli.js");
+
+if (!fs.existsSync(cachedNodeBin)) {
+  const url = `https://nodejs.org/dist/${NODE_VERSION}/${filename}`;
+  console.log(`[build-server] downloading Node.js ${NODE_VERSION} for ${platform}-${arch}...`);
+  execSync(`curl -L -o "${cachedArchive}" "${url}"`, { stdio: "inherit" });
+
+  if (isWin) {
+    execSync(`powershell -command "Expand-Archive -Path '${cachedArchive}' -DestinationPath '${cacheDir}' -Force"`, { stdio: "inherit" });
+  } else {
+    execSync(`tar xzf "${cachedArchive}" -C "${cacheDir}"`, { stdio: "inherit" });
+  }
+
+  try { fs.unlinkSync(cachedArchive); } catch {}
+  console.log("[build-server] Node.js runtime cached");
+} else {
+  console.log(`[build-server] using cached Node.js ${NODE_VERSION}`);
+}
+
+// 复制 node 二进制到 dist
+const destNode = path.join(outDir, isWin ? "node.exe" : "node");
+fs.copyFileSync(cachedNodeBin, destNode);
+if (!isWin) fs.chmodSync(destNode, 0o755);
+console.log("[build-server] Node.js runtime ready");
+
+// helper: 用目标 Node 跑命令
+// PATH 前置目标 Node 的 bin 目录，确保 lifecycle scripts（如 prebuild-install）
+// 也用目标 Node 而非系统 Node（两者 ABI 可能不同）
+const targetNodeDir = path.dirname(cachedNodeBin);
+const targetEnv = {
+  ...process.env,
+  NODE_ENV: "production",
+  PATH: `${targetNodeDir}${path.delimiter}${process.env.PATH}`,
+};
+function runWithTargetNode(cmd, opts = {}) {
+  execSync(`"${cachedNodeBin}" ${cmd}`, {
+    cwd: outDir,
+    stdio: "inherit",
+    env: targetEnv,
+    ...opts,
+  });
+}
+
+// ── 2. 复制源码 ──
+const SOURCE_DIRS = ["server", "core", "lib", "shared", "hub"];
+for (const dir of SOURCE_DIRS) {
+  const src = path.join(ROOT, dir);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, path.join(outDir, dir), { recursive: true });
+    console.log(`[build-server]   ${dir}/`);
+  } else {
+    console.warn(`[build-server] ⚠ ${dir}/ not found, skipping`);
+  }
+}
+
+// skills2set（运行时复制到用户数据目录）
+const skillsSrc = path.join(ROOT, "skills2set");
+if (fs.existsSync(skillsSrc)) {
+  fs.cpSync(skillsSrc, path.join(outDir, "skills2set"), { recursive: true });
+  console.log("[build-server]   skills2set/");
+}
+
+// i18n locales（server/i18n.js 通过 fromRoot("desktop","src","locales") 引用）
+const localesSrc = path.join(ROOT, "desktop", "src", "locales");
+fs.mkdirSync(path.join(outDir, "desktop", "src", "locales"), { recursive: true });
+fs.cpSync(localesSrc, path.join(outDir, "desktop", "src", "locales"), { recursive: true });
+console.log("[build-server]   desktop/src/locales/");
+
+console.log("[build-server] source files copied");
+
+// ── 3. Production dependencies（用目标 Node 的 npm） ──
+for (const f of ["package.json", "package-lock.json"]) {
+  fs.copyFileSync(path.join(ROOT, f), path.join(outDir, f));
+}
+
+// 精简 package.json
+const pkg = JSON.parse(fs.readFileSync(path.join(outDir, "package.json"), "utf-8"));
+delete pkg.devDependencies;
+delete pkg.build;
+delete pkg.main;
+pkg.scripts = {};
+fs.writeFileSync(path.join(outDir, "package.json"), JSON.stringify(pkg, null, 2) + "\n");
+
+// 用目标 Node 的 npm 安装依赖
+// 不加 --ignore-scripts：better-sqlite3 的 install 脚本需要跑（prebuild-install 下载正确 ABI 的预编译）
+// 我们的 postinstall（patch-pi-sdk）已被 pkg.scripts={} 清空，不会误触
+console.log("[build-server] installing production dependencies...");
+runWithTargetNode(`"${cachedNpmCli}" ci --omit=dev`);
+
+// PI SDK patch（package.json 的 postinstall 被清空，手动补跑）
+const patchScript = path.join(ROOT, "scripts", "patch-pi-sdk.cjs");
+if (fs.existsSync(patchScript)) {
+  fs.mkdirSync(path.join(outDir, "scripts"), { recursive: true });
+  fs.copyFileSync(patchScript, path.join(outDir, "scripts", "patch-pi-sdk.cjs"));
+  runWithTargetNode("scripts/patch-pi-sdk.cjs");
+  fs.rmSync(path.join(outDir, "scripts"), { recursive: true });
+}
+
+// 清理 node_modules/.bin（符号链接指向构建机器的绝对路径，codesign 会报错）
+// server 运行时不需要这些 CLI 工具
+function removeBinDirs(nmDir) {
+  const topBin = path.join(nmDir, ".bin");
+  if (fs.existsSync(topBin)) fs.rmSync(topBin, { recursive: true });
+  // 嵌套的 node_modules/.bin
+  for (const entry of fs.readdirSync(nmDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    const nested = path.join(nmDir, entry.name, "node_modules", ".bin");
+    if (fs.existsSync(nested)) fs.rmSync(nested, { recursive: true });
+  }
+}
+removeBinDirs(path.join(outDir, "node_modules"));
+
+console.log("[build-server] dependencies ready");
+
+// ── 4. Wrapper 脚本 ──
+if (isWin) {
+  fs.writeFileSync(
+    path.join(outDir, "hana-server.cmd"),
+    '@echo off\r\nset "HANA_ROOT=%~dp0"\r\n"%~dp0node.exe" "%~dp0server\\index.js" %*\r\n',
+  );
+} else {
+  const wrapper = path.join(outDir, "hana-server");
+  fs.writeFileSync(wrapper, [
+    "#!/bin/sh",
+    'DIR="$(cd "$(dirname "$0")" && pwd)"',
+    'export HANA_ROOT="$DIR"',
+    'exec "$DIR/node" "$DIR/server/index.js" "$@"',
+    "",
+  ].join("\n"));
+  fs.chmodSync(wrapper, 0o755);
+}
+console.log("[build-server] wrapper created");
 
 console.log("[build-server] Done!");

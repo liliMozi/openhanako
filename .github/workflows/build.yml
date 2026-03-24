@@ -14,7 +14,7 @@ jobs:
           - os: macos-latest
             target: dmg
             arch: arm64
-          - os: macos-latest
+          - os: macos-13
             target: dmg
             arch: x64
           - os: windows-latest
@@ -39,6 +39,15 @@ jobs:
       - name: Download MinGit
         if: runner.os == 'Windows'
         run: node scripts/download-git-portable.js
+
+      - name: Build server bundle
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            node scripts/build-server.mjs darwin ${{ matrix.arch }}
+          else
+            node scripts/build-server.mjs win32 ${{ matrix.arch }}
+          fi
 
       - name: Build renderer
         run: npm run build:renderer
