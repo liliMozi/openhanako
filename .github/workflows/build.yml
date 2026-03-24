@@ -86,6 +86,28 @@ jobs:
           # 传给 electron-builder：CSC_KEYCHAIN 让它复用这个 keychain，不再自己创建
           echo "CSC_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
+      # macOS: 预签名 dist-server 里的 Mach-O 文件
+      # @electron/osx-sign 在签名大量文件时会卡死（原因不明），
+      # 手动先签好 dist-server 里的 native 二进制，electron-builder 只签 Electron 框架。
+      - name: Pre-sign server binaries
+        if: runner.os == 'macOS'
+        run: |
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "Using identity: $IDENTITY"
+
+          DIST_SERVER="dist-server/mac-${{ matrix.arch }}"
+          echo "Signing .node files..."
+          find "$DIST_SERVER/node_modules" -name "*.node" | while read f; do
+            codesign --sign "$IDENTITY" --timestamp --force "$f"
+            echo "  ✓ $(basename $f)"
+          done
+
+          echo "Signing node binary..."
+          codesign --sign "$IDENTITY" --timestamp --force --options runtime "$DIST_SERVER/node"
+          echo "  ✓ node"
+
+          echo "Pre-signing complete."
+
       # macOS 打包（签名 + 公证）
       - name: Build macOS DMG
         if: runner.os == 'macOS'
