@@ -15,6 +15,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { migrateConfigScope } from "../shared/migrate-config-scope.js";
 import {
   DefaultResourceLoader,
   codingTools,
@@ -422,7 +423,6 @@ export class HanaEngine {
     this._configCoord.migrateProvidersToGlobal(log);
 
     // 0b. Config scope 迁移（全局字段从 agent config → preferences）
-    const { migrateConfigScope } = await import("../shared/migrate-config-scope.js");
     migrateConfigScope({
       agentsDir: this.agentsDir,
       prefs: this._prefs,

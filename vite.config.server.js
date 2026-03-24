@@ -27,18 +27,10 @@ export default defineConfig({
         "fsevents",
       ],
       output: {
-        entryFileNames: "[name].js",
-        chunkFileNames: "chunks/[name]-[hash:8].js",
-        // Provider plugins (lib/providers/) must be in the same chunk as
-        // provider-registry (core/) to avoid TDZ from circular init order.
-        // shared/ gets its own chunk since it has no circular deps with others.
-        manualChunks(id) {
-          if (id.includes("/node_modules/")) return undefined;
-          if (id.includes("/shared/")) return "shared";
-          // core + lib (including providers) in one chunk to avoid TDZ
-          if (id.includes("/core/") || id.includes("/lib/")) return "core";
-          if (id.includes("/hub/")) return "hub";
-        },
+        // 所有源码模块全部合并到一个文件。
+        // 这个项目 shared/core/lib/hub 之间交叉引用太多，
+        // 任何 chunk 拆分都会导致循环依赖的 TDZ ReferenceError。
+        inlineDynamicImports: true,
       },
     },
     target: "node22",

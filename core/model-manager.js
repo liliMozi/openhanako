@@ -22,6 +22,7 @@ import { ProviderRegistry } from "./provider-registry.js";
 import { AuthStore } from "./auth-store.js";
 import { ExecutionRouter } from "./execution-router.js";
 import { fromRoot } from "../shared/hana-root.js";
+import { syncFavoritesToModelsJson } from "./sync-favorites.js";
 
 const _knownModels = JSON.parse(readFileSync(fromRoot("lib", "known-models.json"), "utf-8"));
 
@@ -264,7 +265,6 @@ export class ModelManager {
    * @returns {boolean}
    */
   async syncModelsAndRefresh(configPath, { favorites, sharedModels, authJsonPath }) {
-    const { syncFavoritesToModelsJson } = await import("./sync-favorites.js");
     const synced = syncFavoritesToModelsJson(configPath, {
       modelsJsonPath: this.modelsJsonPath,
       favorites,

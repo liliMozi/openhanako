@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import { Hono } from "hono";
 import { safeJson } from "../hono-helpers.js";
+import { getWechatQrcode, pollWechatQrcodeStatus } from "../../lib/bridge/wechat-login.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { parseSessionKey, collectKnownUsers, KNOWN_PLATFORMS } from "../../lib/bridge/session-key.js";
 import { t } from "../i18n.js";
@@ -406,7 +407,6 @@ export function createBridgeRoute(engine, bridgeManager) {
 
   /** 获取微信扫码登录二维码 */
   route.post("/bridge/wechat/qrcode", async (c) => {
-    const { getWechatQrcode } = await import("../../lib/bridge/wechat-login.js");
     return c.json(await getWechatQrcode());
   });
 
@@ -414,7 +414,6 @@ export function createBridgeRoute(engine, bridgeManager) {
   route.post("/bridge/wechat/qrcode-status", async (c) => {
     const body = await safeJson(c);
     const { qrcodeId } = body;
-    const { pollWechatQrcodeStatus } = await import("../../lib/bridge/wechat-login.js");
     return c.json(await pollWechatQrcodeStatus(qrcodeId));
   });
 
