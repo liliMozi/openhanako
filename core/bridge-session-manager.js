@@ -314,16 +314,12 @@ export class BridgeSessionManager {
     }
   }
 
-  /** 创建 bridge 专用 settings：100k token 触发压缩 */
+  /** 创建 bridge 专用 settings：compaction 由 SDK 默认触发（contextWindow - 16384） */
   _createSettings(model) {
-    // 用户手动设置的 context 覆盖优先
-    const overrides = this._deps.getAgent?.()?.config?.models?.overrides;
-    const ov = model?.id && overrides?.[model.id];
-    const contextWindow = ov?.context || model?.contextWindow || 200_000;
     return SettingsManager.inMemory({
       compaction: {
         enabled: true,
-        reserveTokens: Math.max(contextWindow - 100_000, 16384),
+        reserveTokens: 16384,
         keepRecentTokens: 20_000,
       },
     });

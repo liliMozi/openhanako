@@ -71,14 +71,13 @@ export async function runAgentSession(agentId, rounds, { engine, signal, session
     }
   }
   const model = ctx.resolveModel(agent.config);
-  const contextWindow = model?.contextWindow || 200_000;
   const { session } = await createAgentSession({
     cwd,
     sessionManager: tempSessionMgr,
     settingsManager: SettingsManager.inMemory({
       compaction: {
         enabled: true,
-        reserveTokens: Math.max(contextWindow - 100_000, 16384),
+        reserveTokens: 16384,
         keepRecentTokens: 20_000,
       },
     }),

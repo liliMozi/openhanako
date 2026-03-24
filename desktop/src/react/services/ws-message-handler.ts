@@ -125,6 +125,11 @@ export function handleServerMessage(msg: any): void {
         patch.contextTokens = msg.tokens;
         patch.contextWindow = msg.contextWindow;
         patch.contextPercent = msg.percent;
+      } else {
+        // SDK returns null right after compaction (no post-compaction response yet)
+        // Reset to null so the ring shows empty/estimating instead of stale pre-compaction values
+        patch.contextTokens = null;
+        patch.contextPercent = null;
       }
       useStore.setState(patch);
     }

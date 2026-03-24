@@ -12,6 +12,7 @@ export interface ChatSlice {
   prependItems: (path: string, items: ChatListItem[], hasMore: boolean) => void;
   appendItem: (path: string, item: ChatListItem) => void;
   updateLastMessage: (path: string, updater: (msg: ChatMessage) => ChatMessage) => void;
+  removeLastCompaction: (path: string) => void;
   setLoadingMore: (path: string, loading: boolean) => void;
   clearSession: (path: string) => void;
   saveScrollPosition: (path: string, scrollTop: number) => void;
@@ -75,6 +76,22 @@ export const createChatSlice = (
     const last = items[lastIdx];
     if (last.type !== 'message') return {};
     items[lastIdx] = { type: 'message', data: updater(last.data) };
+    return {
+      chatSessions: {
+        ...s.chatSessions,
+        [path]: { ...session, items },
+      },
+    };
+  }),
+
+  removeLastCompaction: (path) => set((s) => {
+    const session = s.chatSessions[path];
+    if (!session) return {};
+    const idx = [...session.items].reverse().findIndex(i => i.type === 'compaction');
+    if (idx === -1) return {};
+    const realIdx = session.items.length - 1 - idx;
+    const items = [...session.items];
+    items.splice(realIdx, 1);
     return {
       chatSessions: {
         ...s.chatSessions,

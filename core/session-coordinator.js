@@ -662,14 +662,10 @@ export class SessionCoordinator {
 
   /** 创建 session 专用 settings（控制 compaction + max_completion_tokens） */
   _createSettings(model) {
-    // 用户手动设置的 context 覆盖（models.overrides）优先于模型自身的值
-    const overrides = this._d.getAgent?.()?.config?.models?.overrides;
-    const ov = model?.id && overrides?.[model.id];
-    const contextWindow = ov?.context || model?.contextWindow || 200_000;
     return SettingsManager.inMemory({
       compaction: {
         enabled: true,
-        reserveTokens: Math.max(contextWindow - 100_000, 16384),
+        reserveTokens: 16384,
         keepRecentTokens: 20_000,
       },
     });
