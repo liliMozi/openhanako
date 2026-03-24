@@ -20,7 +20,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const platform = process.argv[2] || process.platform;
 const arch = process.argv[3] || process.arch;
-const outDir = path.join(ROOT, "dist-server", `${platform}-${arch}`);
+// electron-builder 的 ${os} 变量用 "mac" 而非 "darwin"
+const osDirName = platform === "darwin" ? "mac" : platform;
+const outDir = path.join(ROOT, "dist-server", `${osDirName}-${arch}`);
 
 console.log(`[build-server] Building for ${platform}-${arch}...`);
 
