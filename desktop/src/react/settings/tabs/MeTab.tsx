@@ -65,6 +65,7 @@ export function MeTab() {
   };
 
   const handleAvatarClick = () => {
+    // eslint-disable-next-line no-restricted-syntax -- ephemeral file picker, not part of React tree
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/png,image/jpeg,image/webp';

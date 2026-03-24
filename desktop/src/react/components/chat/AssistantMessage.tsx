@@ -52,6 +52,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
   const handleCopy = useCallback(() => {
     const textBlocks = blocks.filter((b): b is ContentBlock & { type: 'text' } => b.type === 'text');
     if (textBlocks.length === 0) return;
+    // eslint-disable-next-line no-restricted-syntax -- temp div for HTML-to-text extraction (clipboard)
     const tmp = document.createElement('div');
     tmp.innerHTML = textBlocks.map(b => b.html).join('\n');
     const text = tmp.innerText.trim();

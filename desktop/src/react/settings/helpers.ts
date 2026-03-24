@@ -12,6 +12,7 @@ export function t(key: string, params?: Record<string, any>): any {
 }
 
 export function escapeHtml(str: string): string {
+  // eslint-disable-next-line no-restricted-syntax -- escapeHtml utility, not React rendering
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;

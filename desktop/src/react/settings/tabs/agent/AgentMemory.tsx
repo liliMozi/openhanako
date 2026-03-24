@@ -137,6 +137,7 @@ function MemoryMoreDropdown({ isViewingOther }: { isViewingOther: boolean }) {
       if (data.error) throw new Error(data.error);
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
+      // eslint-disable-next-line no-restricted-syntax -- ephemeral download link for memory export
       const a = document.createElement('a');
       a.href = url;
       a.download = `hana-memories-${new Date().toISOString().slice(0, 10)}.json`;
@@ -153,6 +154,7 @@ function MemoryMoreDropdown({ isViewingOther }: { isViewingOther: boolean }) {
 
   const importMemories = async () => {
     setOpen(false);
+    // eslint-disable-next-line no-restricted-syntax -- ephemeral file picker for memory import
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';

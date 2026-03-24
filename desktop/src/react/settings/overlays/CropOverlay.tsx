@@ -104,6 +104,7 @@ export function CropOverlay() {
   const confirm = async () => {
     if (!cropState) return;
     const s = cropState;
+    // eslint-disable-next-line no-restricted-syntax -- offscreen canvas for image crop, not part of React tree
     const canvas = document.createElement('canvas');
     canvas.width = OUTPUT_SIZE;
     canvas.height = OUTPUT_SIZE;
