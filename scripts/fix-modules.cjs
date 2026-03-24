@@ -53,14 +53,14 @@ exports.default = async function (context) {
   let copied = 0;
 
   // 含 native binding 的包（需要平台匹配编译），补全时额外警告
-  const NATIVE_PACKAGES = new Set(["better-sqlite3", "bufferutil", "utf-8-validate"]);
+  const NATIVE_PACKAGES = new Set(["bufferutil", "utf-8-validate"]);
 
   for (const dep of allProd) {
     const distPath = path.join(distModules, dep);
     const localPath = path.join(localModules, dep);
     if (!fs.existsSync(distPath) && fs.existsSync(localPath)) {
       if (NATIVE_PACKAGES.has(dep)) {
-        console.warn(`[fix-modules] ⚠ 补全 native 包 "${dep}"（确保已通过 electron-rebuild 编译）`);
+        console.warn(`[fix-modules] ⚠ 补全 native 包 "${dep}"（确保已针对当前平台编译）`);
       }
       fs.cpSync(localPath, distPath, { recursive: true });
       copied++;
