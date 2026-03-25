@@ -23,12 +23,13 @@ vi.mock("../lib/debug-log.js", () => ({
   debugLog: () => null,
 }));
 
+import os from "os";
 import { BridgeManager } from "../lib/bridge/bridge-manager.js";
 
 // ── Helpers ──
 
-/** 匹配 timeTag 前缀（[MM-DD HH:mm] ）后跟预期文本 */
-const tagged = (text) => expect.stringMatching(new RegExp(`^\\[\\d{2}-\\d{2} \\d{2}:\\d{2}\\] ${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+/** 匹配 timeTag 前缀（<t>MM-DD HH:mm</t> ）后跟预期文本 */
+const tagged = (text) => expect.stringMatching(new RegExp(`^<t>\\d{2}-\\d{2} \\d{2}:\\d{2}</t> ${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
 
 function createMocks() {
   const adapter = {
@@ -45,6 +46,7 @@ function createMocks() {
     abortBridgeSession: vi.fn().mockResolvedValue(false),
     steerBridgeSession: vi.fn().mockReturnValue(false),
     agentName: "TestAgent",
+    hanakoHome: os.tmpdir(),
   };
 
   const hub = {
@@ -78,7 +80,8 @@ describe("BridgeManager._handleMessage", () => {
     it("sends immediately without debounce", async () => {
       const { bm, hub, adapter } = createMocks();
 
-      await bm._handleMessage("telegram", {
+      // _flushGroupMessage is fire-and-forget (not awaited), wait for it
+      const promise = bm._handleMessage("telegram", {
         sessionKey: "tg_group_g1",
         text: "hello",
         senderName: "Alice",
@@ -86,12 +89,15 @@ describe("BridgeManager._handleMessage", () => {
         isGroup: true,
         chatId: "g1",
       });
+      await promise;
+      // flush the unresolved group message promise
+      await vi.waitFor(() => expect(hub.send).toHaveBeenCalledOnce());
 
-      expect(hub.send).toHaveBeenCalledOnce();
       expect(hub.send).toHaveBeenCalledWith(
         tagged("Alice: hello"),
         expect.objectContaining({ sessionKey: "tg_group_g1", role: "guest", isGroup: true }),
       );
+      await vi.waitFor(() => expect(adapter.sendReply).toHaveBeenCalled());
       expect(adapter.sendReply).toHaveBeenCalledWith("g1", "AI response");
     });
 
@@ -136,7 +142,7 @@ describe("BridgeManager._handleMessage", () => {
 
       expect(hub.send).toHaveBeenCalledOnce();
       expect(hub.send).toHaveBeenCalledWith(
-        expect.stringMatching(/^\[\d{2}-\d{2} \d{2}:\d{2}\] hello\nworld$/),
+        expect.stringMatching(/^<t>\d{2}-\d{2} \d{2}:\d{2}<\/t> hello\nworld$/),
         expect.objectContaining({ sessionKey: "tg_dm_owner123", role: "owner" }),
       );
       expect(adapter.sendReply).toHaveBeenCalledWith("owner123", "AI response");
@@ -168,7 +174,7 @@ describe("BridgeManager._handleMessage", () => {
       await vi.advanceTimersByTimeAsync(600);
       expect(hub.send).toHaveBeenCalledOnce();
       expect(hub.send).toHaveBeenCalledWith(
-        expect.stringMatching(/^\[\d{2}-\d{2} \d{2}:\d{2}\] first\nsecond$/),
+        expect.stringMatching(/^<t>\d{2}-\d{2} \d{2}:\d{2}<\/t> first\nsecond$/),
         expect.any(Object),
       );
     });

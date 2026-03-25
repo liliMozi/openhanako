@@ -53,7 +53,7 @@ describe("delegate-tool", () => {
     const blocked = await tool.execute("call_4", { task: "任务 4" });
 
     expect(blocked).toEqual({
-      content: [{ type: "text", text: "当前已有 3 个子任务在运行，请等待完成后再发起新任务。" }],
+      content: [{ type: "text", text: "error.delegateMaxConcurrent" }],
     });
 
     for (const release of releases) {

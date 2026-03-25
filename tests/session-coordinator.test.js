@@ -14,6 +14,9 @@ vi.mock("@mariozechner/pi-coding-agent", () => ({
     create: sessionManagerCreateMock,
     open: vi.fn(),
   },
+  SettingsManager: {
+    inMemory: vi.fn(() => ({})),
+  },
 }));
 
 vi.mock("../lib/debug-log.js", () => ({
