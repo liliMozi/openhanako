@@ -182,7 +182,8 @@ export const PROVIDER_PRESETS = [
 export const API_FORMAT_OPTIONS = [
   { value: 'openai-completions', label: 'OpenAI Compatible' },
   { value: 'anthropic-messages', label: 'Anthropic Messages' },
-  { value: 'openai-codex-responses', label: 'OpenAI Codex Responses' },
+  { value: 'openai-responses', label: 'OpenAI Responses' },
+  { value: 'openai-codex-responses', label: 'ChatGPT Codex (Plus/Pro)' },
 ];
 
 export const CONTEXT_PRESETS = [
