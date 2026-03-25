@@ -34,6 +34,31 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+      
+      - name: Generate Changelog
+        id: github_release
+        uses: mikepenz/release-changelog-builder-action@v4
+        with:
+          commitMode: "true"
+          configurationJson: |
+            {
+              "template": "#{{CHANGELOG}}\n\n#{{UNCATEGORIZED}}",
+              "categories": [
+                {"title": "## ✨ Features", "labels": ["feat", "feature"]},
+                {"title": "## 🐛 Bug Fixes", "labels": ["fix", "bug"]},
+                {"title": "## 📦 Dependencies", "labels": ["chore", "build", "ci", "deps"]},
+                {"title": "## 📝 Other", "labels": ["docs", "style", "refactor", "perf", "test", "ui"]}
+              ],
+              "label_extractor": [
+                {
+                  "pattern": "^(feat|fix|chore|build|ci|docs|style|refactor|perf|test|ui)(\\([\\w\\-\\.]+\\))?(!)?: .*",
+                  "on_property": "title",
+                  "target": "$1"
+                }
+              ]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Windows: 下载 MinGit 用于打包进安装包
       - name: Download MinGit
