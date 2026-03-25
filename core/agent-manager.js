@@ -314,13 +314,21 @@ export class AgentManager {
   }
 
   async switchAgent(agentId) {
-    await this.switchAgentOnly(agentId);
-    const hub = this._d.getHub();
-    hub?.resumeAfterAgentSwitch();
-    this._d.getSkills().syncAgentSkills(this.agent);
-    this._d.getPrefs().savePrimaryAgent(agentId);
-    await this._d.getSessionCoordinator().createSession();
-    log.log(`已切换到助手: ${this.agent.agentName} (${agentId})`);
+    // switchAgentOnly 内部有 _switching 锁，但 createSession 不在锁范围内
+    // 用额外的 _switchingFull 标志保护整个流程，防止快速连续切换导致 session 用错 agent 配置
+    if (this._switchingFull) throw new Error(t("error.agentSwitching"));
+    this._switchingFull = true;
+    try {
+      await this.switchAgentOnly(agentId);
+      const hub = this._d.getHub();
+      hub?.resumeAfterAgentSwitch();
+      this._d.getSkills().syncAgentSkills(this.agent);
+      this._d.getPrefs().savePrimaryAgent(agentId);
+      await this._d.getSessionCoordinator().createSession();
+      log.log(`已切换到助手: ${this.agent.agentName} (${agentId})`);
+    } finally {
+      this._switchingFull = false;
+    }
   }
 
   async createSessionForAgent(agentId, cwd, memoryEnabled = true) {
@@ -395,14 +403,18 @@ export class AgentManager {
 
   // ── Dispose ──
 
-  async disposeAll(session) {
-    // final 滚动摘要
-    const sp = session?.sessionManager?.getSessionFile?.();
-    if (sp) {
-      await Promise.race([
-        this.agent?._memoryTicker?.notifySessionEnd(sp) ?? Promise.resolve(),
-        new Promise(r => setTimeout(r, 4000)),
-      ]);
+  async disposeAll(sessionCoord) {
+    // 对所有缓存 session 做 final 滚动摘要（带超时保护）
+    const entries = sessionCoord ? [...sessionCoord._sessions.entries()] : [];
+    if (entries.length > 0) {
+      const summaryPromises = entries.map(([sp, entry]) => {
+        const agent = this._agents.get(entry.agentId) || this.agent;
+        return Promise.race([
+          agent?._memoryTicker?.notifySessionEnd(sp) ?? Promise.resolve(),
+          new Promise(r => setTimeout(r, 4000)),
+        ]);
+      });
+      await Promise.allSettled(summaryPromises);
     }
     await Promise.allSettled(
       [...this._agents.values()].map(ag => ag.dispose()),

@@ -545,7 +545,7 @@ export class HanaEngine {
 
   async dispose() {
     this._skills.unwatch();
-    await this._agentMgr.disposeAll(this._sessionCoord.session);
+    await this._agentMgr.disposeAll(this._sessionCoord);
     await this._sessionCoord.cleanupSession();
   }
 

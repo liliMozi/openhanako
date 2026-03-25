@@ -465,22 +465,20 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       ss.moodParser.reset();
       ss.xingParser.reset();
 
-      if (isActive) {
-        debugLog()?.log("ws", "assistant reply done");
-        maybeGenerateFirstTurnTitle(sessionPath, ss);
-      }
+      if (isActive) debugLog()?.log("ws", "assistant reply done");
+      maybeGenerateFirstTurnTitle(sessionPath, ss);
     } else if (event.type === "auto_compaction_start") {
-      if (isActive) broadcast({ type: "compaction_start" });
+      broadcast({ type: "compaction_start", sessionPath });
     } else if (event.type === "auto_compaction_end") {
-      if (isActive) {
-        const usage = engine.session?.getContextUsage?.();
-        broadcast({
-          type: "compaction_end",
-          tokens: usage?.tokens ?? null,
-          contextWindow: usage?.contextWindow ?? null,
-          percent: usage?.percent ?? null,
-        });
-      }
+      const s = engine.getSessionByPath(sessionPath);
+      const usage = s?.getContextUsage?.();
+      broadcast({
+        type: "compaction_end",
+        sessionPath,
+        tokens: usage?.tokens ?? null,
+        contextWindow: usage?.contextWindow ?? null,
+        percent: usage?.percent ?? null,
+      });
     }
   });
 
@@ -562,9 +560,12 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
             }
 
             if (msg.type === "context_usage") {
-              const usage = engine.session?.getContextUsage?.();
+              const usagePath = msg.sessionPath || engine.currentSessionPath;
+              const usageSession = engine.getSessionByPath(usagePath);
+              const usage = usageSession?.getContextUsage?.();
               wsSend(ws, {
                 type: "context_usage",
+                sessionPath: usagePath,
                 tokens: usage?.tokens ?? null,
                 contextWindow: usage?.contextWindow ?? null,
                 percent: usage?.percent ?? null,
@@ -573,7 +574,8 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
             }
 
             if (msg.type === "compact") {
-              const session = engine.session;
+              const compactPath = msg.sessionPath || engine.currentSessionPath;
+              const session = engine.getSessionByPath(compactPath);
               if (!session) {
                 wsSend(ws, { type: "error", message: t("error.noActiveSession") });
                 return;
@@ -582,28 +584,27 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
                 wsSend(ws, { type: "error", message: t("error.compacting") });
                 return;
               }
-              // streaming 时不允许手动压缩，避免与 prompt 并发
-              if (engine.isStreaming) {
+              if (engine.isSessionStreaming(compactPath)) {
                 wsSend(ws, { type: "error", message: t("error.waitForReply") });
                 return;
               }
-              broadcast({ type: "compaction_start" });
+              broadcast({ type: "compaction_start", sessionPath: compactPath });
               try {
                 await session.compact();
                 const usage = session.getContextUsage?.();
                 broadcast({
                   type: "compaction_end",
+                  sessionPath: compactPath,
                   tokens: usage?.tokens ?? null,
                   contextWindow: usage?.contextWindow ?? null,
                   percent: usage?.percent ?? null,
                 });
               } catch (err) {
-                // Already compacted / Nothing to compact 不算错误
                 const errMsg = err.message || "";
                 if (errMsg.includes("Already compacted") || errMsg.includes("Nothing to compact")) {
-                  broadcast({ type: "compaction_end" });
+                  broadcast({ type: "compaction_end", sessionPath: compactPath });
                 } else {
-                  broadcast({ type: "compaction_end" });
+                  broadcast({ type: "compaction_end", sessionPath: compactPath });
                   wsSend(ws, { type: "error", message: t("error.compactFailed", { msg: errMsg }) });
                 }
               }
@@ -665,7 +666,7 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
                 broadcast({ type: "status", isStreaming: false, sessionPath: promptSessionPath });
               } catch (err) {
                 if (!err.message?.includes("aborted")) {
-                  wsSend(ws, { type: "error", message: err.message });
+                  wsSend(ws, { type: "error", message: err.message, sessionPath: promptSessionPath });
                 }
                 broadcast({ type: "status", isStreaming: false, sessionPath: promptSessionPath });
               }

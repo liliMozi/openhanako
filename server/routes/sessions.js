@@ -301,7 +301,7 @@ export function createSessionsRoute(engine) {
         agentName: engine.agentName,
         browserRunning: bm.isRunning,
         browserUrl: bm.currentUrl || null,
-        isStreaming: engine.isStreaming,
+        isStreaming: engine.isSessionStreaming(engine.currentSessionPath),
       });
     } catch (err) {
       return c.json({ error: err.message }, 500);
