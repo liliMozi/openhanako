@@ -192,21 +192,20 @@ export function syncFavoritesToModelsJson(configPath, opts = {}) {
       }
     } else if (typeof item === "string") {
       const mid = item;
-      // 命名空间格式 "provider/modelId"
-      if (mid.includes("/")) {
+      // 优先：完整 ID 走反查表（处理 DashScope 等聚合平台的 "Vendor/model" 格式 ID）
+      if (modelToProvider.has(mid)) {
+        prov = modelToProvider.get(mid);
+        modelId = mid;
+      }
+      // 次选：命名空间格式 "provider/modelId"（仅当完整 ID 反查不到时才尝试拆分）
+      if (!prov && mid.includes("/")) {
         const slashIdx = mid.indexOf("/");
         const maybeProv = mid.slice(0, slashIdx);
         const maybeModel = mid.slice(slashIdx + 1);
-        // 检查前缀是否是已知 provider（避免误拆 OpenRouter 风格 ID 如 "anthropic/claude-opus-4-6"）
         if (modelToProvider.has(maybeModel) || globalProviders[maybeProv] || _defaultModels[maybeProv]) {
           prov = maybeProv;
           modelId = maybeModel;
         }
-      }
-      if (!prov) {
-        // 裸 ID 走反查表
-        prov = modelToProvider.get(mid);
-        modelId = mid;
       }
     }
 
