@@ -166,10 +166,14 @@ export class SessionCoordinator {
 
     // LRU 淘汰：按 lastTouchedAt 排序，跳过 streaming 和焦点 session
     if (this._sessions.size > MAX_CACHED_SESSIONS) {
+      const focusPath = this.currentSessionPath;
       const candidates = [...this._sessions.entries()]
-        .filter(([key, e]) => key !== mapKey && !e.session.isStreaming)
+        .filter(([key, e]) => key !== mapKey && key !== focusPath && !e.session.isStreaming)
         .sort((a, b) => a[1].lastTouchedAt - b[1].lastTouchedAt);
       for (const [key, entry] of candidates) {
+        // 记忆收尾（fire-and-forget，淘汰场景不阻塞）
+        const agent = this._d.getAgentById(entry.agentId) || this._d.getAgent();
+        agent?._memoryTicker?.notifySessionEnd(key).catch(() => {});
         entry.unsub();
         this._sessions.delete(key);
         if (this._sessions.size <= MAX_CACHED_SESSIONS) break;
@@ -347,6 +351,8 @@ export class SessionCoordinator {
   async closeSession(sessionPath) {
     const entry = this._sessions.get(sessionPath);
     if (entry) {
+      const agent = this._d.getAgentById(entry.agentId) || this._d.getAgent();
+      agent?._memoryTicker?.notifySessionEnd(sessionPath).catch(() => {});
       if (entry.session.isStreaming) {
         try { await entry.session.abort(); } catch {}
       }
@@ -359,9 +365,8 @@ export class SessionCoordinator {
   }
 
   async closeAllSessions() {
-    for (const [sp, entry] of this._sessions) {
-      const agent = this._d.getAgentById(entry.agentId) || this._d.getAgent();
-      agent?._memoryTicker?.notifySessionEnd(sp).catch(() => {});
+    // abort all streaming sessions + unsub（记忆收尾由 disposeAll 带超时处理）
+    for (const [, entry] of this._sessions) {
       if (entry.session.isStreaming) {
         try { await entry.session.abort(); } catch {}
       }
