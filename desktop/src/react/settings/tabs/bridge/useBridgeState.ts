@@ -15,10 +15,10 @@ interface PlatformStatusBase {
   enabled?: boolean;
 }
 
-export interface TelegramStatus extends PlatformStatusBase { tokenMasked?: string }
-export interface FeishuStatus extends PlatformStatusBase { appId?: string; appSecretMasked?: string }
-export interface QQStatus extends PlatformStatusBase { appID?: string; appSecretMasked?: string }
-export interface WechatStatus extends PlatformStatusBase { tokenMasked?: string }
+export interface TelegramStatus extends PlatformStatusBase { token?: string }
+export interface FeishuStatus extends PlatformStatusBase { appId?: string; appSecret?: string }
+export interface QQStatus extends PlatformStatusBase { appID?: string; appSecret?: string }
+export interface WechatStatus extends PlatformStatusBase { token?: string }
 
 export interface BridgeStatus {
   telegram: TelegramStatus;
@@ -32,8 +32,6 @@ export interface BridgeStatus {
 }
 
 export type BridgePlatform = 'telegram' | 'feishu' | 'whatsapp' | 'qq' | 'wechat';
-
-export const isMasked = (v: string) => v.includes('••••');
 
 export function useBridgeState() {
   const store = useSettingsStore();
@@ -82,11 +80,11 @@ export function useBridgeState() {
       const res = await hanaFetch('/api/bridge/status');
       const data = await res.json();
       setStatus(data);
-      if (data.feishu?.appId) setFsAppId(data.feishu.appId);
-      if (data.qq?.appID) setQqAppId(data.qq.appID);
-      setTgToken(data.telegram?.tokenMasked || '');
-      setFsAppSecret(data.feishu?.appSecretMasked || '');
-      setQqAppSecret(data.qq?.appSecretMasked || '');
+      setTgToken(data.telegram?.token || '');
+      setFsAppId(data.feishu?.appId || '');
+      setFsAppSecret(data.feishu?.appSecret || '');
+      setQqAppId(data.qq?.appID || '');
+      setQqAppSecret(data.qq?.appSecret || '');
     } catch (err) {
       console.error('[bridge] load status failed:', err);
     }

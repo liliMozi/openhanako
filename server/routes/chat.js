@@ -36,7 +36,8 @@ function extractText(content) {
 }
 
 export function createChatRoute(engine, hub, { upgradeWebSocket }) {
-  const route = new Hono();
+  const restRoute = new Hono();
+  const wsRoute = new Hono();
 
   let activeWsClients = 0;
   let disconnectAbortTimer = null;
@@ -363,6 +364,12 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       });
     } else if (event.type === "activity_update") {
       broadcast({ type: "activity_update", activity: event.activity });
+    } else if (event.type === "bridge_message") {
+      broadcast({ type: "bridge_message", message: event.message });
+    } else if (event.type === "bridge_status") {
+      broadcast({ type: "bridge_status", platform: event.platform, status: event.status, error: event.error });
+    } else if (event.type === "plan_mode") {
+      broadcast({ type: "plan_mode", enabled: event.enabled });
     } else if (event.type === "notification") {
       broadcast({ type: "notification", title: event.title, body: event.body });
     } else if (event.type === "channel_new_message") {
@@ -477,9 +484,9 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
     }
   });
 
-  // ── WebSocket 路由 ──
+  // ── WebSocket 路由（挂载在 wsRoute，由 index.js 挂到根路径） ──
 
-  route.get("/ws",
+  wsRoute.get("/ws",
     upgradeWebSocket((c) => {
       let closed = false;
 
@@ -697,7 +704,7 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
     })
   );
 
-  return route;
+  return { restRoute, wsRoute };
 }
 
 /**

@@ -21,6 +21,7 @@ import { errorBus } from "../shared/error-bus.js";
 import { HanaEngine } from "../core/engine.js";
 import { ensureFirstRun } from "../core/first-run.js";
 import { initDebugLog } from "../lib/debug-log.js";
+import { safeJson } from "./hono-helpers.js";
 
 // Pi SDK 的 fetch 请求会累积 AbortSignal listener，提高上限避免无害警告
 setMaxListeners(50);
@@ -167,7 +168,9 @@ engine._confirmStore = confirmStore;
 const bridgeManager = new BridgeManager({ engine, hub });
 hub.bridgeManager = bridgeManager;
 
-app.route("/api", createChatRoute(engine, hub, { upgradeWebSocket }));
+const { restRoute: chatRestRoute, wsRoute: chatWsRoute } = createChatRoute(engine, hub, { upgradeWebSocket });
+app.route("/api", chatRestRoute);
+app.route("", chatWsRoute);
 app.route("/api", createSessionsRoute(engine));
 app.route("/api", createModelsRoute(engine));
 app.route("/api", createConfigRoute(engine));
@@ -210,7 +213,7 @@ app.get("/api/health", async (c) => {
 
 // 前端日志上报（desktop 端把错误 POST 到 server 写进持久化日志）
 app.post("/api/log", async (c) => {
-  const { level, module, message } = await c.req.json().catch(() => ({}));
+  const { level, module, message } = await safeJson(c);
   if (!message) return c.json({ ok: false });
   if (level === "error") dlog.error(module || "desktop", message);
   else if (level === "warn") dlog.warn(module || "desktop", message);
@@ -223,7 +226,7 @@ app.get("/api/plan-mode", async (c) => {
   return c.json({ enabled: engine.planMode });
 });
 app.post("/api/plan-mode", async (c) => {
-  const { enabled } = await c.req.json().catch(() => ({}));
+  const { enabled } = await safeJson(c);
   engine.setPlanMode(!!enabled);
   return c.json({ ok: true, enabled: engine.planMode });
 });

@@ -22,11 +22,10 @@ export function createBridgeRoute(engine, bridgeManager) {
     const bridge = prefs.bridge || {};
     const live = bridgeManager.getStatus();
 
-    // 凭证做遮掩后返回，供前端回显
+    // 直接返回完整凭证（本地 app，不经过公网）
     const tgToken = bridge.telegram?.token || "";
     const fsAppId = bridge.feishu?.appId || "";
     const fsAppSecret = bridge.feishu?.appSecret || "";
-    const mask = (s) => s.length <= 8 ? "••••" : s.slice(0, 4) + "••••" + s.slice(-4);
 
     return c.json({
       telegram: {
@@ -34,7 +33,7 @@ export function createBridgeRoute(engine, bridgeManager) {
         enabled: !!bridge.telegram?.enabled,
         status: live.telegram?.status || "disconnected",
         error: live.telegram?.error || null,
-        tokenMasked: tgToken ? mask(tgToken) : "",
+        token: tgToken,
       },
       feishu: {
         configured: !!(fsAppId && fsAppSecret),
@@ -42,7 +41,7 @@ export function createBridgeRoute(engine, bridgeManager) {
         status: live.feishu?.status || "disconnected",
         error: live.feishu?.error || null,
         appId: fsAppId,
-        appSecretMasked: fsAppSecret ? mask(fsAppSecret) : "",
+        appSecret: fsAppSecret,
       },
       qq: {
         configured: !!(bridge.qq?.appID && (bridge.qq?.appSecret || bridge.qq?.token)),
@@ -50,14 +49,14 @@ export function createBridgeRoute(engine, bridgeManager) {
         status: live.qq?.status || "disconnected",
         error: live.qq?.error || null,
         appID: bridge.qq?.appID || "",
-        appSecretMasked: (bridge.qq?.appSecret || bridge.qq?.token) ? mask(bridge.qq.appSecret || bridge.qq.token) : "",
+        appSecret: bridge.qq?.appSecret || bridge.qq?.token || "",
       },
       wechat: {
         configured: !!bridge.wechat?.botToken,
         enabled: !!bridge.wechat?.enabled,
         status: live.wechat?.status || "disconnected",
         error: live.wechat?.error || null,
-        tokenMasked: bridge.wechat?.botToken ? mask(bridge.wechat.botToken) : "",
+        token: bridge.wechat?.botToken || "",
       },
       readOnly: !!bridge.readOnly,
       knownUsers: collectKnownUsers(engine.getBridgeIndex()),
@@ -156,7 +155,7 @@ export function createBridgeRoute(engine, bridgeManager) {
 
   /** 获取最近消息日志（实时内存缓冲） */
   route.get("/bridge/messages", async (c) => {
-    const limit = parseInt(c.req.query("limit")) || 50;
+    const limit = parseInt(c.req.query("limit"), 10) || 50;
     return c.json({ messages: bridgeManager.getMessages(limit) });
   });
 
@@ -252,6 +251,7 @@ export function createBridgeRoute(engine, bridgeManager) {
           content: textContent || (hasMedia ? `[图片 x${mediaCount}]` : ""),
           hasMedia,
           mediaCount,
+          ts: line.timestamp || null,
         });
       }
 

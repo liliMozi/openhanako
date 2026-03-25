@@ -144,7 +144,7 @@ export class HanaEngine {
     // ── Bridge Session Manager ──
     this._bridge = new BridgeSessionManager({
       getAgent: () => this.agent,
-      getAgentById: (id) => this._agentManager.getAgent(id),
+      getAgentById: (id) => this._agentMgr.getAgent(id),
       getModelManager: () => this._models,
       getResourceLoader: () => this._resourceLoader,
       getPreferences: () => this._readPreferences(),

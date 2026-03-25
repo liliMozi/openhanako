@@ -10,7 +10,7 @@ import styles from '../../Settings.module.css';
 import bridgeStyles from '../BridgeTab.module.css';
 
 interface WechatSectionProps {
-  status: { status?: string; error?: string; enabled?: boolean; tokenMasked?: string };
+  status: { status?: string; error?: string; enabled?: boolean; token?: string };
   showToast: (msg: string, type: 'success' | 'error') => void;
   onSaveConfig: (credentials: Record<string, string> | null, enabled?: boolean) => Promise<void>;
   onReload: () => Promise<void>;
@@ -47,16 +47,16 @@ export function WechatSection({ status, showToast, onSaveConfig, onReload }: Wec
         <Toggle
           on={!!status.enabled}
           onChange={async (on) => {
-            if (on && !status.tokenMasked) { showToast(t('settings.bridge.wechatNeedScan'), 'error'); return; }
+            if (on && !status.token) { showToast(t('settings.bridge.wechatNeedScan'), 'error'); return; }
             await onSaveConfig(null, on);
           }}
         />
       </div>
       <div className={styles['settings-field']}>
-        {status.tokenMasked ? (
+        {status.token ? (
           <div className={bridgeStyles['wechat-logged-in']}>
             <span className={bridgeStyles['wechat-login-info']}>
-              {t('settings.bridge.wechatLoggedIn')}: {status.tokenMasked}
+              {t('settings.bridge.wechatLoggedIn')}
             </span>
             <div className={bridgeStyles['wechat-btn-row']}>
               <button className="bridge-test-btn" onClick={() => window.dispatchEvent(new Event('hana-show-wechat-qrcode'))}>

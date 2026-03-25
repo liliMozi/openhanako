@@ -728,12 +728,18 @@
     margin-bottom: var(--space-sm);
 }
 
+.bridgeBubbleWrap {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--space-sm);
+}
+
 .bridgeBubbleIn {
-    justify-content: flex-start;
+    align-items: flex-start;
 }
 
 .bridgeBubbleOut {
-    justify-content: flex-end;
+    align-items: flex-end;
 }
 
 .bridgeBubble {
@@ -762,6 +768,13 @@
 
 .bridgeBubble p:last-child {
     margin-bottom: 0;
+}
+
+.bridgeBubbleTime {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    padding: 0 var(--space-xs);
 }
 
 /* 未配置蒙版 */

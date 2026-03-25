@@ -18,10 +18,23 @@ export default defineConfig({
       external: [
         "electron",
         ...nodeBuiltins,
+
+        // mammoth / exceljs: large CJS deps with deep dependency trees.
+        // Kept external — electron-builder includes them from node_modules.
+        "mammoth",
+        "exceljs",
       ],
     },
     target: "node22",
     minify: false,
     sourcemap: false,
+  },
+
+  // Force Node.js resolution for ws and similar packages that ship browser stubs.
+  // Vite defaults include "browser" condition which resolves ws → ws/browser.js
+  // (a stub that throws). Override to use only Node-appropriate conditions.
+  resolve: {
+    conditions: ["node", "require"],
+    mainFields: ["main", "module"],
   },
 });

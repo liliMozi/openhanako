@@ -16,6 +16,7 @@ interface BridgeSession {
 interface BridgeMessage {
   role: string;
   content: string;
+  ts?: string | null;
 }
 
 interface StatusData {
@@ -306,7 +307,7 @@ function dotClass(status?: string): string {
 }
 
 function updateSidebarDot(data: Record<string, { status: string } | undefined>) {
-  const anyConnected = data.telegram?.status === 'connected' || data.feishu?.status === 'connected' || data.whatsapp?.status === 'connected' || data.qq?.status === 'connected';
+  const anyConnected = data.telegram?.status === 'connected' || data.feishu?.status === 'connected' || data.wechat?.status === 'connected' || data.whatsapp?.status === 'connected' || data.qq?.status === 'connected';
   useStore.setState({ bridgeDotConnected: anyConnected });
 }
 
@@ -328,23 +329,33 @@ function ContactAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string }
   );
 }
 
+function formatBubbleTime(ts?: string | null): string {
+  if (!ts) return '';
+  try {
+    const d = new Date(typeof ts === 'number' ? ts : ts);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch { return ''; }
+}
+
 function ChatBubble({ message: m }: { message: BridgeMessage }) {
+  const time = formatBubbleTime(m.ts);
   if (m.role === 'assistant') {
     const { text } = parseMoodFromContent(m.content);
     const cleaned = (text || m.content).replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
     return (
-      <div className={`${fp.bridgeBubbleRow} ${fp.bridgeBubbleIn}`}>
+      <div className={`${fp.bridgeBubbleWrap} ${fp.bridgeBubbleIn}`}>
         <div className={`${fp.bridgeBubble} md-content`} dangerouslySetInnerHTML={{ __html: renderMarkdown(cleaned) }} />
+        {time && <span className={fp.bridgeBubbleTime}>{time}</span>}
       </div>
     );
   }
-  // user: 去掉 [platform 私聊] xxx: 前缀
-  let displayText = m.content;
-  const prefixMatch = displayText.match(/^\[.+?\]\s*.+?:\s*/);
-  if (prefixMatch) displayText = displayText.slice(prefixMatch[0].length);
+  // user: 剥离时间标签 <t>...</t>
+  const displayText = m.content.replace(/^<t>[^<]*<\/t>\s*/, '');
   return (
-    <div className={`${fp.bridgeBubbleRow} ${fp.bridgeBubbleOut}`}>
+    <div className={`${fp.bridgeBubbleWrap} ${fp.bridgeBubbleOut}`}>
       <div className={fp.bridgeBubble}>{displayText}</div>
+      {time && <span className={fp.bridgeBubbleTime}>{time}</span>}
     </div>
   );
 }

@@ -1,7 +1,11 @@
 export interface BridgeIncomingMessage {
+  platform: string;
   sessionKey: string;
   direction: string;
+  sender: string;
   text: string;
+  isGroup: boolean;
+  ts: number;
 }
 
 export interface BridgeSlice {
