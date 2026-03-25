@@ -106,7 +106,9 @@ if (!fs.existsSync(cachedNodeBin)) {
 }
 
 // 复制 node 二进制到 dist
-const destNode = path.join(outDir, isWin ? "node.exe" : "node");
+// Windows 上改名为 hana-server.exe，让 main.cjs 的 bundled server 检测能命中，
+// 同时在任务管理器中显示为 hana-server.exe 而非 node.exe（便于 NSIS 安装脚本按名杀进程）
+const destNode = path.join(outDir, isWin ? "hana-server.exe" : "node");
 fs.copyFileSync(cachedNodeBin, destNode);
 if (!isWin) fs.chmodSync(destNode, 0o755);
 console.log("[build-server] Node.js runtime ready");
@@ -364,7 +366,7 @@ fs.writeFileSync(
 if (isWin) {
   fs.writeFileSync(
     path.join(outDir, "hana-server.cmd"),
-    '@echo off\r\nset "HANA_ROOT=%~dp0"\r\n"%~dp0node.exe" "%~dp0bundle\\index.js" %*\r\n',
+    '@echo off\r\nset "HANA_ROOT=%~dp0"\r\n"%~dp0hana-server.exe" "%~dp0bundle\\index.js" %*\r\n',
   );
 } else {
   const wrapper = path.join(outDir, "hana-server");

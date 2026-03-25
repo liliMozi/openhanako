@@ -358,9 +358,13 @@ async function startServer() {
   const bundledServer = path.join(process.resourcesPath || "", "server", "hana-server");
   if (fs.existsSync(bundledServer) || fs.existsSync(bundledServer + ".exe")) {
     // 打包模式：使用 extraResources 里的独立 server
+    // macOS/Linux：hana-server 是 shell wrapper，内部调用 node bundle/index.js，无需额外参数
+    // Windows：hana-server.exe 是裸 Node 二进制（改名），需要显式传入 bundle/index.js
     const bin = process.platform === "win32" ? bundledServer + ".exe" : bundledServer;
     serverBin = bin;
-    serverArgs = [];
+    serverArgs = process.platform === "win32"
+      ? [path.join(path.dirname(bin), "bundle", "index.js")]
+      : [];
     serverEnv.HANA_ROOT = path.join(process.resourcesPath, "server");
   } else {
     // 开发模式：用 Electron 自带的 Node（ELECTRON_RUN_AS_NODE=1）跑源码
