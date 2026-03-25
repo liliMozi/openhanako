@@ -80,7 +80,7 @@ describe("syncFavoritesToModelsJson", () => {
 
     expect(() => syncFavoritesToModelsJson(configPath, {
       modelsJsonPath: path.join(tmpRoot, "custom-models.json"),
-    })).toThrow('provider "dashscope" 缺少 API 协议配置');
+    })).toThrow('error.providerMissingApi');
   });
 
   it("显式传入空 favorites 时不会回退到 config 里的旧 favorites", () => {

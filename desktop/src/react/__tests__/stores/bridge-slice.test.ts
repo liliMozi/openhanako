@@ -26,14 +26,14 @@ describe('bridge-slice', () => {
   });
 
   it('addBridgeMessage 设置最新消息', () => {
-    const msg = { sessionKey: 'tg_123', direction: 'in', text: 'hello' };
+    const msg = { platform: 'telegram', sessionKey: 'tg_123', direction: 'in', sender: 'user1', text: 'hello', isGroup: false, ts: Date.now() };
     slice.addBridgeMessage(msg);
     expect(slice.bridgeLatestMessage).toEqual(msg);
   });
 
   it('addBridgeMessage 连续调用覆盖前一条', () => {
-    slice.addBridgeMessage({ sessionKey: 'a', direction: 'in', text: '1' });
-    slice.addBridgeMessage({ sessionKey: 'b', direction: 'out', text: '2' });
+    slice.addBridgeMessage({ platform: 'telegram', sessionKey: 'a', direction: 'in', sender: 'u1', text: '1', isGroup: false, ts: 1 });
+    slice.addBridgeMessage({ platform: 'telegram', sessionKey: 'b', direction: 'out', sender: 'u2', text: '2', isGroup: false, ts: 2 });
     expect(slice.bridgeLatestMessage?.sessionKey).toBe('b');
     expect(slice.bridgeLatestMessage?.text).toBe('2');
   });
@@ -46,7 +46,7 @@ describe('bridge-slice', () => {
   });
 
   it('addBridgeMessage 和 triggerBridgeReload 互不干扰', () => {
-    slice.addBridgeMessage({ sessionKey: 'x', direction: 'in', text: 'msg' });
+    slice.addBridgeMessage({ platform: 'telegram', sessionKey: 'x', direction: 'in', sender: 'u1', text: 'msg', isGroup: false, ts: 1 });
     slice.triggerBridgeReload();
     expect(slice.bridgeLatestMessage?.text).toBe('msg');
     expect(slice.bridgeStatusTrigger).toBe(1);
