@@ -332,7 +332,18 @@ for (const f of fileList) {
   tracedFiles.add(path.resolve(outDir, f));
 }
 
-// 遍历 node_modules，删除未追踪的文件
+// Vite externals 是显式标记为运行时必须的包，nft 不一定能正确追踪
+// （CJS/ESM 交叉解析在 Windows 上有边缘情况），整个包目录跳过裁剪。
+const protectedDirs = new Set();
+for (const ext of viteExternals) {
+  if (typeof ext === "string" && !builtinSet.has(ext)) {
+    // path.join 自动处理 scoped 包（@scope/pkg → node_modules/@scope/pkg）
+    const pkgDir = path.resolve(nmDir, ext);
+    if (fs.existsSync(pkgDir)) protectedDirs.add(pkgDir);
+  }
+}
+
+// 遍历 node_modules，删除未追踪的文件（跳过受保护的包）
 let removedFiles = 0;
 let removedSize = 0;
 
@@ -343,6 +354,7 @@ function pruneDir(dir) {
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
+      if (protectedDirs.has(path.resolve(full))) continue;
       pruneDir(full);
       // 删完子文件后如果目录空了，也删掉
       try {
