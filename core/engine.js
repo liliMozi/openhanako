@@ -18,6 +18,7 @@ import path from "path";
 import { migrateConfigScope } from "../shared/migrate-config-scope.js";
 import { migrateToProvidersYaml } from "./migrate-providers.js";
 import { findModel } from "../shared/model-ref.js";
+import { PluginManager } from "./plugin-manager.js";
 import {
   DefaultResourceLoader,
   codingTools,
@@ -597,7 +598,6 @@ export class HanaEngine {
     const userPluginsDir = path.join(this.hanakoHome, "plugins");
     const pluginDataDir = path.join(this.hanakoHome, "plugin-data");
 
-    const { PluginManager } = await import("./plugin-manager.js");
     this._pluginManager = new PluginManager({
       pluginsDirs: [builtinPluginsDir, userPluginsDir],
       dataDir: pluginDataDir,
