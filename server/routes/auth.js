@@ -216,7 +216,8 @@ export function createAuthRoute(engine) {
     if (!provider) {
       return c.json({ error: "provider is required" }, 400);
     }
-    engine.authStorage.logout(provider);
+    const authKey = engine.providerRegistry?.getAuthJsonKey(provider) || provider;
+    engine.authStorage.logout(authKey);
     return c.json({ ok: true });
   });
 
