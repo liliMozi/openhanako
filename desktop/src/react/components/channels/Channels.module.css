@@ -20,8 +20,8 @@
     top: 2px;
     bottom: 2px;
     border-radius: var(--radius-sm);
-    background: var(--bg-card);
-    box-shadow: 0 1px 3px var(--shadow);
+    background: var(--tab-slider-bg, var(--bg-card));
+    box-shadow: var(--tab-slider-shadow, 0 1px 3px var(--shadow));
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                 width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 0;

@@ -328,26 +328,85 @@
 }
 
 .autoItemModelWrap {
+    position: relative;
     display: flex;
     align-items: center;
 }
 
-.autoItemModelSelect {
+.autoModelPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     font-size: 0.6rem;
     font-family: inherit;
     color: var(--text-muted);
-    background: var(--overlay-subtle);
-    border: none;
+    background: none;
+    border: 1px solid transparent;
     border-radius: 4px;
-    padding: 1px 4px;
+    padding: 1px 5px;
     cursor: pointer;
-    max-width: 120px;
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color var(--duration), border-color var(--duration);
+}
+
+.autoModelPill:hover,
+.autoModelOpen .autoModelPill {
+    color: var(--accent);
+    border-color: rgba(var(--accent-rgb), 0.25);
+}
+
+.autoModelArrow {
+    font-size: 0.5rem;
+    transition: transform var(--duration);
+}
+
+.autoModelOpen .autoModelArrow {
+    transform: rotate(180deg);
+}
+
+.autoModelDropdown {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    min-width: 140px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    z-index: 100;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.autoModelOption {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-size: 0.7rem;
+    font-family: inherit;
+    padding: 5px 8px;
+    border: none;
+    background: none;
+    color: var(--text-light);
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.autoItemModelSelect:hover {
-    color: var(--text-secondary);
-    background: var(--overlay-light);
+.autoModelOption:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.autoModelOptionActive {
+    color: var(--accent);
+    font-weight: 600;
 }
 
 .autoItemActions {

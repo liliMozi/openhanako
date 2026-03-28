@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useStore } from '../stores';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { cronToHuman } from '../utils/format';
@@ -159,7 +159,9 @@ function AutomationItem({
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const [modelOpen, setModelOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const modelRef = useRef<HTMLSpanElement>(null);
 
   const labelText = job.label || job.prompt?.slice(0, 40) || job.id;
 
@@ -186,14 +188,26 @@ function AutomationItem({
   const avatarSrc = agentAvatarUrl || yuanFallbackAvatar(agentYuan);
 
   // 构建模型选项
-  // model 可能是 string 或 {id, provider} 对象（agent tool call 传入）
   const jobModelId = typeof job.model === 'object' && job.model !== null
     ? (job.model as unknown as { id: string }).id
     : (job.model || '');
-  const modelOptions: string[] = [];
-  const modelSet = new Set(availableModels);
-  if (jobModelId && !modelSet.has(jobModelId)) modelOptions.push(jobModelId);
-  modelOptions.push(...availableModels);
+  const modelOptions = useMemo(() => {
+    const opts: string[] = [];
+    const modelSet = new Set(availableModels);
+    if (jobModelId && !modelSet.has(jobModelId)) opts.push(jobModelId);
+    opts.push(...availableModels);
+    return opts;
+  }, [availableModels, jobModelId]);
+
+  // 模型下拉 click outside
+  useEffect(() => {
+    if (!modelOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) setModelOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [modelOpen]);
 
   return (
     <div className={fp.autoItem}>
@@ -230,18 +244,33 @@ function AutomationItem({
           </div>
           <span className={fp.autoItemSchedule}>{cronToHuman(job.schedule)}</span>
           {availableModels.length > 0 && (
-            <span className={fp.autoItemModelWrap}>
-              <select
-                className={fp.autoItemModelSelect}
-                title="Model"
-                value={jobModelId}
-                onChange={e => onUpdate(job.id, { model: e.target.value })}
+            <span className={`${fp.autoItemModelWrap}${modelOpen ? ` ${fp.autoModelOpen}` : ''}`} ref={modelRef}>
+              <button
+                className={fp.autoModelPill}
+                onClick={() => setModelOpen(!modelOpen)}
               >
-                <option value="">{(window.t ?? ((p: string) => p))('automation.defaultModel')}</option>
-                {modelOptions.map(mid => (
-                  <option key={mid} value={mid}>{mid}</option>
-                ))}
-              </select>
+                <span>{jobModelId || (window.t ?? ((p: string) => p))('automation.defaultModel')}</span>
+                <span className={fp.autoModelArrow}>▾</span>
+              </button>
+              {modelOpen && (
+                <div className={fp.autoModelDropdown}>
+                  <button
+                    className={`${fp.autoModelOption}${!jobModelId ? ` ${fp.autoModelOptionActive}` : ''}`}
+                    onClick={() => { onUpdate(job.id, { model: '' }); setModelOpen(false); }}
+                  >
+                    {(window.t ?? ((p: string) => p))('automation.defaultModel')}
+                  </button>
+                  {modelOptions.map(mid => (
+                    <button
+                      key={mid}
+                      className={`${fp.autoModelOption}${mid === jobModelId ? ` ${fp.autoModelOptionActive}` : ''}`}
+                      onClick={() => { onUpdate(job.id, { model: mid }); setModelOpen(false); }}
+                    >
+                      {mid}
+                    </button>
+                  ))}
+                </div>
+              )}
             </span>
           )}
         </div>
