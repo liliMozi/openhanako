@@ -56,7 +56,6 @@ export async function execute(input) {
 ```text
 my-plugin/
 ├── manifest.json          # 可选，复杂声明才需要
-├── index.js               # 可选，有状态 plugin 的入口（需要 full-access）
 ├── tools/                 # 工具（Agent 调用）
 │   └── *.js
 ├── skills/                # 知识注入（Markdown）
@@ -71,8 +70,9 @@ my-plugin/
 ├── providers/             # LLM Provider 声明（需要 full-access）
 │   └── *.js
 ├── hooks.json             # 事件拦截映射（需要 full-access）
-└── hooks/                 # hook handler 脚本（需要 full-access）
-    └── *.js
+├── hooks/                 # hook handler 脚本（需要 full-access）
+│   └── *.js
+└── index.js               # 可选，有状态 plugin 入口，最后加载（需要 full-access）
 ```
 
 标注"需要 full-access"的贡献类型，仅在 manifest 声明 `"trust": "full-access"` 且用户开启全权开关后才生效。
@@ -140,7 +140,7 @@ export const description = "...";       // 必须
 export const parameters = { ... };      // JSON Schema，可选
 export async function execute(input, toolCtx) {  // 必须
   // input: 用户传入的参数
-  // toolCtx: { bus, config, log, sessionPath?, agentId? }
+  // toolCtx: { pluginId, pluginDir, dataDir, bus, config, log }
   return "result";
 }
 ```
@@ -191,18 +191,44 @@ export async function execute(args, cmdCtx) {
 
 ### Routes（HTTP 路由）⚡ full-access
 
-`routes/*.js` export 一个 Hono app：
+`routes/*.js` 支持三种写法，自动挂载到 `/api/plugins/{pluginId}/...`：
+
+**写法 A：工厂函数**（推荐，ctx 作为参数直接可用）
 
 ```js
+// routes/chat.js
+export default function (app, ctx) {
+  app.post("/send", async (c) => {
+    const { text } = await c.req.json();
+    const result = await ctx.bus.request("session:send", { text });
+    return c.json(result);
+  });
+}
+```
+
+**写法 B：静态 Hono app**（通过中间件取 ctx）
+
+```js
+// routes/webhook.js
 import { Hono } from "hono";
 const route = new Hono();
-route.get("/webhook", (c) => c.json({ ok: true }));
+route.get("/webhook", (c) => {
+  const ctx = c.get("pluginCtx");
+  return c.json({ ok: true, plugin: ctx.pluginId });
+});
 export default route;
 ```
 
-自动挂载到 `/api/plugins/{pluginId}/...`。上例的完整路径是 `/api/plugins/my-plugin/webhook`。
+**写法 C：register 导出**
 
-Route handler 可通过工厂函数参数或 `c.get("pluginCtx")` 获取 PluginContext，其中 `ctx.bus` 可直接调用内置 session 操作：`session:send`、`session:abort`、`session:history`、`session:list`、`agent:list`。完整 API 见 `.docs/PLUGIN-DEV.md` 的 Route Context 和 Session Bus Handlers 章节。
+```js
+// routes/status.js
+export function register(app, ctx) {
+  app.get("/status", (c) => c.json({ pluginId: ctx.pluginId }));
+}
+```
+
+三种写法向后兼容：不使用 ctx 的老插件无需改动。`ctx.bus` 可直接调用内置 session 操作：`session:send`、`session:abort`、`session:history`、`session:list`、`agent:list`。完整 API 见 `.docs/PLUGIN-DEV.md` 的 Route Context 和 Session Bus Handlers 章节。
 
 ### Hooks（事件拦截）⚡ full-access
 
@@ -215,15 +241,20 @@ Route handler 可通过工厂函数参数或 `c.get("pluginCtx")` 获取 PluginC
 }
 ```
 
+Hook 事件类型分两种：
+
+- **before-\* 类型**（如 `session:before-send`）：拦截事件并可修改
+  - 返回 `null` → 取消事件（后续 handler 不再执行）
+  - 返回新对象 → 替换原 event，继续传给下一个 handler
+  - 返回 `undefined` → 不干预，event 原样传递
+- **普通类型**（如 `agent:init`）：观测事件，最后一个返回非 `undefined` 的 handler 结果作为最终结果
+
 handler 签名：
 
 ```js
 // hooks/inject.js
 export default async function(event, hookCtx) {
-  // before-* 类型：
-  //   返回 null → 取消事件
-  //   返回新对象 → 替换原 event
-  //   返回 undefined → 不干预
+  // hookCtx: { pluginId, eventType, bus }
   return event;
 }
 ```
@@ -347,6 +378,18 @@ if (this.ctx.bus.hasHandler("bridge:send")) {
 ```
 
 **命名规范**：`领域:动作`，冒号分隔。如 `bridge:send`、`memory:query`、`timer:schedule`。
+
+**SKIP 链**：同一事件类型可以注册多个 handler。系统按注册顺序调用，直到某个 handler 返回非 `EventBus.SKIP` 的值。返回 `EventBus.SKIP` 表示"我不处理，交给下一个"：
+
+```js
+this.register(
+  this.ctx.bus.handle("bridge:send", async (payload) => {
+    if (payload.platform !== "telegram") return EventBus.SKIP;
+    await telegramBot.send(payload.chatId, payload.text);
+    return { sent: true };
+  })
+);
+```
 
 **错误处理**：
 - 无 handler → 抛 `BusNoHandlerError`
