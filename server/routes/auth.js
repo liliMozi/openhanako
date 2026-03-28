@@ -70,12 +70,15 @@ export function createAuthRoute(engine) {
     let authInstructions = null;
     let usesCallbackServer = false;
 
+    // ProviderRegistry 的 plugin ID 可能和 Pi SDK 的 provider ID 不同（如 "minimax-oauth" → "minimax"）
+    const authKey = engine.providerRegistry?.getAuthJsonKey(provider) || provider;
+
     // 检查 provider 是否使用本地回调服务器（如 OpenAI Codex）
-    const providerObj = engine.authStorage.getOAuthProviders().find(p => p.id === provider);
+    const providerObj = engine.authStorage.getOAuthProviders().find(p => p.id === authKey);
     if (providerObj?.usesCallbackServer) usesCallbackServer = true;
 
     // 启动 OAuth（不 await，loginPromise 会异步 resolve）
-    const loginPromise = engine.authStorage.login(provider, {
+    const loginPromise = engine.authStorage.login(authKey, {
       onAuth: (info) => {
         // callback server 流程不需要给前端显示 instructions（那只是提示文本，不是 user_code）
         // 只有设备码流程才需要（instructions 是 user_code）
