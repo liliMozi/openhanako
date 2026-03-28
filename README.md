@@ -42,7 +42,7 @@ As a tool, it is powerful: it remembers everything you've said, operates your co
 
 **Sandbox** — Two-layer isolation: application-level PathGuard with four access tiers + OS-level sandboxing (macOS Seatbelt / Linux Bubblewrap).
 
-**Plugins** — Extensible plugin system with a convention-first architecture. Install community plugins by drag-and-drop. Plugins can contribute tools, skills, commands, agent templates, HTTP routes, event hooks, and LLM providers. Two-level permission model (restricted / full-access) keeps things safe.
+**Plugins** — Extensible plugin system with a convention-first architecture. Install community plugins by drag-and-drop. Plugins can contribute tools, skills, commands, agent templates, HTTP routes, event hooks, and LLM providers. Routes have direct access to core services (PluginContext injection) and can interact with agent sessions via the Session Bus (send messages, get history, list sessions). Two-level permission model (restricted / full-access) keeps things safe.
 
 **Multi-Platform Bridge** — A single agent can connect to Telegram, Feishu, QQ, and WeChat bots simultaneously. Chat from any platform and remotely operate your computer.
 
