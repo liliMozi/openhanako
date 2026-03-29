@@ -59,11 +59,11 @@ function buildModelEntry(modelEntry, provider) {
   if (known?.quirks?.length) entry.quirks = known.quirks;
 
   // Pi SDK compat 覆盖：
-  // 1. 非 OpenAI provider 不发 developer role（dashscope 等不支持）
-  // 2. 带 enable_thinking quirk 的模型用 qwen thinkingFormat（发 enable_thinking: bool）
-  if (entry.reasoning && provider !== "openai") {
+  // 1. 非 OpenAI provider 不发 developer role（dashscope 等不支持）— 与 reasoning 无关
+  // 2. 推理模型 + enable_thinking quirk → qwen thinkingFormat
+  if (provider !== "openai") {
     const compat = { supportsDeveloperRole: false };
-    if (entry.quirks?.includes("enable_thinking")) {
+    if (entry.reasoning && entry.quirks?.includes("enable_thinking")) {
       compat.thinkingFormat = "qwen";
     }
     entry.compat = compat;
