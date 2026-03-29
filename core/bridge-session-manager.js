@@ -63,6 +63,9 @@ export class BridgeSessionManager {
   /**
    * 启动时 sanity check：扫描 bridge-index，清理孤儿条目
    * （有 file 引用但 JSONL 文件已不存在的）
+   *
+   * 注意：当前仅 reconcile focus agent 的 bridge 目录。
+   * 多 agent 场景下应遍历所有 agent，但这属于更大范围的重构，暂留此限制。
    */
   reconcile() {
     const index = this.readIndex();
@@ -292,11 +295,14 @@ export class BridgeSessionManager {
    * 往指定 bridge session 追加一条 assistant 消息（不触发 LLM）
    * @param {string} sessionKey - bridge session 标识
    * @param {string} text - 要追加的 assistant 消息文本
+   * @param {object} [opts] - { agentId?: string }
    * @returns {boolean}
    */
-  injectMessage(sessionKey, text) {
+  injectMessage(sessionKey, text, opts = {}) {
     try {
-      const index = this.readIndex();
+      // 优先用指定 agentId 解析对应 agent 的 sessionDir，fallback 到 focus agent
+      const agent = (opts.agentId && this._deps.getAgentById?.(opts.agentId)) || this._deps.getAgent();
+      const index = this.readIndex(agent);
       const raw = index[sessionKey];
       const existingFile = typeof raw === "string" ? raw : raw?.file || null;
       if (!existingFile) {
@@ -304,7 +310,7 @@ export class BridgeSessionManager {
         return false;
       }
 
-      const bridgeDir = path.join(this._deps.getAgent().sessionDir, "bridge");
+      const bridgeDir = path.join(agent.sessionDir, "bridge");
       const sessionPath = path.join(bridgeDir, existingFile);
       if (!fs.existsSync(sessionPath)) {
         console.warn(`[bridge-session] injectMessage: session 文件不存在: ${sessionPath}`);
