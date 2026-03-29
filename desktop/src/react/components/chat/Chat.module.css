@@ -120,12 +120,12 @@
 }
 
 .attachImage {
-    width: 120px;
-    height: 90px;
+    max-width: 200px;
+    max-height: 150px;
     background: var(--attach-bg, rgba(0, 0, 0, 0.04));
     border-radius: 8px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-    overflow: hidden;
+    object-fit: contain;
 }
 
 .attachImageImg {
