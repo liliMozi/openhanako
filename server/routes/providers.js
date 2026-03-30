@@ -300,13 +300,26 @@ export function createProvidersRoute(engine) {
 
   /**
    * 测试供应商连接
-   * body: { base_url, api, api_key }
+   * body: { name?, base_url?, api?, api_key? }
+   * 凭证解析优先级与 fetch-models 一致：请求体 > getCredentials > 插件默认值
    */
   route.post("/providers/test", async (c) => {
     const body = await safeJson(c);
-    const { base_url, api } = body;
+    const { name } = body;
     // 清洗 API key：去除非 ASCII 字符（防止粘贴时输入法带入中文）
-    const api_key = (body.api_key || "").replace(/[^\x20-\x7E]/g, "").trim();
+    const bodyKey = (body.api_key || "").replace(/[^\x20-\x7E]/g, "").trim();
+
+    // ── 凭证解析：请求体 > saved credentials > 插件默认值 ──
+    const saved = name ? (() => {
+      const cred = engine.providerRegistry.getCredentials(name);
+      if (!cred) return {};
+      return { api_key: cred.apiKey, base_url: cred.baseUrl, api: cred.api };
+    })() : {};
+
+    const api_key = bodyKey || saved.api_key || "";
+    const base_url = body.base_url || saved.base_url || "";
+    const api = body.api || saved.api || "";
+
     if (!base_url) {
       return c.json({ error: "base_url is required" }, 400);
     }
@@ -322,7 +335,6 @@ export function createProvidersRoute(engine) {
           body: JSON.stringify({ model: "test", max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
           signal: AbortSignal.timeout(10000),
         });
-        // 401/403 = key 无效，其他错误（400 model not found 等）说明认证通过了
         const authOk = res.status !== 401 && res.status !== 403;
         return c.json({ ok: authOk, status: res.status });
       }
