@@ -387,6 +387,15 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       broadcast({ type: "channel_new_message", channelName: event.channelName, sender: event.sender });
     } else if (event.type === "dm_new_message") {
       broadcast({ type: "dm_new_message", from: event.from, to: event.to });
+    } else if (event.type === "message_end") {
+      // Provider 级别错误（超时、连接断开等）通过 message_end 传递，不经过 message_update
+      if (!ss) return;
+      if (event.message?.stopReason === "error") {
+        ss.hasError = true;
+        if (isActive) {
+          broadcast({ type: "error", message: event.message.errorMessage || "Unknown error", sessionPath });
+        }
+      }
     } else if (event.type === "turn_end") {
       if (!ss) return;
       // 关闭结构化 thinking（如有）——必须在 flush 之前，否则前端收不到 thinking_end
