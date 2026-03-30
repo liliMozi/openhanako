@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useStore } from '../stores';
+import { usePanel } from '../hooks/use-panel';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { cronToHuman } from '../utils/format';
 import { yuanFallbackAvatar } from '../utils/agent-helpers';
@@ -15,7 +16,6 @@ interface CronJob {
 }
 
 export function AutomationPanel() {
-  const activePanel = useStore(s => s.activePanel);
   const agentAvatarUrl = useStore(s => s.agentAvatarUrl);
   const agentName = useStore(s => s.agentName);
   const agentYuan = useStore(s => s.agentYuan);
@@ -44,13 +44,7 @@ export function AutomationPanel() {
     }
   }, []);
 
-  useEffect(() => {
-    if (activePanel === 'automation') loadData();
-  }, [activePanel, loadData]);
-
-  const close = useCallback(() => {
-    useStore.getState().setActivePanel(null);
-  }, []);
+  const { visible, close } = usePanel('automation', loadData, [currentAgentId]);
 
   const toggleJob = useCallback(async (jobId: string) => {
     try {
@@ -91,7 +85,7 @@ export function AutomationPanel() {
     }
   }, [loadData]);
 
-  if (activePanel !== 'automation') return null;
+  if (!visible) return null;
 
   return (
     <div className={fp.floatingPanel} id="automationPanel">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSettingsStore, type ProviderSummary } from '../../store';
 import { hanaFetch } from '../../api';
+import { invalidateConfigCache } from '../../../hooks/use-config';
 import { t } from '../../helpers';
 import { OAuthCredentials } from './OAuthCredentials';
 import { ApiKeyCredentials } from './ApiKeyCredentials';
@@ -55,6 +56,7 @@ function ProviderDeleteButton({ providerId, onRefresh }: { providerId: string; o
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      invalidateConfigCache();
       showToast(t('settings.providers.deleted', { name: providerId }), 'success');
       useSettingsStore.setState({ selectedProviderId: null });
       setConfirming(false);

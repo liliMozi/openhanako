@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../stores';
-import { hanaFetch } from '../hooks/use-hana-fetch';
+import { fetchConfig } from '../hooks/use-config';
 import { useI18n } from '../hooks/use-i18n';
 import { renderMarkdown } from '../utils/markdown';
 import { loadChannels, sendChannelMessage } from '../stores/channel-actions';
@@ -21,7 +21,7 @@ export function ChannelsPanel() {
   // 启动时从后端读频道开关状态；开启时加载频道列表
   useEffect(() => {
     if (!serverPort) return;
-    hanaFetch('/api/config').then(r => r.json()).then(cfg => {
+    fetchConfig().then(cfg => {
       const enabled = cfg?.channels?.enabled !== false;
       useStore.getState().setChannelsEnabled(enabled);
       if (enabled) loadChannels();

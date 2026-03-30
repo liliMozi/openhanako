@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSettingsStore, type ProviderSummary } from '../../store';
 import { hanaFetch } from '../../api';
+import { invalidateConfigCache } from '../../../hooks/use-config';
 import { t, API_FORMAT_OPTIONS } from '../../helpers';
 import { SelectWidget } from '../../widgets/SelectWidget';
 import { KeyInput } from '../../widgets/KeyInput';
@@ -63,6 +64,7 @@ export function ApiKeyCredentials({ providerId, summary, providerConfig, isPrese
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providers: { [providerId]: payload } }),
       });
+      invalidateConfigCache();
       showToast(t('settings.providers.verifySuccess'), 'success');
       if (isPresetSetup) useSettingsStore.setState({ selectedProviderId: providerId });
       setKeyEdited(false);
@@ -145,6 +147,7 @@ export function ApiKeyCredentials({ providerId, summary, providerConfig, isPrese
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ providers: { [providerId]: { base_url: trimmed } } }),
                 });
+                invalidateConfigCache();
                 showToast(t('settings.saved'), 'success');
                 setUrlEdited(false);
                 await onRefresh();
@@ -170,6 +173,7 @@ export function ApiKeyCredentials({ providerId, summary, providerConfig, isPrese
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ providers: { [providerId]: { api: val } } }),
                 });
+                invalidateConfigCache();
                 showToast(t('settings.saved'), 'success');
                 await onRefresh();
               } catch { /* swallow */ }

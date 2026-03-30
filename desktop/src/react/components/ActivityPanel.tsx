@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '../stores';
+import { usePanel } from '../hooks/use-panel';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
+import { fetchConfig, invalidateConfigCache } from '../hooks/use-config';
 import { formatSessionDate, injectCopyButtons, parseMoodFromContent } from '../utils/format';
 import { yuanFallbackAvatar } from '../utils/agent-helpers';
 import { getMd } from '../utils/markdown';
@@ -40,7 +42,6 @@ const CURSOR_POINTER_STYLE: React.CSSProperties = { cursor: 'pointer' };
 const DANGER_COLOR_STYLE: React.CSSProperties = { color: 'var(--danger)' };
 
 export function ActivityPanel() {
-  const activePanel = useStore(s => s.activePanel);
   const activities = useStore(s => s.activities) as ActivityItem[];
   const agents = useStore(s => s.agents);
   const currentAgentId = useStore(s => s.currentAgentId);
@@ -51,20 +52,19 @@ export function ActivityPanel() {
   const [hbEnabled, setHbEnabled] = useState(true);
   const t = window.t ?? ((p: string) => p);
 
-  // 打开面板时加载活动 + 巡检状态
-  useEffect(() => {
-    if (activePanel === 'activity') {
-      hanaFetch('/api/desk/activities')
-        .then(r => r.json())
-        .then(data => setActivities(data.activities || []))
-        .catch(err => console.warn('[activity] fetch activities failed:', err));
-      hanaFetch('/api/config')
-        .then(r => r.json())
-        .then(data => setHbEnabled(data.desk?.heartbeat_enabled !== false))
-        .catch(err => console.warn('[activity] fetch config failed:', err));
-      setDetail(null);
-    }
-  }, [activePanel, setActivities]);
+  const loadData = useCallback(() => {
+    hanaFetch('/api/desk/activities')
+      .then(r => r.json())
+      .then(data => setActivities(data.activities || []))
+      .catch(err => console.warn('[activity] fetch activities failed:', err));
+    fetchConfig()
+      .then(data => setHbEnabled(data.desk?.heartbeat_enabled !== false))
+      .catch(err => console.warn('[activity] fetch config failed:', err));
+    setDetail(null);
+  }, [setActivities]);
+
+  const { visible, close: closePanel } = usePanel('activity', loadData, [currentAgentId]);
+  const close = useCallback(() => { closePanel(); setDetail(null); }, [closePanel]);
 
   const toggleHeartbeat = useCallback(async () => {
     const next = !hbEnabled;
@@ -75,6 +75,7 @@ export function ActivityPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ desk: { heartbeat_enabled: next } }),
       });
+      invalidateConfigCache();
     } catch {
       setHbEnabled(!next); // rollback
     }
@@ -103,12 +104,8 @@ export function ActivityPanel() {
   }, []);
 
   const closeDetail = useCallback(() => setDetail(null), []);
-  const close = useCallback(() => {
-    useStore.getState().setActivePanel(null);
-    setDetail(null);
-  }, []);
 
-  if (activePanel !== 'activity') return null;
+  if (!visible) return null;
 
   return (
     <div className={fp.floatingPanel} id="activityPanel">

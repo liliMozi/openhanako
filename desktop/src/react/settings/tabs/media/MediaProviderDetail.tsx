@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSettingsStore } from '../../store';
 import { hanaFetch } from '../../api';
+import { invalidateConfigCache } from '../../../hooks/use-config';
 import { t } from '../../helpers';
 import styles from '../../Settings.module.css';
 
@@ -43,6 +44,7 @@ export function MediaProviderDetail({ providerId, provider, config, onSaveConfig
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providers: { [providerId]: { models: [...currentModels, { id: modelId, type: 'image' }] } } }),
       });
+      invalidateConfigCache();
       await onRefresh();
       platform?.settingsChanged?.('models-changed');
     } catch (err: any) {
@@ -61,6 +63,7 @@ export function MediaProviderDetail({ providerId, provider, config, onSaveConfig
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providers: { [providerId]: { models: filtered } } }),
       });
+      invalidateConfigCache();
       await onRefresh();
       platform?.settingsChanged?.('models-changed');
     } catch (err: any) {

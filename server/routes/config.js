@@ -109,13 +109,11 @@ export function createConfigRoute(engine) {
 
       // providers 变更后确保运行时刷新
       if (providersChanged) {
-        engine.providerRegistry?.reload();
-        // 立即 sync models，不管后面有没有别的 config 字段
         try {
-          await engine.syncModelsAndRefresh();
-          debugLog()?.log("api", `syncModelsAndRefresh OK after provider change (${engine.availableModels.length} models)`);
+          await engine.onProviderChanged();
+          debugLog()?.log("api", `onProviderChanged OK after provider change (${engine.availableModels.length} models)`);
         } catch (e) {
-          console.error("[config] syncModelsAndRefresh failed:", e.message);
+          console.error("[config] onProviderChanged failed:", e.message);
         }
       }
 

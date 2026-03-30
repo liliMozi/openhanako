@@ -408,7 +408,8 @@ export class ProviderRegistry {
   /**
    * 读取 provider 的凭证信息（apiKey, baseUrl, api）
    * 从 added-models.yaml 读取用户配置值，baseUrl/api 不存在时回退到插件默认值。
-   * OAuth provider 若 YAML 无 api_key，自动从 auth.json 补全 access token。
+   * OAuth provider 若 YAML 无 api_key，自动从 auth.json 补全 access token；
+   * 若 auth.json 含 resourceUrl 且 YAML 未配 base_url，用 resourceUrl 作为 baseUrl。
    * @param {string} providerId
    * @returns {{ apiKey: string, baseUrl: string, api: string } | null}
    */
@@ -419,41 +420,45 @@ export class ProviderRegistry {
 
     const plugin = this._plugins.get(providerId);
     let apiKey = uc.api_key || "";
+    let oauthBaseUrl = "";
 
-    // OAuth provider: YAML 没有 api_key，从 auth.json 取 access token
+    // OAuth provider: YAML 没有 api_key，从 auth.json 取 access token + resourceUrl
     if (!apiKey) {
       const authType = uc.auth_type || plugin?.authType;
       if (authType === "oauth") {
         const authJsonKey = plugin?.authJsonKey || providerId;
-        apiKey = this._readOAuthToken(authJsonKey);
+        const oauth = this._readOAuthEntry(authJsonKey);
+        apiKey = oauth.token;
+        oauthBaseUrl = oauth.resourceUrl;
       }
     }
 
     return {
       apiKey,
-      baseUrl: uc.base_url || plugin?.defaultBaseUrl || "",
+      baseUrl: uc.base_url || oauthBaseUrl || plugin?.defaultBaseUrl || "",
       api: uc.api || plugin?.defaultApi || "",
     };
   }
 
   /**
-   * 从 auth.json 读取 OAuth access token
+   * 从 auth.json 读取 OAuth 条目（token + resourceUrl）
    * @private
    * @param {string} authJsonKey - auth.json 中的 key
-   * @returns {string}
+   * @returns {{ token: string, resourceUrl: string }}
    */
-  _readOAuthToken(authJsonKey) {
+  _readOAuthEntry(authJsonKey) {
     try {
       const authPath = path.join(this._hanakoHome, "auth.json");
       const entry = JSON.parse(fs.readFileSync(authPath, "utf-8"))?.[authJsonKey];
-      if (!entry) return "";
-      if (typeof entry === "string") return entry;
-      if (typeof entry.access === "string") return entry.access;
-      if (typeof entry.apiKey === "string") return entry.apiKey;
-      if (typeof entry.token === "string") return entry.token;
-      return "";
+      if (!entry) return { token: "", resourceUrl: "" };
+      if (typeof entry === "string") return { token: entry, resourceUrl: "" };
+      let token = "";
+      if (typeof entry.access === "string") token = entry.access;
+      else if (typeof entry.apiKey === "string") token = entry.apiKey;
+      else if (typeof entry.token === "string") token = entry.token;
+      return { token, resourceUrl: entry.resourceUrl || "" };
     } catch {
-      return "";
+      return { token: "", resourceUrl: "" };
     }
   }
 

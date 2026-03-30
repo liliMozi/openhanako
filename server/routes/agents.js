@@ -29,19 +29,12 @@ import { safeJson } from "../hono-helpers.js";
 import { saveConfig, clearConfigCache } from "../../lib/memory/config-loader.js";
 import { rebuildIndex } from "../../lib/tools/experience.js";
 import { splitByScope, injectGlobalFields } from '../../shared/config-scope.js';
+import { validateId, agentExists } from "../utils/validation.js";
 
 // ── 工具函数 ──
 
-function validateId(id) {
-  return id && !id.includes("..") && !id.includes("/") && !id.includes("\\");
-}
-
 function agentDir(engine, id) {
   return path.join(engine.agentsDir, id);
-}
-
-function agentExists(engine, id) {
-  return fsSync.existsSync(path.join(agentDir(engine, id), "config.yaml"));
 }
 
 function isActiveAgent(engine, id) {
@@ -313,8 +306,8 @@ export function createAgentsRoute(engine) {
 
       // providers 变更后确保运行时刷新
       if (providersChanged) {
+        await engine.onProviderChanged();
         clearConfigCache();
-        engine.providerRegistry?.reload();
       }
 
       // providers 是全局状态，变更后无论编辑的是哪个 agent，运行时都要刷新

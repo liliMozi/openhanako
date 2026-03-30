@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { hanaFetch } from '../../hooks/use-hana-fetch';
+import { invalidateConfigCache } from '../../hooks/use-config';
 import { useI18n } from '../../hooks/use-i18n';
 import type { ThinkingLevel } from '../../stores/model-slice';
 import styles from './InputArea.module.css';
@@ -37,6 +38,7 @@ export function ThinkingLevelButton({ level, onChange, modelXhigh }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ thinking_level: next }),
       });
+      invalidateConfigCache();
     } catch (err) {
       console.error('[thinking-level] save failed:', err);
     }

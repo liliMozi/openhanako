@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
+import { invalidateConfigCache } from '../../hooks/use-config';
 import { t } from '../helpers';
 import { loadSettingsConfig } from '../actions';
 import styles from '../Settings.module.css';
@@ -57,6 +58,7 @@ export function MeTab() {
 
       showToast(t('settings.saved'), 'success');
       if (partial?.user?.name) store.set({ userName: partial.user.name });
+      if (Object.keys(partial).length) invalidateConfigCache();
 
       await loadSettingsConfig();
     } catch (err: any) {

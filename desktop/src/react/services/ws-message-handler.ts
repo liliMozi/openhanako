@@ -8,6 +8,7 @@
 
 import { streamBufferManager } from '../hooks/use-stream-buffer';
 import { useStore } from '../stores';
+import { updateKeyed } from '../stores/create-keyed-slice';
 import { loadSessions as loadSessionsAction } from '../stores/session-actions';
 import { handleArtifact } from '../stores/artifact-actions';
 import { loadDeskFiles } from '../stores/desk-actions';
@@ -122,36 +123,20 @@ export function handleServerMessage(msg: any): void {
     if (msg.type === 'compaction_end') {
       const sp = msg.sessionPath;
       if (sp) useStore.getState().removeCompactingSession(sp);
-      // 写入 keyed store
+      // 写入 keyed store（含 compat 同步）
       if (sp) {
         if (msg.tokens != null && msg.contextWindow != null) {
-          useStore.setState(s => ({
-            contextBySession: {
-              ...s.contextBySession,
-              [sp]: { tokens: msg.tokens ?? null, window: msg.contextWindow ?? null, percent: msg.percent ?? null },
-            },
-          }));
-        } else {
-          useStore.setState(s => ({
-            contextBySession: {
-              ...s.contextBySession,
-              [sp]: { tokens: null, window: s.contextBySession[sp]?.window ?? null, percent: null },
-            },
-          }));
-        }
-      }
-      // Compat: 只有当前 session 的 compaction 才更新全局 context token 显示
-      if (sp === useStore.getState().currentSessionPath) {
-        if (msg.tokens != null && msg.contextWindow != null) {
-          useStore.setState({
-            contextTokens: msg.tokens,
-            contextWindow: msg.contextWindow,
-            contextPercent: msg.percent,
-          });
+          updateKeyed('contextBySession', sp,
+            { tokens: msg.tokens ?? null, window: msg.contextWindow ?? null, percent: msg.percent ?? null },
+            (_s, d) => ({ contextTokens: d.tokens, contextWindow: d.window, contextPercent: d.percent }),
+          );
         } else {
           // SDK returns null right after compaction (no post-compaction response yet)
           // Reset to null so the ring shows empty/estimating instead of stale pre-compaction values
-          useStore.setState({ contextTokens: null, contextPercent: null });
+          updateKeyed('contextBySession', sp,
+            { tokens: null, window: useStore.getState().contextBySession[sp]?.window ?? null, percent: null },
+            (_s, _d) => ({ contextTokens: null, contextPercent: null }),
+          );
         }
       }
     }
@@ -191,22 +176,12 @@ export function handleServerMessage(msg: any): void {
       const bRunning = !!msg.running;
       const bUrl = msg.url || null;
       const bThumbnail = bRunning ? (msg.thumbnail || state.browserThumbnail) : null;
-      // 写入 keyed store
+      // 写入 keyed store（含 compat 同步）
       if (bsp) {
-        useStore.setState(s => ({
-          browserBySession: {
-            ...s.browserBySession,
-            [bsp]: { running: bRunning, url: bUrl, thumbnail: bThumbnail },
-          },
-        }));
-      }
-      // Compat: 只有当前 session 才更新全局字段
-      if (!msg.sessionPath || msg.sessionPath === state.currentSessionPath) {
-        useStore.setState({
-          browserRunning: bRunning,
-          browserUrl: bUrl,
-          browserThumbnail: bThumbnail,
-        });
+        updateKeyed('browserBySession', bsp,
+          { running: bRunning, url: bUrl, thumbnail: bThumbnail },
+          (_s, d) => ({ browserRunning: d.running, browserUrl: d.url, browserThumbnail: d.thumbnail }),
+        );
       }
       // renderBrowserCard — no-op (browser card rendering handled by React)
       if (window.platform?.updateBrowserViewer) {
@@ -222,19 +197,11 @@ export function handleServerMessage(msg: any): void {
     case 'browser_bg_status': {
       const bgSp = msg.sessionPath || state.currentSessionPath;
       if (bgSp) {
-        useStore.setState(s => ({
-          browserBySession: {
-            ...s.browserBySession,
-            [bgSp]: {
-              ...(s.browserBySession[bgSp] || { running: false, url: null, thumbnail: null }),
-              running: !!msg.running,
-            },
-          },
-        }));
-      }
-      // Compat: only update global for current session
-      if (!msg.sessionPath || msg.sessionPath === state.currentSessionPath) {
-        useStore.setState({ browserRunning: !!msg.running });
+        const prev = useStore.getState().browserBySession[bgSp] || { running: false, url: null, thumbnail: null };
+        updateKeyed('browserBySession', bgSp,
+          { ...prev, running: !!msg.running },
+          (_s, d) => ({ browserRunning: d.running }),
+        );
       }
       break;
     }
@@ -295,20 +262,10 @@ export function handleServerMessage(msg: any): void {
     case 'context_usage': {
       const sp = msg.sessionPath || state.currentSessionPath;
       if (sp && msg.tokens != null && msg.contextWindow != null) {
-        useStore.setState(s => ({
-          contextBySession: {
-            ...s.contextBySession,
-            [sp]: { tokens: msg.tokens ?? null, window: msg.contextWindow ?? null, percent: msg.percent ?? null },
-          },
-        }));
-      }
-      // Compat: update globals only if current session
-      if ((!msg.sessionPath || msg.sessionPath === state.currentSessionPath) && msg.tokens != null && msg.contextWindow != null) {
-        useStore.setState({
-          contextTokens: msg.tokens,
-          contextWindow: msg.contextWindow,
-          contextPercent: msg.percent,
-        });
+        updateKeyed('contextBySession', sp,
+          { tokens: msg.tokens ?? null, window: msg.contextWindow ?? null, percent: msg.percent ?? null },
+          (_s, d) => ({ contextTokens: d.tokens, contextWindow: d.window, contextPercent: d.percent }),
+        );
       }
       break;
     }

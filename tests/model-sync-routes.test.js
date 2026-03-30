@@ -8,6 +8,17 @@ vi.mock("../lib/memory/config-loader.js", () => ({
   getRawConfig: () => ({}),
 }));
 
+/** 从 providerRegistry.getCredentials 构造 engine.resolveProviderCredentials（与 ModelManager 行为一致） */
+function withResolveCreds(engine) {
+  engine.resolveProviderCredentials = (provider) => {
+    if (!provider) return { api_key: "", base_url: "", api: "" };
+    const cred = engine.providerRegistry?.getCredentials?.(provider);
+    if (cred) return { api_key: cred.apiKey || "", base_url: cred.baseUrl || "", api: cred.api || "" };
+    return { api_key: "", base_url: "", api: "" };
+  };
+  return engine;
+}
+
 describe("model sync related routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -27,7 +38,7 @@ describe("model sync related routes", () => {
       config: {},
       setHomeFolder: vi.fn(),
       updateConfig: vi.fn().mockResolvedValue(undefined),
-      syncModelsAndRefresh: vi.fn().mockResolvedValue(true),
+      onProviderChanged: vi.fn().mockResolvedValue(undefined),
       providerRegistry: { saveProvider, removeProvider: vi.fn(), reload },
     };
 
@@ -58,7 +69,7 @@ describe("model sync related routes", () => {
     });
     expect(clearConfigCache).toHaveBeenCalledTimes(1);
     expect(engine.updateConfig).toHaveBeenCalledWith({});
-    expect(engine.syncModelsAndRefresh).toHaveBeenCalledTimes(1);
+    expect(engine.onProviderChanged).toHaveBeenCalledTimes(1);
   });
 
   it("shared model preference updates trigger model registry sync", async () => {
@@ -154,7 +165,7 @@ describe("model sync related routes", () => {
   it("oauth provider with empty baseUrl falls back to registry", async () => {
     const { createProvidersRoute } = await import("../server/routes/providers.js");
     const app = new Hono();
-    const engine = {
+    const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([
         {
           id: "gpt-5.4",
@@ -170,7 +181,7 @@ describe("model sync related routes", () => {
         getDefaultModels: () => [],
       },
       hanakoHome: "/tmp",
-    };
+    });
 
     app.route("/api", createProvidersRoute(engine));
 
@@ -190,7 +201,7 @@ describe("model sync related routes", () => {
   it("oauth provider with empty registry falls back to defaults", async () => {
     const { createProvidersRoute } = await import("../server/routes/providers.js");
     const app = new Hono();
-    const engine = {
+    const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([]),
       providerRegistry: {
         getCredentials: () => ({ apiKey: "", baseUrl: "", api: "openai-codex-responses" }),
@@ -198,7 +209,7 @@ describe("model sync related routes", () => {
         getDefaultModels: (id) => id === "openai-codex" ? ["gpt-5.4", "gpt-5.3-codex"] : [],
       },
       hanakoHome: "/tmp",
-    };
+    });
 
     app.route("/api", createProvidersRoute(engine));
 
@@ -228,7 +239,7 @@ describe("model sync related routes", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const engine = {
+    const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([]),
       providerRegistry: {
         getCredentials: () => null,
@@ -236,7 +247,7 @@ describe("model sync related routes", () => {
         getDefaultModels: () => [],
       },
       hanakoHome: "/tmp",
-    };
+    });
 
     app.route("/api", createProvidersRoute(engine));
 
@@ -273,7 +284,7 @@ describe("model sync related routes", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const engine = {
+    const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([]),
       providerRegistry: {
         getCredentials: () => null,
@@ -281,7 +292,7 @@ describe("model sync related routes", () => {
         getDefaultModels: () => [],
       },
       hanakoHome: "/tmp",
-    };
+    });
 
     app.route("/api", createProvidersRoute(engine));
 
@@ -306,7 +317,7 @@ describe("model sync related routes", () => {
     const app = new Hono();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: "Not Found" }));
 
-    const engine = {
+    const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([
         { id: "gpt-5.4", name: "GPT-5.4", provider: "openai-codex", contextWindow: 272000, maxOutputTokens: 128000 },
       ]),
@@ -316,7 +327,7 @@ describe("model sync related routes", () => {
         getDefaultModels: () => [],
       },
       hanakoHome: "/tmp",
-    };
+    });
 
     app.route("/api", createProvidersRoute(engine));
 
@@ -337,7 +348,7 @@ describe("model sync related routes", () => {
     const app = new Hono();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401, statusText: "Unauthorized" }));
 
-    const engine = {
+    const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn(),
       providerRegistry: {
         getCredentials: () => ({ apiKey: "bad-key", baseUrl: "https://api.example.com/v1", api: "openai-completions" }),
@@ -345,7 +356,7 @@ describe("model sync related routes", () => {
         getDefaultModels: () => [],
       },
       hanakoHome: "/tmp",
-    };
+    });
 
     app.route("/api", createProvidersRoute(engine));
 
@@ -366,7 +377,7 @@ describe("model sync related routes", () => {
     const { createProvidersRoute } = await import("../server/routes/providers.js");
     const app = new Hono();
 
-    const engine = {
+    const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([]),
       providerRegistry: {
         getCredentials: () => ({ apiKey: "", baseUrl: "", api: "openai-codex-responses" }),
@@ -377,7 +388,7 @@ describe("model sync related routes", () => {
         },
       },
       hanakoHome: "/tmp",
-    };
+    });
 
     app.route("/api", createProvidersRoute(engine));
 
@@ -397,7 +408,7 @@ describe("model sync related routes", () => {
     const { createProvidersRoute } = await import("../server/routes/providers.js");
     const app = new Hono();
 
-    const engine = {
+    const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([]),
       providerRegistry: {
         getCredentials: () => ({ apiKey: "sk-test", baseUrl: "https://api.anthropic.com", api: "anthropic-messages" }),
@@ -405,7 +416,7 @@ describe("model sync related routes", () => {
         getDefaultModels: (id) => id === "anthropic" ? ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"] : [],
       },
       hanakoHome: "/tmp",
-    };
+    });
 
     app.route("/api", createProvidersRoute(engine));
 
@@ -430,7 +441,7 @@ describe("model sync related routes", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const engine = {
+    const engine = withResolveCreds({
       getRegistryModelsForProvider: vi.fn().mockReturnValue([]),
       providerRegistry: {
         getCredentials: () => ({ apiKey: "saved-key", baseUrl: "https://api.example.com/v1", api: "openai-completions" }),
@@ -438,7 +449,7 @@ describe("model sync related routes", () => {
         getDefaultModels: () => [],
       },
       hanakoHome: "/tmp",
-    };
+    });
 
     app.route("/api", createProvidersRoute(engine));
 

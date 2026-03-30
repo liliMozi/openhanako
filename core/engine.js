@@ -427,6 +427,7 @@ export class HanaEngine {
   resolveProviderCredentials(p) { return this._resolveProviderCredentials(p); }
   _inferModelProvider(id) { return this._models.inferModelProvider(id); }
   async refreshAvailableModels() { return this._models.refreshAvailable(); }
+  async onProviderChanged() { return this._models.onProviderChanged(); }
   getRegistryModelsForProvider(name) { return this._models.getRegistryModelsForProvider(name); }
 
   static SHARED_MODEL_KEYS = SHARED_MODEL_KEYS;

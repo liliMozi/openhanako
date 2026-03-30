@@ -223,6 +223,15 @@ export class ModelManager {
   }
 
   /**
+   * Provider 配置变更后的统一操作序列。
+   * 调用方改了 provider 凭证 / 模型列表后必须调这个，不要自己拼序列。
+   */
+  async onProviderChanged() {
+    this.providerRegistry.reload();
+    await this.syncAndRefresh();
+  }
+
+  /**
    * 统一解析：模型引用 -> { model, provider, api, api_key, base_url }
    * 返回 snake_case 格式（兼容 callProviderText / diary-writer / compile 等消费方）
    * @param {string|object} modelRef

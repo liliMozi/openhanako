@@ -56,45 +56,20 @@ export function createModelsRoute(engine) {
       const model = findModel(engine.availableModels, modelId, provider);
       if (!model) return c.json({ error: `model "${modelId}" not found` }, 404);
 
-      // 凭证解析：added-models.yaml → auth.json OAuth（含 resourceUrl）→ 模型对象自带 baseUrl
+      // 凭证解析（统一路径：getCredentials 已覆盖 OAuth resourceUrl + token）
       const creds = engine.resolveProviderCredentials(model.provider);
 
-      // OAuth provider 可能有 resourceUrl（实际使用的域名，可能和内置不同）
-      const oauthCred = engine.authStorage.get(model.provider);
-      const oauthBaseUrl = oauthCred?.type === "oauth" ? oauthCred.resourceUrl : "";
-
-      const baseUrl = creds.base_url || oauthBaseUrl || model.baseUrl || "";
+      const baseUrl = creds.base_url || model.baseUrl || "";
       if (!baseUrl) return c.json({ ok: false, error: "no base_url" });
 
-      let apiKey = creds.api_key;
-      if (!apiKey) {
-        try { apiKey = await engine.authStorage.getApiKey(model.provider); } catch {}
-      }
+      const apiKey = creds.api_key;
       if (!apiKey) return c.json({ ok: false, error: "no api_key" });
 
-      const { buildProviderAuthHeaders, buildProbeUrl } = await import("../../lib/llm/provider-client.js");
       const api = creds.api || model.api || "openai-completions";
 
-      // OpenAI Codex Responses API：无法通过简单请求检测（Cloudflare 反爬），跳过
-      if (api === "openai-codex-responses") {
-        return c.json({ ok: true, status: 0, provider: model.provider, skipped: t("error.codexNoHealthCheck") });
-      }
-
-      const probe = buildProbeUrl(baseUrl, api);
-      const headers = buildProviderAuthHeaders(api, apiKey);
-
-      if (api === "anthropic-messages") {
-        const res = await fetch(probe.url, {
-          method: probe.method,
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: modelId, max_tokens: 1, messages: [{ role: "user", content: "." }] }),
-          signal: AbortSignal.timeout(10000),
-        });
-        return c.json({ ok: res.ok || res.status === 400, status: res.status, provider: model.provider });
-      }
-
-      const res = await fetch(probe.url, { headers, signal: AbortSignal.timeout(10000) });
-      return c.json({ ok: res.ok, status: res.status, provider: model.provider });
+      const { probeProvider } = await import("../../lib/llm/provider-client.js");
+      const result = await probeProvider({ baseUrl, api, apiKey, modelId });
+      return c.json({ ...result, provider: model.provider });
     } catch (err) {
       return c.json({ ok: false, error: err.message });
     }

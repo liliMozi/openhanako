@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSettingsStore, type ProviderSummary } from '../../store';
 import { hanaFetch } from '../../api';
+import { invalidateConfigCache } from '../../../hooks/use-config';
 import { t, formatContext, lookupModelMeta } from '../../helpers';
 import { ModelEditPanel } from './ModelEditPanel';
 import styles from '../../Settings.module.css';
@@ -54,6 +55,7 @@ export function ProviderModelList({ providerId, summary, onRefresh }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providers: { [providerId]: { models: [...rawModels, mid] } } }),
       });
+      invalidateConfigCache();
       await onRefresh();
       platform?.settingsChanged?.('models-changed');
     } catch (err: unknown) {
@@ -70,6 +72,7 @@ export function ProviderModelList({ providerId, summary, onRefresh }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providers: { [providerId]: { models: next } } }),
       });
+      invalidateConfigCache();
       await onRefresh();
       platform?.settingsChanged?.('models-changed');
     } catch (err: unknown) {
@@ -96,6 +99,7 @@ export function ProviderModelList({ providerId, summary, onRefresh }: {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ providers: { [providerId]: { models: [...rawModels, id] } } }),
         });
+        invalidateConfigCache();
       }
       setCustomInput('');
       await onRefresh();

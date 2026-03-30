@@ -147,7 +147,7 @@ export function createAuthRoute(engine) {
       pendingFlows.delete(sessionId);
 
       try {
-        await engine.syncModelsAndRefresh();
+        await engine.onProviderChanged();
       } catch (err) {
         console.error("[auth] post-login model sync failed:", err.message);
       }
@@ -178,7 +178,7 @@ export function createAuthRoute(engine) {
 
     if (flow.result.ok) {
       try {
-        await engine.syncModelsAndRefresh();
+        await engine.onProviderChanged();
       } catch (err) {
         console.error("[auth] post-login model sync failed:", err.message);
       }

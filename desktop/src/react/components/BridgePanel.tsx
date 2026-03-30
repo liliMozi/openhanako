@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '../stores';
+import { usePanel } from '../hooks/use-panel';
 import { hanaFetch } from '../hooks/use-hana-fetch';
 import { formatSessionDate, parseMoodFromContent } from '../utils/format';
 import { renderMarkdown } from '../utils/markdown';
@@ -26,8 +27,6 @@ interface StatusData {
 }
 
 export function BridgePanel() {
-  const activePanel = useStore(s => s.activePanel);
-  const setActivePanel = useStore(s => s.setActivePanel);
 
   const [platform, setPlatform] = useState(() => localStorage.getItem('hana_bridge_tab') || 'feishu');
   const [sessions, setSessions] = useState<BridgeSession[]>([]);
@@ -71,14 +70,14 @@ export function BridgePanel() {
     }
   }, []);
 
-  // 面板打开时加载数据
-  useEffect(() => {
-    if (activePanel === 'bridge') {
-      loadPlatformData(platform);
-      setChatOpen(false);
-      setCurrentKey(null);
-    }
-  }, [activePanel, platform, loadPlatformData]);
+  const loadData = useCallback(() => {
+    loadPlatformData(platform);
+    setChatOpen(false);
+    setCurrentKey(null);
+  }, [loadPlatformData, platform]);
+
+  const currentAgentId = useStore(s => s.currentAgentId);
+  const { visible, close } = usePanel('bridge', loadData, [currentAgentId]);
 
   // 订阅 bridge status 变化（代替 window.__hanaBridgeLoadStatus）
   const bridgeStatusTrigger = useStore(s => s.bridgeStatusTrigger);
@@ -89,7 +88,7 @@ export function BridgePanel() {
   // 订阅 bridge 消息（代替 window.__hanaBridgeOnMessage）
   const bridgeLatestMessage = useStore(s => s.bridgeLatestMessage);
   useEffect(() => {
-    if (!bridgeLatestMessage || activePanel !== 'bridge') return;
+    if (!bridgeLatestMessage || !visible) return;
     const msg = bridgeLatestMessage;
     // Leading + trailing debounce：第一条消息立即刷新，后续 500ms 内攒着，到期再刷一次
     if (!refreshTimerRef.current) {
@@ -122,7 +121,7 @@ export function BridgePanel() {
         refreshTimerRef.current = null;
       }
     };
-  }, [bridgeLatestMessage, activePanel, platform, loadPlatformData]);
+  }, [bridgeLatestMessage, visible, platform, loadPlatformData]);
 
   const switchTab = useCallback((plat: string) => {
     setPlatform(plat);
@@ -159,9 +158,7 @@ export function BridgePanel() {
     }
   }, [currentKey, currentName, openSession]);
 
-  const close = useCallback(() => setActivePanel(null), [setActivePanel]);
-
-  if (activePanel !== 'bridge') return null;
+  if (!visible) return null;
 
   const t = window.t ?? ((p: string) => p);
   const tgStatus = statusData.telegram?.status;

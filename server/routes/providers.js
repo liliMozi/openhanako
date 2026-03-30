@@ -6,7 +6,7 @@ import path from "path";
 import os from "os";
 import { Hono } from "hono";
 import { safeJson } from "../hono-helpers.js";
-import { buildProviderAuthHeaders, buildProbeUrl } from "../../lib/llm/provider-client.js";
+import { buildProviderAuthHeaders, probeProvider } from "../../lib/llm/provider-client.js";
 
 // ── Models-cache helpers ──
 
@@ -214,12 +214,8 @@ export function createProvidersRoute(engine) {
       return c.json({ error: "name or base_url is required" }, 400);
     }
 
-    // ── 1. 凭证解析：请求体 > saved credentials > 插件默认值 ──
-    const saved = name ? (() => {
-      const cred = engine.providerRegistry.getCredentials(name);
-      if (!cred) return {};
-      return { api_key: cred.apiKey, base_url: cred.baseUrl, api: cred.api };
-    })() : {};
+    // ── 1. 凭证解析：请求体 > resolveProviderCredentials（统一路径） ──
+    const saved = name ? engine.resolveProviderCredentials(name) : { api_key: "", base_url: "", api: "" };
 
     const effectiveKey = api_key || saved.api_key || "";
     const effectiveBaseUrl = base_url || saved.base_url || "";
@@ -288,7 +284,7 @@ export function createProvidersRoute(engine) {
   /**
    * 测试供应商连接
    * body: { name?, base_url?, api?, api_key? }
-   * 凭证解析优先级与 fetch-models 一致：请求体 > getCredentials > 插件默认值
+   * 凭证解析优先级与 fetch-models 一致：请求体 > resolveProviderCredentials > 插件默认值
    */
   route.post("/providers/test", async (c) => {
     const body = await safeJson(c);
@@ -296,12 +292,8 @@ export function createProvidersRoute(engine) {
     // 清洗 API key：去除非 ASCII 字符（防止粘贴时输入法带入中文）
     const bodyKey = (body.api_key || "").replace(/[^\x20-\x7E]/g, "").trim();
 
-    // ── 凭证解析：请求体 > saved credentials > 插件默认值 ──
-    const saved = name ? (() => {
-      const cred = engine.providerRegistry.getCredentials(name);
-      if (!cred) return {};
-      return { api_key: cred.apiKey, base_url: cred.baseUrl, api: cred.api };
-    })() : {};
+    // ── 凭证解析：请求体 > resolveProviderCredentials（统一路径） ──
+    const saved = name ? engine.resolveProviderCredentials(name) : { api_key: "", base_url: "", api: "" };
 
     const api_key = bodyKey || saved.api_key || "";
     const base_url = body.base_url || saved.base_url || "";
@@ -310,34 +302,13 @@ export function createProvidersRoute(engine) {
     if (!base_url) {
       return c.json({ error: "base_url is required" }, 400);
     }
+    if (api_key && !api) {
+      return c.json({ error: "api is required when api_key is present" }, 400);
+    }
 
     try {
-      const probe = buildProbeUrl(base_url, api);
-
-      if (api === "anthropic-messages") {
-        const headers = buildProviderAuthHeaders(api, api_key);
-        const res = await fetch(probe.url, {
-          method: probe.method,
-          headers,
-          body: JSON.stringify({ model: "test", max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
-          signal: AbortSignal.timeout(10000),
-        });
-        const authOk = res.status !== 401 && res.status !== 403;
-        return c.json({ ok: authOk, status: res.status });
-      }
-
-      let headers = {};
-      if (api_key) {
-        if (!api) {
-          return c.json({ error: "api is required when api_key is present" }, 400);
-        }
-        headers = buildProviderAuthHeaders(api, api_key);
-      }
-      const res = await fetch(probe.url, {
-        headers,
-        signal: AbortSignal.timeout(10000),
-      });
-      return c.json({ ok: res.ok, status: res.status });
+      const result = await probeProvider({ baseUrl: base_url, api, apiKey: api_key });
+      return c.json(result);
     } catch (err) {
       return c.json({ ok: false, error: err.message });
     }
@@ -356,8 +327,7 @@ export function createProvidersRoute(engine) {
     }
     try {
       engine.providerRegistry.updateModelEntry(providerName, modelId, body);
-      engine.providerRegistry.reload();
-      await engine.syncModelsAndRefresh();
+      await engine.onProviderChanged();
       return c.json({ ok: true });
     } catch (err) {
       const status = err.message?.includes("not found") ? 404 : 500;
