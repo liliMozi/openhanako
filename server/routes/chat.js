@@ -9,7 +9,7 @@ import { MoodParser, XingParser, ThinkTagParser } from "../../core/events.js";
 import { wsSend, wsParse } from "../ws-protocol.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { t } from "../i18n.js";
-import { getLastAssistantUsage } from "@mariozechner/pi-coding-agent";
+import { getLastAssistantUsage } from "../../lib/pi-sdk/index.js";
 import { BrowserManager } from "../../lib/browser/browser-manager.js";
 import {
   createSessionStreamState,
