@@ -175,12 +175,17 @@ export class AgentManager {
           const avatarFiles = fs.readdirSync(avatarDir);
           hasAvatar = avatarFiles.some(f => /\.(png|jpe?g|gif|webp)$/i.test(f));
         } catch {}
+        const chatRef = cfg.models?.chat;
+        const chatModel = typeof chatRef === "object"
+          ? { id: chatRef.id, provider: chatRef.provider }
+          : (chatRef ? { id: chatRef } : null);
         agents.push({
           id: entry.name,
           name: cfg.agent?.name || entry.name,
           yuan: cfg.agent?.yuan || "hanako",
           identity,
           hasAvatar,
+          chatModel,
         });
       } catch {}
     }

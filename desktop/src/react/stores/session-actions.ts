@@ -309,6 +309,11 @@ export async function ensureSession(): Promise<boolean> {
 
     await loadSessions();
 
+    // Agent 切换后刷新模型列表（新 agent 可能有不同的 chat model）
+    if (data.agentId && data.agentId !== s.currentAgentId) {
+      loadModels();
+    }
+
     // updateFolderButton — no-op (React-driven)
 
     // 更新 cwdHistory

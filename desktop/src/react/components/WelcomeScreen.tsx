@@ -8,8 +8,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../stores';
-import { hanaUrl } from '../hooks/use-hana-fetch';
+import { hanaUrl, hanaFetch } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
+import { loadModels } from '../utils/ui-helpers';
 import { loadDeskFiles } from '../stores/desk-actions';
 import { clearChat } from '../stores/agent-actions';
 import type { Agent } from '../types';
@@ -123,18 +124,16 @@ function WelcomeAvatar({ agentId, hasAvatar, agentAvatarUrl, yuan, name }: {
 }) {
   const [src, setSrc] = useState(() => {
     if (agentId && hasAvatar) return hanaUrl(`/api/agents/${agentId}/avatar?t=${_avatarTs}`);
-    return agentAvatarUrl || yuanFallbackAvatar(yuan);
+    return yuanFallbackAvatar(yuan);
   });
 
   useEffect(() => {
     if (agentId && hasAvatar) {
       setSrc(hanaUrl(`/api/agents/${agentId}/avatar?t=${_avatarTs}`));
-    } else if (agentAvatarUrl) {
-      setSrc(agentAvatarUrl);
     } else {
       setSrc(yuanFallbackAvatar(yuan));
     }
-  }, [agentId, agentAvatarUrl, yuan]);
+  }, [agentId, hasAvatar, yuan]);
 
   const handleError = useCallback(() => {
     setSrc(yuanFallbackAvatar(yuan));
@@ -164,7 +163,16 @@ function AgentChips({ agents, selectedId }: {
 }) {
   const handleClick = useCallback((agentId: string) => {
     useStore.setState({ selectedAgentId: agentId });
-  }, []);
+    // 切换到该 agent 的 chat model
+    const agent = agents.find(a => a.id === agentId) as any;
+    if (agent?.chatModel?.id) {
+      hanaFetch('/api/models/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId: agent.chatModel.id, provider: agent.chatModel.provider }),
+      }).then(() => loadModels()).catch(() => {});
+    }
+  }, [agents]);
 
   return (
     <div className={styles.welcomeAgentSelector}>
