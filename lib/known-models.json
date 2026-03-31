@@ -98,7 +98,8 @@
       "name": "Kimi K2.5",
       "context": 262144,
       "maxOutput": 262144,
-      "vision": true
+      "vision": true,
+      "reasoning": true
     },
     "kimi-k2": {
       "name": "Kimi K2",
@@ -297,7 +298,8 @@
       "name": "Qwen3.5 Omni Light",
       "context": 131072,
       "maxOutput": 16384,
-      "vision": true
+      "vision": true,
+      "reasoning": true
     },
     "qwen3.6-plus-preview": {
       "name": "Qwen3.6 Plus Preview",
