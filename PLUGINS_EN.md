@@ -344,7 +344,7 @@ The host appends `hana-theme` and `hana-css` query parameters to the iframe URL.
 
 ### Widget (Sidebar Component) ⚡ full-access
 
-A plugin can register a component in the right-side Jian sidebar, displayed mutually exclusively with the desk.
+A plugin can register a component in the right-side Jian sidebar. A widget and a page can be declared simultaneously in the same plugin — they are independent and do not conflict.
 
 ```json
 {

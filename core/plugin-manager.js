@@ -145,7 +145,8 @@ export class PluginManager {
       await this._loadRoutes(entry);
       await this._loadExtensions(entry);
       await this._loadProviders(entry);
-      this._loadPageOrWidget(entry);
+      this._loadPage(entry);
+      this._loadWidget(entry);
 
       // Lifecycle (index.js)
       const indexPath = path.join(entry.pluginDir, "index.js");
@@ -407,18 +408,6 @@ export class PluginManager {
       icon: widget.icon || null,
       route: widget.route,
     });
-  }
-
-  _loadPageOrWidget(entry) {
-    const c = entry.manifest?.contributes;
-    if (c?.page && c?.widget) {
-      entry.ctx?.log?.warn('plugin declares both page and widget; only page will be loaded');
-    }
-    if (c?.page) {
-      this._loadPage(entry);
-    } else if (c?.widget) {
-      this._loadWidget(entry);
-    }
   }
 
   // ── Task 10: Agent templates + Provider loader ───────────────────────────

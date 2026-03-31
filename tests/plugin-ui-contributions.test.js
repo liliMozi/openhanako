@@ -95,7 +95,7 @@ describe('Plugin UI Contributions', () => {
     expect(widgets[0].route).toBe('/sidebar');
   });
 
-  it('enforces mutual exclusion: page + widget → only page wins', async () => {
+  it('loads both page and widget when both declared', async () => {
     const pluginDir = path.join(tmpDir, 'both-plugin');
     fs.mkdirSync(pluginDir, { recursive: true });
     fs.mkdirSync(path.join(pluginDir, 'routes'), { recursive: true });
@@ -111,6 +111,8 @@ describe('Plugin UI Contributions', () => {
     pm = makePM(tmpDir);
     await pm.loadAll();
     expect(pm.getPages()).toHaveLength(1);
-    expect(pm.getWidgets()).toHaveLength(0);
+    expect(pm.getWidgets()).toHaveLength(1);
+    expect(pm.getPages()[0].pluginId).toBe('both-plugin');
+    expect(pm.getWidgets()[0].pluginId).toBe('both-plugin');
   });
 });

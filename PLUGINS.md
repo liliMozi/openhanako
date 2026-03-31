@@ -344,7 +344,7 @@ window.parent.postMessage({ type: 'ready' }, '*');
 
 ### Widget（侧栏组件）⚡ full-access
 
-插件可以在右侧 Jian 侧栏注册一个组件，跟书桌互斥显示。
+插件可以在右侧 Jian 侧栏注册一个组件。Widget 与 Page 可以同时声明，互不冲突。
 
 ```json
 {
