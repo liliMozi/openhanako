@@ -5,6 +5,7 @@
   position: relative;
   overflow: hidden;
   padding-top: 52px; /* titlebar height */
+  background: var(--bg);
 }
 .iframe {
   flex: 1;
