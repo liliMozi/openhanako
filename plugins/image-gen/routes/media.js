@@ -15,7 +15,7 @@ export default function (app, ctx) {
       return c.json({ error: "not found" }, 404);
     }
     const ext = path.extname(filename).slice(1);
-    const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };
+    const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", mp4: "video/mp4", mov: "video/quicktime" };
     const mime = mimeMap[ext] || "application/octet-stream";
     const buf = fs.readFileSync(filePath);
     return new Response(buf, {
