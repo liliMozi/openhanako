@@ -10,10 +10,10 @@ import { ToolGroupBlock } from './ToolGroupBlock';
 import { PluginCardBlock } from './PluginCardBlock';
 import { XingCard } from './XingCard';
 import { SettingsConfirmCard } from './SettingsConfirmCard';
+import { MessageActions } from './MessageActions';
 import type { ChatMessage, ContentBlock } from '../../stores/chat-types';
 import { useStore } from '../../stores';
 import { hanaFetch, hanaUrl } from '../../hooks/use-hana-fetch';
-import { useI18n } from '../../hooks/use-i18n';
 import { openFilePreview, openSkillPreview } from '../../utils/file-preview';
 import { openPreview } from '../../stores/artifact-actions';
 import styles from './Chat.module.css';
@@ -30,6 +30,10 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
   const agents = useStore(s => s.agents);
   const globalAgentName = useStore(s => s.agentName) || 'Hanako';
   const globalYuan = useStore(s => s.agentYuan) || 'hanako';
+  const sessionPath = useStore(s => s.currentSessionPath) || '';
+  const isStreaming = useStore(s => s.streamingSessions.includes(sessionPath));
+  const selectedIds = useStore(s => s.selectedIdsBySession[sessionPath] || []);
+  const isSelected = selectedIds.includes(message.id);
   const [avatarFailed, setAvatarFailed] = useState(false);
 
   // Resolve agent identity from agentId prop; fall back to global values
@@ -51,23 +55,63 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
 
   const blocks = message.blocks || [];
 
-  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const handleCopy = useCallback(() => {
-    const textBlocks = blocks.filter((b): b is ContentBlock & { type: 'text' } => b.type === 'text');
-    if (textBlocks.length === 0) return;
-    // eslint-disable-next-line no-restricted-syntax -- temp div for HTML-to-text extraction (clipboard)
-    const tmp = document.createElement('div');
-    tmp.innerHTML = textBlocks.map(b => b.html).join('\n');
-    const text = tmp.innerText.trim();
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {}); // clipboard may reject without focus/permission — non-critical
+    // Use getState() for event handler — avoids stale closure, reads fresh state at call time
+    const state = useStore.getState();
+    const sp = state.currentSessionPath;
+    if (!sp) return;
+    const ids = state.selectedIdsBySession[sp] || [];
+
+    if (ids.length > 0) {
+      // batch copy: gather text from all selected messages in order
+      const session = state.chatSessions[sp];
+      if (!session) return;
+      const texts: string[] = [];
+      for (const item of session.items) {
+        if (item.type !== 'message') continue;
+        if (!ids.includes(item.data.id)) continue;
+        if (item.data.role === 'user') {
+          texts.push(item.data.text || '');
+        } else {
+          const textBlocks = (item.data.blocks || []).filter(
+            (b): b is ContentBlock & { type: 'text' } => b.type === 'text'
+          );
+          if (textBlocks.length === 0) continue;
+          // eslint-disable-next-line no-restricted-syntax
+          const tmp = document.createElement('div');
+          tmp.innerHTML = textBlocks.map(b => b.html).join('\n');
+          texts.push(tmp.innerText.trim());
+        }
+      }
+      navigator.clipboard.writeText(texts.join('\n\n')).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }).catch(() => {});
+    } else {
+      // single message copy (existing logic)
+      const textBlocks = blocks.filter(
+        (b): b is ContentBlock & { type: 'text' } => b.type === 'text'
+      );
+      if (textBlocks.length === 0) return;
+      // eslint-disable-next-line no-restricted-syntax
+      const tmp = document.createElement('div');
+      tmp.innerHTML = textBlocks.map(b => b.html).join('\n');
+      const text = tmp.innerText.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }).catch(() => {});
+    }
   }, [blocks]);
 
+  const handleScreenshot = useCallback(() => {
+    // Will be wired to takeScreenshot in Task 8
+  }, []);
+
   return (
-    <div className={`${styles.messageGroup} ${styles.messageGroupAssistant}`}>
+    <div className={`${styles.messageGroup} ${styles.messageGroupAssistant}${isSelected ? ` ${styles.messageGroupSelected}` : ''}`}
+         data-message-id={message.id}>
       {showAvatar && (
         <div className={styles.avatarRow}>
           {!avatarFailed ? (
@@ -98,17 +142,14 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
           <ContentBlockView key={`block-${i}`} block={block} agentName={displayName} yuan={displayYuan} />
         ))}
       </div>
-      <button className={`${styles.msgCopyBtn}${copied ? ` ${styles.msgCopyBtnCopied}` : ''}`} onClick={handleCopy} title={t('common.copyText')}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          {copied
-            ? <polyline points="20 6 9 17 4 12" />
-            : <>
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </>
-          }
-        </svg>
-      </button>
+      <MessageActions
+        messageId={message.id}
+        sessionPath={sessionPath}
+        onCopy={handleCopy}
+        onScreenshot={handleScreenshot}
+        copied={copied}
+        isStreaming={isStreaming}
+      />
     </div>
   );
 });
