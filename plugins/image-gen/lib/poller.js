@@ -15,6 +15,7 @@
 const TICK_MS = 5_000;
 const TWO_MINUTES = 2 * 60 * 1000;
 const TEN_MINUTES = 10 * 60 * 1000;
+const MAX_CONSECUTIVE_ERRORS = 5;
 
 /**
  * Decide whether this tick should trigger a real adapter query for a task.
@@ -50,6 +51,8 @@ export class Poller {
     this._active    = new Set();
     this._timer     = null;
     this._tickCount = 0;
+    /** @type {Map<string, number>} consecutive query error counts per taskId */
+    this._errorCounts = new Map();
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -82,6 +85,11 @@ export class Poller {
     const pending = this._store.listPending();
     for (const task of pending) {
       this._active.add(task.taskId);
+      // Re-register in DeferredResultStore so resolve/fail notifications work after restart
+      this._bus.request("deferred:register", {
+        taskId: task.taskId,
+        meta: { type: task.type === "video" ? "video-generation" : "image-generation", prompt: task.prompt },
+      }).catch(() => {}); // ignore if no active session yet
     }
     if (pending.length > 0) {
       this._log.info(`[image-gen] poller recovered ${pending.length} pending task(s)`);
@@ -112,6 +120,7 @@ export class Poller {
       // Task disappeared from store or was already resolved — drop it.
       if (!task || task.status !== "pending") {
         this._active.delete(taskId);
+        this._errorCounts.delete(taskId);
         continue;
       }
 
@@ -169,6 +178,14 @@ export class Poller {
     try {
       result = await adapter.query(taskId, ctx);
     } catch (err) {
+      const count = (this._errorCounts.get(taskId) || 0) + 1;
+      this._errorCounts.set(taskId, count);
+      if (count < MAX_CONSECUTIVE_ERRORS) {
+        this._log.warn(`[image-gen] query ${taskId} failed (${count}/${MAX_CONSECUTIVE_ERRORS}), will retry: ${err?.message ?? err}`);
+        return;
+      }
+      this._log.error(`[image-gen] query ${taskId} failed ${count} times, giving up`);
+      this._errorCounts.delete(taskId);
       this._store.update(taskId, {
         status: "failed",
         failReason: err?.message ?? String(err),
@@ -178,6 +195,9 @@ export class Poller {
       await this._bus.request("deferred:fail", { taskId, error: err });
       return;
     }
+
+    // Query succeeded — reset consecutive error counter
+    this._errorCounts.delete(taskId);
 
     const { status } = result ?? {};
 
