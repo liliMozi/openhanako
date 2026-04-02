@@ -715,8 +715,10 @@ export class SessionCoordinator {
       const patrolAllowed = opts.toolFilter
         || targetAgent.config?.desk?.patrol_tools
         || PATROL_TOOLS_DEFAULT;
-      const allowSet = new Set(patrolAllowed);
-      const actCustomTools = allCustomTools.filter(t => allowSet.has(t.name));
+      // "*" = allow all custom tools (subagent needs plugin query tools)
+      const actCustomTools = patrolAllowed === "*"
+        ? allCustomTools
+        : allCustomTools.filter(t => new Set(patrolAllowed).has(t.name));
 
       // builtin tools 过滤：传入 builtinFilter 时只保留白名单内的 builtin 工具
       const actTools = opts.builtinFilter

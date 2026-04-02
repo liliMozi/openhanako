@@ -20,7 +20,7 @@ describe("subagent-tool", () => {
       expect.stringContaining("任务：\n查一下项目状态"),
       expect.objectContaining({
         model: "utility-model",
-        toolFilter: ["search_memory", "recall_experience", "web_search", "web_fetch"],
+        toolFilter: "*",
         builtinFilter: ["read", "grep", "find", "ls"],
       }),
     );
