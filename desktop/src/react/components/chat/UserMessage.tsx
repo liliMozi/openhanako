@@ -6,7 +6,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 import { AttachmentChip } from '../shared/AttachmentChip';
 import { MessageActions } from './MessageActions';
-import { takeScreenshot } from '../../utils/screenshot';
+const lazyScreenshot = () => import('../../utils/screenshot').then(m => m.takeScreenshot);
 import type { ChatMessage, UserAttachment, DeskContext, ContentBlock } from '../../stores/chat-types';
 import { useStore } from '../../stores';
 import styles from './Chat.module.css';
@@ -74,8 +74,9 @@ export const UserMessage = memo(function UserMessage({ message, showAvatar }: Pr
     }
   }, [message.text]);
 
-  const handleScreenshot = useCallback(() => {
-    takeScreenshot(message.id);
+  const handleScreenshot = useCallback(async () => {
+    const fn = await lazyScreenshot();
+    fn(message.id);
   }, [message.id]);
 
   return (
