@@ -117,6 +117,10 @@
       {
         "from": "dist-server/${os}-${arch}/",
         "to": "server/"
+      },
+      {
+        "from": "desktop/src/screenshot-themes/",
+        "to": "screenshot-themes/"
       }
     ],
     "afterSign": "./scripts/notarize.cjs",
