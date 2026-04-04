@@ -30,15 +30,22 @@ export async function loadModels(): Promise<void> {
     const res = await hanaFetch('/api/models');
     const data = await res.json();
     const { pendingNewSession } = useStore.getState();
-    // session 实际绑定的 model 优先（非 pending 状态时）
-    // pending 状态用 isCurrent（= pendingModel ?? agent 默认）
     const activeModel = data.activeModel;
-    const displayModel = (!pendingNewSession && activeModel)
-      ? (data.models || []).find((m: any) => m.id === activeModel.id && m.provider === activeModel.provider)
-      : (data.models || []).find((m: any) => m.isCurrent);
+    let models = data.models || [];
+
+    // 非 pending 状态：用 session 实际绑定的 model 重写 isCurrent 标记
+    // pending 状态：保持 API 返回的 isCurrent（跟 agent Chat model 走）
+    if (!pendingNewSession && activeModel) {
+      models = models.map((m: any) => ({
+        ...m,
+        isCurrent: m.id === activeModel.id && m.provider === activeModel.provider,
+      }));
+    }
+
+    const currentModelObj = models.find((m: any) => m.isCurrent);
     useStore.setState({
-      models: data.models || [],
-      currentModel: displayModel ? { id: displayModel.id, provider: displayModel.provider } : null,
+      models,
+      currentModel: currentModelObj ? { id: currentModelObj.id, provider: currentModelObj.provider } : null,
     });
   } catch { /* silent */ }
 }

@@ -238,6 +238,9 @@ export async function createNewSession(): Promise<void> {
   const currentState = useStore.getState();
   loadDeskFiles('', currentState.selectedFolder || currentState.homeFolder || undefined);
 
+  // pending 状态下刷新 model 列表，让 ModelSelector 显示 agent Chat 默认 model
+  loadModels();
+
   useStore.getState().requestInputFocus();
 }
 
