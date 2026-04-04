@@ -74,16 +74,17 @@ export class SessionCoordinator {
 
   // ── Session 创建 / 切换 ──
 
-  async createSession(sessionMgr, cwd, memoryEnabled = true, model = null) {
+  async createSession(sessionMgr, cwd, memoryEnabled = true, model = null, { restore = false } = {}) {
     const t0 = Date.now();
     const effectiveCwd = cwd || this._d.getHomeCwd() || process.cwd();
     const agent = this._d.getAgent();
     const models = this._d.getModels();
-    const effectiveModel = model || this._pendingModel || models.currentModel;
+    // restore 模式：不指定 model，让 PI SDK 从 JSONL 恢复（session model 单一数据源）
+    const effectiveModel = restore ? null : (model || this._pendingModel || models.currentModel);
     this._pendingModel = null;
-    log.log(`createSession cwd=${effectiveCwd} (传入: ${cwd || "未指定"})`);
+    log.log(`createSession cwd=${effectiveCwd} restore=${restore} (传入: ${cwd || "未指定"})`);
 
-    if (!effectiveModel) {
+    if (!restore && !effectiveModel) {
       throw new Error(t("error.noAvailableModel"));
     }
 
@@ -138,20 +139,26 @@ export class SessionCoordinator {
     });
 
     const { tools: sessionTools, customTools: sessionCustomTools } = this._d.buildTools(effectiveCwd, null, { workspace: this._d.getHomeCwd() });
-    const { session } = await createAgentSession({
+    const sessionOpts = {
       cwd: effectiveCwd,
       sessionManager: sessionMgr,
       settingsManager: this._createSettings(effectiveModel),
       authStorage: models.authStorage,
       modelRegistry: models.modelRegistry,
-      model: effectiveModel,
       thinkingLevel: models.resolveThinkingLevel(this._d.getPrefs().getThinkingLevel()),
       resourceLoader,
       tools: sessionTools,
       customTools: sessionCustomTools,
-    });
+    };
+    // 新建 session 传 model；恢复 session 不传，让 PI SDK 从 JSONL 读取（单一数据源）
+    if (effectiveModel) sessionOpts.model = effectiveModel;
+    const { session, modelFallbackMessage } = await createAgentSession(sessionOpts);
+    if (modelFallbackMessage) {
+      log.warn(`session model fallback: ${modelFallbackMessage}`);
+    }
+    const resolvedModel = session.model;
     const elapsed = Date.now() - t0;
-    log.log(`session created (${elapsed}ms), model=${effectiveModel?.name || "?"}`);
+    log.log(`session created (${elapsed}ms), model=${resolvedModel?.name || effectiveModel?.name || "?"}`);
     this._session = session;
     this._sessionStarted = false;
 
@@ -174,8 +181,8 @@ export class SessionCoordinator {
       session,
       agentId: this._d.getActiveAgentId(),
       memoryEnabled,
-      modelId: effectiveModel?.id || null,
-      modelProvider: effectiveModel?.provider || null,
+      modelId: resolvedModel?.id || effectiveModel?.id || null,
+      modelProvider: resolvedModel?.provider || effectiveModel?.provider || null,
       lastTouchedAt: Date.now(),
       unsub,
     });
@@ -218,21 +225,14 @@ export class SessionCoordinator {
       await this._d.switchAgentOnly(targetAgentId);
     }
 
-    // 从 session-meta.json 恢复记忆开关 & 模型
+    // 从 session-meta.json 恢复记忆开关（model 由 PI SDK 从 JSONL 恢复，不在此处读取）
     let memoryEnabled = true;
-    let savedModelRef = null;  // {id, provider} or null
     try {
       const metaPath = path.join(this._d.getAgent().sessionDir, "session-meta.json");
       const meta = await this._readMetaCached(metaPath);
       const sessKey = path.basename(sessionPath);
       const metaEntry = meta[sessKey];
       if (metaEntry?.memoryEnabled === false) memoryEnabled = false;
-      // 读取新格式 model:{id,provider} 或旧格式 modelId
-      if (metaEntry?.model && typeof metaEntry.model === "object") {
-        savedModelRef = metaEntry.model;
-      } else if (metaEntry?.modelId) {
-        savedModelRef = { id: metaEntry.modelId, provider: "" };
-      }
     } catch (err) {
       if (err.code !== "ENOENT") {
         log.warn(`session-meta.json 读取失败: ${err.message}`);
@@ -266,19 +266,10 @@ export class SessionCoordinator {
         await oldAgent?._memoryTicker?.notifySessionEnd(oldSp).catch(() => {});
       }
     }
-    // 冷启动恢复：从 session-meta.json 解析 model，传给 createSession
-    // session 的 model 是锁定的——有记录就必须精确匹配，找不到就报错，不 fallback
-    let savedModel = null;
-    if (savedModelRef) {
-      const models = this._d.getModels();
-      savedModel = findModel(models.availableModels, savedModelRef.id, savedModelRef.provider || undefined);
-      if (!savedModel) {
-        throw new Error(t("error.modelNotFound", { id: `${savedModelRef.provider ? savedModelRef.provider + "/" : ""}${savedModelRef.id}` }));
-      }
-    }
+    // 冷启动恢复：model 由 PI SDK 从 session JSONL 恢复（单一数据源），不从 session-meta.json 读
     const sessionMgr = SessionManager.open(sessionPath, this._d.getAgent().sessionDir);
     const cwd = sessionMgr.getCwd?.() || undefined;
-    return this.createSession(sessionMgr, cwd, memoryEnabled, savedModel);
+    return this.createSession(sessionMgr, cwd, memoryEnabled, null, { restore: true });
   }
 
   async prompt(text, opts) {
