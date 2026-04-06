@@ -29,6 +29,7 @@ export class BridgeSessionManager {
    * @param {() => object} deps.getPreferences
    * @param {(cwd: string, customTools?, opts?) => {tools: any[], customTools: any[]}} deps.buildTools
    * @param {() => string} deps.getHomeCwd
+   * @param {(e: object, sp: string|null) => void} [deps.emitEvent] 广播 bridge 索引就绪等（可选）
    */
   constructor(deps) {
     this._deps = deps;
@@ -223,6 +224,21 @@ export class BridgeSessionManager {
       });
 
       this._activeSessions.set(sessionKey, session);
+
+      // 新会话在 LLM 完成前就写入索引，便于桌面反查 sessionKey、WS 携带 sessionPath、首轮即同步
+      if (!existingFile) {
+        const spEarly = session.sessionManager?.getSessionFile?.();
+        if (spEarly) {
+          const fnEarly = `${subDir}/${path.basename(spEarly)}`;
+          index[sessionKey] = { file: fnEarly, ...(meta || {}) };
+          this.writeIndex(index, agent);
+          const absEarly = path.resolve(bridgeDir, fnEarly);
+          this._deps.emitEvent?.(
+            { type: "bridge_session_indexed", sessionKey, sessionPath: absEarly },
+            null,
+          );
+        }
+      }
 
       // 捕获文本输出
       let capturedText = "";

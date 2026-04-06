@@ -208,13 +208,15 @@ const SessionItem = memo(function SessionItem({ session: s, isActive, isStreamin
         </div>
       )}
 
-      <div className={styles.sessionArchiveBtn} title="Archive" onClick={handleArchive}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="21 8 21 21 3 21 3 8" />
-          <rect x="1" y="3" width="22" height="5" />
-          <line x1="10" y1="12" x2="14" y2="12" />
-        </svg>
-      </div>
+      {!s.bridge && (
+        <div className={styles.sessionArchiveBtn} title="Archive" onClick={handleArchive}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="21 8 21 21 3 21 3 8" />
+            <rect x="1" y="3" width="22" height="5" />
+            <line x1="10" y1="12" x2="14" y2="12" />
+          </svg>
+        </div>
+      )}
 
       <div className={styles.sessionItemMeta}>
         {parts.join(' · ')}

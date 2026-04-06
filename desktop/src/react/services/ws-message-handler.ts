@@ -9,7 +9,7 @@
 import { streamBufferManager } from '../hooks/use-stream-buffer';
 import { useStore } from '../stores';
 import { updateKeyed } from '../stores/create-keyed-slice';
-import { loadSessions as loadSessionsAction } from '../stores/session-actions';
+import { loadSessions as loadSessionsAction, loadMessages } from '../stores/session-actions';
 import { handleArtifact } from '../stores/artifact-actions';
 import { loadDeskFiles } from '../stores/desk-actions';
 import { loadChannels as loadChannelsAction, openChannel as openChannelAction } from '../stores/channel-actions';
@@ -23,6 +23,75 @@ import {
 } from './stream-resume';
 
 declare function t(key: string, vars?: Record<string, string>): any;
+
+/** bridge 来信后刷新侧栏会话列表（合并项来自 /api/sessions），防抖避免连发消息刷屏请求 */
+let bridgeSessionListReloadTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleReloadSessionsAfterBridge() {
+  if (bridgeSessionListReloadTimer) clearTimeout(bridgeSessionListReloadTimer);
+  bridgeSessionListReloadTimer = setTimeout(() => {
+    bridgeSessionListReloadTimer = null;
+    loadSessionsAction().catch(err => console.warn('[ws] loadSessions after bridge failed:', err));
+  }, 400);
+}
+
+function normalizePathForBridge(p: string) {
+  return p.replace(/\\/g, '/');
+}
+
+function isMainChatBridgeSession(path: string | null | undefined): boolean {
+  if (!path) return false;
+  return normalizePathForBridge(path).includes('/sessions/bridge/');
+}
+
+/**
+ * 侧栏合并后：主界面打开的 Bridge 会话需从磁盘重载消息；入站事件早于 JSONL 写入，私聊需较长延迟。
+ */
+let bridgeMainChatReloadTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleReloadMainChatAfterBridgeMessage(msg: {
+  sessionPath?: string;
+  direction?: string;
+  isGroup?: boolean;
+}) {
+  const cur = useStore.getState().currentSessionPath;
+  if (!cur || !isMainChatBridgeSession(cur)) return;
+  const nCur = normalizePathForBridge(cur);
+  // 无 sessionPath 时无法判断是否当前会话（可能是新建会话首条入站），交给带路径的 out 事件再刷新
+  if (!msg.sessionPath) return;
+  const nSp = normalizePathForBridge(msg.sessionPath);
+  if (nSp !== nCur) return;
+  const delay =
+    msg.direction === 'in'
+      ? (msg.isGroup ? 900 : 2900)
+      : 500;
+  if (bridgeMainChatReloadTimer) clearTimeout(bridgeMainChatReloadTimer);
+  bridgeMainChatReloadTimer = setTimeout(() => {
+    bridgeMainChatReloadTimer = null;
+    const still = useStore.getState().currentSessionPath;
+    if (!still || normalizePathForBridge(still) !== nCur) return;
+    loadMessages(still).catch(err =>
+      console.warn('[ws] loadMessages after bridge_message failed:', err),
+    );
+  }, delay);
+}
+
+/** 首轮外部消息：索引刚写入、user 行即将/正在落盘，略延迟再拉主聊天 */
+let bridgeIndexedReloadTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleReloadMainChatAfterBridgeIndexed(sessionPath: string) {
+  const cur = useStore.getState().currentSessionPath;
+  if (!cur || !isMainChatBridgeSession(cur)) return;
+  const nCur = normalizePathForBridge(cur);
+  const nSp = normalizePathForBridge(sessionPath);
+  if (nSp !== nCur) return;
+  if (bridgeIndexedReloadTimer) clearTimeout(bridgeIndexedReloadTimer);
+  bridgeIndexedReloadTimer = setTimeout(() => {
+    bridgeIndexedReloadTimer = null;
+    const still = useStore.getState().currentSessionPath;
+    if (!still || normalizePathForBridge(still) !== nCur) return;
+    loadMessages(still).catch(err =>
+      console.warn('[ws] loadMessages after bridge_session_indexed failed:', err),
+    );
+  }, 900);
+}
 
 // ── 聊天事件集合（走 StreamBufferManager） ──
 
@@ -226,9 +295,18 @@ export function handleServerMessage(msg: any): void {
       import('../stores/plugin-ui-actions').then(m => m.refreshPluginUI());
       break;
 
+    case 'bridge_session_indexed':
+      if (msg.sessionPath) {
+        scheduleReloadSessionsAfterBridge();
+        scheduleReloadMainChatAfterBridgeIndexed(msg.sessionPath);
+      }
+      break;
+
     case 'bridge_message':
       if (msg.message) {
         useStore.getState().addBridgeMessage(msg.message);
+        scheduleReloadSessionsAfterBridge();
+        scheduleReloadMainChatAfterBridgeMessage(msg.message);
       }
       break;
 

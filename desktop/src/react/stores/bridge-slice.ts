@@ -6,6 +6,8 @@ export interface BridgeIncomingMessage {
   text: string;
   isGroup: boolean;
   ts: number;
+  /** Bridge JSONL 绝对路径；主聊天区据此在来信后重新 loadMessages */
+  sessionPath?: string;
 }
 
 export interface BridgeSlice {

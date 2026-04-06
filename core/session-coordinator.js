@@ -15,6 +15,8 @@ import { BrowserManager } from "../lib/browser/browser-manager.js";
 import { t, getLocale } from "../server/i18n.js";
 import { READ_ONLY_BUILTIN_TOOLS } from "./config-coordinator.js";
 import { findModel } from "../shared/model-ref.js";
+import { parseSessionKey } from "../lib/bridge/session-key.js";
+import { safeReadJSON } from "../shared/safe-fs.js";
 
 const log = createModuleLogger("session");
 
@@ -26,6 +28,43 @@ function getSteerPrefix() {
   return isZh ? "（插话，无需 MOOD）\n" : "(Interjection, no MOOD needed)\n";
 }
 const MAX_CACHED_SESSIONS = 20;
+
+/** Bridge 会话在侧栏展示用的平台名（随界面语言） */
+function bridgePlatformLabel(platform) {
+  const zh = getLocale().startsWith("zh");
+  if (zh) {
+    const m = { telegram: "Telegram", feishu: "飞书", qq: "QQ", wechat: "微信" };
+    return m[platform] || platform || "社交平台";
+  }
+  const m = { telegram: "Telegram", feishu: "Feishu", qq: "QQ", wechat: "WeChat" };
+  return m[platform] || platform || "External";
+}
+
+/** 扫描 bridge JSONL：消息条数 + 首条用户预览 */
+async function readBridgeSessionSummary(absPath) {
+  let messageCount = 0;
+  let firstUserText = "";
+  try {
+    const raw = await fsp.readFile(absPath, "utf-8");
+    for (const line of raw.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line);
+        if (entry.type === "message" && entry.message) {
+          messageCount++;
+          if (!firstUserText && entry.message.role === "user") {
+            const c = entry.message.content;
+            if (typeof c === "string") firstUserText = c;
+            else if (Array.isArray(c)) {
+              firstUserText = c.filter(b => b.type === "text" && b.text).map(b => b.text).join("");
+            }
+          }
+        }
+      } catch { /* 跳过损坏行 */ }
+    }
+  } catch { /* 文件不可读 */ }
+  return { messageCount, firstUserText };
+}
 
 export class SessionCoordinator {
   /**
@@ -267,7 +306,11 @@ export class SessionCoordinator {
       }
     }
     // 冷启动恢复：model 由 PI SDK 从 session JSONL 恢复（单一数据源），不从 session-meta.json 读
-    const sessionMgr = SessionManager.open(sessionPath, this._d.getAgent().sessionDir);
+    const normalizedPath = sessionPath.replace(/\\/g, "/");
+    const sessionDirForOpen = normalizedPath.includes("/sessions/bridge/")
+      ? path.dirname(sessionPath)
+      : this._d.getAgent().sessionDir;
+    const sessionMgr = SessionManager.open(sessionPath, sessionDirForOpen);
     const cwd = sessionMgr.getCwd?.() || undefined;
     return this.createSession(sessionMgr, cwd, memoryEnabled, null, { restore: true });
   }
@@ -460,6 +503,69 @@ export class SessionCoordinator {
     return true;
   }
 
+  /**
+   * 合并外部平台（Telegram / 飞书 / QQ / 微信等）持久化会话到侧栏列表
+   * 数据来自各 agent 的 sessions/bridge/bridge-sessions.json
+   */
+  async _collectBridgeSessionEntries() {
+    const agents = this._d.listAgents();
+    const out = [];
+    for (const agent of agents) {
+      const sessionDir = path.join(this._d.agentsDir, agent.id, "sessions");
+      const bridgeRoot = path.join(sessionDir, "bridge");
+      const indexPath = path.join(bridgeRoot, "bridge-sessions.json");
+      const index = safeReadJSON(indexPath, {});
+      if (!index || typeof index !== "object") continue;
+
+      let titles = {};
+      try {
+        titles = await this._loadSessionTitlesFor(sessionDir);
+      } catch { /* ignore */ }
+
+      const resolvedRoot = path.resolve(bridgeRoot) + path.sep;
+
+      for (const [sessionKey, raw] of Object.entries(index)) {
+        const entry = typeof raw === "string" ? { file: raw } : raw;
+        if (!entry.file) continue;
+
+        const absPath = path.resolve(bridgeRoot, entry.file);
+        if (!absPath.startsWith(resolvedRoot)) continue;
+
+        let stat;
+        try {
+          stat = await fsp.stat(absPath);
+        } catch {
+          continue;
+        }
+
+        const { platform, chatType, chatId } = parseSessionKey(sessionKey);
+        const platLabel = bridgePlatformLabel(platform);
+        const peer = entry.name || chatId || sessionKey;
+        const groupSuffix =
+          chatType === "group"
+            ? (getLocale().startsWith("zh") ? " · 群聊" : " · Group")
+            : "";
+        const defaultTitle = `${platLabel} · ${peer}${groupSuffix}`;
+        const title = titles[absPath] || defaultTitle;
+        const { messageCount, firstUserText } = await readBridgeSessionSummary(absPath);
+
+        out.push({
+          path: absPath,
+          title,
+          firstMessage: firstUserText.slice(0, 100),
+          modified: stat.mtime,
+          messageCount,
+          cwd: "",
+          agentId: agent.id,
+          agentName: agent.name,
+          modelId: null,
+          bridge: true,
+        });
+      }
+    }
+    return out;
+  }
+
   async listSessions() {
     const agents = this._d.listAgents();
 
@@ -490,6 +596,8 @@ export class SessionCoordinator {
       } catch { return []; }
     }));
     const allSessions = perAgent.flat();
+    const bridgeSessions = await this._collectBridgeSessionEntries();
+    allSessions.push(...bridgeSessions);
 
     const currentPath = this.currentSessionPath;
     const activeAgentId = this._d.getActiveAgentId();

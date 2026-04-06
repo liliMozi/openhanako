@@ -30,6 +30,7 @@ export function createSessionsRoute(engine) {
         agentId: s.agentId || null,
         agentName: s.agentName || null,
         modelId: s.modelId || null,
+        ...(s.bridge ? { bridge: true } : {}),
       })));
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -316,6 +317,11 @@ export function createSessionsRoute(engine) {
       // 校验路径在 agentsDir 范围内
       if (!isValidSessionPath(sessionPath, engine.agentsDir)) {
         return c.json({ error: "Invalid session path" }, 403);
+      }
+
+      const norm = sessionPath.replace(/\\/g, "/");
+      if (norm.includes("/sessions/bridge/")) {
+        return c.json({ error: t("error.bridgeSessionNoArchive") }, 400);
       }
 
       // 确认文件存在

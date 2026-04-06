@@ -414,6 +414,12 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       });
     } else if (event.type === "activity_update") {
       broadcast({ type: "activity_update", activity: event.activity });
+    } else if (event.type === "bridge_session_indexed") {
+      broadcast({
+        type: "bridge_session_indexed",
+        sessionKey: event.sessionKey,
+        sessionPath: event.sessionPath,
+      });
     } else if (event.type === "bridge_message") {
       broadcast({ type: "bridge_message", message: event.message });
     } else if (event.type === "bridge_status") {
@@ -437,6 +443,8 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       }
     } else if (event.type === "turn_end") {
       if (!ss) return;
+      const turnAborted = ss.isAborted;
+      const turnErrored = ss.hasError;
       // 关闭结构化 thinking（如有）——必须在 flush 之前，否则前端收不到 thinking_end
       if (ss.isThinking) {
         ss.isThinking = false;
@@ -549,6 +557,11 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
 
       emitStreamEvent(sessionPath, ss, { type: "turn_end" });
       finishSessionStream(ss);
+      if (hub.bridgeManager?.maybeSyncDesktopBridgeTurn) {
+        hub.bridgeManager
+          .maybeSyncDesktopBridgeTurn(engine, sessionPath, { wasAborted: turnAborted, hadError: turnErrored })
+          .catch(() => {});
+      }
       ss.hasOutput = false;
       ss.hasToolCall = false;
       ss.hasThinking = false;

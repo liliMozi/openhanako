@@ -15,6 +15,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { pathsEquivalent } from "../shared/paths.js";
 import { migrateConfigScope } from "../shared/migrate-config-scope.js";
 import { migrateToProvidersYaml } from "./migrate-providers.js";
 import { findModel } from "../shared/model-ref.js";
@@ -154,6 +155,7 @@ export class HanaEngine {
       getPreferences: () => this._readPreferences(),
       buildTools: (cwd, customTools, opts) => this.buildTools(cwd, customTools, opts),
       getHomeCwd: () => this.homeCwd,
+      emitEvent: (e, sp) => this._emitEvent(e, sp),
     });
 
     // Checkpoint 备份存储
@@ -367,6 +369,48 @@ export class HanaEngine {
   saveBridgeIndex(i) { return this._bridge.writeIndex(i); }
   async executeExternalMessage(p, sk, m, o) { return this._bridge.executeExternalMessage(p, sk, m, o); }
   injectBridgeMessage(sk, t) { return this._bridge.injectMessage(sk, t); }
+
+  /**
+   * 由 bridge 会话 JSONL 绝对路径反查 bridge-sessions.json 中的 sessionKey
+   * （仅桌面侧 SessionCoordinator 打开的 bridge 文件会走 turn_end，与 executeExternalMessage 隔离）
+   */
+  findBridgeSessionKeyByPath(sessionPath) {
+    if (!sessionPath || typeof sessionPath !== "string") return null;
+    const norm = sessionPath.replace(/\\/g, "/");
+    if (!norm.includes("/sessions/bridge/")) return null;
+    const agentId = this._agentMgr.agentIdFromSessionPath(sessionPath);
+    if (!agentId) return null;
+    const agent = this._agentMgr.getAgent(agentId);
+    if (!agent?.sessionDir) return null;
+    const bridgeDir = path.join(agent.sessionDir, "bridge");
+    const index = this._bridge.readIndex(agent);
+    const resolved = path.resolve(sessionPath);
+    for (const [sessionKey, raw] of Object.entries(index)) {
+      const entry = typeof raw === "string" ? { file: raw } : raw;
+      if (!entry.file) continue;
+      const fp = path.resolve(bridgeDir, entry.file);
+      if (pathsEquivalent(fp, resolved)) return sessionKey;
+    }
+    return null;
+  }
+
+  /**
+   * 由 bridge sessionKey 解析 JSONL 绝对路径（遍历全部 agent 的 bridge-sessions.json）
+   */
+  findBridgeSessionPathBySessionKey(sessionKey) {
+    if (!sessionKey || typeof sessionKey !== "string") return null;
+    for (const agent of this._agentMgr.agents.values()) {
+      if (!agent?.sessionDir) continue;
+      const bridgeDir = path.join(agent.sessionDir, "bridge");
+      const index = this._bridge.readIndex(agent);
+      const raw = index[sessionKey];
+      if (raw === undefined || raw === null) continue;
+      const entry = typeof raw === "string" ? { file: raw } : raw;
+      if (!entry?.file) continue;
+      return path.resolve(bridgeDir, entry.file);
+    }
+    return null;
+  }
 
   // ════════════════════════════
   //  Skills（→ SkillManager）

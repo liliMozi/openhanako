@@ -26,6 +26,8 @@ export interface Session {
   agentId: string | null;
   agentName: string | null;
   cwd: string | null;
+  /** 外部平台 bridge 会话（sessions/bridge/），不可归档到 archived/ */
+  bridge?: boolean;
   _optimistic?: boolean;
 }
 

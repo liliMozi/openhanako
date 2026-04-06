@@ -1494,10 +1494,11 @@
     },
     "cron": {
       "label": "排程任務",
-      "description": "建立和管理排程任務。排程任務在背景自動執行，到時間時會開一個獨立 session 執行指定的 prompt。\n操作：\n- list：查看所有任務\n- add(type, schedule, prompt, label?, model?)：建立任務\n  - type \"at\"：一次性，schedule 為 ISO 時間字串\n  - type \"every\"：間隔，schedule 為毫秒數（如 3600000 = 1 小時）\n  - type \"cron\"：cron 表達式（如 \"0 7 * * *\" = 每天早上 7 點）\n  - model：可選，指定執行任務使用的模型（不填則使用預設對話模型）\n- remove(id)：刪除任務\n- toggle(id)：啟用/停用任務",
+      "description": "建立與管理排程任務。背景自動執行，到時間時開獨立 session 執行指定 prompt。\n操作：\n- list：查看所有任務\n- add(schedule, prompt, type?, label?, model?)：建立（type 可省略，系統依 schedule 推斷）\n  - type \"at\"：一次性，ISO 日期時間字串\n  - type \"every\"：間隔；schedule 為分鐘（如 60=每小時）；數值≥60000 則視為毫秒（如 3600000=1 小時）\n  - type \"cron\"：五段 cron（如 \"0 7 * * *\"）\n  - model：可選\n- remove(id)：刪除\n- toggle(id)：啟用/停用",
       "actionDesc": "操作類型",
       "typeDesc": "排程類型（add 時必填）",
-      "scheduleDesc": "排程參數：ISO 時間(at)，分鐘數(every，如 60=每小時)，cron 運算式(cron)",
+      "typeDescOptional": "at / every / cron；add 時可省略，可由 schedule 自動推斷",
+      "scheduleDesc": "ISO 時間(at)；every 為分鐘（≥60000 視為毫秒）；cron 為五段式",
       "promptDesc": "到時間時執行的 prompt（add 時必填）",
       "labelDesc": "任務顯示標籤（可選）",
       "modelDesc": "指定執行模型（可選，不填則使用預設對話模型）",
