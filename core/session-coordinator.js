@@ -59,6 +59,12 @@ export class SessionCoordinator {
     this._pendingPlanMode = false;
   }
 
+  _onPromoteHeartbeat = null;
+
+  setOnPromoteHeartbeat(fn) {
+    this._onPromoteHeartbeat = typeof fn === "function" ? fn : null;
+  }
+
   static _TITLES_TTL = 60_000; // 60 秒
 
   get session() { return this._session; }
@@ -635,6 +641,9 @@ export class SessionCoordinator {
     const oldPath = path.join(agent.agentDir, "activity", activitySessionFile);
     if (!fs.existsSync(oldPath)) return null;
 
+    // 通知 scheduler：如果这是活跃心跳 session，清除缓存
+    this._onPromoteHeartbeat?.(oldPath, agentId || agent.id);
+
     const newPath = path.join(agent.sessionDir, activitySessionFile);
     try {
       fs.mkdirSync(agent.sessionDir, { recursive: true });
@@ -665,7 +674,9 @@ export class SessionCoordinator {
     this._headlessOps.add(opId);
     if (this._headlessOps.size === 1) bm.setHeadless(true);
     let tempSessionMgr;
+    let isResumed = false;
     const cleanupTempSession = () => {
+      if (isResumed) return; // 持久 session 不删
       const sp = tempSessionMgr?.getSessionFile?.();
       if (sp) {
         try { fs.unlinkSync(sp); } catch {}
@@ -700,7 +711,17 @@ export class SessionCoordinator {
         }
       }
       const execModel = models.resolveExecutionModel(resolvedModel);
-      tempSessionMgr = SessionManager.create(execCwd, sessionDir);
+      if (opts.resumeSessionPath && fs.existsSync(opts.resumeSessionPath)) {
+        try {
+          tempSessionMgr = SessionManager.open(opts.resumeSessionPath, sessionDir);
+          isResumed = true;
+        } catch (err) {
+          log.warn(`[executeIsolated] resume session failed, creating new: ${err.message}`);
+          tempSessionMgr = SessionManager.create(execCwd, sessionDir);
+        }
+      } else {
+        tempSessionMgr = SessionManager.create(execCwd, sessionDir);
+      }
       const { tools: allBuiltinTools, customTools: allCustomTools } = this._d.buildTools(
         execCwd, targetAgent.tools, { agentDir: targetAgent.agentDir, workspace: this._d.getHomeCwd() }
       );
