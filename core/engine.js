@@ -854,8 +854,8 @@ export class HanaEngine {
     return _translateSkillNames(this.resolveUtilityConfig(), names, lang);
   }
 
-  async summarizeActivity(sp) {
-    return _summarizeActivity(this.resolveUtilityConfig(), sp, (msg) => this.emitDevLog(msg));
+  async summarizeActivity(sp, preloaded) {
+    return _summarizeActivity(this.resolveUtilityConfig(), sp, (msg) => this.emitDevLog(msg), preloaded);
   }
 
   async summarizeActivityQuick(activityId) {

@@ -181,11 +181,18 @@ export async function translateSkillNames(utilConfig, names, lang) {
  * @param {string} sessionPath
  * @param {(text: string, level?: string) => void} [emitDevLog]
  */
-export async function summarizeActivity(utilConfig, sessionPath, emitDevLog) {
+export async function summarizeActivity(utilConfig, sessionPath, emitDevLog, preloaded) {
   const log = emitDevLog || (() => {});
   const isZh = getLocale().startsWith("zh");
   try {
-    const { userText, assistantText, toolCalls } = parseSessionContent(sessionPath);
+    let userText, assistantText, toolCalls;
+    if (preloaded) {
+      userText = preloaded.userText || "";
+      assistantText = preloaded.assistantText || "";
+      toolCalls = preloaded.toolCalls || [];
+    } else {
+      ({ userText, assistantText, toolCalls } = parseSessionContent(sessionPath));
+    }
     if (!userText && !assistantText) {
       log("[summarize] session empty, skipping");
       return null;
