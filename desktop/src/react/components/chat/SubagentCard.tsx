@@ -7,6 +7,8 @@
 
 import { memo, useState, useEffect, useRef } from 'react';
 import { subscribeStreamKey } from '../../services/stream-key-dispatcher';
+import { hanaUrl } from '../../hooks/use-hana-fetch';
+import { useStore } from '../../stores';
 import styles from './Chat.module.css';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -31,6 +33,13 @@ export const SubagentCard = memo(function SubagentCard({ block }: SubagentCardPr
     return '准备中...';
   });
   const textRef = useRef('');
+  const [imgError, setImgError] = useState(false);
+
+  // 头像：优先用 agent 头像 API，fallback 到首字母
+  const currentAgentId = useStore(s => s.currentAgentId);
+  const agentId = block.agentId || currentAgentId || '';
+  const agentName = block.agentName || block.agentId || 'Subagent';
+  const avatarSrc = agentId ? hanaUrl(`/api/agents/${agentId}/avatar`) : '';
 
   // Sync block prop changes (from block_update patch)
   useEffect(() => {
@@ -66,19 +75,26 @@ export const SubagentCard = memo(function SubagentCard({ block }: SubagentCardPr
     return unsub;
   }, [block.streamKey, status]);
 
-  const agentName = block.agentName || block.agentId || 'Subagent';
-  const statusIcon = status === 'done' ? '✓' : status === 'failed' ? '✗' : '';
   const isInterrupted = status === 'running' && !block.streamKey;
 
   return (
     <div className={`${styles.subagentCard} ${styles[`subagent-${status}`]}`}>
-      <div className={styles.subagentAvatar}>
-        <span>{agentName[0]?.toUpperCase()}</span>
-      </div>
+      {avatarSrc && !imgError ? (
+        <img
+          className={styles.subagentAvatar}
+          src={avatarSrc}
+          alt={agentName}
+          draggable={false}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className={styles.subagentAvatarFallback}>
+          <span>{agentName[0]?.toUpperCase()}</span>
+        </div>
+      )}
       <div className={styles.subagentBody}>
         <div className={styles.subagentName}>{agentName}</div>
         <div className={styles.subagentDisplay}>
-          {statusIcon && <span className={styles.subagentIcon}>{statusIcon}</span>}
           {isInterrupted ? '已中断' : display}
         </div>
       </div>

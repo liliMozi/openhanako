@@ -1090,49 +1090,61 @@
     display: block;
 }
 
-/* ── Subagent 实时卡片 ── */
+/* ── Subagent 实时卡片（对齐 cronConfirmCard 风格） ── */
 
 .subagentCard {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 10px 14px;
+    margin: var(--space-sm) 0;
+    padding: var(--space-md);
+    background: var(--bg-card, #fff);
     border-radius: var(--radius-md);
-    border-left: 3px solid var(--accent);
-    background: var(--bg-card, #faf8f3);
-    margin: 6px 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    width: fit-content;
     max-width: 360px;
-    transition: border-color 0.3s ease;
+    font-size: 0.82rem;
 }
 
-.subagent-running {
-    border-left-color: var(--accent);
+.subagent-running .subagentAvatar {
     animation: subagentPulse 2s ease-in-out infinite;
 }
 
-.subagent-done {
-    border-left-color: #7a9e7a;
+.subagent-done .subagentName::after {
+    content: " ✓";
+    color: #7a9e7a;
+    font-weight: normal;
 }
 
-.subagent-failed {
-    border-left-color: #a67272;
+.subagent-failed .subagentName::after {
+    content: " ✗";
+    color: #a67272;
+    font-weight: normal;
 }
 
 @keyframes subagentPulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+    50% { opacity: 0.6; }
 }
 
 .subagentAvatar {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.subagentAvatarFallback {
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: var(--accent-light, #e8ddd0);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--accent, #537D96);
 }
@@ -1144,15 +1156,14 @@
 }
 
 .subagentName {
-    font-size: 13px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text);
     margin-bottom: 2px;
 }
 
 .subagentDisplay {
-    font-size: 12px;
-    color: var(--text-secondary, #777);
+    color: var(--text-muted);
+    font-size: 0.75rem;
     line-height: 1.4;
     white-space: pre-wrap;
     word-break: break-word;
