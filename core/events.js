@@ -27,8 +27,6 @@ function trailingPrefixLen(buffer, target) {
   return 0;
 }
 
-const XING_OPEN_RE = /<xing\s+title=["\u201C\u201D]([^"\u201C\u201D]*)["\u201C\u201D]>/;
-
 export class MoodParser {
   constructor() {
     this.inMood = false;
@@ -286,108 +284,9 @@ export class ThinkTagParser {
 }
 
 /**
- * XingParser — 从 streaming text 中解析 <xing title="...">...</xing> 标签
- *
- * 链在 MoodParser 的 text 输出之后，输出统一的事件流：
- *   xing_start { title } / xing_text { data } / xing_end
- *   text { data } — 非 xing 内容透传
- */
-export class XingParser {
-  constructor() {
-    this.inXing = false;
-    this.buffer = "";
-    this._title = null;
-  }
-
-  feed(delta, emit) {
-    this.buffer += delta;
-    this._drain(emit);
-  }
-
-  flush(emit) {
-    if (this.buffer) {
-      if (this.inXing) {
-        emit({ type: "xing_text", data: this.buffer });
-      } else {
-        emit({ type: "text", data: this.buffer });
-      }
-      this.buffer = "";
-    }
-    if (this.inXing) {
-      emit({ type: "xing_end" });
-      this.inXing = false;
-      this._title = null;
-    }
-  }
-
-  reset() {
-    this.inXing = false;
-    this.buffer = "";
-    this._title = null;
-  }
-
-  _drain(emit) {
-    while (this.buffer.length > 0) {
-      if (!this.inXing) {
-        // 尝试匹配完整的开标签 <xing title="...">
-        const match = this.buffer.match(XING_OPEN_RE);
-        if (match) {
-          const before = this.buffer.slice(0, match.index);
-          if (before) emit({ type: "text", data: before });
-          this._title = match[1];
-          emit({ type: "xing_start", title: this._title });
-          this.inXing = true;
-          this.buffer = this.buffer.slice(match.index + match[0].length);
-          continue;
-        }
-        // buffer 里有 <xing 但标签还没闭合 → 持住等更多数据
-        const partialIdx = this.buffer.indexOf("<xing");
-        if (partialIdx !== -1) {
-          const before = this.buffer.slice(0, partialIdx);
-          if (before) emit({ type: "text", data: before });
-          this.buffer = this.buffer.slice(partialIdx);
-          break;
-        }
-        // buffer 末尾可能是 <, <x, <xi, <xin 的前缀
-        const holdLen = trailingPrefixLen(this.buffer, "<xing");
-        if (holdLen > 0) {
-          const safe = this.buffer.slice(0, -holdLen);
-          if (safe) emit({ type: "text", data: safe });
-          this.buffer = this.buffer.slice(-holdLen);
-          break;
-        }
-        emit({ type: "text", data: this.buffer });
-        this.buffer = "";
-      } else {
-        const closeTag = "</xing>";
-        const idx = this.buffer.indexOf(closeTag);
-        if (idx !== -1) {
-          const content = this.buffer.slice(0, idx);
-          if (content) emit({ type: "xing_text", data: content });
-          emit({ type: "xing_end" });
-          this.inXing = false;
-          this._title = null;
-          this.buffer = this.buffer.slice(idx + closeTag.length);
-          continue;
-        }
-        const holdLen = trailingPrefixLen(this.buffer, closeTag);
-        if (holdLen > 0) {
-          const safe = this.buffer.slice(0, -holdLen);
-          if (safe) emit({ type: "xing_text", data: safe });
-          this.buffer = this.buffer.slice(-holdLen);
-          break;
-        }
-        emit({ type: "xing_text", data: this.buffer });
-        this.buffer = "";
-      }
-    }
-  }
-}
-
-/**
  * CardParser — 从 streaming text 中解析 <card ...>...</card> 标签
  *
- * 链在 XingParser 的 text 输出之后，输出事件流：
+ * 链在 MoodParser 的 text 输出之后，输出事件流：
  *   card_start { attrs: { type?, plugin, route, title? } }
  *   card_text { data }
  *   card_end

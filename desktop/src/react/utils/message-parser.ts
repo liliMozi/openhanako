@@ -33,21 +33,6 @@ export function parseMoodFromContent(content: string): { mood: string | null; yu
   return { mood, yuan, text };
 }
 
-// ── Xing 解析 ──
-
-export interface ParsedXing { title: string; content: string }
-
-export function parseXingFromContent(text: string): { xingBlocks: ParsedXing[]; text: string } {
-  const xingRe = /<xing\s+title=["\u201C\u201D]([^"\u201C\u201D]*)["\u201C\u201D]>([\s\S]*?)<\/xing>/g;
-  const blocks: ParsedXing[] = [];
-  let match;
-  while ((match = xingRe.exec(text)) !== null) {
-    blocks.push({ title: match[1], content: match[2].trim() });
-  }
-  const remaining = text.replace(xingRe, '').replace(/^\n+/, '').trim();
-  return { xingBlocks: blocks, text: remaining };
-}
-
 // ── 用户附件解析 ──
 
 export interface ParsedAttachments {

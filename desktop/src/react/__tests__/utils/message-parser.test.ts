@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseMoodFromContent,
-  parseXingFromContent,
   parseUserAttachments,
   cleanMoodText,
   truncatePath,
@@ -61,32 +60,6 @@ describe('cleanMoodText', () => {
 
   it('纯文本不变', () => {
     expect(cleanMoodText('just text')).toBe('just text');
-  });
-});
-
-describe('parseXingFromContent', () => {
-  it('无 xing 标签返回原文', () => {
-    const result = parseXingFromContent('no xing here');
-    expect(result.xingBlocks).toEqual([]);
-    expect(result.text).toBe('no xing here');
-  });
-
-  it('解析单个 xing 块', () => {
-    const input = 'Before.\n<xing title="Test">xing content</xing>\nAfter.';
-    const result = parseXingFromContent(input);
-    expect(result.xingBlocks).toHaveLength(1);
-    expect(result.xingBlocks[0].title).toBe('Test');
-    expect(result.xingBlocks[0].content).toBe('xing content');
-    expect(result.text).toContain('Before.');
-    expect(result.text).toContain('After.');
-  });
-
-  it('解析多个 xing 块', () => {
-    const input = '<xing title="A">aaa</xing>\n<xing title="B">bbb</xing>';
-    const result = parseXingFromContent(input);
-    expect(result.xingBlocks).toHaveLength(2);
-    expect(result.xingBlocks[0].title).toBe('A');
-    expect(result.xingBlocks[1].title).toBe('B');
   });
 });
 
