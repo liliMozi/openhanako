@@ -50,17 +50,29 @@ export const BLOCK_EXTRACTORS = {
   },
 
   cron: (details) => {
-    if (!details.jobData) return null;
+    let jobData = details.jobData;
+    if (!jobData && details.job) {
+      // COMPAT: 老 session 没有 jobData 字段，从 job 对象重建
+      const j = details.job;
+      jobData = { type: j.type, schedule: j.schedule, prompt: j.prompt, label: j.label, model: j.model };
+    }
+    if (!jobData) return null;
+    const status = details.confirmed === false
+      ? "rejected"
+      : (details.action === "cancelled" ? "rejected" : "approved");
     return [{
       type: "cron_confirm",
       confirmId: "",
-      jobData: details.jobData,
-      status: details.confirmed === false ? "rejected" : "approved",
+      jobData,
+      status,
     }];
   },
 
   update_settings: (details) => {
     if (!details.settingKey) return null;
+    const status = details.confirmed === "timeout"
+      ? "timeout"
+      : (details.confirmed === false ? "rejected" : "confirmed");
     return [{
       type: "settings_confirm",
       confirmId: "",
@@ -69,7 +81,7 @@ export const BLOCK_EXTRACTORS = {
       currentValue: details.currentValue || "",
       proposedValue: details.proposedValue || "",
       label: details.label || details.settingKey,
-      status: details.confirmed === false ? "rejected" : "confirmed",
+      status,
     }];
   },
 };

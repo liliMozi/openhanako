@@ -282,13 +282,20 @@ export function handleServerMessage(msg: any): void {
 
     case 'confirmation_resolved': {
       // 更新所有 session 中匹配 confirmId 的确认卡片状态
+      // cron_confirm 用 approved/rejected，settings_confirm 用 confirmed/rejected
       const sessions = state.chatSessions || {};
       for (const sp of Object.keys(sessions)) {
         useStore.getState().updateLastMessage(sp, (m: any) => {
           if (!m.blocks) return m;
           const updated = m.blocks.map((b: any) => {
             if ((b.type === 'settings_confirm' || b.type === 'cron_confirm') && b.confirmId === msg.confirmId) {
-              return { ...b, status: msg.action === 'confirmed' ? 'confirmed' : 'rejected' };
+              let status: string;
+              if (msg.action === 'confirmed') {
+                status = b.type === 'cron_confirm' ? 'approved' : 'confirmed';
+              } else {
+                status = 'rejected';
+              }
+              return { ...b, status };
             }
             return b;
           });

@@ -47,6 +47,10 @@ export interface HistoryApiResponse {
 /**
  * 兼容层：将老格式（fileOutputs/artifacts/cards）转为新 blocks[] 格式。
  * 新服务端返回 blocks[]，此函数只在升级过渡期（老服务端 → 新前端）命中。
+ *
+ * COMPAT(old-sessions): 如果没有 data.blocks，还需从 toolCalls 重建
+ * cron/settings 确认卡片，因为老 session 的 toolResult.details 没有
+ * jobData/settingKey 字段，server 侧 extractor 无法生成这些 blocks。
  */
 function normalizeBlocks(data: HistoryApiResponse): Array<any> {
   if (data.blocks) return data.blocks;
@@ -62,6 +66,43 @@ function normalizeBlocks(data: HistoryApiResponse): Array<any> {
   for (const cd of (data.cards || [])) {
     blocks.push({ type: 'plugin_card', afterIndex: cd.afterIndex, card: { ...cd.card, type: cd.card.type || 'iframe' } });
   }
+
+  // COMPAT: 从 toolCalls 重建 cron/settings 确认卡片（仅老 session 无 blocks[] 时）
+  for (let i = 0; i < (data.messages || []).length; i++) {
+    const m = data.messages[i];
+    if (m.role !== 'assistant' || !m.toolCalls) continue;
+    for (const tc of m.toolCalls) {
+      if (tc.name === 'update_settings' && tc.args) {
+        const a = tc.args as Record<string, string>;
+        if (a.action === 'apply' || (!a.action && a.key && a.value)) {
+          blocks.push({
+            type: 'settings_confirm',
+            afterIndex: i,
+            confirmId: '',
+            settingKey: a.key || '',
+            cardType: (a.key === 'sandbox' || a.key === 'memory.enabled') ? 'toggle' : 'list',
+            currentValue: '',
+            proposedValue: a.value || '',
+            label: a.key || '',
+            status: 'confirmed',
+          });
+        }
+      }
+      if (tc.name === 'cron' && tc.args) {
+        const a = tc.args as Record<string, any>;
+        if (a.action === 'add') {
+          blocks.push({
+            type: 'cron_confirm',
+            afterIndex: i,
+            confirmId: '',
+            jobData: { type: a.type, schedule: a.schedule, prompt: a.prompt, label: a.label },
+            status: 'approved',
+          });
+        }
+      }
+    }
+  }
+
   return blocks;
 }
 
