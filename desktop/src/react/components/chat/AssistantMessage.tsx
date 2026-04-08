@@ -10,6 +10,7 @@ import { ToolGroupBlock } from './ToolGroupBlock';
 import { PluginCardBlock } from './PluginCardBlock';
 import { SettingsConfirmCard } from './SettingsConfirmCard';
 import { MessageActions } from './MessageActions';
+import { BLOCK_RENDERERS } from './block-renderers';
 const lazyScreenshot = () => import('../../utils/screenshot').then(m => m.takeScreenshot);
 import type { ChatMessage, ContentBlock } from '../../stores/chat-types';
 import { useStore } from '../../stores';
@@ -168,28 +169,14 @@ const ContentBlockView = memo(function ContentBlockView({ block, agentName, yuan
       return <ToolGroupBlock tools={block.tools} collapsed={block.collapsed} agentName={agentName} />;
     case 'text':
       return <MarkdownContent html={block.html} />;
-    case 'file':
-      return IMAGE_EXTS.has(block.ext)
-        ? <ImageOutputCard filePath={block.filePath} label={block.label} ext={block.ext} />
-        : <FileOutputCard filePath={block.filePath} label={block.label} ext={block.ext} />;
-    case 'artifact':
-      return <ArtifactCard title={block.title} artifactType={block.artifactType} artifactId={block.artifactId} content={block.content} language={block.language} />;
-    case 'screenshot':
-      return <BrowserScreenshot base64={block.base64} mimeType={block.mimeType} />;
-    case 'skill':
-      return <SkillCard skillName={block.skillName} skillFilePath={block.skillFilePath} />;
-    case 'cron_confirm':
-      return <CronConfirmCard confirmId={(block as any).confirmId} jobData={block.jobData} status={block.status} />;
-    case 'settings_confirm':
-      return <SettingsConfirmCard {...block} />;
-    case 'plugin_card':
-      return <PluginCardBlock card={(block as any).card} />;
-    default:
-      return null;
+    default: {
+      const Renderer = BLOCK_RENDERERS[block.type];
+      return Renderer ? <Renderer block={block} /> : null;
+    }
   }
 });
 
-// ── 简单子块组件 ──
+// ── 简单子块组件（物种 B，统一接受 { block: any }） ──
 
 const EXT_LABELS: Record<string, string> = {
   pdf: 'PDF', doc: 'Word', docx: 'Word', xls: 'Excel', xlsx: 'Excel',
@@ -203,6 +190,8 @@ const EXT_LABELS: Record<string, string> = {
 };
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp']);
+
+// file / image block
 
 const ImageOutputCard = memo(function ImageOutputCard({ filePath, label, ext }: { filePath: string; label: string; ext: string }) {
   const [failed, setFailed] = useState(false);
@@ -256,14 +245,20 @@ const FileOutputCard = memo(function FileOutputCard({ filePath, label, ext }: { 
   );
 });
 
-const ArtifactCard = memo(function ArtifactCard({ title, artifactType, artifactId, content, language }: {
-  title: string; artifactType: string; artifactId: string; content: string; language?: string;
-}) {
+const FileBlock = memo(function FileBlock({ block }: { block: any }) {
+  return IMAGE_EXTS.has(block.ext)
+    ? <ImageOutputCard filePath={block.filePath} label={block.label} ext={block.ext} />
+    : <FileOutputCard filePath={block.filePath} label={block.label} ext={block.ext} />;
+});
+
+// artifact block
+
+const ArtifactBlock = memo(function ArtifactBlock({ block }: { block: any }) {
   const handleClick = () => {
-    const artifact = { id: artifactId, type: artifactType, title, content, language };
+    const artifact = { id: block.artifactId, type: block.artifactType, title: block.title, content: block.content, language: block.language };
     const s = useStore.getState();
     const arts = [...s.artifacts];
-    const idx = arts.findIndex(a => a.id === artifactId);
+    const idx = arts.findIndex(a => a.id === block.artifactId);
     if (idx >= 0) arts[idx] = artifact;
     else arts.push(artifact);
     s.setArtifacts(arts);
@@ -276,33 +271,28 @@ const ArtifactCard = memo(function ArtifactCard({ title, artifactType, artifactI
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
         <line x1="3" y1="9" x2="21" y2="9" />
       </svg>
-      <span>{title || artifactType}</span>
+      <span>{block.title || block.artifactType}</span>
     </div>
   );
 });
 
-const SkillCard = memo(function SkillCard({ skillName, skillFilePath }: { skillName: string; skillFilePath: string }) {
-  return (
-    <div className={styles.skillCard} onClick={() => openSkillPreview(skillName, skillFilePath)} style={{ cursor: 'pointer' }}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5z" />
-        <path d="M2 17l10 5 10-5" />
-        <path d="M2 12l10 5 10-5" />
-      </svg>
-      <span>{skillName}</span>
-    </div>
-  );
+// plugin_card block
+
+const PluginCardWrapper = memo(function PluginCardWrapper({ block }: { block: any }) {
+  return <PluginCardBlock card={block.card} />;
 });
 
-const BrowserScreenshot = memo(function BrowserScreenshot({ base64, mimeType }: { base64: string; mimeType: string }) {
+// screenshot block
+
+const ScreenshotBlock = memo(function ScreenshotBlock({ block }: { block: any }) {
   const handleClick = () => {
     const artId = `browser-ss-${Date.now()}`;
     const artifact = {
       id: artId,
       type: 'image',
       title: window.t('chat.browserScreenshot'),
-      content: base64,
-      ext: mimeType === 'image/jpeg' ? 'jpg' : 'png',
+      content: block.base64,
+      ext: block.mimeType === 'image/jpeg' ? 'jpg' : 'png',
     };
     const s = useStore.getState();
     const arts = [...s.artifacts];
@@ -313,19 +303,36 @@ const BrowserScreenshot = memo(function BrowserScreenshot({ base64, mimeType }: 
 
   return (
     <div className={styles.browserScreenshot} onClick={handleClick} style={{ cursor: 'pointer' }}>
-      <img src={`data:${mimeType};base64,${base64}`} alt={window.t('chat.browserScreenshot')} />
+      <img src={`data:${block.mimeType};base64,${block.base64}`} alt={window.t('chat.browserScreenshot')} />
     </div>
   );
 });
 
-const CronConfirmCard = memo(function CronConfirmCard({ confirmId, jobData, status: initialStatus }: { confirmId?: string; jobData: Record<string, unknown>; status: string }) {
-  const [status, setStatus] = useState(initialStatus);
-  const label = (jobData.label as string) || (jobData.prompt as string)?.slice(0, 40) || '';
+// skill block
+
+const SkillBlock = memo(function SkillBlock({ block }: { block: any }) {
+  return (
+    <div className={styles.skillCard} onClick={() => openSkillPreview(block.skillName, block.skillFilePath)} style={{ cursor: 'pointer' }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+        <path d="M2 17l10 5 10-5" />
+        <path d="M2 12l10 5 10-5" />
+      </svg>
+      <span>{block.skillName}</span>
+    </div>
+  );
+});
+
+// cron_confirm block
+
+const CronConfirmBlock = memo(function CronConfirmBlock({ block }: { block: any }) {
+  const [status, setStatus] = useState(block.status);
+  const label = (block.jobData.label as string) || (block.jobData.prompt as string)?.slice(0, 40) || '';
 
   const handleApprove = async () => {
     try {
-      if (confirmId) {
-        await hanaFetch(`/api/confirm/${confirmId}`, {
+      if (block.confirmId) {
+        await hanaFetch(`/api/confirm/${block.confirmId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'confirmed' }),
@@ -334,7 +341,7 @@ const CronConfirmCard = memo(function CronConfirmCard({ confirmId, jobData, stat
         await hanaFetch('/api/desk/cron', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'add', ...jobData }),
+          body: JSON.stringify({ action: 'add', ...block.jobData }),
         });
       }
       setStatus('approved');
@@ -342,9 +349,9 @@ const CronConfirmCard = memo(function CronConfirmCard({ confirmId, jobData, stat
   };
 
   const handleReject = async () => {
-    if (confirmId) {
+    if (block.confirmId) {
       try {
-        await hanaFetch(`/api/confirm/${confirmId}`, {
+        await hanaFetch(`/api/confirm/${block.confirmId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'rejected' }),
@@ -375,3 +382,19 @@ const CronConfirmCard = memo(function CronConfirmCard({ confirmId, jobData, stat
     </div>
   );
 });
+
+// settings_confirm block
+
+const SettingsConfirmBlock = memo(function SettingsConfirmBlock({ block }: { block: any }) {
+  return <SettingsConfirmCard {...block} />;
+});
+
+// ── 注册所有物种 B 渲染器 ──
+
+BLOCK_RENDERERS['file'] = FileBlock;
+BLOCK_RENDERERS['artifact'] = ArtifactBlock;
+BLOCK_RENDERERS['plugin_card'] = PluginCardWrapper;
+BLOCK_RENDERERS['screenshot'] = ScreenshotBlock;
+BLOCK_RENDERERS['skill'] = SkillBlock;
+BLOCK_RENDERERS['cron_confirm'] = CronConfirmBlock;
+BLOCK_RENDERERS['settings_confirm'] = SettingsConfirmBlock;
