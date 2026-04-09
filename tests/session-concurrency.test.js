@@ -180,14 +180,14 @@ describe("subagent 并发配额释放与复用", () => {
       getDeferredStore: () => mockStore,
     }));
 
-    // 填满 3 个 slot
-    for (let i = 0; i < 3; i++) {
+    // 填满 5 个 slot（per-session limit）
+    for (let i = 0; i < 5; i++) {
       const r = await tool.execute(`call_${i}`, { task: `任务 ${i}` }, null, null, mockCtx());
       expect(r.details.streamStatus).toBe("running");
     }
 
-    // 第 4 个被拒
-    const blocked = await tool.execute("call_3", { task: "第四个" }, null, null, mockCtx());
+    // 第 6 个被拒
+    const blocked = await tool.execute("call_5", { task: "第六个" }, null, null, mockCtx());
     expect(blocked.details).toBeUndefined();
 
     // 完成第一个任务，释放一个 slot
@@ -198,7 +198,7 @@ describe("subagent 并发配额释放与复用", () => {
     });
 
     // 现在应该能发新任务了
-    const resumed = await tool.execute("call_4", { task: "新任务" }, null, null, mockCtx());
+    const resumed = await tool.execute("call_6", { task: "新任务" }, null, null, mockCtx());
     expect(resumed.details.streamStatus).toBe("running");
 
     // 清理剩余 pending

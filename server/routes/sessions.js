@@ -236,6 +236,9 @@ export function createSessionsRoute(engine) {
       const switchedAgentId = engine.agentIdFromSessionPath(sessionPath) || engine.currentAgentId;
       const switchedAgent = engine.getAgent(switchedAgentId);
 
+      // switchSession 已同步设置焦点到目标 session。
+      // cwd/planMode/memoryEnabled/model 是 session 级状态，此时读焦点是安全的。
+      // agentId/agentName 已从 sessionPath 解析，不依赖焦点。
       return c.json({
         ok: true,
         messageCount: session?.messages?.length || 0,
