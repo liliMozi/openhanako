@@ -152,7 +152,7 @@ After dispatching subagent or other background tasks, you MUST actively follow u
       },
     });
 
-    const { tools: sessionTools, customTools: sessionCustomTools } = this._d.buildTools(effectiveCwd, null, { workspace: this._d.getHomeCwd() });
+    const { tools: sessionTools, customTools: sessionCustomTools } = this._d.buildTools(effectiveCwd, agent.tools, { workspace: this._d.getHomeCwd(), agentDir: agent.agentDir });
     const sessionOpts = {
       cwd: effectiveCwd,
       sessionManager: sessionMgr,

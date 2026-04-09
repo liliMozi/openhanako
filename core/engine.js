@@ -747,10 +747,24 @@ export class HanaEngine {
   // ════════════════════════════
 
   buildTools(cwd, customTools, opts = {}) {
-    const ct = customTools || this.agent.tools;
+    let ct = customTools;
+    let agentId;
+    if (!ct) {
+      // 通过 opts.agentDir 反查 agent 实例，避免隐式依赖焦点 agent
+      if (opts.agentDir) {
+        const dirAgentId = path.basename(opts.agentDir);
+        const dirAgent = this.getAgent(dirAgentId);
+        ct = dirAgent?.tools || this.agent.tools;
+        agentId = dirAgentId;
+      } else {
+        ct = this.agent.tools;
+        agentId = this.agent?.id || "";
+      }
+    } else {
+      agentId = opts.agentDir ? path.basename(opts.agentDir) : (this.agent?.id || "");
+    }
     // Append plugin tools
     const pluginTools = this._pluginManager?.getAllTools() || [];
-    const agentId = this.agent?.id || (opts.agentDir ? path.basename(opts.agentDir) : "");
     const wrappedPluginTools = pluginTools.map(t => ({
       ...t,
       execute: (toolCallId, params, runtimeCtx) => t.execute(toolCallId, params, { ...runtimeCtx, agentId }),
