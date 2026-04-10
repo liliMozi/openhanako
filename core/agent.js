@@ -12,7 +12,7 @@ import { FactStore } from "../lib/memory/fact-store.js";
 import { SessionSummaryManager } from "../lib/memory/session-summary.js";
 import { createMemoryTicker } from "../lib/memory/memory-ticker.js";
 import { createMemorySearchTool } from "../lib/memory/memory-search.js";
-import { initWebSearch, createWebSearchTool } from "../lib/tools/web-search.js";
+import { createWebSearchTool } from "../lib/tools/web-search.js";
 import { createTodoTool } from "../lib/tools/todo.js";
 import { createDeskManager } from "../lib/desk/desk-manager.js";
 import { CronStore } from "../lib/desk/cron-store.js";
@@ -131,10 +131,6 @@ export class Agent {
     this._memoryMasterEnabled = this._config.memory?.enabled !== false;
 
     // 3. 初始化各模块
-    log(`  [agent] 3. initWebSearch...`);
-    initWebSearch(this.configPath, {
-      searchConfigResolver: this._searchConfigResolver,
-    });
     log(`  [agent] 3. 模块初始化完成`);
 
     // 4. 记忆 v2：FactStore + SessionSummaryManager + ticker
@@ -249,7 +245,10 @@ export class Agent {
     // 7. 创建工具（记忆 + 通用）
     log(`  [agent] 7. 创建工具...`);
     this._memorySearchTool = createMemorySearchTool(this._factStore);
-    this._webSearchTool = createWebSearchTool();
+    this._webSearchTool = createWebSearchTool({
+      configPath: this.configPath,
+      searchConfigResolver: this._searchConfigResolver,
+    });
     this._webFetchTool = createWebFetchTool();
     this._todoTool = createTodoTool();
     this._pinnedMemoryTools = createPinnedMemoryTools(this.agentDir);
@@ -266,7 +265,7 @@ export class Agent {
     this._cronTool = createCronTool(this._cronStore, {
       getAutoApprove: () => this._config?.desk?.cron_auto_approve !== false,
       confirmStore: this._cb?.getConfirmStore?.(),
-      emitEvent: (event, sp) => this._cb?.emitEvent?.(event, sp ?? this._cb?.getCurrentSessionPath?.()),
+      emitEvent: (event, sp) => { if (sp) this._cb?.emitEvent?.(event, sp); },
       getSessionPath: () => this._cb?.getCurrentSessionPath?.(),
     });
     this._stageFilesTool = createStageFilesTool();
@@ -287,7 +286,7 @@ export class Agent {
       getAgent: () => this,
       getConfirmStore: () => this._cb?.getConfirmStore?.(),
       getSessionPath: () => this._cb?.getCurrentSessionPath?.(),
-      emitEvent: (event, sp) => this._cb?.emitEvent?.(event, sp ?? this._cb?.getCurrentSessionPath?.()),
+      emitEvent: (event, sp) => { if (sp) this._cb?.emitEvent?.(event, sp); },
     });
 
     // 9. 频道工具 + 私信工具（需要 channelsDir 和 agentsDir）
@@ -548,9 +547,10 @@ export class Agent {
 
     // 刷新受影响的模块
     if (partial.search) {
-      initWebSearch(this.configPath, {
-      searchConfigResolver: this._searchConfigResolver,
-    });
+      this._webSearchTool = createWebSearchTool({
+        configPath: this.configPath,
+        searchConfigResolver: this._searchConfigResolver,
+      });
     }
 
     // 重建 system prompt
