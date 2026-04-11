@@ -28,51 +28,51 @@ export default class ImageGenPlugin {
     this.ctx._mediaGen = { registry, store, poller, generatedDir };
 
     // Bus handlers — adapter registration (for external plugins like dreamina)
-    bus.handle("media-gen:register-adapter", ({ adapter }) => {
+    this.register(bus.handle("media-gen:register-adapter", ({ adapter }) => {
       registry.register(adapter);
       log.info(`adapter registered: ${adapter.id}`);
       return { ok: true };
-    });
+    }));
 
-    bus.handle("media-gen:unregister-adapter", ({ adapterId }) => {
+    this.register(bus.handle("media-gen:unregister-adapter", ({ adapterId }) => {
       registry.unregister(adapterId);
       log.info(`adapter unregistered: ${adapterId}`);
       return { ok: true };
-    });
+    }));
 
     // Listen for fire-and-forget unregister events (plugin teardown is sync)
-    bus.subscribe((event) => {
+    this.register(bus.subscribe((event) => {
       if (event.type === "media-gen:adapter-removed" && event.adapterId) {
         registry.unregister(event.adapterId);
         log.info(`adapter removed (event): ${event.adapterId}`);
       }
-    });
+    }));
 
-    bus.handle("media-gen:list-adapters", () => {
+    this.register(bus.handle("media-gen:list-adapters", () => {
       return { adapters: registry.list().map((a) => ({ id: a.id, name: a.name, types: a.types })) };
-    });
+    }));
 
     // Bus handlers — task CRUD (for external panels like dreamina)
-    bus.handle("media-gen:get-tasks", ({ adapterId, batchId, status } = {}) => {
+    this.register(bus.handle("media-gen:get-tasks", ({ adapterId, batchId, status } = {}) => {
       let tasks = store.listAll();
       if (adapterId) tasks = tasks.filter((t) => t.adapterId === adapterId);
       if (batchId) tasks = tasks.filter((t) => t.batchId === batchId);
       if (status) tasks = tasks.filter((t) => t.status === status);
       return { tasks };
-    });
+    }));
 
-    bus.handle("media-gen:get-task", ({ taskId }) => {
+    this.register(bus.handle("media-gen:get-task", ({ taskId }) => {
       return { task: store.get(taskId) };
-    });
+    }));
 
-    bus.handle("media-gen:update-task", ({ taskId, fields }) => {
+    this.register(bus.handle("media-gen:update-task", ({ taskId, fields }) => {
       const allowed = {};
       if (typeof fields?.favorited === "boolean") allowed.favorited = fields.favorited;
       store.update(taskId, allowed);
       return { ok: true };
-    });
+    }));
 
-    bus.handle("media-gen:remove-task", ({ taskId }) => {
+    this.register(bus.handle("media-gen:remove-task", ({ taskId }) => {
       const task = store.get(taskId);
       if (task) {
         for (const f of task.files || []) {
@@ -81,9 +81,9 @@ export default class ImageGenPlugin {
         store.remove(taskId);
       }
       return { ok: true };
-    });
+    }));
 
-    bus.handle("media-gen:remove-unfavorited", () => {
+    this.register(bus.handle("media-gen:remove-unfavorited", () => {
       const removed = store.removeUnfavorited();
       for (const t of removed) {
         for (const f of t.files || []) {
@@ -91,7 +91,7 @@ export default class ImageGenPlugin {
         }
       }
       return { ok: true, removed: removed.length };
-    });
+    }));
 
     // Start poller
     poller.start();

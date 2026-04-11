@@ -354,10 +354,10 @@ describe("Poller", () => {
     // Removed from active set
     expect(poller.hasPending("task1")).toBe(false);
 
-    // Store updated to failed
+    // Store updated to cancelled
     expect(mockStore.update).toHaveBeenCalledWith(
       "task1",
-      expect.objectContaining({ status: "failed", failReason: "user cancelled" })
+      expect.objectContaining({ status: "cancelled", failReason: "user cancelled" })
     );
 
     // Bus calls: deferred:abort and task:remove

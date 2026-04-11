@@ -93,7 +93,7 @@ export class Poller {
     this._active.delete(taskId);
     this._errorCounts.delete(taskId);
     this._store.update(taskId, {
-      status: "failed",
+      status: "cancelled",
       failReason: "user cancelled",
       completedAt: new Date().toISOString(),
     });
