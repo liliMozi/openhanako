@@ -1366,7 +1366,11 @@
     "memorySearchError": "記憶搜尋出錯: {msg}",
     "fallbackUserName": "使用者",
     "uploadFailed": "檔案匯入失敗",
-    "uploadPartialFail": "部分檔案匯入失敗：{files}"
+    "uploadPartialFail": "部分檔案匯入失敗：{files}",
+    "stopTaskNotFound": "找不到任務 {taskId}，可能已完成或不存在",
+    "stopTaskAlready": "任務 {taskId} 已經被終止了",
+    "stopTaskNoHandler": "任務 {taskId} 的類型不支援終止",
+    "stopTaskDone": "已終止任務 {taskId}"
   },
   "main": {
     "tray": {
@@ -1579,6 +1583,11 @@
       "chatModel": "對話模型",
       "fileBackup": "檔案備份",
       "fileBackupDesc": "AI 修改前自動備份檔案"
+    },
+    "stopTask": {
+      "label": "終止後台任務",
+      "description": "終止一個正在執行的後台任務。傳入 task_id 即可終止。可終止的任務類型包括子代理任務、圖片/影片生成任務等。",
+      "taskIdDesc": "要終止的任務 ID"
     }
   },
   "cli": {

@@ -1366,7 +1366,11 @@
     "memorySearchError": "記憶検索エラー: {msg}",
     "fallbackUserName": "ユーザー",
     "uploadFailed": "ファイルのインポートに失敗しました",
-    "uploadPartialFail": "一部のファイルをインポートできませんでした：{files}"
+    "uploadPartialFail": "一部のファイルをインポートできませんでした：{files}",
+    "stopTaskNotFound": "タスク {taskId} が見つかりません。すでに完了しているか存在しない可能性があります",
+    "stopTaskAlready": "タスク {taskId} はすでに終了しています",
+    "stopTaskNoHandler": "タスク {taskId} は終了操作に対応していません",
+    "stopTaskDone": "タスク {taskId} を終了しました"
   },
   "main": {
     "tray": {
@@ -1579,6 +1583,11 @@
       "chatModel": "チャットモデル",
       "fileBackup": "ファイルバックアップ",
       "fileBackupDesc": "AI変更前にファイルを自動バックアップ"
+    },
+    "stopTask": {
+      "label": "バックグラウンドタスクを停止",
+      "description": "実行中のバックグラウンドタスクを停止します。task_id を指定すると終了できます。対応するタスク種別：サブエージェントタスク、画像/動画生成タスクなど。",
+      "taskIdDesc": "停止するタスクの ID"
     }
   },
   "cli": {

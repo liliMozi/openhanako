@@ -1366,7 +1366,11 @@
     "memorySearchError": "기억 검색 오류: {msg}",
     "fallbackUserName": "사용자",
     "uploadFailed": "파일 가져오기 실패",
-    "uploadPartialFail": "일부 파일을 가져올 수 없습니다: {files}"
+    "uploadPartialFail": "일부 파일을 가져올 수 없습니다: {files}",
+    "stopTaskNotFound": "태스크 {taskId}를 찾을 수 없어요. 이미 완료됐거나 존재하지 않을 수 있어요",
+    "stopTaskAlready": "태스크 {taskId}는 이미 종료됐어요",
+    "stopTaskNoHandler": "태스크 {taskId}는 중단을 지원하지 않아요",
+    "stopTaskDone": "태스크 {taskId}를 종료했어요"
   },
   "main": {
     "tray": {
@@ -1579,6 +1583,11 @@
       "chatModel": "대화 모델",
       "fileBackup": "파일 백업",
       "fileBackupDesc": "AI 수정 전 파일 자동 백업"
+    },
+    "stopTask": {
+      "label": "백그라운드 태스크 종료",
+      "description": "실행 중인 백그라운드 태스크를 종료합니다. task_id를 전달하면 해당 태스크가 중단됩니다. 지원 태스크 유형: 서브에이전트 태스크, 이미지/영상 생성 태스크 등.",
+      "taskIdDesc": "종료할 태스크 ID"
     }
   },
   "cli": {

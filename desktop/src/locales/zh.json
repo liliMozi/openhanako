@@ -1416,7 +1416,11 @@
     "memorySearchError": "记忆搜索出错: {msg}",
     "fallbackUserName": "用户",
     "uploadFailed": "文件导入失败",
-    "uploadPartialFail": "部分文件导入失败：{files}"
+    "uploadPartialFail": "部分文件导入失败：{files}",
+    "stopTaskNotFound": "未找到任务 {taskId}，可能已完成或不存在",
+    "stopTaskAlready": "任务 {taskId} 已经被终止过了",
+    "stopTaskNoHandler": "任务 {taskId} 的类型不支持终止",
+    "stopTaskDone": "已终止任务 {taskId}"
   },
   "main": {
     "tray": {
@@ -1634,6 +1638,11 @@
       "chatModel": "对话模型",
       "fileBackup": "文件备份",
       "fileBackupDesc": "AI 修改或删除文件前自动备份"
+    },
+    "stopTask": {
+      "label": "终止后台任务",
+      "description": "终止一个正在运行的后台任务。传入 task_id 即可终止。可终止的任务类型包括子代理任务、图片/视频生成任务等。",
+      "taskIdDesc": "要终止的任务 ID"
     }
   },
   "cli": {

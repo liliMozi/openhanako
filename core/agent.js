@@ -31,6 +31,7 @@ import { createUpdateSettingsTool } from "../lib/tools/update-settings-tool.js";
 import { createSubagentTool } from "../lib/tools/subagent-tool.js";
 import { createCheckDeferredTool } from "../lib/tools/check-deferred-tool.js";
 import { createWaitTool } from "../lib/tools/wait-tool.js";
+import { createStopTaskTool } from "../lib/tools/stop-task-tool.js";
 import { READ_ONLY_BUILTIN_TOOLS } from "./config-coordinator.js";
 import { formatSkillsForPrompt } from "../lib/pi-sdk/index.js";
 import { runCompatChecks } from "../lib/compat/index.js";
@@ -93,6 +94,7 @@ export class Agent {
     this._channelTool = null;
     this._browserTool = null;
     this._notifyTool = null;
+    this._stopTaskTool = null;
 
     /**
      * 外部回调注入（由 AgentManager._createAgentInstance 填充）。
@@ -271,6 +273,9 @@ export class Agent {
     this._browserTool = createBrowserTool(() => this._cb?.getCurrentSessionPath?.());
     this._notifyTool = createNotifyTool({
       onNotify: (title, body) => this._notifyHandler?.(title, body),
+    });
+    this._stopTaskTool = createStopTaskTool({
+      getTaskRegistry: () => this._cb?.getTaskRegistry?.(),
     });
 
     this._checkDeferredTool = createCheckDeferredTool({
@@ -476,6 +481,7 @@ export class Agent {
       this._browserTool,
       this._installSkillTool,
       this._notifyTool,
+      this._stopTaskTool,
       this._updateSettingsTool,
       this._subagentTool,
       this._checkDeferredTool,
