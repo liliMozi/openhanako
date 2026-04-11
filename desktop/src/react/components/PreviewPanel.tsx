@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect } from 'react';
 import { useStore } from '../stores';
+import { selectArtifacts } from '../stores/artifact-slice';
 import { ArtifactEditor } from './ArtifactEditor';
 import { ArtifactRenderer } from './preview/ArtifactRenderer';
 import { TabBar } from './preview/TabBar';
@@ -20,7 +21,6 @@ import { captureSelection, clearSelection } from '../stores/selection-actions';
 import type { Artifact } from '../types';
 import previewStyles from './Preview.module.css';
 
-const EMPTY_ARTIFACTS: Artifact[] = [];
 const EDITABLE_TYPES = new Set(['markdown', 'code', 'csv']);
 
 function isEditable(artifact: Artifact | null): boolean {
@@ -37,7 +37,7 @@ function getEditorMode(artifact: Artifact): 'markdown' | 'code' | 'csv' | 'text'
 export function PreviewPanel() {
   const previewOpen = useStore(s => s.previewOpen);
   const activeTabId = useStore(s => s.activeTabId);
-  const artifacts = useStore(s => s.currentSessionPath ? (s.artifactsBySession[s.currentSessionPath] ?? EMPTY_ARTIFACTS) : EMPTY_ARTIFACTS);
+  const artifacts = useStore(selectArtifacts);
   const editorDetached = useStore(s => s.editorDetached);
   const setPreviewOpen = useStore(s => s.setPreviewOpen);
   const setEditorDetached = useStore(s => s.setEditorDetached);

@@ -1,14 +1,13 @@
 import { useStore } from '../../stores';
+import { selectArtifacts } from '../../stores/artifact-slice';
 import type { Artifact } from '../../types';
 import { closePreview } from '../../stores/artifact-actions';
 import styles from './TabBar.module.css';
 
-const EMPTY_ARTIFACTS: Artifact[] = [];
-
 export function TabBar() {
   const openTabs = useStore(s => s.openTabs);
   const activeTabId = useStore(s => s.activeTabId);
-  const artifacts = useStore(s => s.currentSessionPath ? (s.artifactsBySession[s.currentSessionPath] ?? EMPTY_ARTIFACTS) : EMPTY_ARTIFACTS);
+  const artifacts = useStore(selectArtifacts);
   const setActiveTab = useStore(s => s.setActiveTab);
   const closeTab = useStore(s => s.closeTab);
 
