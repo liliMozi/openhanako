@@ -86,7 +86,8 @@
     "selectMessage": "Select message",
     "screenshotSaved": "Screenshot saved",
     "screenshotFailed": "Screenshot save failed",
-    "selectedCount": "{count} selected"
+    "selectedCount": "{count} selected",
+    "allDone": "All done"
   },
   "chat": {
     "send": "Send",

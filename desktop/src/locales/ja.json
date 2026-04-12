@@ -85,7 +85,8 @@
     "selectMessage": "メッセージを選択",
     "screenshotSaved": "スクリーンショットを保存しました",
     "screenshotFailed": "スクリーンショットの保存に失敗しました",
-    "selectedCount": "{count} 件選択中"
+    "selectedCount": "{count} 件選択中",
+    "allDone": "すべて完了"
   },
   "chat": {
     "send": "送信",

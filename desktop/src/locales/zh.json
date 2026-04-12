@@ -86,7 +86,8 @@
     "selectMessage": "选择消息",
     "screenshotSaved": "截图已保存",
     "screenshotFailed": "截图保存失败",
-    "selectedCount": "已选 {count} 条"
+    "selectedCount": "已选 {count} 条",
+    "allDone": "全部完成"
   },
   "chat": {
     "send": "发送",

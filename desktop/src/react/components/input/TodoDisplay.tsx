@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import styles from './InputArea.module.css';
+import { useI18n } from '../../hooks/use-i18n';
 import type { TodoItem, TodoStatus } from '../../types';
 
 /**
@@ -34,23 +35,24 @@ function displayText(todo: TodoItem): string {
 }
 
 /**
- * 折叠态预览：优先第一个 in_progress，否则第一个 pending，全完成显示 All done
+ * 折叠态预览：优先第一个 in_progress，否则第一个 pending，全完成显示 allDone 文案
  */
-function pickPreview(todos: TodoItem[]): string {
+function pickPreview(todos: TodoItem[], allDoneText: string): string {
   const inProgress = todos.find((t) => t.status === 'in_progress');
   if (inProgress) return displayText(inProgress);
   const pending = todos.find((t) => t.status === 'pending');
   if (pending) return displayText(pending);
-  return 'All done';
+  return allDoneText;
 }
 
 export function TodoDisplay({ todos }: { todos: TodoItem[] }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
   if (!todos || todos.length === 0) return null;
 
   const completedCount = todos.filter((t) => t.status === 'completed').length;
-  const preview = pickPreview(todos);
+  const preview = pickPreview(todos, t('common.allDone'));
 
   return (
     <div className={`${styles['todo-bar']}${open ? ` ${styles['todo-bar-open']}` : ''}`}>

@@ -85,7 +85,8 @@
     "selectMessage": "메시지 선택",
     "screenshotSaved": "스크린샷이 저장되었습니다",
     "screenshotFailed": "스크린샷 저장 실패",
-    "selectedCount": "{count}개 선택됨"
+    "selectedCount": "{count}개 선택됨",
+    "allDone": "모두 완료"
   },
   "chat": {
     "send": "보내기",
