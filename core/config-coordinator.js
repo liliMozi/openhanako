@@ -274,34 +274,10 @@ export class ConfigCoordinator {
     const sessPath = session?.sessionManager?.getSessionFile?.();
     if (!sessPath) return;
     const agent = this._d.getAgent();
-    const metaPath = path.join(agent.sessionDir, "session-meta.json");
-
     const sessionCoord = this._d.getSessionCoordinator();
-
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        let meta = {};
-        try { meta = JSON.parse(fs.readFileSync(metaPath, "utf-8")); } catch {}
-        const sessKey = path.basename(sessPath);
-        // model 不存 session-meta.json，由 PI SDK 从 session JSONL 管理（单一数据源）
-        meta[sessKey] = {
-          ...meta[sessKey],
-          memoryEnabled: agent.memoryEnabled,
-        };
-        // 清理旧格式残留的 model 字段
-        delete meta[sessKey].model;
-        delete meta[sessKey].modelId;
-        fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
-        sessionCoord?.invalidateMetaCache?.(metaPath);
-        return;
-      } catch (err) {
-        if (attempt === 0) {
-          try { fs.mkdirSync(path.dirname(metaPath), { recursive: true }); } catch {}
-        } else {
-          console.error("[config] persistSessionMeta failed:", err.message);
-        }
-      }
-    }
+    return sessionCoord.writeSessionMeta(sessPath, {
+      memoryEnabled: agent.memoryEnabled,
+    });
   }
 
   // ── updateConfig ──

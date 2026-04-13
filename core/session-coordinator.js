@@ -57,6 +57,7 @@ export class SessionCoordinator {
     this._titlesCache = new Map(); // sessionDir → { titles, ts }
     this._metaCache = new Map();   // metaPath → { data, ts }
     this._pendingPlanMode = false;
+    this._metaWriteQueue = Promise.resolve();
   }
 
   static _TITLES_TTL = 60_000; // 60 秒
@@ -893,6 +894,58 @@ After dispatching subagent or other background tasks:
   /** session-meta 写入后清除对应缓存 */
   invalidateMetaCache(metaPath) {
     this._metaCache.delete(metaPath);
+  }
+
+  /**
+   * Single entry point for all session-meta.json writes. Both the memory-toggle
+   * path (persistSessionMeta) and the upcoming tool-snapshot path (Task 5) go
+   * through this method. Writes are serialized via a promise chain to prevent
+   * RMW races where two concurrent writers would each read stale meta and
+   * clobber the other's fields on write-back.
+   *
+   * @param {string} sessionPath - absolute path to the session .jsonl file
+   * @param {object} partial - fields to merge into meta[basename(sessionPath)]
+   * @returns {Promise<void>}
+   */
+  writeSessionMeta(sessionPath, partial) {
+    const next = () => this._doWriteSessionMeta(sessionPath, partial);
+    // Chain on both success and failure branches so a failed write does not
+    // poison the queue — the next write still runs.
+    this._metaWriteQueue = this._metaWriteQueue.then(next, next);
+    return this._metaWriteQueue;
+  }
+
+  async _doWriteSessionMeta(sessionPath, partial) {
+    const agent = this._d.getAgent();
+    const metaPath = path.join(agent.sessionDir, "session-meta.json");
+    const sessKey = path.basename(sessionPath);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        let meta = {};
+        try {
+          meta = JSON.parse(await fsp.readFile(metaPath, "utf-8"));
+        } catch {
+          // file missing or parse error → start fresh
+        }
+        meta[sessKey] = {
+          ...meta[sessKey],
+          ...partial,
+        };
+        // model is owned by PI SDK via session JSONL — keep session-meta clean
+        delete meta[sessKey].model;
+        delete meta[sessKey].modelId;
+        await fsp.writeFile(metaPath, JSON.stringify(meta, null, 2));
+        this.invalidateMetaCache(metaPath);
+        return;
+      } catch (err) {
+        if (attempt === 0) {
+          try { await fsp.mkdir(path.dirname(metaPath), { recursive: true }); } catch {}
+        } else {
+          log.warn(`writeSessionMeta failed for ${sessKey}: ${err.message}`);
+        }
+      }
+    }
   }
 
   // ── Session Context ──
