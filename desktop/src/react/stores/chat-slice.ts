@@ -6,6 +6,16 @@ import type { ChatListItem, ChatMessage, SessionMessages, SessionModel } from '.
 
 export interface ChatSlice {
   chatSessions: Record<string, SessionMessages>;
+  /**
+   * Per-session 模型快照。与 chatSessions 解耦：模型可以独立于消息状态存在，
+   * 避免 updateSessionModel 在 chatSessions 里写 stub 骗过 hasData 判据（issue #405）。
+   */
+  sessionModelsByPath: Record<string, SessionModel>;
+  /**
+   * loadMessages 的 per-path 版本号，用于拒绝 stale 响应 clobber 新状态
+   * （rapid switch / duplicate load 竞态护栏，pattern 来自 todosLiveVersionBySession）。
+   */
+  _loadMessagesVersion: Record<string, number>;
   scrollPositions: Record<string, number>;
 
   initSession: (path: string, items: ChatListItem[], hasMore: boolean) => void;
@@ -16,6 +26,7 @@ export interface ChatSlice {
   _pendingBlockPatches: Record<string, Record<string, any>>;
 
   updateSessionModel: (path: string, model: SessionModel) => void;
+  bumpLoadMessagesVersion: (path: string) => number;
   setLoadingMore: (path: string, loading: boolean) => void;
   clearSession: (path: string) => void;
   saveScrollPosition: (path: string, scrollTop: number) => void;
@@ -28,12 +39,19 @@ export const createChatSlice = (
   get: () => ChatSlice,
 ): ChatSlice => ({
   chatSessions: {},
+  sessionModelsByPath: {},
+  _loadMessagesVersion: {},
   scrollPositions: {},
 
   initSession: (path, items, hasMore) => set((s) => {
     const sessions = { ...s.chatSessions };
-    sessions[path] = { items, hasMore, loadingMore: false, oldestId: items[0]?.type === 'message' ? items[0].data.id : undefined, model: sessions[path]?.model };
-    // LRU 淘汰
+    sessions[path] = {
+      items,
+      hasMore,
+      loadingMore: false,
+      oldestId: items[0]?.type === 'message' ? items[0].data.id : undefined,
+    };
+    // LRU 淘汰：只淘汰消息缓存，不动模型快照（模型是轻量常驻数据）
     const keys = Object.keys(sessions);
     if (keys.length > MAX_CACHED_SESSIONS) {
       const oldest = keys.find(k => k !== path);
@@ -127,15 +145,19 @@ export const createChatSlice = (
     }
   },
 
-  updateSessionModel: (path, model) => set((s) => {
-    const session = s.chatSessions[path];
-    // session 可能还没被 initSession 创建（如 switchSession 返回早于消息加载），
-    // 此时先创建一个 stub entry 只存 model，initSession 会保留它
-    const updated = session
-      ? { ...session, model }
-      : { items: [], hasMore: false, loadingMore: false, model };
-    return { chatSessions: { ...s.chatSessions, [path]: updated } };
-  }),
+  updateSessionModel: (path, model) => set((s) => ({
+    // 只写 sessionModelsByPath，不碰 chatSessions。
+    // chatSessions[path] 的存在性仍然是"消息状态已初始化"的单一语义。
+    sessionModelsByPath: { ...s.sessionModelsByPath, [path]: model },
+  })),
+
+  bumpLoadMessagesVersion: (path) => {
+    const next = ((get() as any)._loadMessagesVersion?.[path] ?? 0) + 1;
+    set((s) => ({
+      _loadMessagesVersion: { ...s._loadMessagesVersion, [path]: next },
+    }));
+    return next;
+  },
 
   setLoadingMore: (path, loading) => set((s) => {
     const session = s.chatSessions[path];
@@ -151,7 +173,11 @@ export const createChatSlice = (
   clearSession: (path) => set((s) => {
     const sessions = { ...s.chatSessions };
     delete sessions[path];
-    return { chatSessions: sessions };
+    const models = { ...s.sessionModelsByPath };
+    delete models[path];
+    const versions = { ...s._loadMessagesVersion };
+    delete versions[path];
+    return { chatSessions: sessions, sessionModelsByPath: models, _loadMessagesVersion: versions };
   }),
 
   saveScrollPosition: (path, scrollTop) => set((s) => ({

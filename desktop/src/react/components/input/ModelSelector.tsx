@@ -29,12 +29,12 @@ export function ModelSelector({ models, sessionModel }: {
 
   const switchModel = useCallback(async (modelId: string, provider?: string) => {
     try {
-      const { currentSessionPath, pendingNewSession, chatSessions } = useStore.getState();
+      const { currentSessionPath, pendingNewSession, chatSessions, sessionModelsByPath } = useStore.getState();
       const sessionHasMessages = !!(currentSessionPath && chatSessions[currentSessionPath]?.items?.length);
 
       if (sessionHasMessages && currentSessionPath) {
         // Same-model guard
-        const sm = chatSessions[currentSessionPath]?.model;
+        const sm = sessionModelsByPath[currentSessionPath];
         const curId = sm?.id || models.find(m => m.isCurrent)?.id;
         const curProvider = sm?.provider || models.find(m => m.isCurrent)?.provider;
         if (modelId === curId && (provider || '') === (curProvider || '')) { setOpen(false); return; }

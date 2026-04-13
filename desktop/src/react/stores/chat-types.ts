@@ -79,6 +79,9 @@ export type ChatListItem =
   | { type: 'compaction'; id: string; yuan: string };
 
 // ── Per-session 模型快照 ──
+// 挂在 chat-slice 的 sessionModelsByPath keyed map 上，
+// 与消息缓存 SessionMessages 解耦：模型信息可以在消息还没加载时独立写入，
+// 不会因为在 chatSessions 里创建 stub 而骗过"是否已加载"的判据（issue #405）。
 
 export interface SessionModel {
   id: string;
@@ -90,13 +93,14 @@ export interface SessionModel {
 }
 
 // ── Per-session 消息状态 ──
+// entry 存在 ⟺ 消息状态已初始化（initSession 调用过）。
+// 不要为了存别的东西（例如模型快照）就写 stub 进来——会把这个语义打破。
 
 export interface SessionMessages {
   items: ChatListItem[];
   hasMore: boolean;
   loadingMore: boolean;
   oldestId?: string;
-  model?: SessionModel;
 }
 
 // ── 流式缓冲（不入 Zustand） ──

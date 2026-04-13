@@ -32,6 +32,9 @@ export async function loadMessages(forPath?: string): Promise<void> {
   // 后面就跳过 hydrate 写入，避免旧快照覆盖刚收到的实时状态。
   const liveVersionBefore =
     useStore.getState().todosLiveVersionBySession[targetPath] ?? 0;
+  // messages 维度的竞态护栏：rapid switch 或并发 load 时，只有最新一次调用
+  // 的响应允许 apply initSession，stale 响应直接丢弃。
+  const myVersion = useStore.getState().bumpLoadMessagesVersion(targetPath);
   try {
     const res = await hanaFetch(`/api/sessions/messages?path=${encodeURIComponent(targetPath)}`);
     const data = await res.json();
@@ -47,6 +50,12 @@ export async function loadMessages(forPath?: string): Promise<void> {
         '[loadMessages] 跳过 todos hydrate: mid-flight 收到 live 更新',
         targetPath,
       );
+    }
+    const latestVersion =
+      useStore.getState()._loadMessagesVersion[targetPath] ?? 0;
+    if (latestVersion !== myVersion) {
+      // 已经有更新的 loadMessages 在途，stale 响应不应覆盖新状态
+      return;
     }
     const items = buildItemsFromHistory(data);
     if (items.length > 0) {

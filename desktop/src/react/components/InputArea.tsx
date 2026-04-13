@@ -71,7 +71,7 @@ function InputAreaInner() {
   const setThinkingLevel = useStore(s => s.setThinkingLevel);
 
   const globalModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
-  const sessionModel = useStore(s => s.currentSessionPath ? s.chatSessions[s.currentSessionPath]?.model : undefined);
+  const sessionModel = useStore(s => s.currentSessionPath ? s.sessionModelsByPath[s.currentSessionPath] : undefined);
   const currentModelInfo = sessionModel || globalModelInfo;
   const supportsVision = currentModelInfo?.vision !== false;
   const modelSwitching = useStore(s => s.modelSwitching);
