@@ -504,7 +504,7 @@ function showPrimaryWindow() {
  * - 右键菜单：显示 Hanako / 设置 / 退出
  */
 function createTray() {
-  const isDev = hanakoHome !== path.join(os.homedir(), ".hanako");
+  const isDev = !app.isPackaged;
   let icon;
   if (process.platform === "win32") {
     // Windows 优先用 .ico，缺失则回退到 .png
