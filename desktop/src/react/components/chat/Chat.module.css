@@ -1010,7 +1010,7 @@
     top: 0;
     left: 0;
     right: 0;
-    bottom: var(--input-area-h, 0px);
+    bottom: 0;
     overflow-y: auto;
     padding: 76px var(--space-lg) 0;
 }
@@ -1032,7 +1032,8 @@
 }
 
 .sessionFooter {
-    height: max(2rem, calc(12rem - var(--input-area-h, 0px)));
+    /* 输入区本身负责遮挡，footer 只负责提供透明滚动缓冲。 */
+    height: max(12rem, calc(var(--input-area-h, 0px) + 2rem));
     flex-shrink: 0;
 }
 
