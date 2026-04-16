@@ -18,16 +18,10 @@ import { ensureSession, loadSessions } from '../stores/session-actions';
 import { loadDeskFiles, toggleJianSidebar } from '../stores/desk-actions';
 import { getWebSocket } from '../services/websocket';
 import type { ThinkingLevel } from '../stores/model-slice';
-import { TodoDisplay } from './input/TodoDisplay';
-import { AttachedFilesBar } from './input/AttachedFilesBar';
-import { PlanModeButton } from './input/PlanModeButton';
-import { DocContextButton } from './input/DocContextButton';
-import { ContextRing } from './input/ContextRing';
-import { ThinkingLevelButton } from './input/ThinkingLevelButton';
-import { ModelSelector } from './input/ModelSelector';
 import { SlashCommandMenu } from './input/SlashCommandMenu';
-import { SendButton } from './input/SendButton';
-import { QuotedSelectionCard } from './input/QuotedSelectionCard';
+import { InputStatusBars } from './input/InputStatusBars';
+import { InputContextRow } from './input/InputContextRow';
+import { InputControlBar } from './input/InputControlBar';
 import { SkillBadge } from './input/extensions/skill-badge';
 import { serializeEditor } from '../utils/editor-serializer';
 import { useSkillSlashItems } from '../hooks/use-slash-items';
@@ -233,6 +227,16 @@ function InputAreaInner() {
   const openSlashMenu = useCallback(() => {
     slashDismissedTextRef.current = null;
     setSlashMenuOpen(true);
+  }, []);
+
+  const handleSlashToggle = useCallback(() => {
+    if (slashMenuOpen) dismissSlashMenu();
+    else openSlashMenu();
+  }, [slashMenuOpen, dismissSlashMenu, openSlashMenu]);
+
+  const handleAttach = useCallback(async () => {
+    const paths = await window.platform?.selectFiles?.();
+    if (paths && paths.length > 0) await attachFilesFromPaths(paths);
   }, []);
 
   // Sync editor text to React state (drives hasInput / canSend) + slash menu detection + draft save
@@ -544,46 +548,24 @@ function InputAreaInner() {
 
   return (
     <>
-      {slashBusy && (
-        <div className={styles['slash-busy-bar']}>
-          <span className={styles['slash-busy-dot']} />
-          <span>{slashCommands.find(c => c.name === slashBusy)?.busyLabel || t('common.executing')}</span>
-        </div>
-      )}
-      {compacting && (
-        <div className={styles['slash-busy-bar']}>
-          <span className={styles['slash-busy-dot']} />
-          <span>{t('chat.compacting')}</span>
-        </div>
-      )}
-      {inlineError && (
-        <div className={styles['slash-error-bar']}>
-          <span className={styles['slash-error-dot']} />
-          <span>{inlineError}</span>
-        </div>
-      )}
-      {!slashBusy && !compacting && !inlineError && slashResult && (
-        <div
-          className={`${styles['slash-busy-bar']}${slashResult.deskDir ? ` ${styles['slash-busy-bar-clickable']}` : ''}`}
-          onClick={slashResult.deskDir ? () => {
-            toggleJianSidebar(true);
-            loadDeskFiles('', slashResult.deskDir);
-          } : undefined}
-          role={slashResult.deskDir ? 'button' : undefined}
-        >
-          <span className={styles[slashResult.type === 'success' ? 'slash-result-dot-ok' : 'slash-result-dot-err']} />
-          <span>{slashResult.text}</span>
-        </div>
-      )}
-      {(attachedFiles.length > 0 || quotedSelection || sessionTodos.length > 0) && (
-        <div className={styles['input-context-row']}>
-          <div className={styles['input-context-left']}>
-            {attachedFiles.length > 0 && <AttachedFilesBar files={attachedFiles} onRemove={removeAttachedFile} />}
-            <QuotedSelectionCard />
-          </div>
-          <TodoDisplay todos={sessionTodos} />
-        </div>
-      )}
+      <InputStatusBars
+        slashBusy={slashBusy}
+        slashBusyLabel={slashCommands.find(c => c.name === slashBusy)?.busyLabel || t('common.executing')}
+        compacting={compacting}
+        compactingLabel={t('chat.compacting')}
+        inlineError={inlineError}
+        slashResult={slashResult}
+        onResultClick={slashResult?.deskDir ? () => {
+          toggleJianSidebar(true);
+          loadDeskFiles('', slashResult.deskDir);
+        } : undefined}
+      />
+      <InputContextRow
+        attachedFiles={attachedFiles}
+        removeAttachedFile={removeAttachedFile}
+        hasQuotedSelection={!!quotedSelection}
+        sessionTodos={sessionTodos}
+      />
       <div className={styles['slash-menu-anchor']} ref={slashMenuRef}>
         {slashMenuOpen && filteredCommands.length > 0 && (
           <SlashCommandMenu commands={filteredCommands} selected={slashSelected} busy={slashBusy}
@@ -599,47 +581,29 @@ function InputAreaInner() {
         >
           <EditorContent editor={editor} />
         </div>
-        <div className={styles['input-bottom-bar']}>
-          <div className={styles['input-actions']}>
-            <button
-              className={styles['attach-btn']}
-              title={t('input.attachFiles')}
-              onClick={async () => {
-                const paths = await window.platform?.selectFiles?.();
-                if (paths && paths.length > 0) await attachFilesFromPaths(paths);
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            </button>
-            <button
-              ref={slashBtnRef}
-              className={styles['attach-btn']}
-              title={t('input.commandMenu')}
-              onClick={() => {
-                if (slashMenuOpen) dismissSlashMenu();
-                else openSlashMenu();
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L14 10L22 12L14 14L12 22L10 14L2 12L10 10Z" />
-              </svg>
-            </button>
-            <PlanModeButton enabled={planMode} onToggle={setPlanMode} />
-            {hasDoc && <DocContextButton active={docContextAttached} disabled={false} onToggle={toggleDocContext} />}
-            <ContextRing />
-          </div>
-          <div className={styles['input-controls']}>
-            {currentModelInfo?.reasoning !== false && (
-              <ThinkingLevelButton level={thinkingLevel} onChange={setThinkingLevel} modelXhigh={(sessionModel ? models.find(m => m.id === sessionModel.id && m.provider === sessionModel.provider)?.xhigh : globalModelInfo?.xhigh) ?? false} />
-            )}
-            <ModelSelector models={models} sessionModel={sessionModel} />
-            <SendButton isStreaming={isStreaming} hasInput={!!inputText.trim()}
-              disabled={isStreaming ? false : !canSend} onSend={handleSend} onSteer={handleSteer} onStop={handleStop} />
-          </div>
-        </div>
+        <InputControlBar
+          t={t}
+          onAttach={handleAttach}
+          slashBtnRef={slashBtnRef}
+          onSlashToggle={handleSlashToggle}
+          planMode={planMode}
+          onTogglePlanMode={setPlanMode}
+          hasDoc={hasDoc}
+          docContextAttached={docContextAttached}
+          onToggleDocContext={toggleDocContext}
+          showThinking={currentModelInfo?.reasoning !== false}
+          thinkingLevel={thinkingLevel}
+          onThinkingChange={setThinkingLevel}
+          modelXhigh={(sessionModel ? models.find(m => m.id === sessionModel.id && m.provider === sessionModel.provider)?.xhigh : globalModelInfo?.xhigh) ?? false}
+          models={models}
+          sessionModel={sessionModel}
+          isStreaming={isStreaming}
+          hasInput={!!inputText.trim()}
+          canSend={canSend}
+          onSend={handleSend}
+          onSteer={handleSteer}
+          onStop={handleStop}
+        />
       </div>
     </>
   );
