@@ -56,9 +56,18 @@ export function createAvatarRoute(engine) {
     }
 
     const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };
+    const stat = await fs.stat(found.path);
+    const etag = `"${stat.mtimeMs.toString(36)}-${stat.size.toString(36)}"`;
+
+    // 条件请求：头像几乎不变，用 ETag 避免重复传输
+    if (c.req.header("if-none-match") === etag) {
+      return c.body(null, 304);
+    }
+
     const buf = await fs.readFile(found.path);
     c.header("Content-Type", mimeMap[found.ext] || "image/png");
-    c.header("Cache-Control", "no-cache");
+    c.header("Cache-Control", "max-age=3600, must-revalidate");
+    c.header("ETag", etag);
     return c.body(buf);
   });
 

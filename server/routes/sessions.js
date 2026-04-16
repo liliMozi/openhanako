@@ -180,7 +180,6 @@ export function createSessionsRoute(engine) {
 
       // 修正 subagent blocks 的状态：优先从 deferred store 读终态，其次从 session 文件推断
       {
-        const fsSync = (await import("fs")).default;
         const deferredStore = engine.deferredResults;
         const readSessionMeta = createSubagentMetaCache();
         for (const b of slicedBlocks) {
@@ -216,12 +215,12 @@ export function createSessionsRoute(engine) {
             }
           }
 
-          // 从 session 文件推断 done 状态
+          // 从 session 文件推断 done 状态（异步读取，只需尾部几行）
           let sp = b.streamKey || null;
           if (!sp) continue;
           try {
-            if (!fsSync.existsSync(sp)) continue;
-            const lines = fsSync.readFileSync(sp, "utf-8").trim().split("\n");
+            const raw = await fs.readFile(sp, "utf-8");
+            const lines = raw.trim().split("\n");
             for (let j = lines.length - 1; j >= 0; j--) {
               const entry = JSON.parse(lines[j]);
               const msg = entry.message;

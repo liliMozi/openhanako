@@ -127,6 +127,12 @@ export class ProviderRegistry {
     /** @type {Map<string, ProviderEntry>} id → entry（合并后） */
     this._entries = new Map();
 
+    // mtime 缓存：避免热路径上重复读盘解析 YAML/JSON
+    /** @private */ this._addedModelsCache = null;
+    /** @private */ this._addedModelsMtime = 0;
+    /** @private */ this._authJsonCache = null;
+    /** @private */ this._authJsonMtime = 0;
+
     // 注册内置插件
     for (const plugin of BUILTIN_PLUGINS) {
       this._plugins.set(plugin.id, plugin);
@@ -215,11 +221,21 @@ export class ProviderRegistry {
     }
   }
 
-  /** 从 _hanakoHome 直接读 added-models.yaml（不走全局 config-loader） */
+  /** 从 _hanakoHome 直接读 added-models.yaml（mtime 缓存，文件未变时跳过磁盘读取） */
   _loadAddedModels() {
     const ymlPath = path.join(this._hanakoHome, "added-models.yaml");
-    const raw = safeReadYAMLSync(ymlPath, {}, YAML) || {};
-    return raw.providers || {};
+    try {
+      const mtime = fs.statSync(ymlPath).mtimeMs;
+      if (this._addedModelsCache && mtime === this._addedModelsMtime) {
+        return this._addedModelsCache;
+      }
+      const raw = safeReadYAMLSync(ymlPath, {}, YAML) || {};
+      this._addedModelsCache = raw.providers || {};
+      this._addedModelsMtime = mtime;
+      return this._addedModelsCache;
+    } catch {
+      return {};
+    }
   }
 
   /** 将 providers 对象写入 _hanakoHome/added-models.yaml */
@@ -241,6 +257,9 @@ export class ProviderRegistry {
     const tmpPath = ymlPath + ".tmp";
     fs.writeFileSync(tmpPath, yamlStr, "utf-8");
     fs.renameSync(tmpPath, ymlPath);
+    // 写入后失效缓存，下次 _loadAddedModels 会重读
+    this._addedModelsCache = null;
+    this._addedModelsMtime = 0;
   }
 
   /**
@@ -449,7 +468,13 @@ export class ProviderRegistry {
   _readOAuthEntry(authJsonKey) {
     try {
       const authPath = path.join(this._hanakoHome, "auth.json");
-      const entry = JSON.parse(fs.readFileSync(authPath, "utf-8"))?.[authJsonKey];
+      // mtime 缓存：auth.json 只在 OAuth 回调写入时变化
+      const mtime = fs.statSync(authPath).mtimeMs;
+      if (!this._authJsonCache || mtime !== this._authJsonMtime) {
+        this._authJsonCache = JSON.parse(fs.readFileSync(authPath, "utf-8"));
+        this._authJsonMtime = mtime;
+      }
+      const entry = this._authJsonCache?.[authJsonKey];
       if (!entry) return { token: "", resourceUrl: "" };
       if (typeof entry === "string") return { token: entry, resourceUrl: "" };
       let token = "";

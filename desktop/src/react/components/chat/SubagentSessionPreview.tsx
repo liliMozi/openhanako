@@ -227,18 +227,16 @@ export function SubagentSessionPreview({ taskId, sessionPath, agentId, streamSta
         case 'text_delta':
           updateStreamMessage((message) => {
             const blocks = message.blocks || [];
-            const textBlock = blocks.find((block) => block.type === 'text') as Extract<ContentBlock, { type: 'text' }> | undefined;
-            const nextText = `${textBlock ? (() => {
-              const el = document.createElement('div');
-              el.innerHTML = textBlock.html;
-              return el.textContent || '';
-            })() : ''}${event.delta || ''}`;
+            const textBlock = blocks.find((block) => block.type === 'text') as (Extract<ContentBlock, { type: 'text' }> & { _raw?: string }) | undefined;
+            // 维护纯文本累加器 _raw，避免每次 delta 都从 HTML 反向解析
+            const prevText = textBlock?._raw ?? '';
+            const nextText = prevText + (event.delta || '');
             return {
               ...message,
               blocks: upsertBlock(
                 blocks,
                 (block) => block.type === 'text',
-                { type: 'text', html: renderMarkdown(nextText) },
+                { type: 'text', html: renderMarkdown(nextText), _raw: nextText } as any,
               ),
             };
           });

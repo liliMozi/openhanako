@@ -30,7 +30,7 @@ export default defineConfig({
       ],
     },
     target: "node22",
-    minify: false,
+    minify: "esbuild",
     sourcemap: false,
   },
 

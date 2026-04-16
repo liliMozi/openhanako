@@ -47,22 +47,37 @@ function isApprovedDir(dir, engine) {
   });
 }
 
-/** 列出工作空间目录下的文件 */
-function listWorkspaceFiles(dir) {
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true })
-    .filter(e => !e.name.startsWith("."))
-    .map(e => {
-      const fullPath = path.join(dir, e.name);
-      const stat = fs.statSync(fullPath);
-      return {
-        name: e.name,
-        size: stat.size,
-        mtime: stat.mtime.toISOString(),
-        isDir: e.isDirectory(),
-      };
-    })
-    .sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+/** 列出工作空间目录下的文件（异步） */
+async function listWorkspaceFiles(dir) {
+  let entries;
+  try {
+    entries = await fs.promises.readdir(dir, { withFileTypes: true });
+  } catch (err) {
+    // 目录不存在 → 空列表；权限错误等真实异常 → 向上抛
+    if (err.code === "ENOENT") return [];
+    throw err;
+  }
+  const items = await Promise.all(
+    entries
+      .filter(e => !e.name.startsWith("."))
+      .map(async (e) => {
+        const fullPath = path.join(dir, e.name);
+        try {
+          const stat = await fs.promises.stat(fullPath);
+          return {
+            name: e.name,
+            size: stat.size,
+            mtime: stat.mtime.toISOString(),
+            isDir: e.isDirectory(),
+          };
+        } catch (err) {
+          // ENOENT = 文件在 readdir 后被删除，正常跳过；其他错误也跳过单项不影响整体
+          if (err.code !== "ENOENT") console.warn(`[desk] stat failed for ${e.name}: ${err.message}`);
+          return null;
+        }
+      })
+  );
+  return items.filter(Boolean).sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
 }
 
 export function createDeskRoute(engine, hub) {
@@ -435,7 +450,7 @@ export function createDeskRoute(engine, hub) {
     }
     const target = subdir ? path.join(dir, subdir) : dir;
     if (!isInsidePath(target, dir)) return c.json({ error: "invalid path" });
-    return c.json({ files: listWorkspaceFiles(target), subdir: subdir || "", basePath: dir });
+    return c.json({ files: await listWorkspaceFiles(target), subdir: subdir || "", basePath: dir });
   });
 
   /** 读取指定目录的 jian.md */
@@ -535,7 +550,7 @@ export function createDeskRoute(engine, hub) {
             results.push({ src: srcPath, error: err.message });
           }
         }
-        return c.json({ ok: true, results, files: listWorkspaceFiles(dir) });
+        return c.json({ ok: true, results, files: await listWorkspaceFiles(dir) });
       }
 
       case "create": {
@@ -545,7 +560,7 @@ export function createDeskRoute(engine, hub) {
         const createTarget = path.join(dir, path.basename(name));
         if (!isInsidePath(createTarget, dir)) return c.json({ error: "invalid name" });
         fs.writeFileSync(createTarget, content, "utf-8");
-        return c.json({ ok: true, files: listWorkspaceFiles(dir) });
+        return c.json({ ok: true, files: await listWorkspaceFiles(dir) });
       }
 
       case "mkdir": {
@@ -554,7 +569,7 @@ export function createDeskRoute(engine, hub) {
         if (!isInsidePath(mkTarget, dir)) return c.json({ error: "invalid name" });
         if (fs.existsSync(mkTarget)) return c.json({ error: "already exists" });
         fs.mkdirSync(mkTarget, { recursive: true });
-        return c.json({ ok: true, files: listWorkspaceFiles(dir) });
+        return c.json({ ok: true, files: await listWorkspaceFiles(dir) });
       }
 
       case "rename": {
@@ -565,7 +580,7 @@ export function createDeskRoute(engine, hub) {
         if (!fs.existsSync(src)) return c.json({ error: "not found" });
         if (fs.existsSync(dest)) return c.json({ error: "target already exists" });
         fs.renameSync(src, dest);
-        return c.json({ ok: true, files: listWorkspaceFiles(dir) });
+        return c.json({ ok: true, files: await listWorkspaceFiles(dir) });
       }
 
       case "move": {
@@ -596,7 +611,7 @@ export function createDeskRoute(engine, hub) {
             results.push({ name: n, error: err.message });
           }
         }
-        return c.json({ ok: true, results, files: listWorkspaceFiles(dir) });
+        return c.json({ ok: true, results, files: await listWorkspaceFiles(dir) });
       }
 
       case "remove": {
@@ -605,7 +620,7 @@ export function createDeskRoute(engine, hub) {
         if (!isInsidePath(rmTarget, dir)) return c.json({ error: "invalid name" });
         if (!fs.existsSync(rmTarget)) return c.json({ error: "not found" });
         fs.rmSync(rmTarget, { recursive: true, force: true });
-        return c.json({ ok: true, files: listWorkspaceFiles(dir) });
+        return c.json({ ok: true, files: await listWorkspaceFiles(dir) });
       }
 
       default:

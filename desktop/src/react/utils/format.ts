@@ -5,11 +5,9 @@
 export function toSlash(s: string): string { return s.replace(/\\/g, '/'); }
 export function baseName(s: string): string { return s.replace(/\\/g, '/').split('/').pop() || s; }
 
+const _escapeMap: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export function escapeHtml(str: string): string {
-  // eslint-disable-next-line no-restricted-syntax -- escapeHtml utility, not React rendering
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return str.replace(/[&<>"']/g, ch => _escapeMap[ch]);
 }
 
 export function parseCSV(text: string): string[][] {

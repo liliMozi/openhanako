@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/banner.png" width="100%" alt="OpenHanako Banner">
+  <img src=".github/assets/banner.jpg" width="100%" alt="OpenHanako Banner">
 </p>
 
 <p align="center">
@@ -51,7 +51,7 @@ As a tool, it is powerful: it remembers everything you've said, operates your co
 ## Screenshots
 
 <p align="center">
-  <img src=".github/assets/screenshot-main.png" width="100%" alt="Hanako Main Interface">
+  <img src=".github/assets/screenshot-main.jpg" width="100%" alt="Hanako Main Interface">
 </p>
 
 ## Quick Start

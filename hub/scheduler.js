@@ -102,18 +102,24 @@ export class Scheduler {
     // per-agent workspace（fallback: 主 agent → ~/Desktop）
     const getWorkspace = () => engine.getHomeCwd(agentId);
     const hb = createHeartbeat({
-      getDeskFiles: () => {
+      getDeskFiles: async () => {
         try {
           const dir = getWorkspace();
-          if (!dir || !fs.existsSync(dir)) return [];
-          return fs.readdirSync(dir, { withFileTypes: true })
-            .filter(e => !e.name.startsWith(".") && e.name !== HEARTBEAT_ACTIVITY_DIR)
-            .map(e => {
-              const fp = path.join(dir, e.name);
-              let mtime = 0;
-              try { mtime = fs.statSync(fp).mtimeMs; } catch {}
-              return { name: e.name, isDir: e.isDirectory(), mtime };
-            });
+          if (!dir) return [];
+          let entries;
+          try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); }
+          catch { return []; }
+          const items = await Promise.all(
+            entries
+              .filter(e => !e.name.startsWith(".") && e.name !== HEARTBEAT_ACTIVITY_DIR)
+              .map(async (e) => {
+                const fp = path.join(dir, e.name);
+                let mtime = 0;
+                try { mtime = (await fs.promises.stat(fp)).mtimeMs; } catch {}
+                return { name: e.name, isDir: e.isDirectory(), mtime };
+              })
+          );
+          return items;
         } catch { return []; }
       },
       getWorkspacePath: getWorkspace,
@@ -139,9 +145,8 @@ export class Scheduler {
       if (hb) { await hb.stop(); this._heartbeats.delete(agentId); }
       return;
     }
-    for (const [, hb] of this._heartbeats) {
-      await hb.stop();
-    }
+    // 并行停止所有 heartbeat，减少总关闭时间
+    await Promise.all([...this._heartbeats.values()].map(hb => hb.stop()));
     this._heartbeats.clear();
   }
 

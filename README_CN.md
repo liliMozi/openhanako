@@ -1,7 +1,7 @@
 [English](README.md)
 
 <p align="center">
-  <img src=".github/assets/banner.png" width="100%" alt="OpenHanako Banner">
+  <img src=".github/assets/banner.jpg" width="100%" alt="OpenHanako Banner">
 </p>
 
 <p align="center">
@@ -56,7 +56,7 @@ OpenHanako 是一个更加易用的 AI agent，有记忆，有性格，会主动
 ## 截图
 
 <p align="center">
-  <img src=".github/assets/screenshot-main.png" width="100%" alt="Hanako 主界面">
+  <img src=".github/assets/screenshot-main.jpg" width="100%" alt="Hanako 主界面">
 </p>
 
 ## 快速开始

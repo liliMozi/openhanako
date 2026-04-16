@@ -126,14 +126,14 @@ export class Hub {
     // 在路由之前统一处理，所有消息路径（WS / Bridge DM / Bridge Group）共享
     if (o.images?.length && this._engine.hanakoHome) {
       const attachDir = path.join(this._engine.hanakoHome, "attachments");
-      fs.mkdirSync(attachDir, { recursive: true });
+      await fs.promises.mkdir(attachDir, { recursive: true });
       const savedPaths = [];
       for (const img of o.images) {
         const ext = (img.mimeType || "image/png").split("/")[1] || "png";
         const hash = crypto.createHash("md5").update((img.data || "").slice(0, 1024)).digest("hex").slice(0, 8);
         const filePath = path.join(attachDir, `upload-${Date.now()}-${hash}.${ext}`);
         try {
-          fs.writeFileSync(filePath, Buffer.from(img.data, "base64"));
+          await fs.promises.writeFile(filePath, Buffer.from(img.data, "base64"));
           savedPaths.push(filePath);
         } catch { /* best-effort; prompt still goes through */ }
       }

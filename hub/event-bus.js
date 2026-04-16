@@ -24,11 +24,19 @@ export class BusTimeoutError extends Error {
 
 export class EventBus {
   constructor() {
-    /** @type {Map<number, {callback: Function, filter: object}>} */
+    /** @type {Map<number, {callback: Function, filter: object}>} 全量订阅者表 */
     this._subscribers = new Map();
     this._nextId = 0;
-    /** @type {Map<string, Function[]>} */
+    /** @type {Map<string, Function[]>} request/handle 模式 */
     this._handlers = new Map();
+
+    // ── emit 索引 ──
+    // 无 sessionPath 过滤的订阅者（"广播订阅者"），每次 emit 都要检查
+    /** @type {Set<number>} */
+    this._globalSubs = new Set();
+    // 按 sessionPath 索引的订阅者
+    /** @type {Map<string, Set<number>>} */
+    this._sessionIndex = new Map();
   }
 
   /**
@@ -36,27 +44,61 @@ export class EventBus {
    * @param {Function} callback  (event, sessionPath) => void
    * @param {object} [filter]
    * @param {string} [filter.sessionPath]  只接收该 session 的事件
-   * @param {string[]} [filter.types]      只接收这些 event.type
+   * @param {string[]} [filter.types]      只接收这些 event.type（内部转 Set）
    * @returns {Function} unsubscribe
    */
   subscribe(callback, filter = {}) {
     const id = ++this._nextId;
-    this._subscribers.set(id, { callback, filter });
-    return () => this._subscribers.delete(id);
+    // types 数组 → Set，加速 emit 时的类型匹配（O(1) vs O(n)）
+    const normalizedFilter = { ...filter };
+    if (Array.isArray(filter.types)) {
+      normalizedFilter.types = new Set(filter.types);
+    }
+    this._subscribers.set(id, { callback, filter: normalizedFilter });
+
+    // 维护索引
+    if (normalizedFilter.sessionPath) {
+      let set = this._sessionIndex.get(normalizedFilter.sessionPath);
+      if (!set) { set = new Set(); this._sessionIndex.set(normalizedFilter.sessionPath, set); }
+      set.add(id);
+    } else {
+      this._globalSubs.add(id);
+    }
+
+    return () => {
+      const entry = this._subscribers.get(id);
+      this._subscribers.delete(id);
+      if (entry?.filter.sessionPath) {
+        const set = this._sessionIndex.get(entry.filter.sessionPath);
+        if (set) { set.delete(id); if (set.size === 0) this._sessionIndex.delete(entry.filter.sessionPath); }
+      } else {
+        this._globalSubs.delete(id);
+      }
+    };
   }
 
   /**
-   * 发射事件
+   * 发射事件（索引化：只遍历相关订阅者）
    * @param {object} event        事件对象，需有 type 字段
    * @param {string|null} sessionPath  关联的 session 路径
    */
   emit(event, sessionPath) {
-    for (const [, { callback, filter }] of this._subscribers) {
-      if (filter.sessionPath && filter.sessionPath !== sessionPath) continue;
-      if (filter.types && !filter.types.includes(event.type)) continue;
-      try { callback(event, sessionPath); } catch (err) {
+    // 收集需要通知的订阅者 ID：广播订阅者 + 匹配 sessionPath 的订阅者
+    const ids = this._globalSubs;
+    const sessionIds = sessionPath ? this._sessionIndex.get(sessionPath) : null;
+
+    const notify = (id) => {
+      const entry = this._subscribers.get(id);
+      if (!entry) return;
+      if (entry.filter.types && !entry.filter.types.has(event.type)) return;
+      try { entry.callback(event, sessionPath); } catch (err) {
         console.error("[EventBus] subscriber error:", err.message);
       }
+    };
+
+    for (const id of ids) notify(id);
+    if (sessionIds) {
+      for (const id of sessionIds) notify(id);
     }
   }
 
@@ -64,6 +106,8 @@ export class EventBus {
   clear() {
     this._subscribers.clear();
     this._handlers.clear();
+    this._globalSubs.clear();
+    this._sessionIndex.clear();
   }
 
   static SKIP = Symbol("BUS_SKIP");

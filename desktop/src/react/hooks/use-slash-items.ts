@@ -18,7 +18,6 @@ interface SkillInfo {
 export function useSkillSlashItems(): SlashItem[] {
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const agentId = useStore(s => s.currentAgentId);
-  const currentSessionPath = useStore(s => s.currentSessionPath);
 
   useEffect(() => {
     if (!agentId) {
@@ -33,7 +32,8 @@ export function useSkillSlashItems(): SlashItem[] {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [agentId, currentSessionPath]);
+    // skills 是 per-agent 的，不随 session 切换变化
+  }, [agentId]);
 
   return useMemo(() =>
     skills

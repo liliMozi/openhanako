@@ -366,8 +366,26 @@ try {
     const bm = BrowserManager.instance();
     bm.setWsTransport(ws);
 
-    // 调试：记录浏览器 WS 消息往返
-    const _bwsLog = (line) => { try { fs.appendFileSync(path.join(hanakoHome, "browser-ws.log"), `${new Date().toISOString()} ${line}\n`); } catch {} };
+    // 调试：记录浏览器 WS 消息往返（异步写入 + 缓冲，仅 HANA_DEBUG=1 时启用）
+    const _bwsEnabled = process.env.HANA_DEBUG === "1";
+    let _bwsBuf = "";
+    let _bwsFlushTimer = null;
+    const _bwsLogPath = path.join(hanakoHome, "browser-ws.log");
+    let _bwsFlushChain = Promise.resolve();
+    const _bwsFlush = () => {
+      if (!_bwsBuf) return;
+      const chunk = _bwsBuf;
+      _bwsBuf = "";
+      _bwsFlushTimer = null;
+      _bwsFlushChain = _bwsFlushChain.then(() =>
+        fs.promises.appendFile(_bwsLogPath, chunk)
+      ).catch(() => {});
+    };
+    const _bwsLog = (line) => {
+      if (!_bwsEnabled) return;
+      _bwsBuf += `${new Date().toISOString()} ${line}\n`;
+      if (!_bwsFlushTimer) _bwsFlushTimer = setTimeout(_bwsFlush, 500);
+    };
     _bwsLog("browser WS connected");
     const origSend = ws.send.bind(ws);
     ws.send = function(data, ...args) {
@@ -478,7 +496,10 @@ async function gracefulShutdown() {
     bridgeManager.stopAll();
     dlog.log("server", "bridge stopped");
 
-    // 4. 清理 Hub + 引擎（停 ticker → 等 tick 完成 → 关 DB → 清理 session）
+    // 4. flush deferred result store（debounce 可能有未写盘的脏数据）
+    engine.deferredResults?.dispose?.();
+
+    // 5. 清理 Hub + 引擎（停 ticker → 等 tick 完成 → 关 DB → 清理 session）
     await hub.dispose();
     console.log("[server] Hub + Engine 已清理");
     dlog.log("server", "hub + engine disposed");

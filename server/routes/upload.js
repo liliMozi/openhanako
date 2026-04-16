@@ -10,7 +10,8 @@
  * 存储位置：{hanakoHome}/uploads/
  * 清理策略：24 小时过期自动删除。
  */
-import fs from "fs";
+import fsSync from "fs";
+import fs from "fs/promises";
 import path from "path";
 import { Hono } from "hono";
 import { safeJson } from "../hono-helpers.js";
@@ -19,14 +20,15 @@ import { isSensitivePath } from "../utils/path-security.js";
 
 const MAX_FILES = 9;
 
-/** 递归统计路径中的文件数量（文件夹递归计数内部文件，普通文件计 1） */
-function countFiles(p) {
+/** 递归统计路径中的文件数量（异步） */
+async function countFiles(p) {
   try {
-    const stat = fs.statSync(p);
+    const stat = await fs.stat(p);
     if (!stat.isDirectory()) return 1;
     let count = 0;
-    for (const entry of fs.readdirSync(p)) {
-      count += countFiles(path.join(p, entry));
+    const entries = await fs.readdir(p);
+    for (const entry of entries) {
+      count += await countFiles(path.join(p, entry));
     }
     return count;
   } catch {
@@ -34,17 +36,17 @@ function countFiles(p) {
   }
 }
 
-/** 清理超过 24 小时的上传临时文件 */
-function cleanOldUploads(uploadsDir) {
+/** 清理超过 24 小时的上传临时文件（异步，后台执行） */
+async function cleanOldUploads(uploadsDir) {
   try {
-    if (!fs.existsSync(uploadsDir)) return;
+    const entries = await fs.readdir(uploadsDir, { withFileTypes: true });
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    for (const entry of fs.readdirSync(uploadsDir, { withFileTypes: true })) {
+    for (const entry of entries) {
       const fullPath = path.join(uploadsDir, entry.name);
       try {
-        const stat = fs.statSync(fullPath);
+        const stat = await fs.stat(fullPath);
         if (stat.mtimeMs < cutoff) {
-          fs.rmSync(fullPath, { recursive: true, force: true });
+          await fs.rm(fullPath, { recursive: true, force: true });
         }
       } catch {}
     }
@@ -64,10 +66,10 @@ export function createUploadRoute(engine) {
     // 确定 uploads 目录
     const uploadsDir = path.join(engine.hanakoHome, "uploads");
 
-    fs.mkdirSync(uploadsDir, { recursive: true });
+    await fs.mkdir(uploadsDir, { recursive: true });
 
-    // 清理超过 24 小时的旧上传文件
-    cleanOldUploads(uploadsDir);
+    // 后台清理旧上传（不阻塞当前请求）
+    cleanOldUploads(uploadsDir).catch(() => {});
 
     const results = [];
     let totalFiles = 0;
@@ -87,7 +89,10 @@ export function createUploadRoute(engine) {
           results.push({ src: srcPath, error: "Path must be absolute" });
           continue;
         }
-        if (!fs.existsSync(srcPath)) {
+        let stat;
+        try {
+          stat = await fs.stat(srcPath);
+        } catch {
           results.push({ src: srcPath, error: t("error.pathNotFound") });
           continue;
         }
@@ -97,7 +102,7 @@ export function createUploadRoute(engine) {
         }
 
         // 安全检查通过后再统计文件数
-        const pathFileCount = countFiles(srcPath);
+        const pathFileCount = await countFiles(srcPath);
         totalFiles += pathFileCount;
         if (totalFiles > MAX_FILES) {
           results.push({
@@ -107,7 +112,6 @@ export function createUploadRoute(engine) {
           continue;
         }
 
-        const stat = fs.statSync(srcPath);
         const name = path.basename(srcPath);
         const timestamp = Date.now().toString(36);
         const isDir = stat.isDirectory();
@@ -119,10 +123,9 @@ export function createUploadRoute(engine) {
         const destPath = path.join(uploadsDir, destName);
 
         if (isDir) {
-          // 递归复制整个目录
-          fs.cpSync(srcPath, destPath, { recursive: true });
+          await fs.cp(srcPath, destPath, { recursive: true });
         } else {
-          fs.copyFileSync(srcPath, destPath);
+          await fs.copyFile(srcPath, destPath);
         }
 
         results.push({

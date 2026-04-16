@@ -11,7 +11,7 @@
 const { app, BrowserWindow, WebContentsView, globalShortcut, ipcMain, dialog, session, shell, nativeTheme, Tray, Menu, nativeImage, systemPreferences, Notification } = require("electron");
 const os = require("os");
 const path = require("path");
-const { spawn, execFileSync } = require("child_process");
+const { spawn, execFile } = require("child_process");
 const fs = require("fs");
 const { pathToFileURL } = require("url");
 const { initAutoUpdater, checkForUpdatesAuto, setMainWindow: setUpdaterMainWindow, setUpdateChannel, getState: getUpdateState } = require("./auto-updater.cjs");
@@ -19,15 +19,19 @@ const { wrapIpcHandler, wrapIpcOn } = require('./ipc-wrapper.cjs');
 
 // macOS/Linux: Electron 从 Dock/Finder 启动时 PATH 只有系统默认值，
 // Homebrew、npm global 等路径全部丢失。用登录 shell 解析完整 PATH。
-if (process.platform !== "win32") {
-  try {
+// 异步执行，避免阻塞 Electron 事件循环启动（login shell 可能需要 1~3 秒）。
+function resolveLoginShellPath() {
+  if (process.platform === "win32") return Promise.resolve();
+  return new Promise((resolve) => {
     const loginShell = process.env.SHELL || "/bin/zsh";
-    const resolved = execFileSync(loginShell, ["-l", "-c", "printenv PATH"], {
-      timeout: 5000,
-      encoding: "utf8",
-    }).trim();
-    if (resolved) process.env.PATH = resolved;
-  } catch {}
+    execFile(loginShell, ["-l", "-c", "printenv PATH"], { timeout: 5000, encoding: "utf8" }, (err, stdout) => {
+      if (!err && stdout) {
+        const resolved = stdout.trim();
+        if (resolved) process.env.PATH = resolved;
+      }
+      resolve(); // 失败时静默，保持默认 PATH
+    });
+  });
 }
 
 function safeReadJSON(filePath, fallback = null) {
@@ -295,14 +299,15 @@ function pollServerInfo(infoPath, { timeout = 60000, interval = 200, process: pr
       });
     }
 
-    const check = () => {
+    const check = async () => {
       if (exited) return;
       if (Date.now() > deadline) {
         reject(new Error(mt("dialog.serverStartTimeout", null, "Server start timed out (60s)")));
         return;
       }
       try {
-        const info = JSON.parse(fs.readFileSync(infoPath, "utf-8"));
+        const raw = await fs.promises.readFile(infoPath, "utf-8");
+        const info = JSON.parse(raw);
         // 确认 PID 存活
         try { process.kill(info.pid, 0); } catch { setTimeout(check, interval); return; }
         resolve(info);
@@ -658,6 +663,7 @@ function loadWindowState() {
 }
 
 let _saveWindowStateTimer = null;
+let _saveWindowStateChain = Promise.resolve();
 function saveWindowState() {
   if (_saveWindowStateTimer) clearTimeout(_saveWindowStateTimer);
   _saveWindowStateTimer = setTimeout(() => {
@@ -666,11 +672,12 @@ function saveWindowState() {
     const isMaximized = mainWindow.isMaximized();
     const bounds = isMaximized ? mainWindow.getNormalBounds() : mainWindow.getBounds();
     const state = { ...bounds, isMaximized };
-    try {
-      fs.writeFileSync(windowStatePath, JSON.stringify(state, null, 2) + "\n");
-    } catch (e) {
+    // chain 串行化：保证后触发的写入一定排在前一次之后完成，不会乱序覆盖
+    _saveWindowStateChain = _saveWindowStateChain.then(() =>
+      fs.promises.writeFile(windowStatePath, JSON.stringify(state, null, 2) + "\n")
+    ).catch(e => {
       console.error("[desktop] 保存窗口状态失败:", e.message);
-    }
+    });
   }, 500);
 }
 
@@ -1705,13 +1712,38 @@ function getScreenshotResourcePath(...segments) {
   return path.join(__dirname, "src", "screenshot-themes", ...segments);
 }
 
-function buildScreenshotHTML(payload) {
+// 惰性单例：MarkdownIt + KaTeX 实例和 katexCSS 只初始化一次
+let _screenshotMd = null;
+let _screenshotKatexCSS = null;
+
+function _getScreenshotMd() {
+  if (_screenshotMd) return _screenshotMd;
   const MarkdownIt = require("markdown-it");
-  const md = new MarkdownIt({ html: true, breaks: true, linkify: true, typographer: true });
+  _screenshotMd = new MarkdownIt({ html: true, breaks: true, linkify: true, typographer: true });
   try {
     const mk = require("@traptitech/markdown-it-katex");
-    md.use(mk);
+    _screenshotMd.use(mk);
   } catch { /* katex not available */ }
+  return _screenshotMd;
+}
+
+function _getKatexCSS() {
+  if (_screenshotKatexCSS !== null) return _screenshotKatexCSS;
+  _screenshotKatexCSS = "";
+  try {
+    const candidates = [
+      require.resolve("katex/dist/katex.min.css"),
+      path.join(__dirname, "node_modules", "katex", "dist", "katex.min.css"),
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) { _screenshotKatexCSS = fs.readFileSync(p, "utf-8"); break; }
+    }
+  } catch { /* no katex */ }
+  return _screenshotKatexCSS;
+}
+
+function buildScreenshotHTML(payload) {
+  const md = _getScreenshotMd();
 
   const themeName = payload.theme;
   const themeConf = SCREENSHOT_THEMES[themeName];
@@ -1720,16 +1752,7 @@ function buildScreenshotHTML(payload) {
   const themeCssPath = getScreenshotResourcePath(`${themeName}.css`);
   const themeCSS = fs.readFileSync(themeCssPath, "utf-8");
 
-  let katexCSS = "";
-  try {
-    const candidates = [
-      require.resolve("katex/dist/katex.min.css"),
-      path.join(__dirname, "node_modules", "katex", "dist", "katex.min.css"),
-    ];
-    for (const p of candidates) {
-      if (fs.existsSync(p)) { katexCSS = fs.readFileSync(p, "utf-8"); break; }
-    }
-  } catch { /* no katex */ }
+  const katexCSS = _getKatexCSS();
 
   let extraCSS = "";
   if (themeName.startsWith("sakura-")) {
@@ -2554,11 +2577,12 @@ wrapIpcHandler("app-ready", () => {
 // ── App 生命周期 ──
 app.whenReady().then(async () => {
   try {
-    // 1. 立刻显示启动窗口
+    // 1. 立刻显示启动窗口，同时异步获取 login shell PATH
     createSplashWindow();
     const splashShownAt = Date.now();
+    await resolveLoginShellPath();
 
-    // 2. 后台启动 server
+    // 2. 后台启动 server（PATH 已就绪）
     console.log("[desktop] 启动 Hanako Server...");
     await startServer();
     console.log(`[desktop] Server 就绪，端口: ${serverPort}`);
