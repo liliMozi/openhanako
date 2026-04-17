@@ -690,10 +690,10 @@ export class Agent {
           : "The following is the user's self-description, manually maintained by the user.\n\n" + userMd
       ),
     ];
-    const platformPrompt = getPlatformPromptNote({ platform: process.platform, isZh });
+    const platformPrompt = getPlatformPromptNote({ platform: process.platform });
     if (platformPrompt) {
       parts.push(...section(
-        isZh ? "# 平台执行规则" : "# Platform Execution Rules",
+        isZh ? "# 执行环境" : "# Environment",
         platformPrompt
       ));
     }

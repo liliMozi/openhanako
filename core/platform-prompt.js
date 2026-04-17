@@ -1,17 +1,20 @@
-export function getPlatformPromptNote({ platform = process.platform, isZh }) {
-  if (platform !== "win32") return "";
+import os from "node:os";
 
-  return isZh
-    ? [
-        "你当前运行在 Windows 上。",
-        "当用户明确要求使用 cmd 或 PowerShell 时，必须尊重，不要擅自更换 shell。",
-        "像 ipconfig、dir、netsh、reg、sc 这类 Windows 原生命令，应按 Windows 语义理解。",
-        "对于 /all、/renew6 这类 /参数，先依据真实执行结果判断，不要臆断参数不存在。",
-      ].join("\n")
-    : [
-        "You are currently running on Windows.",
-        "If the user explicitly asks for cmd or PowerShell, respect that shell choice.",
-        "Treat commands like ipconfig, dir, netsh, reg, and sc as native Windows commands.",
-        "Do not assume switches like /all or /renew6 are invalid without checking the real execution result.",
-      ].join("\n");
+// Hana 在三平台执行 AI 命令时，真实使用的 shell 固定为 bash：
+//   darwin：seatbelt 沙盒脚本 shebang 是 #!/bin/bash
+//   linux：bwrap 直接调用 /bin/bash
+//   win32：win32-exec 只接受 Git Bash / MSYS2 / Bundled MinGit 的 bash.exe
+// 因此 system prompt 里声明的 shell 固定为 bash，与用户登录 shell ($SHELL) 无关。
+const HANA_EXEC_SHELL = "bash";
+
+export function getPlatformPromptNote({
+  platform = process.platform,
+  osType = os.type(),
+  osRelease = os.release(),
+} = {}) {
+  return [
+    `Platform: ${platform}`,
+    `Shell: ${HANA_EXEC_SHELL}`,
+    `OS Version: ${osType} ${osRelease}`,
+  ].join("\n");
 }
