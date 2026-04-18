@@ -59,7 +59,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
     setAvatarFailed(false);
   }, [avatarSrc, fallbackAvatar]);
 
-  const blocks = message.blocks || [];
+  const blocks = useMemo(() => message.blocks || [], [message.blocks]);
 
   const [copied, setCopied] = useState(false);
   const handleCopy = useCallback(() => {
@@ -169,7 +169,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
 
 // ── ContentBlock 分发 ──
 
-const ContentBlockView = memo(function ContentBlockView({ block, agentName, yuan, sessionPath, messageId, blockIdx }: {
+const ContentBlockView = memo(function ContentBlockView({ block, agentName, yuan: _yuan, sessionPath, messageId, blockIdx }: {
   block: ContentBlock;
   agentName: string;
   yuan: string;

@@ -16,14 +16,17 @@ export function MediaViewer() {
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
   const [zoomCmd, setZoomCmd] = useState({ in: 0, out: 0, reset: 0 });
 
+  // 只关心 open/close 切换，不关心 state 内容变化，提成布尔以满足 exhaustive-deps
+  const isOpen = !!state;
+
   // 尺寸追踪
   useEffect(() => {
-    if (!state) return;
+    if (!isOpen) return;
     const update = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
-  }, [!!state]);
+  }, [isOpen]);
 
   // 控件淡出
   const kickIdleTimer = useCallback(() => {
@@ -33,7 +36,7 @@ export function MediaViewer() {
   }, []);
 
   useEffect(() => {
-    if (!state) return;
+    if (!isOpen) return;
     kickIdleTimer();
     const onMove = () => kickIdleTimer();
     window.addEventListener('mousemove', onMove);
@@ -41,7 +44,7 @@ export function MediaViewer() {
       window.removeEventListener('mousemove', onMove);
       if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
     };
-  }, [!!state, kickIdleTimer]);
+  }, [isOpen, kickIdleTimer]);
 
   // 切换逻辑
   const currentIndex = useMemo(() => {

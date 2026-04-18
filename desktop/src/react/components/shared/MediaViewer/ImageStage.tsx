@@ -29,6 +29,8 @@ export function ImageStage({ file, viewport, neighbors, zoomCmd, onReady, onErro
       .then((s) => { if (!cancelled) setSrc(s.url); })
       .catch((err) => { if (!cancelled) onError?.(err); });
     return () => { cancelled = true; };
+    // 依赖 id 而非 file/onError：file 是引用类型每次新建；onError 仅在错误时被调用
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   // 邻近预加载（触发浏览器缓存）
@@ -44,6 +46,8 @@ export function ImageStage({ file, viewport, neighbors, zoomCmd, onReady, onErro
     };
     preload(neighbors?.prev);
     preload(neighbors?.next);
+    // 依赖 id 而非对象：邻居切换时才需要重新预加载
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [neighbors?.prev?.id, neighbors?.next?.id]);
 
   const transformApi = useMediaTransform({

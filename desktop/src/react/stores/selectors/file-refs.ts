@@ -1,13 +1,13 @@
 import type { FileRef } from '../../types/file-ref';
 import type { DeskFile } from '../../types';
-import type { ChatListItem } from '../chat-types';
+import type { ChatListItem, ContentBlock } from '../chat-types';
 import { inferKindByExt, buildFileRefId } from '../../utils/file-kind';
 
 type StateShape = {
   deskFiles: DeskFile[];
   deskBasePath: string;
   deskCurrentPath: string;
-  chatSessions?: Record<string, any>;
+  chatSessions?: Record<string, unknown>;
 };
 
 function joinPath(base: string, sub: string, name: string): string {
@@ -102,7 +102,7 @@ export function selectSessionFiles(state: SessionStateShape, sessionPath: string
     // blocks 在后
     if (msg.blocks) {
       for (let i = 0; i < msg.blocks.length; i++) {
-        const b: any = msg.blocks[i];
+        const b: ContentBlock = msg.blocks[i];
         if (b.type === 'file') {
           result.push({
             id: buildFileRefId({

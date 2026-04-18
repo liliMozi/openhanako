@@ -39,7 +39,6 @@ export function PreviewPanel() {
   const activeTabId = useStore(selectActiveTabId);
   const artifacts = useStore(selectArtifacts);
   const owner = useStore(getPreviewOwner);
-  const editorDetached = useStore(s => s.editorDetached);
   const setPreviewOpen = useStore(s => s.setPreviewOpen);
   const setEditorDetached = useStore(s => s.setEditorDetached);
 

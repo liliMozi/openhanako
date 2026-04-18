@@ -152,7 +152,6 @@ export function ArtifactRenderer({ artifact, owner }: ArtifactRendererProps) {
     case 'image':
     case 'svg': {
       if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console
         console.warn('[ArtifactRenderer] 旧类型 image/svg artifact，走 fallback，请通过文件重新打开以使用新 MediaViewer');
       }
       const onOpen = () => {

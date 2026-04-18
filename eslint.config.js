@@ -22,6 +22,16 @@ export default [
     },
   },
 
+  // Shared CJS-style JS (loaded via require from preload.cjs; runs in preload context)
+  {
+    files: ['desktop/src/shared/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+
   // Server-side JS files
   {
     files: ['server/**/*.js'],

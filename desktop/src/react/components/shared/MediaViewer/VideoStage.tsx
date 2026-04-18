@@ -21,6 +21,8 @@ export function VideoStage({ file, viewport, onReady, onError }: Props) {
       .then((s) => { if (!cancelled) setSrc(s.url); })
       .catch((err) => { if (!cancelled) onError?.(err); });
     return () => { cancelled = true; };
+    // 依赖 id 而非 file/onError：file 是引用类型每次新建；onError 仅在错误时被调用
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   return (

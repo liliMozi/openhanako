@@ -62,7 +62,10 @@ export function useMediaTransform(opts: {
   range?: ScaleRange;
 }) {
   const fitScale = useMemo(() => computeFitScale(opts.natural, opts.viewport), [opts.natural, opts.viewport]);
-  const range: ScaleRange = opts.range ?? { min: fitScale, max: Math.max(fitScale * 8, 1) };
+  const range = useMemo<ScaleRange>(
+    () => opts.range ?? { min: fitScale, max: Math.max(fitScale * 8, 1) },
+    [opts.range, fitScale],
+  );
 
   const [transform, setTransform] = useState<Transform>({ scale: fitScale, offsetX: 0, offsetY: 0 });
 
@@ -79,7 +82,7 @@ export function useMediaTransform(opts: {
     const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
     setTransform((t) => zoomAtPoint(t, point, factor, range));
-  }, [range.min, range.max]);
+  }, [range]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
     if (transform.scale <= fitScale) return; // 只有放大后才允许拖动
@@ -119,11 +122,11 @@ export function useMediaTransform(opts: {
 
   const zoomIn = useCallback(
     () => setTransform((t) => zoomAtPoint(t, { x: opts.viewport.w / 2, y: opts.viewport.h / 2 }, 1.2, range)),
-    [opts.viewport.w, opts.viewport.h, range.min, range.max],
+    [opts.viewport.w, opts.viewport.h, range],
   );
   const zoomOut = useCallback(
     () => setTransform((t) => zoomAtPoint(t, { x: opts.viewport.w / 2, y: opts.viewport.h / 2 }, 1 / 1.2, range)),
-    [opts.viewport.w, opts.viewport.h, range.min, range.max],
+    [opts.viewport.w, opts.viewport.h, range],
   );
 
   return {
