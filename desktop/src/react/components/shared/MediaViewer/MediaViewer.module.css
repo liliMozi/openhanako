@@ -33,3 +33,15 @@
   margin: -12px 0 0 -12px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.videoWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.videoEl {
+  max-width: 90%;
+  max-height: 90%;
+  background: #000;
+}
