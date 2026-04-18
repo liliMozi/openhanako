@@ -5,13 +5,14 @@ import { useSettingsStore } from './store';
 import { hanaFetch } from './api';
 import knownModels from '../../../../lib/known-models.json';
 
-const platform = (window as any).platform;
+const platform = window.platform;
 
 export function t(key: string, params?: Record<string, any>): any {
-  return (window as any).t?.(key, params) ?? key;
+  return window.t?.(key, params) ?? key;
 }
 
 export function escapeHtml(str: string): string {
+  // eslint-disable-next-line no-restricted-syntax -- escapeHtml utility, not React rendering
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
@@ -33,7 +34,7 @@ export function resolveProviderForModel(modelId: string): string | null {
   if (!modelId || !config) return null;
   const providers = config.providers || {};
   for (const [name, p] of Object.entries(providers) as [string, any][]) {
-    if ((p.models || []).includes(modelId)) return name;
+    if ((p.models || []).some((m: any) => (typeof m === 'object' ? m.id : m) === modelId)) return name;
   }
   return null;
 }
@@ -41,30 +42,42 @@ export function resolveProviderForModel(modelId: string): string | null {
 function lookupReferenceModelMeta(modelId: string): any {
   if (!modelId) return null;
   const dict = knownModels as Record<string, any>;
+  const bare = modelId.includes('/') ? modelId.split('/').pop()! : null;
 
-  if (dict[modelId]) {
-    return { ...dict[modelId], _source: 'reference' };
+  // 二级查找：遍历所有 provider，精确匹配 modelId 或 bare name
+  for (const [key, val] of Object.entries(dict)) {
+    if (key === '_comment' || typeof val !== 'object' || val === null) continue;
+    if (val[modelId]) return { ...val[modelId], _source: 'reference' };
+    if (bare && val[bare]) return { ...val[bare], _source: 'reference' };
   }
 
-  const lowerId = modelId.toLowerCase();
-  const candidates = Object.entries(dict)
-    .filter(([key]) => key !== '_comment' && lowerId.startsWith(key.toLowerCase()))
-    .sort((a, b) => b[0].length - a[0].length);
-
-  if (candidates.length === 0) return null;
-  return { ...candidates[0][1], _source: 'reference' };
+  return null;
 }
 
 export function lookupModelMeta(modelId: string): any {
-  const { settingsConfig } = useSettingsStore.getState();
   if (!modelId) return null;
   const reference = lookupReferenceModelMeta(modelId);
-  const override = settingsConfig?.models?.overrides?.[modelId];
-  if (!reference && !override) return null;
+
+  // 从 provider summaries 提取用户在 added-models.yaml 中设置的模型元数据
+  const { providersSummary, settingsConfig } = useSettingsStore.getState();
+  let userEntry: Record<string, any> | null = null;
+  if (providersSummary) {
+    for (const summary of Object.values(providersSummary)) {
+      const found = (summary.models || []).find(
+        (m: any) => typeof m === 'object' && m?.id === modelId,
+      );
+      if (found) { userEntry = found as unknown as Record<string, any>; break; }
+    }
+  }
+
+  // 兼容旧数据：仍然读 config.models.overrides 的 displayName
+  const legacyOverride = settingsConfig?.models?.overrides?.[modelId];
+
+  if (!reference && !userEntry && !legacyOverride) return null;
   return {
     ...(reference || {}),
-    ...(override || {}),
-    _source: override ? 'override' : reference?._source || null,
+    ...(userEntry || {}),
+    ...(legacyOverride?.displayName ? { displayName: legacyOverride.displayName } : {}),
   };
 }
 
@@ -121,25 +134,6 @@ export async function autoSaveGlobalModels(
   }
 }
 
-let _saveFavTimer: ReturnType<typeof setTimeout> | null = null;
-export function autoSaveModels() {
-  if (_saveFavTimer) clearTimeout(_saveFavTimer);
-  _saveFavTimer = setTimeout(async () => {
-    const store = useSettingsStore.getState();
-    try {
-      await hanaFetch('/api/favorites', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ favorites: [...store.pendingFavorites] }),
-      });
-      store.showToast(t('settings.autoSaved'), 'success');
-      platform?.settingsChanged?.('models-changed');
-    } catch (err: any) {
-      store.showToast(t('settings.saveFailed') + ': ' + err.message, 'error');
-    }
-  }, 300);
-}
-
 let _savePinsTimer: ReturnType<typeof setTimeout> | null = null;
 export function savePins() {
   if (_savePinsTimer) clearTimeout(_savePinsTimer);
@@ -166,20 +160,23 @@ export const PROVIDER_PRESETS = [
   { value: 'dashscope', label: 'DashScope (Qwen)', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', api: 'openai-completions' },
   { value: 'openai', label: 'OpenAI', url: 'https://api.openai.com/v1', api: 'openai-completions' },
   { value: 'deepseek', label: 'DeepSeek', url: 'https://api.deepseek.com/v1', api: 'openai-completions' },
-  { value: 'volcengine', label: 'Volcengine (豆包)', url: 'https://ark.cn-beijing.volces.com/api/v3', api: 'openai-completions' },
+  { value: 'volcengine', label: (window.i18n?.locale?.startsWith?.('zh') ? 'Volcengine (豆包)' : 'Volcengine (Doubao)'), url: 'https://ark.cn-beijing.volces.com/api/v3', api: 'openai-completions' },
   { value: 'moonshot', label: 'Moonshot (Kimi)', url: 'https://api.moonshot.cn/v1', api: 'openai-completions' },
+  { value: 'kimi-coding', label: 'Kimi Coding Plan', url: 'https://api.kimi.com/coding/', api: 'anthropic-messages' },
   { value: 'zhipu', label: 'Zhipu (GLM)', url: 'https://open.bigmodel.cn/api/paas/v4', api: 'openai-completions' },
   { value: 'siliconflow', label: 'SiliconFlow', url: 'https://api.siliconflow.cn/v1', api: 'openai-completions' },
   { value: 'groq', label: 'Groq', url: 'https://api.groq.com/openai/v1', api: 'openai-completions' },
   { value: 'mistral', label: 'Mistral', url: 'https://api.mistral.ai/v1', api: 'openai-completions' },
   { value: 'minimax', label: 'MiniMax', url: 'https://api.minimaxi.com/anthropic', api: 'anthropic-messages' },
   { value: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/api/v1', api: 'openai-completions' },
+  { value: 'mimo', label: 'Xiaomi (MiMo)', url: 'https://api.xiaomimimo.com/v1', api: 'openai-completions' },
 ];
 
 export const API_FORMAT_OPTIONS = [
   { value: 'openai-completions', label: 'OpenAI Compatible' },
   { value: 'anthropic-messages', label: 'Anthropic Messages' },
-  { value: 'openai-codex-responses', label: 'OpenAI Codex Responses' },
+  { value: 'openai-responses', label: 'OpenAI Responses' },
+  { value: 'openai-codex-responses', label: 'ChatGPT Codex (Plus/Pro)' },
 ];
 
 export const CONTEXT_PRESETS = [

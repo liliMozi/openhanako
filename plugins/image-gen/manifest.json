@@ -1,0 +1,26 @@
+{
+  "id": "image-gen",
+  "name": "Image Generation",
+  "version": "0.1.0",
+  "description": "图片生成：火山引擎 Seedream、OpenAI GPT Image",
+  "trust": "full-access",
+  "hidden": true,
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "defaultImageModel": {
+          "type": "object",
+          "title": "默认图片模型",
+          "properties": {
+            "id": { "type": "string" },
+            "provider": { "type": "string" }
+          }
+        },
+        "providerDefaults": {
+          "type": "object",
+          "title": "per-provider 默认参数"
+        }
+      }
+    }
+  }
+}

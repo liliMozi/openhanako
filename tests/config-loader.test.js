@@ -13,8 +13,6 @@ import {
   loadConfig,
   saveConfig,
   clearConfigCache,
-  resolveModelApi,
-  getAllProviders,
 } from "../lib/memory/config-loader.js";
 
 const tmpDir = path.join(os.tmpdir(), "hana-test-config-" + Date.now());
@@ -79,9 +77,9 @@ describe("loadConfig", () => {
     expect(cfg.api.provider).toBe("");
   });
 
-  it("从 providers.yaml 解析 API 协议", () => {
+  it("只返回 config.yaml 原始值，不从 added-models.yaml 解析", () => {
     fs.writeFileSync(
-      path.join(hanakoHome, "providers.yaml"),
+      path.join(hanakoHome, "added-models.yaml"),
       YAML.dump({
         providers: {
           openai: {
@@ -95,78 +93,12 @@ describe("loadConfig", () => {
     );
     writeYaml({ api: { provider: "openai" } });
     const cfg = loadConfig(configPath);
-    expect(cfg.api.api).toBe("openai-completions");
+    // config-loader 不再从 added-models.yaml 补全，只返回 config.yaml 中的原始值
+    expect(cfg.api.api).toBe("");
+    expect(cfg.api.api_key).toBe("");
+    expect(cfg.api.provider).toBe("openai");
   });
 
-  it("resolveModelApi 从 models.json 找 provider，从 auth.json 补 api_key", () => {
-    fs.writeFileSync(
-      path.join(hanakoHome, "providers.yaml"),
-      YAML.dump({
-        providers: {
-          "openai-codex": {
-            base_url: "https://chatgpt.com/backend-api",
-            api: "openai-codex-responses",
-          },
-        },
-      }),
-      "utf-8",
-    );
-    fs.writeFileSync(
-      path.join(hanakoHome, "models.json"),
-      JSON.stringify({
-        providers: {
-          "openai-codex": {
-            models: [{ id: "gpt-5.4" }],
-          },
-        },
-      }, null, 2),
-      "utf-8",
-    );
-    fs.writeFileSync(
-      path.join(hanakoHome, "auth.json"),
-      JSON.stringify({
-        "openai-codex": { access: "oauth-token" },
-      }, null, 2),
-      "utf-8",
-    );
-    writeYaml({ api: { provider: "openai-codex" } });
-
-    const result = resolveModelApi("gpt-5.4", configPath);
-    expect(result.provider).toBe("openai-codex");
-    expect(result.api).toBe("openai-codex-responses");
-    expect(result.api_key).toBe("oauth-token");
-  });
-
-  it("getAllProviders 会合并 models.json 中的模型列表", () => {
-    fs.writeFileSync(
-      path.join(hanakoHome, "providers.yaml"),
-      YAML.dump({
-        providers: {
-          dashscope: {
-            base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            api_key: "sk-test",
-            api: "openai-completions",
-          },
-        },
-      }),
-      "utf-8",
-    );
-    fs.writeFileSync(
-      path.join(hanakoHome, "models.json"),
-      JSON.stringify({
-        providers: {
-          dashscope: {
-            models: [{ id: "qwen-plus" }, { id: "qwen-max" }],
-          },
-        },
-      }, null, 2),
-      "utf-8",
-    );
-    writeYaml({ api: { provider: "dashscope" } });
-
-    const providers = getAllProviders(configPath);
-    expect(providers.dashscope.models).toEqual(["qwen-plus", "qwen-max"]);
-  });
 });
 
 describe("saveConfig", () => {

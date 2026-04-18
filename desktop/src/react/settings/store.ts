@@ -9,6 +9,7 @@ export interface Agent {
   name: string;
   yuan: string;
   isPrimary: boolean;
+  hasAvatar?: boolean;
 }
 
 export interface SkillInfo {
@@ -19,6 +20,24 @@ export interface SkillInfo {
   baseDir?: string;
   filePath?: string;
   source?: string;
+  externalLabel?: string | null;
+  externalPath?: string | null;
+  readonly?: boolean;
+}
+
+export interface ProviderSummary {
+  type: 'api-key' | 'oauth';
+  display_name: string;
+  base_url: string;
+  api: string;
+  api_key: string;
+  models: (string | { id: string; [key: string]: any })[];
+  custom_models: string[];
+  has_credentials: boolean;
+  logged_in?: boolean;
+  supports_oauth: boolean;
+  is_coding_plan?: boolean;
+  can_delete: boolean;
 }
 
 export interface SettingsState {
@@ -45,15 +64,16 @@ export interface SettingsState {
   activeTab: string;
   ready: boolean;
 
-  // models
-  pendingFavorites: Set<string>;
-  pendingDefaultModel: string;
-
   // pins
   currentPins: string[];
 
-  // skills
-  skillsList: SkillInfo[];
+  // providers (unified)
+  providersSummary: Record<string, ProviderSummary>;
+  selectedProviderId: string | null;
+
+  // plugins
+  pluginAllowFullAccess: boolean;
+  pluginUserDir: string;
 
   // toast
   toastMessage: string;
@@ -95,15 +115,16 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   activeTab: 'agent',
   ready: false,
 
-  // models
-  pendingFavorites: new Set<string>(),
-  pendingDefaultModel: '',
-
   // pins
   currentPins: [],
 
-  // skills
-  skillsList: [],
+  // providers (unified)
+  providersSummary: {},
+  selectedProviderId: null,
+
+  // plugins
+  pluginAllowFullAccess: false,
+  pluginUserDir: '',
 
   // toast
   toastMessage: '',
@@ -123,6 +144,6 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
     set({ toastMessage: message, toastType: type, toastVisible: true });
     _toastTimer = setTimeout(() => {
       set({ toastVisible: false });
-    }, 2500);
+    }, 1500);
   },
 }));

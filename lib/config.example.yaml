@@ -11,7 +11,7 @@ user:
   name: ""                               # 你的名字
 
 # API 配置（主通道）
-# 凭证从全局 ~/.hanako/providers.yaml 或当前 agent 的 providers 块读取
+# 凭证从全局 ~/.hanako/added-models.yaml 或当前 agent 的 providers 块读取
 api:
   provider: ""                     # dashscope / volcengine / openai / ...
 
@@ -55,22 +55,8 @@ search:
 
 # Skills（per-agent 技能开关）
 skills:
-  enabled: []                        # 启用的 skill 名称，如 ["pdf", "literary-craft"]
+  enabled: ["skill-creator"]         # 启用的 skill 名称，如 ["pdf", "literary-craft"]
 
 # 频道系统（agent 间协作通信）
 channels:
   enabled: false                     # 是否参与频道轮转
-
-# 语言偏好
-locale: zh-CN
-
-# 时区（用于记忆时间标记）
-timezone: ""                       # 时区，如 Asia/Shanghai、America/New_York
-
-
-# Agent 能力（高级功能，默认关闭）
-capabilities:
-  learn_skills:
-    enabled: false            # 允许 agent 自行编写/安装技能（本地）
-    allow_github_fetch: false # 允许从 GitHub 拉取外部技能（高风险，需谨慎）
-    min_stars: 100            # GitHub 仓库 star 数门槛，低于此值拒绝安装（默认 100）

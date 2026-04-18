@@ -1,21 +1,17 @@
 /**
  * ConfigCoordinator — 运行时配置管理
  *
- * 从 Engine 提取，负责模型/搜索/utility 配置读写、
- * updateConfig 联动、Plan Mode、记忆开关、Provider 迁移。
+ * 负责 per-agent 模型选择、共享模型角色、搜索/utility 配置、
+ * session meta 持久化、updateConfig 联动。
  * 不持有 engine 引用，通过构造器注入依赖。
  */
 import fs from "fs";
 import path from "path";
 import os from "os";
-import YAML from "js-yaml";
 import { createModuleLogger } from "../lib/debug-log.js";
-import {
-  clearConfigCache,
-  loadGlobalProviders,
-  loadModelsRegistry,
-  resolveApiKeyFromAuth,
-} from "../lib/memory/config-loader.js";
+import { saveConfig } from "../lib/memory/config-loader.js";
+import { findModel } from "../shared/model-ref.js";
+import { t } from "../server/i18n.js";
 
 const log = createModuleLogger("config");
 
@@ -36,11 +32,14 @@ export class ConfigCoordinator {
    * @param {string} deps.hanakoHome
    * @param {string} deps.agentsDir
    * @param {() => object} deps.getAgent - 当前焦点 agent
+   * @param {(id: string) => object|null} deps.getAgentById - 按 ID 查找 agent
+   * @param {() => string} deps.getActiveAgentId - 当前焦点 agent ID
    * @param {() => Map} deps.getAgents - 所有 agent Map
    * @param {() => import('./model-manager.js').ModelManager} deps.getModels
    * @param {() => import('./preferences-manager.js').PreferencesManager} deps.getPrefs
    * @param {() => import('./skill-manager.js').SkillManager} deps.getSkills
    * @param {() => object|null} deps.getSession - 当前 session
+   * @param {() => import('./session-coordinator.js').SessionCoordinator|null} deps.getSessionCoordinator
    * @param {() => object|null} deps.getHub
    * @param {(event, sp) => void} deps.emitEvent
    * @param {(text, level?) => void} deps.emitDevLog
@@ -48,29 +47,51 @@ export class ConfigCoordinator {
    */
   constructor(deps) {
     this._d = deps;
-    this._planMode = false;
   }
-
-  get planMode() { return this._planMode; }
 
   // ── Home Folder ──
 
-  getHomeFolder() {
-    const configured = this._prefs().home_folder;
-    if (configured && fs.existsSync(configured)) return configured;
-    // 配置的文件夹已被删除 → fallback 到桌面
+  /**
+   * @param {string} [agentId] - 指定 agent；省略时查主 agent
+   * @returns {string} 工作目录（保证返回有效路径）
+   */
+  getHomeFolder(agentId) {
+    // 1. 指定 agent 自己的 config
+    if (agentId) {
+      const agent = this._d.getAgentById(agentId);
+      const folder = agent?.config?.desk?.home_folder;
+      if (folder && fs.existsSync(folder)) return folder;
+    }
+
+    // 2. 主 agent 的 config
+    const primaryId = this._getPrimaryAgentId();
+    if (primaryId && primaryId !== agentId) {
+      const primary = this._d.getAgentById(primaryId);
+      const folder = primary?.config?.desk?.home_folder;
+      if (folder && fs.existsSync(folder)) return folder;
+    }
+
+    // 3. 硬编码 fallback
     return path.join(os.homedir(), "Desktop");
   }
 
-  setHomeFolder(folder) {
-    const prefs = this._prefs();
-    if (folder) {
-      prefs.home_folder = folder;
-    } else {
-      delete prefs.home_folder;
+  /**
+   * @param {string} agentId
+   * @param {string|null} folder
+   */
+  setHomeFolder(agentId, folder) {
+    const agent = this._d.getAgentById(agentId);
+    if (!agent) {
+      log.warn(`setHomeFolder: agent ${agentId} not found`);
+      return;
     }
-    this._savePrefs(prefs);
-    log.log(`setHomeFolder: ${folder || "(cleared)"}`);
+    if (folder) {
+      agent.updateConfig({ desk: { home_folder: folder } });
+    } else {
+      // null 值触发 deepMerge 的 key 删除逻辑
+      agent.updateConfig({ desk: { home_folder: null } });
+    }
+    log.log(`setHomeFolder(${agentId}): ${folder || "(cleared)"}`);
   }
 
   // ── Shared Models ──
@@ -79,7 +100,14 @@ export class ConfigCoordinator {
     const prefs = this._prefs();
     const result = {};
     for (const [field, prefKey] of SHARED_MODEL_KEYS) {
-      result[field] = prefs[prefKey] || null;
+      const raw = prefs[prefKey];
+      if (typeof raw === "object" && raw?.id) {
+        result[field] = raw;  // new format {id, provider}
+      } else if (raw) {
+        result[field] = raw;  // old format string — kept as-is for backward compat
+      } else {
+        result[field] = null;
+      }
     }
     return result;
   }
@@ -91,14 +119,18 @@ export class ConfigCoordinator {
       if (partial[field] !== undefined) {
         if (partial[field] !== null && partial[field] !== "") prefs[prefKey] = partial[field];
         else delete prefs[prefKey];
-        changed.push(`${field}=${partial[field] || "(cleared)"}`);
+        const v = partial[field];
+        const repr = !v ? "(cleared)"
+          : typeof v === "object" ? `${v.provider || "?"}/${v.id || "?"}`
+          : String(v);
+        changed.push(`${field}=${repr}`);
       }
     }
     this._savePrefs(prefs);
     if (changed.length) {
       const fresh = this.getSharedModels();
       const agent = this._d.getAgent();
-      agent._utilityModel = fresh.utility || null;
+      agent.setUtilityModel(fresh.utility || null);
       log.log(`setSharedModels: ${changed.join(", ")}`);
     }
   }
@@ -163,25 +195,6 @@ export class ConfigCoordinator {
     );
   }
 
-  // ── Favorites ──
-
-  readFavorites() {
-    return this._prefs().favorites || [];
-  }
-
-  async saveFavorites(favorites) {
-    const prefs = this._prefs();
-    prefs.favorites = favorites;
-    this._savePrefs(prefs);
-    log.log(`saveFavorites: ${favorites.length} items`);
-
-    try {
-      await this.syncModelsAndRefresh(favorites);
-    } catch (err) {
-      console.error("[config] favorites sync failed:", err.message);
-    }
-  }
-
   // ── Agent Order ──
 
   readAgentOrder() {
@@ -196,24 +209,42 @@ export class ConfigCoordinator {
 
   // ── Model / Thinking ──
 
-  async syncModelsAndRefresh(favorites) {
+  async syncAndRefresh() {
     const models = this._d.getModels();
-    const agent = this._d.getAgent();
-    const synced = await models.syncModelsAndRefresh(agent.configPath, {
-      favorites: favorites || this.readFavorites(),
-      sharedModels: this.getSharedModels(),
-    });
+    const synced = await models.syncAndRefresh();
     this.normalizeUtilityApiPreferences();
     return synced;
   }
 
-  async setModel(modelId) {
+  /**
+   * 暂存用户选择的模型，用于下次 createSession。
+   * 不修改当前活跃 session 的模型，不持久化到 config.yaml。
+   */
+  setPendingModel(modelId, provider) {
     const models = this._d.getModels();
-    const model = models.setModel(modelId);
-    const session = this._d.getSession();
-    if (session) {
-      await session.setModel(model);
+    const model = findModel(models.availableModels, modelId, provider);
+    if (!model) throw new Error(t("error.modelNotFound", { id: modelId }));
+    const sessionCoord = this._d.getSessionCoordinator();
+    sessionCoord?.setPendingModel(model);
+    return model;
+  }
+
+  /**
+   * 设置 agent 默认模型（设置页面操作）。
+   * 更新 ModelManager._defaultModel + 持久化到 config.yaml。
+   * 不修改任何已有 session 的模型。
+   */
+  setDefaultModel(modelId, provider) {
+    const models = this._d.getModels();
+    const model = models.setDefaultModel(modelId, provider);
+    const agent = this._d.getAgent();
+    if (agent?.configPath) {
+      saveConfig(agent.configPath, {
+        models: { chat: provider ? { id: modelId, provider } : modelId },
+      });
     }
+    log.log(`default model set to: ${model.name || model.id}`);
+    return model;
   }
 
   setThinkingLevel(level) {
@@ -234,7 +265,7 @@ export class ConfigCoordinator {
 
   setMemoryEnabled(val) {
     this._d.getAgent().setMemoryEnabled(val);
-    this.persistMemoryEnabled();
+    this.persistSessionMeta();
   }
 
   setMemoryMasterEnabled(agentId, val) {
@@ -242,75 +273,42 @@ export class ConfigCoordinator {
     if (ag) ag.setMemoryMasterEnabled(val);
   }
 
-  persistMemoryEnabled() {
+  persistSessionMeta() {
     const session = this._d.getSession();
     const sessPath = session?.sessionManager?.getSessionFile?.();
     if (!sessPath) return;
     const agent = this._d.getAgent();
-    const metaPath = path.join(agent.sessionDir, "session-meta.json");
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        let meta = {};
-        try { meta = JSON.parse(fs.readFileSync(metaPath, "utf-8")); } catch {}
-        const sessKey = path.basename(sessPath);
-        meta[sessKey] = { ...(meta[sessKey] || {}), memoryEnabled: agent.sessionMemoryEnabled };
-        fs.writeFileSync(metaPath + ".tmp", JSON.stringify(meta, null, 2) + "\n");
-        fs.renameSync(metaPath + ".tmp", metaPath);
-        return;
-      } catch (err) {
-        if (attempt === 0) continue;
-        console.error("[config] persistMemoryEnabled failed:", err.message);
-      }
-    }
-  }
-
-  // ── Plan Mode ──
-
-  setPlanMode(enabled, allBuiltInTools) {
-    this._planMode = !!enabled;
-    const session = this._d.getSession();
-    if (!session) return;
-    const agent = this._d.getAgent();
-
-    if (this._planMode) {
-      const customNames = (agent.tools || []).map(t => t.name);
-      session.setActiveToolsByName([...READ_ONLY_BUILTIN_TOOLS, ...customNames]);
-    } else {
-      const allNames = allBuiltInTools.map(t => t.name);
-      const customNames = (agent.tools || []).map(t => t.name);
-      session.setActiveToolsByName([...allNames, ...customNames]);
-    }
-
-    this._d.emitEvent({ type: "plan_mode", enabled: this._planMode }, null);
-    this._d.emitDevLog(`Plan Mode: ${this._planMode ? "ON (只读)" : "OFF (正常)"}`, "info");
+    const sessionCoord = this._d.getSessionCoordinator();
+    return sessionCoord.writeSessionMeta(sessPath, {
+      memoryEnabled: agent.memoryEnabled,
+    });
   }
 
   // ── updateConfig ──
 
-  async updateConfig(partial) {
+  async updateConfig(partial, { agentId } = {}) {
     const keys = Object.keys(partial);
-    if (keys.length) log.log(`updateConfig: keys=[${keys.join(",")}]`);
+    if (keys.length) log.log(`updateConfig: keys=[${keys.join(",")}]${agentId ? ` agentId=${agentId}` : ""}`);
 
-    const agent = this._d.getAgent();
+    // 如果指定了 agentId，刷新该 agent；否则刷新焦点 agent
+    const agent = (agentId && this._d.getAgentById?.(agentId)) || this._d.getAgent();
     const models = this._d.getModels();
+    const isFocusAgent = !agentId || agentId === this._d.getActiveAgentId?.();
 
     // agent 负责：写磁盘、刷新身份、刷新模块、重建 prompt
     agent.updateConfig(partial);
 
-    // 切换聊天模型：不需要 sync，模型早已注册
-    if (partial.models?.chat) {
-      const newModel = models.availableModels.find(m => m.id === partial.models.chat);
+    // 模型切换只在焦点 agent 时生效
+    if (isFocusAgent && partial.models?.chat) {
+      const chatRaw = partial.models.chat;
+      const chatId = typeof chatRaw === "object" ? chatRaw.id : chatRaw;
+      const chatProvider = (typeof chatRaw === "object" ? chatRaw.provider : null)
+        || partial.api?.provider || undefined;
+      const newModel = findModel(models.availableModels, chatId, chatProvider);
       if (newModel) {
+        // 只更新 agent 默认模型，不改活跃 session
         models.defaultModel = newModel;
-        models.currentModel = newModel;
-        log.log(`default model switched to: ${newModel.name || newModel.id}`);
-        const session = this._d.getSession();
-        if (session) {
-          await session.setModel(newModel);
-          session.setThinkingLevel(
-            models.resolveThinkingLevel(this.getThinkingLevel())
-          );
-        }
+        log.log(`default model updated to: ${newModel.name || newModel.id}`);
       }
     }
 
@@ -318,179 +316,27 @@ export class ConfigCoordinator {
       this._d.getSkills().syncAgentSkills(agent);
     }
 
-    if (partial.desk && "heartbeat_enabled" in partial.desk) {
-      const hb = this._d.getHub()?.scheduler?.heartbeat;
-      if (hb) {
-        if (partial.desk.heartbeat_enabled === false) {
-          this._d.emitDevLog("[heartbeat] 巡检已关闭");
-          await hb.stop();
-        } else {
-          this._d.emitDevLog("[heartbeat] 巡检已开启");
-          hb.start();
-        }
-      }
-    }
-  }
-
-  // ── Provider Migration ──
-
-  migrateProvidersToGlobal(log = () => {}) {
-    const YAML_LOAD = (p) => { try { return YAML.load(fs.readFileSync(p, "utf-8")) || {}; } catch { return {}; } };
-    const agentsDir = this._d.agentsDir;
-    const hanakoHome = this._d.hanakoHome;
-    const registryMigrationMarker = path.join(hanakoHome, ".providers-registry-migrated");
-
-    let entries;
-    try {
-      entries = fs.readdirSync(agentsDir, { withFileTypes: true });
-    } catch { return; }
-
-    const agentsToMigrate = [];
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const configPath = path.join(agentsDir, entry.name, "config.yaml");
-      if (!fs.existsSync(configPath)) continue;
-      const raw = YAML_LOAD(configPath);
-      if (!raw.providers || Object.keys(raw.providers).length === 0) {
-        const hasInlineApi = raw.api?.api_key && raw.api.api_key.length > 0;
-        const hasInlineEmbed = raw.embedding_api?.api_key && raw.embedding_api.api_key.length > 0;
-        const hasInlineUtil = raw.utility_api?.api_key && raw.utility_api.api_key.length > 0;
-        if (!hasInlineApi && !hasInlineEmbed && !hasInlineUtil) continue;
-      }
-      agentsToMigrate.push({ id: entry.name, configPath, raw });
-    }
-
-    const globalData = loadGlobalProviders();
-    const globalProviders = globalData.providers || {};
-    let globalChanged = false;
-    let registryBackfilled = false;
-
-    const registry = loadModelsRegistry();
-    for (const [name, data] of Object.entries(registry.providers || {})) {
-      const provider = globalProviders[name] || (globalProviders[name] = {});
-      const existingAuthKey = resolveApiKeyFromAuth(name);
-
-      if (data?.baseUrl && !provider.base_url) {
-        provider.base_url = data.baseUrl;
-        globalChanged = true;
-        registryBackfilled = true;
-      }
-      if (data?.api && !provider.api) {
-        provider.api = data.api;
-        globalChanged = true;
-        registryBackfilled = true;
-      }
-      if (Array.isArray(data?.models) && data.models.length > 0) {
-        const existing = new Set(provider.models || []);
-        const before = existing.size;
-        for (const model of data.models) {
-          const id = typeof model === "string" ? model : model?.id;
-          if (id) existing.add(id);
-        }
-        if (existing.size > before) {
-          provider.models = [...existing];
-          globalChanged = true;
-          registryBackfilled = true;
-        }
-      }
-      if (data?.apiKey && !provider.api_key && !existingAuthKey) {
-        provider.api_key = data.apiKey;
-        globalChanged = true;
-        registryBackfilled = true;
-      }
-    }
-
-    for (const { id, configPath, raw } of agentsToMigrate) {
-      let configChanged = false;
-
-      if (raw.providers) {
-        for (const [name, data] of Object.entries(raw.providers)) {
-          if (!globalProviders[name]) {
-            globalProviders[name] = structuredClone(data);
-            globalChanged = true;
-          } else {
-            if (data.api_key && !globalProviders[name].api_key) {
-              globalProviders[name].api_key = data.api_key;
-              globalChanged = true;
-            }
-            if (data.base_url && !globalProviders[name].base_url) {
-              globalProviders[name].base_url = data.base_url;
-              globalChanged = true;
-            }
-            if (data.models?.length) {
-              const existing = new Set(globalProviders[name].models || []);
-              const before = existing.size;
-              for (const m of data.models) existing.add(m);
-              if (existing.size > before) {
-                globalProviders[name].models = [...existing];
-                globalChanged = true;
-              }
-            }
+    // desk（heartbeat 等）联动对应 agent 的 heartbeat
+    if (partial.desk) {
+      const scheduler = this._d.getHub()?.scheduler;
+      const resolvedAgentId = agentId || this._d.getActiveAgentId?.();
+      if ("heartbeat_interval" in partial.desk && scheduler) {
+        // 间隔变更：需要完整重建 heartbeat（INTERVAL 在创建时固化）
+        this._d.emitDevLog(`[heartbeat] 巡检间隔已更新: ${partial.desk.heartbeat_interval} 分钟`);
+        await scheduler.reloadHeartbeat(resolvedAgentId);
+      } else if ("heartbeat_enabled" in partial.desk) {
+        const hb = scheduler?.getHeartbeat(resolvedAgentId);
+        if (hb) {
+          if (partial.desk.heartbeat_enabled === false) {
+            this._d.emitDevLog("[heartbeat] 巡检已关闭");
+            await hb.stop();
+          } else if (this.getHeartbeatMaster() !== false) {
+            this._d.emitDevLog("[heartbeat] 巡检已开启");
+            hb.start();
           }
         }
-        delete raw.providers;
-        configChanged = true;
-      }
-
-      for (const block of [raw.api, raw.embedding_api, raw.utility_api]) {
-        if (!block) continue;
-        if (block.api_key) {
-          const provName = typeof block.provider === "string" ? block.provider.trim() : "";
-          if (!provName) {
-            log.warn("skip inline API migration: missing explicit provider");
-            continue;
-          }
-          if (!globalProviders[provName]) globalProviders[provName] = {};
-          if (!globalProviders[provName].api_key) {
-            globalProviders[provName].api_key = block.api_key;
-            globalChanged = true;
-          }
-          if (block.base_url && !globalProviders[provName].base_url) {
-            globalProviders[provName].base_url = block.base_url;
-            globalChanged = true;
-          }
-          delete block.api_key;
-          delete block.base_url;
-          configChanged = true;
-        }
-      }
-
-      if (configChanged) {
-        const header = "# Hanako 系统配置\n# 由设置页面管理，手动编辑也可以\n\n";
-        const yamlStr = header + YAML.dump(raw, {
-          indent: 2, lineWidth: -1, sortKeys: false, quotingType: "\"", forceQuotes: false,
-        });
-        const tmpPath = configPath + ".tmp";
-        fs.writeFileSync(tmpPath, yamlStr, "utf-8");
-        fs.renameSync(tmpPath, configPath);
-        log(`  [migration] ${id}: providers 块已移除，内联凭证已清空`);
       }
     }
-
-    if (globalChanged) {
-      const providersPath = path.join(hanakoHome, "providers.yaml");
-      const header = "# Hanako 供应商配置（全局，跨 agent 共享）\n# 由设置页面管理\n\n";
-      const yamlStr = header + YAML.dump({ providers: globalProviders }, {
-        indent: 2, lineWidth: -1, sortKeys: false, quotingType: "\"", forceQuotes: false,
-      });
-      const tmpPath = providersPath + ".tmp";
-      fs.writeFileSync(tmpPath, yamlStr, "utf-8");
-      fs.renameSync(tmpPath, providersPath);
-      log(`  [migration] 全局 providers.yaml 已创建/更新`);
-    }
-
-    if (!fs.existsSync(registryMigrationMarker)) {
-      fs.writeFileSync(
-        registryMigrationMarker,
-        `${new Date().toISOString()}\n`,
-        "utf-8",
-      );
-      if (registryBackfilled) {
-        log("  [migration] models.json 中缺失的 provider 注册信息已补入 providers.yaml");
-      }
-    }
-
-    clearConfigCache();
   }
 
   normalizeUtilityApiPreferences(logFn = null) {
@@ -504,7 +350,7 @@ export class ConfigCoordinator {
     const shared = this.getSharedModels();
     const utilityModelId = shared.utility || this._d.getAgent()?.config?.models?.utility || "";
     const utilityEntry = utilityModelId
-      ? this._d.getModels().availableModels.find((m) => m.id === utilityModelId)
+      ? findModel(this._d.getModels().availableModels, utilityModelId)
       : null;
 
     let reason = "";
@@ -527,7 +373,43 @@ export class ConfigCoordinator {
     return true;
   }
 
+  // ── Heartbeat Master ──
+
+  getHeartbeatMaster() {
+    return this._prefs().heartbeat_master !== false;
+  }
+
+  setHeartbeatMaster(enabled) {
+    const prefs = this._prefs();
+    prefs.heartbeat_master = !!enabled;
+    this._savePrefs(prefs);
+    log.log(`setHeartbeatMaster: ${enabled}`);
+
+    // 联动 scheduler：启停所有 agent 的 heartbeat
+    const scheduler = this._d.getHub()?.scheduler;
+    if (!scheduler) return;
+    const agents = this._d.getAgents();
+    for (const [, agent] of agents) {
+      const hb = scheduler.getHeartbeat(agent.id);
+      if (!hb) continue;
+      if (!enabled) {
+        hb.stop();
+      } else if (agent.config?.desk?.heartbeat_enabled !== false) {
+        hb.start();
+      }
+    }
+  }
+
   // ── helpers ──
+
+  _getPrimaryAgentId() {
+    const prefsManager = this._d.getPrefs();
+    if (typeof prefsManager.getPrimaryAgent === 'function') {
+      return prefsManager.getPrimaryAgent();
+    }
+    const prefs = this._prefs();
+    return prefs.primaryAgent || null;
+  }
 
   _prefs() { return this._d.getPrefs().getPreferences(); }
   _savePrefs(prefs) { return this._d.getPrefs().savePreferences(prefs); }

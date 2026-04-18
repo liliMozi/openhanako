@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
+import { usePanel } from '../hooks/use-panel';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
+import { fetchConfig, invalidateConfigCache } from '../hooks/use-config';
+import { loadSessions, switchSession } from '../stores/session-actions';
 import { formatSessionDate, injectCopyButtons, parseMoodFromContent } from '../utils/format';
+import { yuanFallbackAvatar } from '../utils/agent-helpers';
+import { getMd } from '../utils/markdown';
+import fp from './FloatingPanels.module.css';
+import chatStyles from './chat/Chat.module.css';
+
+// ── 稳定头像时间戳（避免每次渲染生成新 URL） ──
+let _avatarTs = Date.now();
 
 interface ActivityItem {
   id: string;
@@ -23,22 +32,18 @@ interface DetailMessage {
 }
 
 interface DetailState {
+  activityId: string;
   title: string;
+  agentId: string;
+  agentName: string;
   messages: DetailMessage[];
 }
 
-function yuanFallbackAvatar(yuan?: string): string {
-  const t = window.t ?? ((p: string) => p);
-  const types = t('yuan.types') as unknown;
-  if (types && typeof types === 'object') {
-    const entry = (types as Record<string, { avatar?: string }>)[yuan || 'hanako'];
-    return `assets/${entry?.avatar || 'Hanako.png'}`;
-  }
-  return 'assets/Hanako.png';
-}
+const FLEX_COLUMN_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 };
+const CURSOR_POINTER_STYLE: React.CSSProperties = { cursor: 'pointer' };
+const DANGER_COLOR_STYLE: React.CSSProperties = { color: 'var(--danger)' };
 
 export function ActivityPanel() {
-  const activePanel = useStore(s => s.activePanel);
   const activities = useStore(s => s.activities) as ActivityItem[];
   const agents = useStore(s => s.agents);
   const currentAgentId = useStore(s => s.currentAgentId);
@@ -47,27 +52,21 @@ export function ActivityPanel() {
 
   const [detail, setDetail] = useState<DetailState | null>(null);
   const [hbEnabled, setHbEnabled] = useState(true);
-  const containerRef = useRef<Element | null>(null);
   const t = window.t ?? ((p: string) => p);
 
-  useEffect(() => {
-    containerRef.current = document.querySelector('.main-content');
-  }, []);
+  const loadData = useCallback(() => {
+    hanaFetch('/api/desk/activities')
+      .then(r => r.json())
+      .then(data => setActivities(data.activities || []))
+      .catch(err => console.warn('[activity] fetch activities failed:', err));
+    fetchConfig()
+      .then(data => setHbEnabled(data.desk?.heartbeat_master !== false))
+      .catch(err => console.warn('[activity] fetch config failed:', err));
+    setDetail(null);
+  }, [setActivities]);
 
-  // 打开面板时加载活动 + 巡检状态
-  useEffect(() => {
-    if (activePanel === 'activity') {
-      hanaFetch('/api/desk/activities')
-        .then(r => r.json())
-        .then(data => setActivities(data.activities || []))
-        .catch(() => {});
-      hanaFetch('/api/config')
-        .then(r => r.json())
-        .then(data => setHbEnabled(data.desk?.heartbeat_enabled !== false))
-        .catch(() => {});
-      setDetail(null);
-    }
-  }, [activePanel, setActivities]);
+  const { visible, close: closePanel } = usePanel('activity', loadData, [currentAgentId]);
+  const close = useCallback(() => { closePanel(); setDetail(null); }, [closePanel]);
 
   const toggleHeartbeat = useCallback(async () => {
     const next = !hbEnabled;
@@ -76,8 +75,9 @@ export function ActivityPanel() {
       await hanaFetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ desk: { heartbeat_enabled: next } }),
+        body: JSON.stringify({ desk: { heartbeat_master: next } }),
       });
+      invalidateConfigCache();
     } catch {
       setHbEnabled(!next); // rollback
     }
@@ -91,41 +91,62 @@ export function ActivityPanel() {
 
       const { activity, messages } = data;
       const typeText = activity.type === 'heartbeat' ? t('activity.heartbeat')
-        : activity.type === 'delegate' ? t('activity.delegate')
+        : activity.type === 'subagent' ? t('activity.subagent')
         : (activity.label || t('activity.cron'));
       const timeStr = activity.startedAt
         ? formatSessionDate(new Date(activity.startedAt).toISOString())
         : '';
       setDetail({
-        title: `${activity.agentName} · ${typeText}  ${timeStr}`,
+        activityId,
+        title: `${typeText}  ${timeStr}`,
+        agentId: activity.agentId || currentAgentId || '',
+        agentName: activity.agentName || agentName,
         messages: messages || [],
       });
     } catch {}
   }, []);
 
   const closeDetail = useCallback(() => setDetail(null), []);
-  const close = useCallback(() => {
-    useStore.getState().setActivePanel(null);
-    setDetail(null);
+
+  const promoteActivity = useCallback(async (activityId: string) => {
+    try {
+      const res = await hanaFetch(`/api/desk/activities/${activityId}/promote`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error || !data.sessionPath) return;
+      await loadSessions();
+      await switchSession(data.sessionPath);
+    } catch (err) {
+      console.error('[activity] promote failed:', err);
+    }
   }, []);
 
-  if (activePanel !== 'activity' || !containerRef.current) return null;
+  if (!visible) return null;
 
-  return createPortal(
-    <div className="floating-panel" id="activityPanel">
-      <div className="floating-panel-inner">
+  return (
+    <div className={fp.floatingPanel} id="activityPanel">
+      <div className={fp.floatingPanelInner}>
         {detail ? (
           // 详情视图
-          <div id="activityDetailView">
-            <div className="floating-panel-header">
-              <button className="floating-panel-back" onClick={closeDetail}>
+          <div id="activityDetailView" style={FLEX_COLUMN_STYLE}>
+            <div className={fp.floatingPanelHeader}>
+              <button className={fp.floatingPanelBack} onClick={closeDetail}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
-                <span>{t('activity.back')}</span>
               </button>
-              <span className="floating-panel-subtitle">{detail.title}</span>
-              <button className="floating-panel-close" onClick={close}>
+              <DetailHeader detail={detail} />
+              <button
+                className={fp.actPromoteBtn}
+                onClick={() => promoteActivity(detail.activityId)}
+                title={t('activity.promote')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="17 11 12 6 7 11" />
+                  <line x1="12" y1="6" x2="12" y2="18" />
+                </svg>
+                <span>{t('activity.promote')}</span>
+              </button>
+              <button className={fp.floatingPanelClose} onClick={close}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -136,27 +157,27 @@ export function ActivityPanel() {
           </div>
         ) : (
           // 列表视图
-          <div id="activityListView">
-            <div className="floating-panel-header">
-              <h2 className="floating-panel-title">{t('activity.title')}</h2>
-              <div className="activity-hb-toggle">
+          <div id="activityListView" style={FLEX_COLUMN_STYLE}>
+            <div className={fp.floatingPanelHeader}>
+              <h2 className={fp.floatingPanelTitle}>{t('activity.title')}</h2>
+              <div className={fp.activityHbToggle}>
                 <span className="hana-toggle-label">{t('activity.heartbeat')}</span>
                 <button
                   className={'hana-toggle' + (hbEnabled ? ' on' : '')}
                   onClick={toggleHeartbeat}
                 />
               </div>
-              <button className="floating-panel-close" onClick={close}>
+              <button className={fp.floatingPanelClose} onClick={close}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
-            <div className="floating-panel-body">
-              <div className="activity-cards" id="activityCards">
+            <div className={fp.floatingPanelBody}>
+              <div className={fp.activityCards} id="activityCards">
                 {activities.length === 0 ? (
-                  <div className="activity-empty">{t('activity.empty')}</div>
+                  <div className={fp.activityEmpty}>{t('activity.empty')}</div>
                 ) : (
                   activities.map(a => (
                     <ActivityCard
@@ -174,8 +195,7 @@ export function ActivityPanel() {
           </div>
         )}
       </div>
-    </div>,
-    containerRef.current,
+    </div>
   );
 }
 
@@ -187,18 +207,20 @@ function ActivityCard({
   onOpen,
 }: {
   activity: ActivityItem;
-  agents: { id: string; yuan: string }[];
+  agents: { id: string; yuan: string; hasAvatar?: boolean }[];
   currentAgentId: string | null;
   agentName: string;
   onOpen: (id: string) => void;
 }) {
   const agentId = a.agentId || currentAgentId;
-  const avatarSrc = hanaUrl(`/api/agents/${agentId}/avatar?t=${Date.now()}`);
   const ag = agents.find(x => x.id === agentId);
+  const avatarSrc = ag?.hasAvatar
+    ? hanaUrl(`/api/agents/${agentId}/avatar?t=${_avatarTs}`)
+    : yuanFallbackAvatar(ag?.yuan);
 
   const t = window.t ?? ((p: string) => p);
   const typeText = a.type === 'heartbeat' ? t('activity.heartbeat')
-    : a.type === 'delegate' ? t('activity.delegate')
+    : a.type === 'subagent' ? t('activity.subagent')
     : (a.label || t('activity.cron'));
 
   let durationText = '';
@@ -212,30 +234,53 @@ function ActivityCard({
 
   return (
     <div
-      className={'act-card' + (a.status === 'error' ? ' error' : '')}
-      style={a.sessionFile ? { cursor: 'pointer' } : undefined}
+      className={`${fp.actCard}${a.status === 'error' ? ` ${fp.actCardError}` : ''}`}
+      style={a.sessionFile ? CURSOR_POINTER_STYLE : undefined}
       onClick={a.sessionFile ? () => onOpen(a.id) : undefined}
     >
-      <div className="act-card-head">
+      <div className={fp.actCardHead}>
         <img
-          className="act-card-avatar"
+          className={fp.actCardAvatar}
           src={avatarSrc}
           onError={e => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = yuanFallbackAvatar(ag?.yuan); }}
           draggable={false}
         />
-        <span className="act-card-agent-name">{a.agentName || agentName}</span>
-        <span className="act-card-badge">{typeText}</span>
-        <span className="act-card-time">
+        <span className={fp.actCardAgentName}>{a.agentName || agentName}</span>
+        <span className={fp.actCardBadge}>{typeText}</span>
+        <span className={fp.actCardTime}>
           {a.startedAt ? formatSessionDate(new Date(a.startedAt).toISOString()) : ''}
         </span>
       </div>
-      <div className="act-card-summary">
+      <div className={fp.actCardSummary}>
         {a.summary || (a.type === 'heartbeat' ? t('activity.patrolDone') : t('activity.cronDone'))}
       </div>
-      <div className="act-card-meta">
-        {durationText && <span className="act-card-duration">{durationText}</span>}
-        {a.status === 'error' && <span style={{ color: 'var(--danger)' }}>{t('activity.error')}</span>}
-        {a.sessionFile && <span className="act-card-view-hint">{t('activity.viewSession')}</span>}
+      <div className={fp.actCardMeta}>
+        {durationText && <span className={fp.actCardDuration}>{durationText}</span>}
+        {a.status === 'error' && <span style={DANGER_COLOR_STYLE}>{t('activity.error')}</span>}
+        {a.sessionFile && <span className={fp.actCardViewHint}>{t('activity.viewSession')}</span>}
+      </div>
+    </div>
+  );
+}
+
+function DetailHeader({ detail }: { detail: DetailState }) {
+  const agents = useStore(s => s.agents);
+  const ag = agents.find(x => x.id === detail.agentId);
+  const avatarSrc = ag?.hasAvatar
+    ? hanaUrl(`/api/agents/${detail.agentId}/avatar?t=${_avatarTs}`)
+    : yuanFallbackAvatar(ag?.yuan);
+
+  return (
+    <div className={fp.detailHeaderInfo}>
+      <img
+        className={fp.detailHeaderAvatar}
+        src={avatarSrc}
+        onError={e => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = yuanFallbackAvatar(ag?.yuan); }}
+        draggable={false}
+      />
+      <div className={fp.detailHeaderText}>
+        <span className={fp.detailHeaderName}>{detail.agentName}</span>
+        <span className={fp.detailHeaderSubtitle}>{detail.title}</span>
       </div>
     </div>
   );
@@ -244,8 +289,7 @@ function ActivityCard({
 function DetailBody({ messages }: { messages: DetailMessage[] }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const t = window.t ?? ((p: string) => p);
-  const md = (window as unknown as Record<string, unknown>).markdownit as ((opts: Record<string, boolean>) => { render: (s: string) => string }) | undefined;
-  const mdInstance = md?.({ html: false, breaks: true, linkify: true, typographer: true });
+  const mdInstance = getMd();
 
   useEffect(() => {
     if (bodyRef.current) {
@@ -254,17 +298,17 @@ function DetailBody({ messages }: { messages: DetailMessage[] }) {
   }, [messages]);
 
   return (
-    <div className="floating-panel-body" ref={bodyRef}>
+    <div className={fp.floatingPanelBody} ref={bodyRef}>
       {messages.map((m, i) => {
         if (m.role === 'assistant') {
           const { mood, text } = parseMoodFromContent(m.content);
           return (
-            <div key={i} className="activity-detail-msg assistant">
-              <div className="activity-detail-bubble">
+            <div key={`msg-${i}`} className={`${fp.activityDetailMsg} ${fp.activityDetailMsgAssistant}`}>
+              <div className={fp.activityDetailBubble}>
                 {mood && (
-                  <details className="mood-wrapper">
-                    <summary className="mood-summary">{t('mood.label')}</summary>
-                    <div className="mood-block">{mood}</div>
+                  <details className={chatStyles.moodWrapper}>
+                    <summary className={chatStyles.moodSummary}>{t('mood.label')}</summary>
+                    <div className={chatStyles.moodBlock}>{mood}</div>
                   </details>
                 )}
                 {text && (
@@ -282,8 +326,8 @@ function DetailBody({ messages }: { messages: DetailMessage[] }) {
           );
         }
         return (
-          <div key={i} className="activity-detail-msg user">
-            <div className="activity-detail-bubble">{m.content}</div>
+          <div key={`msg-${i}`} className={`${fp.activityDetailMsg} ${fp.activityDetailMsgUser}`}>
+            <div className={fp.activityDetailBubble}>{m.content}</div>
           </div>
         );
       })}

@@ -27,10 +27,6 @@ vi.mock("../lib/memory/deep-memory.js", () => ({
   processDirtySessions: vi.fn().mockResolvedValue({ processed: 0, factsAdded: 0 }),
 }));
 
-vi.mock("../lib/experience-extractor.js", () => ({
-  extractSessionExperiences: vi.fn().mockResolvedValue({ extracted: 0 }),
-}));
-
 vi.mock("../lib/debug-log.js", () => ({
   debugLog: () => null,
 }));
@@ -60,7 +56,7 @@ function makeTicker(tmpDir) {
     },
     configPath: path.join(tmpDir, "config.yaml"),
     factStore: {},
-    getMemoryModel: () => "test-model",
+    getResolvedMemoryModel: () => ({ model: "test-model", provider: "test", api: "openai-completions", api_key: "test-key", base_url: "http://localhost:1234" }),
     onCompiled: vi.fn(),
     sessionDir: path.join(tmpDir, "sessions"),
     memoryMdPath: path.join(tmpDir, "memory.md"),

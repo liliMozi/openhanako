@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
 import { t, escapeHtml } from '../helpers';
+import styles from '../Settings.module.css';
 
 export function MemoryViewer() {
   const [visible, setVisible] = useState(false);
@@ -58,13 +59,13 @@ export function MemoryViewer() {
   if (!visible) return null;
 
   return (
-    <div className="memory-viewer-overlay visible" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-      <div className="memory-viewer">
-        <div className="memory-viewer-header">
-          <h3 className="memory-viewer-title">{t('settings.memory.actions.viewTitle')}</h3>
-          <button className="memory-viewer-close" onClick={close}>✕</button>
+    <div className={`${styles['memory-viewer-overlay']} ${styles['visible']}`} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div className={styles['memory-viewer']}>
+        <div className={styles['memory-viewer-header']}>
+          <h3 className={styles['memory-viewer-title']}>{t('settings.memory.actions.viewTitle')}</h3>
+          <button className={styles['memory-viewer-close']} onClick={close}>✕</button>
         </div>
-        <div className="memory-viewer-body" dangerouslySetInnerHTML={{ __html: html }} />
+        <div className={styles['memory-viewer-body']} dangerouslySetInnerHTML={{ __html: html }} />
       </div>
     </div>
   );

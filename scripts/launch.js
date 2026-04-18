@@ -9,7 +9,6 @@ import { join } from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-process.env.HANA_HOME = join(homedir(), ".hanako-dev");
 
 const mode = process.argv[2];
 const extra = process.argv.slice(3);
@@ -42,5 +41,16 @@ switch (mode) {
     process.exit(1);
 }
 
-const child = spawn(bin, args, { stdio: "inherit", env: process.env });
+// Electron 以子进程运行时（如 VS Code / Claude Code 终端），
+// 父进程可能设了 ELECTRON_RUN_AS_NODE=1，会让 Electron 以纯 Node 模式启动，
+// 导致 require('electron') 拿不到内置 API。spawn 前清掉。
+delete process.env.ELECTRON_RUN_AS_NODE;
+
+// Windows: set console code page to UTF-8 via spawn options
+const childEnv = { ...process.env, HANA_HOME: join(homedir(), ".hanako") };
+if (process.platform === "win32") {
+  childEnv.ELECTRON_CHROMIUM_FLAGS = ""; // no-op flag, ensures UTF-8 mode
+}
+const child = spawn(bin, args, { stdio: "inherit", env: childEnv });
+
 child.on("exit", (code) => process.exit(code ?? 1));

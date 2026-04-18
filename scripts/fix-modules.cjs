@@ -12,12 +12,32 @@ const path = require("path");
 
 exports.default = async function (context) {
   const platformName = context.packager.platform.name;
+  const arch = context.arch === 1 ? "x64" : context.arch === 3 ? "arm64" : "x64";
   const appDir = platformName === "mac"
     ? path.join(context.appOutDir, context.packager.appInfo.productFilename + ".app",
         "Contents", "Resources", "app")
     : path.join(context.appOutDir, "resources", "app");
   const distModules = path.join(appDir, "node_modules");
   const localModules = path.resolve(__dirname, "..", "node_modules");
+
+  // ── server native deps 补全 ──
+  // electron-builder 的 extraResources 会过滤 node_modules，
+  // 这里手动把 build-server 产出的 node_modules 复制到 server 目录
+  const resourcesDir = platformName === "mac"
+    ? path.join(context.appOutDir, context.packager.appInfo.productFilename + ".app",
+        "Contents", "Resources")
+    : path.join(context.appOutDir, "resources");
+  const serverDir = path.join(resourcesDir, "server");
+  const osDirName = platformName === "mac" ? "mac" : platformName === "windows" ? "win" : "linux";
+  const serverBuildModules = path.join(__dirname, "..", "dist-server", `${osDirName}-${arch}`, "node_modules");
+
+  if (fs.existsSync(serverDir) && fs.existsSync(serverBuildModules)) {
+    const serverNodeModules = path.join(serverDir, "node_modules");
+    if (!fs.existsSync(serverNodeModules)) {
+      fs.cpSync(serverBuildModules, serverNodeModules, { recursive: true });
+      console.log(`[fix-modules] 补全 server native deps → ${serverNodeModules}`);
+    }
+  }
 
   if (!fs.existsSync(distModules)) return;
 
@@ -53,14 +73,14 @@ exports.default = async function (context) {
   let copied = 0;
 
   // 含 native binding 的包（需要平台匹配编译），补全时额外警告
-  const NATIVE_PACKAGES = new Set(["better-sqlite3", "bufferutil", "utf-8-validate"]);
+  const NATIVE_PACKAGES = new Set(["bufferutil", "utf-8-validate"]);
 
   for (const dep of allProd) {
     const distPath = path.join(distModules, dep);
     const localPath = path.join(localModules, dep);
     if (!fs.existsSync(distPath) && fs.existsSync(localPath)) {
       if (NATIVE_PACKAGES.has(dep)) {
-        console.warn(`[fix-modules] ⚠ 补全 native 包 "${dep}"（确保已通过 electron-rebuild 编译）`);
+        console.warn(`[fix-modules] ⚠ 补全 native 包 "${dep}"（确保已针对当前平台编译）`);
       }
       fs.cpSync(localPath, distPath, { recursive: true });
       copied++;

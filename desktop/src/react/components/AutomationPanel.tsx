@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useStore } from '../stores';
+import { usePanel } from '../hooks/use-panel';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { cronToHuman } from '../utils/format';
+import { yuanFallbackAvatar } from '../utils/agent-helpers';
+import fp from './FloatingPanels.module.css';
 
 interface CronJob {
   id: string;
@@ -14,44 +16,35 @@ interface CronJob {
 }
 
 export function AutomationPanel() {
-  const activePanel = useStore(s => s.activePanel);
   const agentAvatarUrl = useStore(s => s.agentAvatarUrl);
   const agentName = useStore(s => s.agentName);
   const agentYuan = useStore(s => s.agentYuan);
   const currentAgentId = useStore(s => s.currentAgentId);
 
   const [jobs, setJobs] = useState<CronJob[]>([]);
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const containerRef = useRef<Element | null>(null);
-
-  useEffect(() => {
-    containerRef.current = document.querySelector('.main-content');
-  }, []);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
 
   const loadData = useCallback(async () => {
     try {
-      const [cronRes, favRes] = await Promise.all([
+      const [cronRes, modelsRes] = await Promise.all([
         hanaFetch('/api/desk/cron'),
-        hanaFetch('/api/favorites'),
+        hanaFetch('/api/models'),
       ]);
       const cronData = await cronRes.json();
-      let favs: string[] = [];
-      try { favs = (await favRes.json()).favorites || []; } catch {}
+      let modelIds: string[] = [];
+      try {
+        const modelsData = await modelsRes.json();
+        modelIds = (modelsData.models || []).map((m: { id: string }) => m.id);
+      } catch {}
       setJobs(cronData.jobs || []);
-      setFavorites(favs);
+      setAvailableModels(modelIds);
       updateBadge(cronData.jobs || []);
     } catch (err) {
       console.error('[automation] load failed:', err);
     }
   }, []);
 
-  useEffect(() => {
-    if (activePanel === 'automation') loadData();
-  }, [activePanel, loadData]);
-
-  const close = useCallback(() => {
-    useStore.getState().setActivePanel(null);
-  }, []);
+  const { visible, close } = usePanel('automation', loadData, [currentAgentId]);
 
   const toggleJob = useCallback(async (jobId: string) => {
     try {
@@ -92,30 +85,30 @@ export function AutomationPanel() {
     }
   }, [loadData]);
 
-  if (activePanel !== 'automation' || !containerRef.current) return null;
+  if (!visible) return null;
 
-  return createPortal(
-    <div className="floating-panel" id="automationPanel">
-      <div className="floating-panel-inner">
-        <div className="floating-panel-header">
-          <h2 className="floating-panel-title">{(window.t ?? ((p: string) => p))('automation.title')}</h2>
-          <button className="floating-panel-close" onClick={close}>
+  return (
+    <div className={fp.floatingPanel} id="automationPanel">
+      <div className={fp.floatingPanelInner}>
+        <div className={fp.floatingPanelHeader}>
+          <h2 className={fp.floatingPanelTitle}>{(window.t ?? ((p: string) => p))('automation.title')}</h2>
+          <button className={fp.floatingPanelClose} onClick={close}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
-        <div className="floating-panel-body">
-          <div className="automation-list" id="automationList">
+        <div className={fp.floatingPanelBody}>
+          <div className={fp.automationList} id="automationList">
             {jobs.length === 0 ? (
-              <div className="automation-empty">{(window.t ?? ((p: string) => p))('automation.empty')}</div>
+              <div className={fp.automationEmpty}>{(window.t ?? ((p: string) => p))('automation.empty')}</div>
             ) : (
               jobs.map(job => (
                 <AutomationItem
                   key={job.id}
                   job={job}
-                  favorites={favorites}
+                  availableModels={availableModels}
                   agentAvatarUrl={agentAvatarUrl}
                   agentName={agentName}
                   agentYuan={agentYuan}
@@ -129,29 +122,17 @@ export function AutomationPanel() {
           </div>
         </div>
       </div>
-    </div>,
-    containerRef.current,
+    </div>
   );
 }
 
-function yuanFallbackAvatar(yuan?: string): string {
-  const t = window.t ?? ((p: string) => p);
-  const types = t('yuan.types') as unknown;
-  if (types && typeof types === 'object') {
-    const entry = (types as Record<string, { avatar?: string }>)[yuan || 'hanako'];
-    return `assets/${entry?.avatar || 'Hanako.png'}`;
-  }
-  return 'assets/Hanako.png';
-}
-
 function updateBadge(jobs: CronJob[]) {
-  const badge = document.getElementById('automationCountBadge');
-  if (badge) badge.textContent = jobs.length > 0 ? String(jobs.length) : '';
+  useStore.setState({ automationCount: jobs.length });
 }
 
 function AutomationItem({
   job,
-  favorites,
+  availableModels,
   agentAvatarUrl,
   agentName,
   agentYuan,
@@ -161,7 +142,7 @@ function AutomationItem({
   onUpdate,
 }: {
   job: CronJob;
-  favorites: string[];
+  availableModels: string[];
   agentAvatarUrl: string | null;
   agentName: string;
   agentYuan: string;
@@ -172,7 +153,9 @@ function AutomationItem({
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const [modelOpen, setModelOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const modelRef = useRef<HTMLSpanElement>(null);
 
   const labelText = job.label || job.prompt?.slice(0, 40) || job.id;
 
@@ -196,27 +179,43 @@ function AutomationItem({
     setEditing(false);
   }, [editValue, labelText, job.id, onUpdate]);
 
-  const avatarSrc = agentAvatarUrl || hanaUrl(`/api/agents/${currentAgentId}/avatar`);
+  const avatarSrc = agentAvatarUrl || yuanFallbackAvatar(agentYuan);
 
   // 构建模型选项
-  const modelOptions: string[] = [];
-  const modelSet = new Set(favorites);
-  if (job.model && !modelSet.has(job.model)) modelOptions.push(job.model);
-  modelOptions.push(...favorites);
+  const jobModelId = typeof job.model === 'object' && job.model !== null
+    ? (job.model as unknown as { id: string }).id
+    : (job.model || '');
+  const modelOptions = useMemo(() => {
+    const opts: string[] = [];
+    const modelSet = new Set(availableModels);
+    if (jobModelId && !modelSet.has(jobModelId)) opts.push(jobModelId);
+    opts.push(...availableModels);
+    return opts;
+  }, [availableModels, jobModelId]);
+
+  // 模型下拉 click outside
+  useEffect(() => {
+    if (!modelOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) setModelOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [modelOpen]);
 
   return (
-    <div className="auto-item">
+    <div className={fp.autoItem}>
       <button
         className={'hana-toggle' + (job.enabled ? ' on' : '')}
         title={job.enabled ? 'Disable' : 'Enable'}
         onClick={() => onToggle(job.id)}
       />
-      <div className="auto-item-info">
+      <div className={fp.autoItemInfo}>
         {editing ? (
           <input
             ref={inputRef}
             type="text"
-            className="auto-item-label-input"
+            className={fp.autoItemLabelInput}
             value={editValue}
             onChange={e => setEditValue(e.target.value)}
             onBlur={commitEdit}
@@ -226,43 +225,58 @@ function AutomationItem({
             }}
           />
         ) : (
-          <span className="auto-item-label" onDoubleClick={startEdit}>{labelText}</span>
+          <span className={fp.autoItemLabel} onDoubleClick={startEdit}>{labelText}</span>
         )}
-        <div className="auto-item-meta">
-          <div className="auto-item-executor">
+        <div className={fp.autoItemMeta}>
+          <div className={fp.autoItemExecutor}>
             <img
-              className="auto-item-executor-avatar"
+              className={fp.autoItemExecutorAvatar}
               src={avatarSrc}
               onError={e => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = yuanFallbackAvatar(agentYuan); }}
             />
-            <span className="auto-item-executor-name">{agentName}</span>
+            <span className={fp.autoItemExecutorName}>{agentName}</span>
           </div>
-          <span className="auto-item-schedule">{cronToHuman(job.schedule)}</span>
-          {favorites.length > 0 && (
-            <span className="auto-item-model-wrap">
-              <select
-                className="auto-item-model-select"
-                title="Model"
-                value={job.model || ''}
-                onChange={e => onUpdate(job.id, { model: e.target.value })}
+          <span className={fp.autoItemSchedule}>{cronToHuman(job.schedule)}</span>
+          {availableModels.length > 0 && (
+            <span className={`${fp.autoItemModelWrap}${modelOpen ? ` ${fp.autoModelOpen}` : ''}`} ref={modelRef}>
+              <button
+                className={fp.autoModelPill}
+                onClick={() => setModelOpen(!modelOpen)}
               >
-                <option value="">{(window.t ?? ((p: string) => p))('automation.defaultModel')}</option>
-                {modelOptions.map(mid => (
-                  <option key={mid} value={mid}>{mid}</option>
-                ))}
-              </select>
+                <span>{jobModelId || (window.t ?? ((p: string) => p))('automation.defaultModel')}</span>
+                <span className={fp.autoModelArrow}>▾</span>
+              </button>
+              {modelOpen && (
+                <div className={fp.autoModelDropdown}>
+                  <button
+                    className={`${fp.autoModelOption}${!jobModelId ? ` ${fp.autoModelOptionActive}` : ''}`}
+                    onClick={() => { onUpdate(job.id, { model: '' }); setModelOpen(false); }}
+                  >
+                    {(window.t ?? ((p: string) => p))('automation.defaultModel')}
+                  </button>
+                  {modelOptions.map(mid => (
+                    <button
+                      key={mid}
+                      className={`${fp.autoModelOption}${mid === jobModelId ? ` ${fp.autoModelOptionActive}` : ''}`}
+                      onClick={() => { onUpdate(job.id, { model: mid }); setModelOpen(false); }}
+                    >
+                      {mid}
+                    </button>
+                  ))}
+                </div>
+              )}
             </span>
           )}
         </div>
       </div>
-      <div className="auto-item-actions">
-        <button className="auto-item-btn" title={(window.t ?? ((p: string) => p))('automation.edit')} onClick={startEdit}>
+      <div className={fp.autoItemActions}>
+        <button className={fp.autoItemBtn} title={(window.t ?? ((p: string) => p))('automation.edit')} onClick={startEdit}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
           </svg>
         </button>
-        <button className="auto-item-btn danger" title={(window.t ?? ((p: string) => p))('automation.delete')} onClick={() => onRemove(job.id)}>
+        <button className={`${fp.autoItemBtn} ${fp.autoItemBtnDanger}`} title={(window.t ?? ((p: string) => p))('automation.delete')} onClick={() => onRemove(job.id)}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="3 6 5 6 21 6" />
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />

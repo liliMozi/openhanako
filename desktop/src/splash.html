@@ -3,62 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' file:;">
+          content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' file:;">
     <title>Hanako</title>
     <style>
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        html, body {
-            height: 100%;
-            overflow: hidden;
-        }
-
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; overflow: hidden; }
         body {
             font-family: 'Songti SC', 'Georgia', serif;
             background: #F4F0E4;
             border-radius: 12px;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 1.5rem;
             -webkit-font-smoothing: antialiased;
             -webkit-app-region: drag;
             animation: fadeIn 0.3s ease-out;
         }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to   { opacity: 1; }
+        .splash-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
         }
-
-        .avatar {
-            width: 72px;
-            height: 72px;
+        .splash-avatar {
+            width: 72px; height: 72px;
             border-radius: 50%;
             object-fit: cover;
             pointer-events: none;
             user-select: none;
-            animation: breathe 3s ease-in-out infinite;
         }
-
-        @keyframes breathe {
-            0%, 100% { transform: scale(1); opacity: 0.85; }
-            50% { transform: scale(1.04); opacity: 1; }
-        }
-
-        .text-row {
+        .splash-text-row {
             display: flex;
             align-items: center;
             gap: 0.4rem;
             justify-content: center;
         }
-
-        .text {
+        .splash-text {
             font-size: 0.82rem;
             color: #8E9196;
             letter-spacing: 0.02em;
@@ -66,103 +48,21 @@
             transition: opacity 0.5s ease;
             white-space: nowrap;
         }
-
-        .text.switching {
-            opacity: 0;
-        }
-
-        .sakura {
+        .splash-text.switching { opacity: 0; }
+        .splash-sakura {
             display: inline-flex;
             align-items: center;
             font-size: 1.05rem;
-            color: #E8AAB5;
+            color: var(--splash-accent, #537D96);
             flex-shrink: 0;
             line-height: 1;
-            transform-origin: center;
             animation: spin 4s linear infinite;
         }
-
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to   { transform: rotate(360deg); }
-        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <img class="avatar" id="splashAvatar" src="assets/Hanako.png" alt="Hanako" draggable="false">
-    <div class="text-row">
-        <p class="text" id="text"></p>
-        <span class="sakura">✿</span>
-    </div>
-
-    <script>
-        // Splash 是独立页面，轻量加载 locale
-        const DEFAULT_NAME = "Hanako";
-        const YUAN_AVATARS = { hanako: "Hanako.png", butter: "Butter.png", ming: "Ming.png" };
-
-        async function loadSplashLines() {
-            let locale = "zh";
-            let name = DEFAULT_NAME;
-            let yuan = "hanako";
-
-            // 通过 IPC 读取本地信息（不依赖 server，splash 显示时 server 还没启动）
-            try {
-                const [avatarPath, splashInfo] = await Promise.all([
-                    window.hana?.getAvatarPath?.("agent"),
-                    window.hana?.getSplashInfo?.(),
-                ]);
-                // 自定义头像（有 → 用自定义，没有 → 用 yuan fallback）
-                const avatar = document.getElementById("splashAvatar");
-                if (avatarPath) {
-                    if (avatar) avatar.src = `file://${avatarPath}?t=${Date.now()}`;
-                } else if (avatar && splashInfo?.yuan) {
-                    avatar.src = `assets/${YUAN_AVATARS[splashInfo.yuan] || "Hanako.png"}`;
-                }
-                // 名字 & 语言 & yuan
-                if (splashInfo?.agentName) name = splashInfo.agentName;
-                if (splashInfo?.locale?.startsWith("en")) locale = "en";
-                if (splashInfo?.yuan) yuan = splashInfo.yuan;
-            } catch {}
-
-            // 加载语言包
-            try {
-                const res = await fetch(`./locales/${locale}.json`);
-                const data = await res.json();
-                // 优先用 yuan 专属文案
-                const yuanLines = data.yuan?.splash?.[yuan];
-                const defaultLines = data.splash?.lines;
-                const lines = Array.isArray(yuanLines) ? yuanLines : defaultLines;
-                if (lines) {
-                    return lines.map(l => l.replaceAll("{name}", name));
-                }
-            } catch {}
-
-            // 兜底
-            return [
-                `${name} remembers the evening light`,
-                "Some words sprouted in her memory",
-                "She found your silhouette in memories",
-            ];
-        }
-
-        const textEl = document.getElementById("text");
-
-        // 先用一个空占位，等加载完再开始轮播
-        (async () => {
-            const loaded = await loadSplashLines();
-            const lines = [...loaded].sort(() => Math.random() - 0.5);
-            let index = 0;
-            textEl.textContent = lines[0];
-
-            setInterval(() => {
-                index = (index + 1) % lines.length;
-                textEl.classList.add("switching");
-                setTimeout(() => {
-                    textEl.textContent = lines[index];
-                    textEl.classList.remove("switching");
-                }, 400);
-            }, 3000);
-        })();
-    </script>
+    <div id="react-root"></div>
+    <script type="module" src="./splash-main.tsx"></script>
 </body>
 </html>

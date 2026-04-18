@@ -1,7 +1,7 @@
 [English](README.md)
 
 <p align="center">
-  <img src=".github/assets/banner.png" width="100%" alt="OpenHanako Banner">
+  <img src=".github/assets/banner.jpg" width="100%" alt="OpenHanako Banner">
 </p>
 
 <p align="center">
@@ -45,25 +45,27 @@ OpenHanako 是一个更加易用的 AI agent，有记忆，有性格，会主动
 
 **定时任务与心跳** — Agent 可以设置定时任务（Cron），也会定期巡检书桌上的文件变化。你不在的时候，Ta 也能按计划自主工作。
 
-**安全沙盒** — 双层隔离：应用层 PathGuard 四级访问控制 + 操作系统级沙盒（macOS Seatbelt / Linux Bubblewrap）。Agent 的权限在你的掌控之中。平时只能访问工作目录和一些用户文件，如果你想放开权限，可以点五下关于里面的 HANAKO 图表。
+**安全沙盒** — 双层隔离：应用层 PathGuard 四级访问控制 + 操作系统级沙盒（macOS Seatbelt / Linux Bubblewrap）。Agent 的权限在你的掌控之中。平时只能访问工作目录和一些用户文件，如果你想调整权限，可以在设置 → 安全页面修改沙盒级别。
 
-**多平台接入** — 同一个 Agent 可以同时接入 Telegram、飞书机器人、QQ机器人，在任何平台和 Ta 对话，可以远程操作电脑。
+**插件系统** — 约定优先的可扩展插件架构。拖拽安装社区插件，插件可以贡献工具、技能、命令、Agent 模板、HTTP 路由、事件钩子和 LLM Provider。路由可直接访问核心服务（PluginContext 注入），通过 Session Bus 与 Agent 对话、获取历史、管理 session。两级权限模型（restricted / full-access）保障安全。
 
+**多平台接入** — 同一个 Agent 可以同时接入 Telegram、飞书、QQ、微信机器人，在任何平台和 Ta 对话，可以远程操作电脑。
 
+**国际化** — 界面支持中文、英文、日文、韩文、繁体中文 5 种语言。
 
 ## 截图
 
 <p align="center">
-  <img src=".github/assets/screenshot-main.png" width="100%" alt="Hanako 主界面">
+  <img src=".github/assets/screenshot-main.jpg" width="100%" alt="Hanako 主界面">
 </p>
 
 ## 快速开始
 
 ### 下载安装
 
-**macOS (Apple Silicon)**：从 [Releases](https://github.com/liliMozi/openhanako/releases) 下载最新 `.dmg`。
+**macOS（Apple Silicon / Intel）**：从 [Releases](https://github.com/liliMozi/openhanako/releases) 下载最新 `.dmg`。
 
-> **macOS 安全提示：** 应用尚未使用 Apple Developer ID 签名。首次打开时 macOS 可能会拦截，右键点击应用 → 选择**打开** → 在弹窗中点击**打开**即可，只需操作一次。
+应用已通过 Apple Developer ID 签名和公证，macOS 应该可以直接打开。
 
 **Windows**：从 [Releases](https://github.com/liliMozi/openhanako/releases) 下载最新 `.exe` 安装包。
 
@@ -74,42 +76,68 @@ Linux 版本计划中。
 ### 首次运行
 
 首次启动时，引导向导会带你完成配置：选择语言、输入你的名字、连接模型提供商（API key + base URL），并选择三个模型：**对话模型**（主对话）、**小工具模型**（摘要等轻量任务）、**大工具模型**（记忆编译和深度分析）。Hanako 使用 OpenAI 兼容协议，支持任意兼容的提供商（OpenAI、DeepSeek、通义千问、Ollama 本地模型等）。
-目前也添加了 OpenAI 和 Minimax 的 Oauth 登录，鉴于 Anthropic 会有封号风险，所以暂时不提供。
+目前也添加了 OpenAI 的 OAuth 登录，鉴于 Anthropic 会有封号风险，所以暂时不提供。
 
 ## 架构
 
 ```
-core/           引擎编排层 + Manager
+core/           引擎编排层 + Manager（含 PluginManager）
 lib/            核心库（记忆、工具、沙盒、Bridge 适配器）
-server/         Fastify HTTP + WebSocket 服务
+server/         Hono HTTP + WebSocket 服务（独立 Node.js 进程）
 hub/            调度器、频道路由、事件总线
 desktop/        Electron 应用 + React 前端
-tests/          Vitest 测试
+shared/         跨层共享工具（config schema、error bus、模型引用等）
+plugins/        内置系统插件（随应用打包）
 skills2set/     内置技能定义
+scripts/        构建工具（server 打包、启动器、签名）
+tests/          Vitest 测试
 ```
 
-引擎层协调五个 Manager（Agent、Session、Model、Preferences、Skill），通过统一的 facade 暴露。Hub 负责后台任务（心跳巡检、定时任务、频道路由），独立于当前聊天会话运行。Electron 主进程与服务端通过子进程 stdio 桥接通信。
+引擎层协调多个 Manager（Agent、Session、Model、Preferences、Skill、Channel、BridgeSession、Plugin 等），通过统一的 facade 暴露。Hub 负责后台任务（心跳巡检、定时任务、频道路由、Agent 间通信、DM 路由），独立于当前聊天会话运行。
+
+Server 以独立 Node.js 进程运行（由 Electron spawn 或独立启动），通过 Vite 打包，@vercel/nft 追踪依赖。与 Electron 渲染进程通过 WebSocket 通信。
 
 ## 技术栈
 
 | 层级 | 技术 |
 |------|------|
 | 桌面端 | Electron 38 |
-| 前端 | React 19 + Vite 7（从 vanilla JS 迁移中） |
-| 服务端 | Fastify 5 |
+| 前端 | React 19 + Zustand 5 + CSS Modules |
+| 构建 | Vite 7 |
+| 服务端 | Hono + @hono/node-server |
 | Agent 运行时 | [Pi SDK](https://github.com/nicepkg/pi) |
 | 数据库 | better-sqlite3（WAL 模式） |
 | 测试 | Vitest |
+| 国际化 | 5 语言（zh / en / ja / ko / zh-TW） |
 
 ## 平台支持
 
 | 平台 | 状态 |
 |------|------|
-| macOS (Apple Silicon) | 已支持 |
-| macOS (Intel) | 未测试，理论可用 |
+| macOS (Apple Silicon) | 已支持（已签名公证） |
+| macOS (Intel) | 已支持 |
 | Windows | Beta |
 | Linux | 计划中 |
-| 移动端 | 计划中 |
+| 移动端 (PWA) | 计划中 |
+
+## 开发
+
+```bash
+# 安装依赖
+npm install
+
+# Electron 启动（自动构建 renderer）
+npm start
+
+# Vite HMR 开发（需先运行 npm run dev:renderer）
+npm run start:vite
+
+# 运行测试
+npm test
+
+# 类型检查
+npm run typecheck
+```
 
 ## 许可证
 
@@ -121,4 +149,5 @@ skills2set/     内置技能定义
 - [提交 Issue](https://github.com/liliMozi/openhanako/issues)
 - [安全页](https://github.com/liliMozi/openhanako/security)
 - [安全政策](SECURITY.md)
+- [插件开发指南](PLUGINS.md)
 - [贡献指南](CONTRIBUTING.md)

@@ -1,0 +1,225 @@
+/* ========================================
+   Session 列表 — CSS Module
+   ======================================== */
+
+.sessionList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 var(--space-sm);
+    -webkit-app-region: no-drag;
+}
+
+.sessionItem {
+    display: flex;
+    flex-direction: column;
+    padding: 6px var(--space-sm);
+    margin-bottom: 1px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    -webkit-app-region: no-drag;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    overflow: hidden;
+    position: relative;
+}
+
+.sessionItem:hover {
+    background: var(--accent-light);
+}
+
+.sessionItemActive {
+    background: var(--accent-light);
+}
+
+.sessionItemTitle {
+    font-size: 0.8rem;
+    color: var(--text);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.sessionItemActive .sessionItemTitle {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.sessionItemMeta {
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    margin-top: 1px;
+    opacity: 0.8;
+}
+
+/* 重命名按钮 */
+.sessionRenameBtn {
+    position: absolute;
+    bottom: 4px;
+    right: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.15s;
+    z-index: 1;
+}
+
+.sessionRenameBtn svg {
+    pointer-events: none;
+}
+
+.sessionItem:hover .sessionRenameBtn {
+    opacity: 0.5;
+}
+
+.sessionRenameBtn:hover {
+    opacity: 1 !important;
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+/* 重命名输入框 */
+.sessionRenameInput {
+    font-size: 0.8rem;
+    color: var(--accent);
+    line-height: 1.4;
+    background: var(--accent-light);
+    border: none;
+    border-radius: 2px;
+    padding: 0 4px;
+    outline: none;
+    width: calc(100% - 24px);
+    min-width: 0;
+    font-family: inherit;
+}
+
+/* 归档按钮 */
+.sessionArchiveBtn {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    color: var(--danger);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.15s;
+    z-index: 1;
+}
+
+.sessionArchiveBtn svg {
+    pointer-events: none;
+}
+
+.sessionItem:hover .sessionArchiveBtn {
+    opacity: 0.5;
+}
+
+.sessionArchiveBtn:hover {
+    opacity: 1 !important;
+    background: rgba(var(--danger-rgb), 0.08);
+}
+
+/* streaming 呼吸动画 */
+.sessionStreamingDot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent, #b89a7a);
+    flex-shrink: 0;
+    animation: sessionBreathing 2s ease-in-out infinite;
+}
+
+@keyframes sessionBreathing {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+/* 浏览器标记 */
+.sessionBrowserBadge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Agent badge */
+.sessionAgentBadge {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+.sessionAgentBadgeText {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-size: 0.55rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sessionItemHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    overflow: hidden;
+    padding-right: 22px;
+}
+
+/* 日期分组标签 */
+.sessionDateLabel {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    padding: var(--space-sm) var(--space-sm) 2px;
+    opacity: 0.7;
+    user-select: none;
+}
+
+.sessionDateLabel:first-child {
+    padding-top: var(--space-xs);
+}
+
+/* 空状态 */
+.sessionEmpty {
+    text-align: center;
+    padding: var(--space-lg) var(--space-sm);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}

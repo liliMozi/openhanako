@@ -7,27 +7,28 @@
  * 纯粹的"搬运"操作：把文件或文件夹复制到统一的 uploads 目录。
  * 不做任何业务判断（PDF 解析、图片识别等由 skill 层处理）。
  *
- * 存储位置：
- *   - 有工作目录时：{cwd}/.hanako-uploads/
- *   - 无工作目录时：{os.tmpdir()}/.hanako-uploads/
- *
- * 返回复制后的新路径列表，供 agent 通过 read_file / list_files 访问。
+ * 存储位置：{hanakoHome}/uploads/
+ * 清理策略：24 小时过期自动删除。
  */
-import fs from "fs";
+import fsSync from "fs";
+import fs from "fs/promises";
 import path from "path";
-import os from "os";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { t } from "../i18n.js";
+import { isSensitivePath } from "../utils/path-security.js";
 
 const MAX_FILES = 9;
 
-/** 递归统计路径中的文件数量（文件夹递归计数内部文件，普通文件计 1） */
-function countFiles(p) {
+/** 递归统计路径中的文件数量（异步） */
+async function countFiles(p) {
   try {
-    const stat = fs.statSync(p);
+    const stat = await fs.stat(p);
     if (!stat.isDirectory()) return 1;
     let count = 0;
-    for (const entry of fs.readdirSync(p)) {
-      count += countFiles(path.join(p, entry));
+    const entries = await fs.readdir(p);
+    for (const entry of entries) {
+      count += await countFiles(path.join(p, entry));
     }
     return count;
   } catch {
@@ -35,69 +36,82 @@ function countFiles(p) {
   }
 }
 
-/** 清理超过 24 小时的上传临时文件 */
-function cleanOldUploads(uploadsDir) {
+/** 清理超过 24 小时的上传临时文件（异步，后台执行） */
+async function cleanOldUploads(uploadsDir) {
   try {
-    if (!fs.existsSync(uploadsDir)) return;
+    const entries = await fs.readdir(uploadsDir, { withFileTypes: true });
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    for (const entry of fs.readdirSync(uploadsDir, { withFileTypes: true })) {
+    for (const entry of entries) {
       const fullPath = path.join(uploadsDir, entry.name);
       try {
-        const stat = fs.statSync(fullPath);
+        const stat = await fs.stat(fullPath);
         if (stat.mtimeMs < cutoff) {
-          fs.rmSync(fullPath, { recursive: true, force: true });
+          await fs.rm(fullPath, { recursive: true, force: true });
         }
       } catch {}
     }
   } catch {}
 }
 
-export default async function uploadRoute(app, { engine }) {
-  app.post("/api/upload", async (req, reply) => {
-    const { paths } = req.body || {};
-    if (!Array.isArray(paths) || paths.length === 0) {
-      return reply.code(400).send({ error: t("error.pathsRequired") });
-    }
+export function createUploadRoute(engine) {
+  const route = new Hono();
 
-    // 统计总文件数（文件夹递归计数）
-    let totalFiles = 0;
-    for (const p of paths) {
-      totalFiles += countFiles(p);
-    }
-    if (totalFiles > MAX_FILES) {
-      return reply.code(400).send({
-        error: t("error.tooManyFiles", { max: MAX_FILES, n: totalFiles }),
-        totalFiles,
-        max: MAX_FILES,
-      });
+  route.post("/upload", async (c) => {
+    const body = await safeJson(c);
+    const { paths } = body;
+    if (!Array.isArray(paths) || paths.length === 0) {
+      return c.json({ error: t("error.pathsRequired") }, 400);
     }
 
     // 确定 uploads 目录
-    const cwd = engine.cwd;
-    const isRealCwd = cwd !== process.cwd();
-    const uploadsDir = isRealCwd
-      ? path.join(cwd, ".hanako-uploads")
-      : path.join(os.tmpdir(), ".hanako-uploads");
+    const uploadsDir = path.join(engine.hanakoHome, "uploads");
 
-    fs.mkdirSync(uploadsDir, { recursive: true });
+    await fs.mkdir(uploadsDir, { recursive: true });
 
-    // 清理超过 24 小时的旧上传文件
-    cleanOldUploads(uploadsDir);
+    // 后台清理旧上传（不阻塞当前请求）
+    cleanOldUploads(uploadsDir).catch(() => {});
 
     const results = [];
+    let totalFiles = 0;
 
     for (const srcPath of paths) {
+      // 超出文件数限制后，对剩余路径统一报错
+      if (totalFiles > MAX_FILES) {
+        results.push({
+          src: srcPath,
+          error: t("error.tooManyFiles", { max: MAX_FILES, n: totalFiles }),
+        });
+        continue;
+      }
+
       try {
         if (!path.isAbsolute(srcPath)) {
           results.push({ src: srcPath, error: "Path must be absolute" });
           continue;
         }
-        if (!fs.existsSync(srcPath)) {
+        let stat;
+        try {
+          stat = await fs.stat(srcPath);
+        } catch {
           results.push({ src: srcPath, error: t("error.pathNotFound") });
           continue;
         }
+        if (isSensitivePath(srcPath, engine.hanakoHome)) {
+          results.push({ src: srcPath, error: "sensitive path blocked" });
+          continue;
+        }
 
-        const stat = fs.statSync(srcPath);
+        // 安全检查通过后再统计文件数
+        const pathFileCount = await countFiles(srcPath);
+        totalFiles += pathFileCount;
+        if (totalFiles > MAX_FILES) {
+          results.push({
+            src: srcPath,
+            error: t("error.tooManyFiles", { max: MAX_FILES, n: totalFiles }),
+          });
+          continue;
+        }
+
         const name = path.basename(srcPath);
         const timestamp = Date.now().toString(36);
         const isDir = stat.isDirectory();
@@ -109,10 +123,9 @@ export default async function uploadRoute(app, { engine }) {
         const destPath = path.join(uploadsDir, destName);
 
         if (isDir) {
-          // 递归复制整个目录
-          fs.cpSync(srcPath, destPath, { recursive: true });
+          await fs.cp(srcPath, destPath, { recursive: true });
         } else {
-          fs.copyFileSync(srcPath, destPath);
+          await fs.copyFile(srcPath, destPath);
         }
 
         results.push({
@@ -126,6 +139,8 @@ export default async function uploadRoute(app, { engine }) {
       }
     }
 
-    return { uploads: results, uploadsDir };
+    return c.json({ uploads: results, uploadsDir });
   });
+
+  return route;
 }

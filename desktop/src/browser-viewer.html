@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';">
+          content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' file:;">
     <title>Browser</title>
     <link rel="stylesheet" id="themeSheet" href="themes/warm-paper.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
             background: var(--bg);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -17,8 +16,6 @@
             height: 100vh;
             position: relative;
         }
-
-        /* ── 工具栏（不设 drag，避免吞按钮事件） ── */
         .toolbar {
             height: 44px;
             display: flex;
@@ -27,234 +24,66 @@
             gap: 4px;
             position: relative;
         }
-
-        /* ── 左侧按钮组 ── */
         .toolbar-left {
             display: flex;
             align-items: center;
             gap: 3px;
             flex-shrink: 0;
         }
-
         .tb-btn {
-            width: 28px;
-            height: 28px;
-            border: none;
-            background: transparent;
+            width: 28px; height: 28px;
+            border: none; background: transparent;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--text-muted);
             transition: background 0.12s, color 0.12s;
             padding: 0;
         }
-
-        .tb-btn:hover {
-            background: var(--accent-light);
-            color: var(--text);
-        }
-
-        .tb-btn:active {
-            background: var(--border);
-        }
-
-        .tb-btn.disabled {
-            opacity: 0.3;
-            cursor: default;
-            pointer-events: none;
-        }
-
-        .tb-btn svg {
-            width: 14px;
-            height: 14px;
-        }
-
-        .close-btn:hover {
-            background: rgba(255, 59, 48, 0.12);
-            color: #FF3B30;
-        }
-
-        .close-btn:active {
-            background: rgba(255, 59, 48, 0.2);
-            color: #FF3B30;
-        }
-
-        .nav-sep {
-            width: 1px;
-            height: 16px;
-            background: var(--border);
-            margin: 0 4px;
-        }
-
-        /* ── 中间拖拽区（只有这里可拖拽） ── */
+        .tb-btn:hover { background: var(--accent-light); color: var(--text); }
+        .tb-btn:active { background: var(--border); }
+        .tb-btn.disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+        .tb-btn svg { width: 14px; height: 14px; }
+        .close-btn:hover { background: rgba(255, 59, 48, 0.12); color: #FF3B30; }
+        .close-btn:active { background: rgba(255, 59, 48, 0.2); color: #FF3B30; }
+        .nav-sep { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
         .toolbar-drag {
-            flex: 1;
-            min-width: 0;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            flex: 1; min-width: 0; height: 100%;
+            display: flex; align-items: center; justify-content: center;
             -webkit-app-region: drag;
         }
-
         .page-title {
-            font-size: 12.5px;
-            font-weight: 500;
-            color: var(--text-light);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            line-height: 1;
-            pointer-events: none;
+            font-size: 12.5px; font-weight: 500; color: var(--text-light);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            line-height: 1; pointer-events: none;
         }
-
-        /* ── 右侧紧急停止 ── */
-        .toolbar-right {
-            flex-shrink: 0;
-        }
-
+        .toolbar-right { flex-shrink: 0; }
         .stop-btn {
-            width: 28px;
-            height: 28px;
-            border: none;
-            background: transparent;
+            width: 28px; height: 28px;
+            border: none; background: transparent;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: var(--coral);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--coral);
             transition: background 0.12s, color 0.12s;
             padding: 0;
         }
-
-        .stop-btn svg {
-            width: 13px;
-            height: 13px;
-        }
-
-        .stop-btn:hover {
-            background: rgba(196, 100, 100, 0.12);
-            color: #b05555;
-        }
-
-        .stop-btn:active {
-            background: rgba(196, 100, 100, 0.2);
-            color: #a04040;
-        }
-
-        /* ── 卡片阴影（WebContentsView 盖在上面） ── */
+        .stop-btn svg { width: 13px; height: 13px; }
+        .stop-btn:hover { background: rgba(196, 100, 100, 0.12); color: #b05555; }
+        .stop-btn:active { background: rgba(196, 100, 100, 0.2); color: #a04040; }
         .card-frame {
             position: absolute;
-            top: 48px;   /* 44 toolbar + 4 gap */
-            left: 8px;
-            right: 8px;
-            bottom: 8px;
+            top: 48px; left: 8px; right: 8px; bottom: 8px;
             background: var(--bg-card);
             border-radius: 10px;
-            box-shadow:
-                0 0 0 0.5px var(--border),
-                0 4px 16px var(--shadow),
-                0 1px 3px var(--shadow);
+            box-shadow: 0 0 0 0.5px var(--border), 0 4px 16px var(--shadow), 0 1px 3px var(--shadow);
             pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <div class="toolbar">
-        <!-- 左侧：关闭 + 导航 -->
-        <div class="toolbar-left">
-            <button class="tb-btn close-btn" id="btnClose" title="关闭">
-                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
-                    <path d="M4 4l6 6M10 4l-6 6"/>
-                </svg>
-            </button>
-
-            <div class="nav-sep"></div>
-
-            <button class="tb-btn disabled" id="btnBack" title="后退">
-                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M8.5 2.5L4.5 7l4 4.5"/>
-                </svg>
-            </button>
-            <button class="tb-btn disabled" id="btnForward" title="前进">
-                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5.5 2.5L9.5 7l-4 4.5"/>
-                </svg>
-            </button>
-            <button class="tb-btn" id="btnReload" title="刷新">
-                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 7a4 4 0 1 1-4-4"/>
-                    <path d="M11 3v2.5H8.5"/>
-                </svg>
-            </button>
-        </div>
-
-        <!-- 中间：拖拽区 + 标题 -->
-        <div class="toolbar-drag">
-            <span class="page-title" id="pageTitle"></span>
-        </div>
-
-        <!-- 右侧：紧急停止 -->
-        <div class="toolbar-right">
-            <button class="stop-btn" id="btnStop" title="紧急停止 AI 控制">
-                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-                    <rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor" stroke="none"/>
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- 卡片阴影层 -->
-    <div class="card-frame"></div>
-
+    <div id="react-root"></div>
+    <script src="lib/i18n.js"></script>
     <script src="lib/theme.js"></script>
-    <script>
-        // 加载已保存主题，并监听切换
-        loadSavedTheme();
-        if (window.hana?.onSettingsChanged) {
-            window.hana.onSettingsChanged((type, data) => {
-                if (type === "theme-changed" && data?.theme) {
-                    setTheme(data.theme);
-                }
-            });
-        }
-
-        const btnClose = document.getElementById("btnClose");
-        const btnBack = document.getElementById("btnBack");
-        const btnForward = document.getElementById("btnForward");
-        const btnReload = document.getElementById("btnReload");
-        const btnStop = document.getElementById("btnStop");
-        const pageTitle = document.getElementById("pageTitle");
-
-        // 按钮事件
-        btnClose.addEventListener("click", () => window.hana?.closeBrowserViewer?.());
-        btnBack.addEventListener("click", () => window.hana?.browserGoBack?.());
-        btnForward.addEventListener("click", () => window.hana?.browserGoForward?.());
-        btnReload.addEventListener("click", () => window.hana?.browserReload?.());
-        btnStop.addEventListener("click", () => window.hana?.browserEmergencyStop?.());
-
-        // 接收主进程状态更新
-        if (window.hana?.onBrowserUpdate) {
-            window.hana.onBrowserUpdate((data) => {
-                if (data.title) {
-                    pageTitle.textContent = data.title;
-                }
-                if (data.canGoBack !== undefined) {
-                    btnBack.classList.toggle("disabled", !data.canGoBack);
-                }
-                if (data.canGoForward !== undefined) {
-                    btnForward.classList.toggle("disabled", !data.canGoForward);
-                }
-                if (data.running === false) {
-                    pageTitle.textContent = "";
-                    btnBack.classList.add("disabled");
-                    btnForward.classList.add("disabled");
-                }
-            });
-        }
-    </script>
+    <script src="modules/platform.js"></script>
+    <script type="module" src="./browser-viewer-main.tsx"></script>
 </body>
 </html>

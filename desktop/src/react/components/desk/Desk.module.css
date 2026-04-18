@@ -1,0 +1,722 @@
+/* ═══════════════════════════════════════
+   书桌（Desk）CSS Module
+   从 styles.css 迁移的 desk 专属样式
+   ═══════════════════════════════════════ */
+
+/* ── 书桌区：延伸到底 ── */
+.section {
+    align-self: stretch;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.sectionTitle {
+    padding: var(--space-xs) var(--space-sm) var(--space-xs);
+    flex: 0 0 auto;
+    font-family: "Songti SC", "Noto Serif CJK SC", serif;
+    justify-content: flex-start;
+    padding-left: var(--space-md);
+}
+
+/* 书桌未设置 overlay */
+.emptyOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: var(--space-lg);
+    padding-top: 45%;
+    background: var(--bg-card);
+}
+
+.emptyText {
+    font-size: 0.9rem;
+    color: var(--text);
+    margin: 0 0 0.5rem;
+}
+
+.emptyHint {
+    font-size: 0.78rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+    text-align: center;
+    margin: 0 0 1rem;
+    max-width: 240px;
+}
+
+.emptyBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-family: inherit;
+    font-size: 0.8rem;
+    color: var(--accent);
+    background: var(--accent-light);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 0.4rem 1rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.emptyBtn:hover {
+    opacity: 0.8;
+}
+
+/* 书桌标题行 */
+.header {
+    position: relative;
+}
+
+.headerCwdBtn {
+    position: absolute;
+    right: var(--space-sm);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+
+/* 打开文件夹按钮 */
+.openBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 2px var(--space-sm) var(--space-xs);
+    padding: 5px 0;
+    background: none;
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+}
+
+.openBtn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.openBtn svg {
+    opacity: 0.7;
+}
+
+.openBtn:hover svg {
+    opacity: 1;
+}
+
+/* 文件列表 */
+.list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    font-family: inherit;
+    display: grid;
+    grid-template-columns: repeat(var(--jian-columns, 1), minmax(0, 1fr));
+    gap: 1px;
+    align-content: start;
+    padding-bottom: 72px;
+}
+
+.list:empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.list:empty::after {
+    content: attr(data-empty-text);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-family: inherit;
+}
+
+/* 文件条目 */
+.item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px var(--space-sm);
+    cursor: default;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    transition: background 0.1s;
+    border-radius: 3px;
+    margin: 0 4px;
+    min-width: 0;
+    user-select: none;
+}
+
+.item:hover {
+    background: var(--overlay-subtle);
+}
+
+.selected {
+    background: rgba(var(--accent-rgb), 0.10);
+}
+
+.rubberBand {
+    background: rgba(var(--accent-rgb), 0.08);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.itemIcon {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+
+.itemIcon svg {
+    display: block;
+}
+
+.itemName {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+}
+
+.section.dragOver {
+    background: rgba(var(--accent-rgb), 0.04);
+}
+
+/* 工具栏（面包屑 + 排序） */
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 var(--space-sm) var(--space-xs);
+    flex-shrink: 0;
+    min-height: 24px;
+}
+
+.sortBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+.sortBtn:hover {
+    background: var(--overlay-subtle);
+    color: var(--text);
+}
+
+.sortBtn svg {
+    opacity: 0.6;
+}
+
+/* 项目技能按钮（卡片式） */
+.cwdBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: none;
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.cwdBtn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+}
+
+.cwdBtn.active {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.cwdBtn svg {
+    opacity: 0.6;
+}
+
+.cwdBtn:hover svg,
+.cwdBtn.active svg {
+    opacity: 1;
+}
+
+/* 项目技能面板（悬浮卡片） */
+.cwdPanelWrap {
+    position: relative;
+    z-index: 20;
+    margin: 0 var(--space-sm);
+}
+
+.cwdPanel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    padding: 0.5rem 0.75rem 0.6rem;
+    min-height: 260px;
+    max-height: 400px;
+    overflow-y: auto;
+    animation: cwdPanelIn 0.18s ease-out;
+    transform-origin: top right;
+    transition: border-color 0.15s;
+}
+
+.cwdPanel.dragOver {
+    border-color: var(--accent);
+    border-style: dashed;
+}
+
+/* 说明文案 + 装饰线 */
+.cwdDescLine {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.cwdDescDeco {
+    flex: 1;
+    height: 1px;
+    background: var(--overlay-light);
+}
+
+.cwdCtxMenu {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 12px var(--shadow);
+    padding: 4px 0;
+    min-width: 140px;
+}
+
+.cwdCtxMenu button {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--text);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+}
+
+.cwdCtxMenu button:hover {
+    background: var(--accent-light);
+}
+
+.cwdCtxDanger {
+    color: var(--danger, #c55);
+}
+
+.cwdCtxMenu button.cwdCtxDanger:hover {
+    background: rgba(200, 80, 80, 0.08);
+}
+
+.cwdDescText {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+@keyframes cwdPanelIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.cwdPanelWrap.closing .cwdPanel {
+    animation: cwdPanelOut 0.08s ease-in forwards;
+}
+
+@keyframes cwdPanelOut {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-6px); }
+}
+
+.cwdEmpty {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 0.4rem 0 0.1rem;
+}
+
+.cwdHint {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    opacity: 0.5;
+    text-align: center;
+    padding-bottom: 0.2rem;
+}
+
+.cwdGroupLabel {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: 0.25rem 0 0.1rem;
+}
+
+.cwdSkillItem {
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    padding: 0.2rem 0.3rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.cwdSkillItem:hover {
+    background: var(--overlay-light);
+}
+
+.cwdSkillName {
+    font-size: 0.72rem;
+    color: var(--text);
+}
+
+.cwdSkillDesc {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 子目录导航 */
+.nav {
+    flex-shrink: 0;
+}
+
+.navHidden {
+    display: none;
+}
+
+.backBtn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: var(--overlay-subtle);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.backBtn span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.backBtn:hover {
+    background: var(--overlay-light);
+}
+
+.backBtn svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+/* 可点击的文件夹样式 */
+.isDir {
+    cursor: default;
+}
+
+.isDir:hover {
+    background: rgba(var(--accent-rgb), 0.06);
+}
+
+.isDir .itemIcon {
+    color: var(--accent);
+}
+
+.dropTarget {
+    background: rgba(var(--accent-rgb), 0.12);
+    outline: 1.5px dashed rgba(var(--accent-rgb), 0.4);
+    outline-offset: -1.5px;
+}
+
+/* 内联重命名输入框 */
+.renameInput {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.72rem;
+    font-family: inherit;
+    line-height: 1.4;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    outline: none;
+    padding: 0 2px;
+}
+
+/* ── 笺编辑器 ── */
+.editor {
+    position: relative;
+    flex-shrink: 0;
+    margin: 0 6px 6px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--jian-note-border, rgba(200, 160, 110, 0.2));
+    background: var(--jian-note-bg, #FAF0E2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    height: 300px;
+}
+
+.editorHeader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6em;
+    padding: var(--space-sm) var(--space-sm);
+    border-bottom: 1px solid var(--jian-note-border, rgba(200, 160, 110, 0.2));
+    flex-shrink: 0;
+}
+
+.editorHeader::before,
+.editorHeader::after {
+    content: "";
+    flex: 1;
+    max-width: 48px;
+    height: 1px;
+    background: var(--jian-note-border, rgba(200, 160, 110, 0.25));
+}
+
+.editorLabel {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-light);
+    letter-spacing: 0.05em;
+}
+
+.editorStatus {
+    position: absolute;
+    right: var(--space-sm);
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.editorStatusVisible {
+    opacity: 1;
+}
+
+.editorInput {
+    flex: 1;
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.72rem;
+    line-height: 1.55;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    font-family: inherit;
+    overflow-y: auto;
+}
+
+.editorInput::placeholder {
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+/* ── 执行记录 ── */
+.execLog {
+    border-top: 1px solid var(--jian-note-border, rgba(200, 160, 110, 0.2));
+    padding: var(--space-sm) var(--space-md);
+    max-height: 140px;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.execLogHeader {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.3em;
+    letter-spacing: 0.04em;
+}
+
+.execLogList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.execLogItem {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4em;
+    padding: 0.15em 0;
+    font-size: 0.66rem;
+    line-height: 1.4;
+    color: var(--text-light);
+}
+
+.execLogTime {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.execLogTask {
+    color: var(--text);
+}
+
+.execLogResult {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.execLogResult::before {
+    content: "— ";
+}
+
+.execLogDelete {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.72rem;
+    padding: 0 0.2em;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.execLogItem:hover .execLogDelete {
+    opacity: 0.6;
+}
+
+.execLogDelete:hover {
+    opacity: 1 !important;
+    color: var(--danger, #c44);
+}
+
+/* ── 书桌技能快捷区 ── */
+.skillsSection {
+    padding: 0.4rem 0.75rem 0.5rem;
+    border-bottom: 1px solid var(--overlay-light);
+}
+
+.skillsHeader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+}
+
+.skillsHeader:hover {
+    color: var(--text);
+}
+
+.skillsCount {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    background: var(--overlay-light);
+    padding: 0 5px;
+    border-radius: 8px;
+    line-height: 1.5;
+}
+
+.skillsChevron {
+    margin-left: auto;
+    transition: transform 0.2s;
+}
+
+.skillsChevronOpen {
+    transform: rotate(90deg);
+}
+
+.skillsList {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-top: 0.35rem;
+}
+
+.skillItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    font-size: 0.72rem;
+}
+
+.skillName {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+}
+
+.skillSource {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    opacity: 0.5;
+    white-space: nowrap;
+    flex-shrink: 0;
+}

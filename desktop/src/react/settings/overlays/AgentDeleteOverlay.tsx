@@ -3,8 +3,9 @@ import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
 import { t } from '../helpers';
 import { switchToAgent, loadSettingsConfig, loadAgents } from '../actions';
+import styles from '../Settings.module.css';
 
-const platform = (window as any).platform;
+const platform = window.platform;
 
 export function AgentDeleteOverlay() {
   const { agents, currentAgentId, showToast } = useSettingsStore();
@@ -58,24 +59,24 @@ export function AgentDeleteOverlay() {
   if (!visible || !target) return null;
 
   return (
-    <div className="agent-delete-overlay visible" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-      <div className="agent-delete-card">
+    <div className={`${styles['agent-delete-overlay']} ${styles['visible']}`} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div className={styles['agent-delete-card']}>
         {step === 1 ? (
-          <div className="agent-delete-step">
-            <h3 className="agent-delete-title">{t('settings.agent.deleteTitle1', { name: target.name })}</h3>
-            <p className="agent-delete-desc">{t('settings.agent.deleteDesc1')}</p>
-            <div className="agent-delete-actions">
-              <button className="agent-delete-cancel" onClick={close}>{t('settings.agent.deleteCancel')}</button>
-              <button className="agent-delete-danger" onClick={() => setStep(2)}>{t('settings.agent.deleteNext')}</button>
+          <div className={styles['agent-delete-step']}>
+            <h3 className={styles['agent-delete-title']}>{t('settings.agent.deleteTitle1', { name: target.name })}</h3>
+            <p className={styles['agent-delete-desc']}>{t('settings.agent.deleteDesc1')}</p>
+            <div className={styles['agent-delete-actions']}>
+              <button className={styles['agent-delete-cancel']} onClick={close}>{t('settings.agent.deleteCancel')}</button>
+              <button className={styles['agent-delete-danger']} onClick={() => setStep(2)}>{t('settings.agent.deleteNext')}</button>
             </div>
           </div>
         ) : (
-          <div className="agent-delete-step">
-            <h3 className="agent-delete-title">{t('settings.agent.deleteTitle2', { name: target.name })}</h3>
-            <div className="settings-field">
+          <div className={styles['agent-delete-step']}>
+            <h3 className={styles['agent-delete-title']}>{t('settings.agent.deleteTitle2', { name: target.name })}</h3>
+            <div className={styles['settings-field']}>
               <input
                 ref={inputRef}
-                className="settings-input agent-delete-input"
+                className={`${styles['settings-input']} ${styles['agent-delete-input']}`}
                 type="text"
                 placeholder={t('settings.agent.deletePlaceholder')}
                 autoComplete="off"
@@ -87,10 +88,10 @@ export function AgentDeleteOverlay() {
                 }}
               />
             </div>
-            <div className="agent-delete-actions">
-              <button className="agent-delete-cancel" onClick={close}>{t('settings.agent.deleteCancel')}</button>
+            <div className={styles['agent-delete-actions']}>
+              <button className={styles['agent-delete-cancel']} onClick={close}>{t('settings.agent.deleteCancel')}</button>
               <button
-                className="agent-delete-danger"
+                className={styles['agent-delete-danger']}
                 disabled={nameInput.trim() !== target.name}
                 onClick={confirmDelete}
               >

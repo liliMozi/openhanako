@@ -4,37 +4,31 @@
 import fs from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { t } from "../i18n.js";
 import { debugLog } from "../../lib/debug-log.js";
-import { getRawConfig, getAllProviders, saveGlobalProviders, clearConfigCache } from "../../lib/memory/config-loader.js";
+import { getRawConfig, clearConfigCache } from "../../lib/memory/config-loader.js";
 import { FactStore } from "../../lib/memory/fact-store.js";
+import { splitByScope, injectGlobalFields } from '../../shared/config-scope.js';
+import { resolveAgent, resolveAgentStrict, AgentNotFoundError } from "../utils/resolve-agent.js";
+import { formatSkillsForPrompt } from "../../lib/pi-sdk/index.js";
+import {
+  buildInlineProviderCredentialUpdate,
+  clearInlineProviderCredentialFields,
+  hasInlineProviderCredentialPatch,
+} from "./provider-credentials.js";
 
-export default async function configRoute(app, { engine }) {
+export function createConfigRoute(engine) {
+  const route = new Hono();
 
   // 读取配置（脱敏：隐藏 API key，附带 _raw 原始结构 + providers）
-  app.get("/api/config", async (req, reply) => {
+  route.get("/config", async (c) => {
     try {
       const config = { ...engine.config };
       const raw = getRawConfig(engine.configPath) || {};
 
-      // 脱敏 API key
-      const mask = (key) => {
-        if (!key || key.length < 8) return key ? "****" : "";
-        return key.slice(0, 4) + "..." + key.slice(-4);
-      };
-
-      if (config.api) {
-        config.api = { ...config.api, api_key: mask(config.api.api_key) };
-      }
-      if (config.embedding_api) {
-        config.embedding_api = { ...config.embedding_api, api_key: mask(config.embedding_api.api_key) };
-      }
-      if (config.utility_api) {
-        config.utility_api = { ...config.utility_api, api_key: mask(config.utility_api.api_key) };
-      }
-      if (config.search) {
-        config.search = { ...config.search, api_key: mask(config.search?.api_key) };
-      }
+      // 本地应用，直接返回完整 key（前端用 type="password" 控制显隐）
 
       // 附带原始配置结构（未经 fallback 解析，让前端知道用户显式设了什么）
       config._raw = {
@@ -43,277 +37,237 @@ export default async function configRoute(app, { engine }) {
         utility_api: { provider: raw.utility_api?.provider || "", base_url: raw.utility_api?.base_url || "" },
       };
 
-      // 供应商列表（脱敏 api_key，附带 model_count）
-      const providers = getAllProviders(engine.configPath);
-      const maskedProviders = {};
-      for (const [name, p] of Object.entries(providers)) {
-        maskedProviders[name] = {
-          base_url: p.base_url || "",
-          api: p.api || "",
-          api_key: mask(p.api_key),
+      // 供应商列表（附带 model_count）
+      const rawProviders = engine.providerRegistry.getAllProvidersRaw();
+      const providerEntries = {};
+      for (const [name, p] of Object.entries(rawProviders)) {
+        const entry = engine.providerRegistry.get(name);
+        providerEntries[name] = {
+          base_url: p.base_url || entry?.baseUrl || "",
+          api: p.api || entry?.api || "",
+          api_key: p.api_key || "",
           models: p.models || [],
           model_count: (p.models || []).length,
         };
       }
-      config.providers = maskedProviders;
+      config.providers = providerEntries;
 
-      // 注入全局设置（存于 preferences，跨 agent 共享）
-      if (!config.desk) config.desk = {};
-      config.desk.home_folder = engine.getHomeFolder() || "";
-      // 过滤掉已被删除的工作目录
+      // 自动注入全局字段（schema-driven）
+      injectGlobalFields(config, engine);
+      // cwd_history 过滤（agent-scope，但需要 existsSync 验证）
       if (Array.isArray(config.cwd_history)) {
         config.cwd_history = config.cwd_history.filter(p => existsSync(p));
       }
-      config.thinking_level = engine.getThinkingLevel();
-      config.sandbox = engine.getSandbox();
-      const globalLocale = engine.getLocale();
-      if (globalLocale) config.locale = globalLocale;
-      const globalTz = engine.getTimezone();
-      if (globalTz) config.timezone = globalTz;
-      if (!config.capabilities) config.capabilities = {};
-      config.capabilities.learn_skills = engine.getLearnSkills();
 
-      return config;
+      return c.json(config);
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 更新配置
-  app.put("/api/config", async (req, reply) => {
+  route.put("/config", async (c) => {
     try {
-      const partial = req.body;
+      const partial = await safeJson(c);
       if (!partial || typeof partial !== "object") {
-        reply.code(400);
-        return { error: t("error.invalidJson") };
+        return c.json({ error: t("error.invalidJson") }, 400);
       }
-      // ── 全局设置拦截：存 preferences / providers.yaml 而非 agent config ──
-
-      // thinking_level → preference（跨 agent 共享）
-      if (partial.thinking_level !== undefined) {
-        engine.setThinkingLevel(partial.thinking_level);
-        delete partial.thinking_level;
+      // ── schema-driven 全局字段分流 ──
+      const { global: globalFields, agent: agentPartial } = splitByScope(partial);
+      for (const { setter, value } of globalFields) {
+        engine[setter](value);
       }
 
-      // locale → 全局 preferences
-      if (partial.locale !== undefined) {
-        engine.setLocale(partial.locale);
-        delete partial.locale;
-      }
-
-      // timezone → 全局 preferences
-      if (partial.timezone !== undefined) {
-        engine.setTimezone(partial.timezone);
-        delete partial.timezone;
-      }
-
-      // sandbox → 全局 preferences
-      if (partial.sandbox !== undefined) {
-        engine.setSandbox(partial.sandbox);
-        delete partial.sandbox;
-      }
-
-      // capabilities.learn_skills → 全局 preferences
-      if (partial.capabilities?.learn_skills !== undefined) {
-        engine.setLearnSkills(partial.capabilities.learn_skills);
-        delete partial.capabilities.learn_skills;
-        if (partial.capabilities && Object.keys(partial.capabilities).length === 0) delete partial.capabilities;
-      }
-
-      // desk.home_folder
-      if (partial.desk?.home_folder !== undefined) {
-        engine.setHomeFolder(partial.desk.home_folder || null);
-        delete partial.desk.home_folder;
-        if (partial.desk && Object.keys(partial.desk).length === 0) delete partial.desk;
-      }
-
-      // providers 块 → 全局 providers.yaml
+      // providers 块 → 全局 added-models.yaml
       let providersChanged = false;
-      if (partial.providers) {
-        saveGlobalProviders({ providers: partial.providers });
-        delete partial.providers;
+      if (agentPartial.providers) {
+        for (const [name, data] of Object.entries(agentPartial.providers)) {
+          if (data === null) {
+            engine.providerRegistry.removeProvider(name);
+          } else {
+            engine.providerRegistry.saveProvider(name, data);
+          }
+        }
+        delete agentPartial.providers;
         providersChanged = true;
       }
 
-      // 内联 API 凭证 → 全局 providers.yaml 对应条目
+      // 内联 API 凭证 → 全局 added-models.yaml 对应条目
       const rawConfig = getRawConfig(engine.configPath) || {};
       for (const blockName of ["api", "embedding_api", "utility_api"]) {
-        const block = partial[blockName];
-        if (block?.api_key || block?.base_url) {
-          const provName = typeof block.provider === "string" && block.provider.trim()
-            ? block.provider.trim()
-            : (rawConfig?.[blockName]?.provider || "").trim();
+        const block = agentPartial[blockName];
+        if (hasInlineProviderCredentialPatch(block)) {
+          const { provider: provName, update: provUpdate } = buildInlineProviderCredentialUpdate(
+            block,
+            rawConfig?.[blockName]?.provider || "",
+          );
           if (!provName) {
-            reply.code(400);
-            return { error: `${blockName}.provider is required when saving credentials` };
+            return c.json({ error: `${blockName}.provider is required when saving credentials` }, 400);
           }
-          const provUpdate = {};
-          if (block.api_key) provUpdate.api_key = block.api_key;
-          if (block.base_url) provUpdate.base_url = block.base_url;
-          saveGlobalProviders({ providers: { [provName]: provUpdate } });
-          block.api_key = "";
-          block.base_url = "";
+          engine.providerRegistry.saveProvider(provName, provUpdate);
+          clearInlineProviderCredentialFields(block);
           providersChanged = true;
         }
       }
 
       // providers 变更后确保运行时刷新
-      const needsModelSync = providersChanged && !partial.models;
-      if (providersChanged && Object.keys(partial).length === 0) {
-        clearConfigCache();
-        await engine.updateConfig({});
-        if (needsModelSync) {
-          try { await engine.syncModelsAndRefresh(); } catch (e) {
-            debugLog()?.warn("api", `syncModelsAndRefresh after provider change: ${e.message}`);
-          }
+      if (providersChanged) {
+        try {
+          await engine.onProviderChanged();
+          debugLog()?.log("api", `onProviderChanged OK after provider change (${engine.availableModels.length} models)`);
+        } catch (e) {
+          console.error("[config] onProviderChanged failed:", e.message);
         }
-        return { ok: true };
       }
 
-      if (Object.keys(partial).length === 0) return { ok: true };
-      debugLog()?.log("api", `PUT /api/config keys=[${Object.keys(partial).join(",")}]`);
-      if (providersChanged) clearConfigCache();
-      await engine.updateConfig(partial);
-      if (needsModelSync) {
-        try { await engine.syncModelsAndRefresh(); } catch (e) {
-          debugLog()?.warn("api", `syncModelsAndRefresh after config update: ${e.message}`);
-        }
+      if (providersChanged && Object.keys(agentPartial).length === 0) {
+        clearConfigCache();
+        await engine.updateConfig({});
+        return c.json({ ok: true });
       }
-      return { ok: true };
+
+      if (Object.keys(agentPartial).length === 0) return c.json({ ok: true });
+      debugLog()?.log("api", `PUT /api/config keys=[${Object.keys(agentPartial).join(",")}]`);
+      if (providersChanged) clearConfigCache();
+      await engine.updateConfig(agentPartial);
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/config failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── System Prompt（只读，供 DevTools 查看）──
+  // 注意：agent.systemPrompt 不含 skills 块（#399 修复后由 SDK 内部统一注入），
+  // 这里手动拼接以保持开发者视图与 SDK 实际发送给 LLM 的 prompt 一致。
 
-  app.get("/api/system-prompt", async (req, reply) => {
+  route.get("/system-prompt", async (c) => {
     try {
-      return { content: engine.agent.systemPrompt || "" };
+      const agent = resolveAgent(engine, c);
+      let content = agent.systemPrompt || "";
+      const enabledSkills = agent.enabledSkills || [];
+      if (enabledSkills.length > 0) {
+        content += formatSkillsForPrompt(enabledSkills);
+      }
+      return c.json({ content });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 人格文件（ishiki.md）──
 
   // 读取 ishiki.md 内容
-  app.get("/api/ishiki", async (req, reply) => {
+  route.get("/ishiki", async (c) => {
     try {
-      const ishikiPath = engine.agentDir + "/ishiki.md";
+      const ishikiPath = path.join(resolveAgent(engine, c).agentDir, "ishiki.md");
       const content = await fs.readFile(ishikiPath, "utf-8");
-      return { content };
+      return c.json({ content });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 保存 ishiki.md 内容，并触发 system prompt 重建
-  app.put("/api/ishiki", async (req, reply) => {
+  route.put("/ishiki", async (c) => {
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
-      const ishikiPath = engine.agentDir + "/ishiki.md";
+      const agent = resolveAgentStrict(engine, c);
+      const ishikiPath = path.join(agent.agentDir, "ishiki.md");
       await fs.writeFile(ishikiPath, content, "utf-8");
       debugLog()?.log("api", `PUT /api/ishiki (saved, ${content.length} chars)`);
       // 触发 system prompt 重建（updateConfig 内部会重新读取 ishiki.md）
-      await engine.updateConfig({});
-      return { ok: true };
+      await engine.updateConfig({}, { agentId: agent.id });
+      return c.json({ ok: true });
     } catch (err) {
+      if (err instanceof AgentNotFoundError) return c.json({ error: err.message }, 404);
       debugLog()?.error("api", `PUT /api/ishiki failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 身份简介（identity.md）──
 
-  app.get("/api/identity", async (req, reply) => {
+  route.get("/identity", async (c) => {
     try {
-      const identityPath = engine.agentDir + "/identity.md";
+      const identityPath = path.join(resolveAgent(engine, c).agentDir, "identity.md");
       const content = await fs.readFile(identityPath, "utf-8");
-      return { content };
+      return c.json({ content });
     } catch (err) {
-      if (err.code === "ENOENT") return { content: "" };
-      reply.code(500);
-      return { error: err.message };
+      if (err.code === "ENOENT") return c.json({ content: "" });
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  app.put("/api/identity", async (req, reply) => {
+  route.put("/identity", async (c) => {
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
-      const identityPath = engine.agentDir + "/identity.md";
+      const agent = resolveAgentStrict(engine, c);
+      const identityPath = path.join(agent.agentDir, "identity.md");
       await fs.writeFile(identityPath, content, "utf-8");
       debugLog()?.log("api", `PUT /api/identity (saved, ${content.length} chars)`);
-      await engine.updateConfig({});
-      return { ok: true };
+      await engine.updateConfig({}, { agentId: agent.id });
+      return c.json({ ok: true });
     } catch (err) {
+      if (err instanceof AgentNotFoundError) return c.json({ error: err.message }, 404);
       debugLog()?.error("api", `PUT /api/identity failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 用户档案（user.md）──
 
   // 读取 user.md 内容
-  app.get("/api/user-profile", async (req, reply) => {
+  route.get("/user-profile", async (c) => {
     try {
-      const userPath = engine.userDir + "/user.md";
+      const userPath = path.join(engine.userDir, "user.md");
       const content = await fs.readFile(userPath, "utf-8");
-      return { content };
+      return c.json({ content });
     } catch (err) {
       // 文件不存在时返回空字符串（user.md 是可选的）
-      if (err.code === "ENOENT") return { content: "" };
-      reply.code(500);
-      return { error: err.message };
+      if (err.code === "ENOENT") return c.json({ content: "" });
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 保存 user.md 内容，并触发 system prompt 重建
-  app.put("/api/user-profile", async (req, reply) => {
+  route.put("/user-profile", async (c) => {
     try {
-      const { content } = req.body || {};
+      const body = await safeJson(c);
+      const { content } = body;
       if (typeof content !== "string") {
-        reply.code(400);
-        return { error: "content must be a string" };
+        return c.json({ error: "content must be a string" }, 400);
       }
-      const userPath = engine.userDir + "/user.md";
+      const userPath = path.join(engine.userDir, "user.md");
       await fs.writeFile(userPath, content, "utf-8");
       debugLog()?.log("api", `PUT /api/user-profile (saved, ${content.length} chars)`);
       await engine.updateConfig({});
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.error("api", `PUT /api/user-profile failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // ── 置顶记忆（pinned.md）──
 
   // 读取 pinned.md，解析为逐条数组
-  app.get("/api/pinned", async (req, reply) => {
+  route.get("/pinned", async (c) => {
     try {
-      const pinnedPath = engine.agentDir + "/pinned.md";
+      const pinnedPath = path.join(resolveAgent(engine, c).agentDir, "pinned.md");
       let content = "";
       try {
         content = await fs.readFile(pinnedPath, "utf-8");
       } catch (err) {
-        if (err.code === "ENOENT") return { pins: [] };
+        if (err.code === "ENOENT") return c.json({ pins: [] });
         throw err;
       }
       const pins = content
@@ -321,20 +275,19 @@ export default async function configRoute(app, { engine }) {
         .map(line => line.trim())
         .filter(line => line.length > 0)
         .map(line => line.replace(/^-\s*/, ""));
-      return { pins };
+      return c.json({ pins });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 保存 pinned.md（覆盖写入），触发 system prompt 重建
-  app.put("/api/pinned", async (req, reply) => {
+  route.put("/pinned", async (c) => {
     try {
-      const { pins } = req.body || {};
+      const body = await safeJson(c);
+      const { pins } = body;
       if (!Array.isArray(pins)) {
-        reply.code(400);
-        return { error: "pins must be an array" };
+        return c.json({ error: "pins must be an array" }, 400);
       }
       const content = pins
         .map(p => (typeof p === "string" ? p.trim() : ""))
@@ -342,16 +295,17 @@ export default async function configRoute(app, { engine }) {
         .map(p => `- ${p}`)
         .join("\n")
         + "\n";
-      const pinnedPath = engine.agentDir + "/pinned.md";
+      const agent = resolveAgentStrict(engine, c);
+      const pinnedPath = path.join(agent.agentDir, "pinned.md");
       await fs.writeFile(pinnedPath, content, "utf-8");
       debugLog()?.log("api", `PUT /api/pinned (${pins.length} items)`);
       // 触发 system prompt 重建（updateConfig 内部会重新读取 pinned.md）
-      await engine.updateConfig({});
-      return { ok: true };
+      await engine.updateConfig({}, { agentId: agent.id });
+      return c.json({ ok: true });
     } catch (err) {
+      if (err instanceof AgentNotFoundError) return c.json({ error: err.message }, 404);
       debugLog()?.error("api", `PUT /api/pinned failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
@@ -364,129 +318,119 @@ export default async function configRoute(app, { engine }) {
    * 返回 { store, isTemp }，调用方用完 isTemp===true 的 store 需要 close。
    */
   function getStoreForAgent(agentId) {
-    const activeId = path.basename(engine.agent.agentDir);
-    if (!agentId || agentId === activeId) {
-      return { store: engine.factStore, isTemp: false };
+    if (!agentId) throw new Error("agentId is required");
+    const resolvedId = agentId;
+    const agent = engine.getAgent(resolvedId);
+    if (agent?.factStore) {
+      return { store: agent.factStore, isTemp: false };
     }
-    if (/[\/\\.]/.test(agentId)) {
-      throw new Error("Invalid agent ID");
-    }
-    const dbPath = path.join(engine.agentsDir, agentId, "memory", "facts.db");
+    if (/[\/\\.]/.test(resolvedId)) throw new Error("Invalid agent ID");
+    const dbPath = path.join(engine.agentsDir, resolvedId, "memory", "facts.db");
     try {
       const store = new FactStore(dbPath);
       return { store, isTemp: true };
     } catch (err) {
-      throw new Error(`Cannot open fact DB for agent "${agentId}": ${err.message}`);
+      throw new Error(`Cannot open fact DB for agent "${resolvedId}": ${err.message}`);
     }
   }
 
   // 获取所有元事实
-  app.get("/api/memories", async (req, reply) => {
+  route.get("/memories", async (c) => {
     let tempStore = null;
     try {
-      const { store, isTemp } = getStoreForAgent(req.query.agentId);
+      const { store, isTemp } = getStoreForAgent(c.req.query("agentId"));
       if (isTemp) tempStore = store;
-      return { memories: store.exportAll() };
+      return c.json({ memories: store.exportAll() });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     } finally {
       tempStore?.close();
     }
   });
 
   // 读取编译后的 memory.md
-  app.get("/api/memories/compiled", async (req, reply) => {
+  route.get("/memories/compiled", async (c) => {
     try {
-      const agentId = req.query.agentId;
-      const activeId = path.basename(engine.agent.agentDir);
-      const mdPath = (!agentId || agentId === activeId)
-        ? engine.memoryMdPath
-        : path.join(engine.agentsDir, agentId, "memory", "memory.md");
+      const agent = resolveAgent(engine, c);
+      const mdPath = agent.memoryMdPath;
       const content = await fs.readFile(mdPath, "utf-8").catch(() => "");
-      return { content };
+      return c.json({ content });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 清除编译产物（today/week/longterm/facts/memory.md + fingerprints）
-  app.delete("/api/memories/compiled", async (req, reply) => {
+  route.delete("/memories/compiled", async (c) => {
     try {
-      const agentId = req.query.agentId;
-      const activeId = path.basename(engine.agent.agentDir);
-      const memDir = (!agentId || agentId === activeId)
-        ? path.dirname(engine.memoryMdPath)
-        : path.join(engine.agentsDir, agentId, "memory");
+      const agent = resolveAgent(engine, c);
+      const memDir = path.dirname(agent.memoryMdPath);
       const targets = ["memory.md", "today.md", "week.md", "longterm.md", "facts.md"];
       for (const f of targets) {
         const p = path.join(memDir, f);
         await fs.writeFile(p, "", "utf-8").catch(() => {});
         await fs.unlink(p + ".fingerprint").catch(() => {});
       }
-      debugLog()?.log("api", `DELETE /api/memories/compiled agent=${agentId || activeId}`);
-      if (!agentId || agentId === activeId) await engine.updateConfig({});
-      return { ok: true };
+      debugLog()?.log("api", `DELETE /api/memories/compiled agent=${path.basename(agent.agentDir)}`);
+      const agentId = path.basename(agent.agentDir);
+      const resolvedAgent = engine.getAgent(agentId);
+      if (resolvedAgent) await resolvedAgent.updateConfig({});
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
   // 清除所有记忆（facts.db + memory.md）
-  app.delete("/api/memories", async (req, reply) => {
+  route.delete("/memories", async (c) => {
     let tempStore = null;
     try {
-      const agentId = req.query.agentId;
-      const { store, isTemp } = getStoreForAgent(agentId);
+      const agent = resolveAgent(engine, c);
+      const { store, isTemp } = getStoreForAgent(c.req.query("agentId"));
       if (isTemp) tempStore = store;
       store.clearAll();
-      const activeId = path.basename(engine.agent.agentDir);
-      const mdPath = (!agentId || agentId === activeId)
-        ? engine.memoryMdPath
-        : path.join(engine.agentsDir, agentId, "memory", "memory.md");
+      const mdPath = agent.memoryMdPath;
       await fs.writeFile(mdPath, "", "utf-8");
-      debugLog()?.log("api", `DELETE /api/memories agent=${agentId || activeId}`);
-      if (!isTemp) await engine.updateConfig({});
-      return { ok: true };
+      debugLog()?.log("api", `DELETE /api/memories agent=${path.basename(agent.agentDir)}`);
+      const agentId = path.basename(agent.agentDir);
+      const resolvedAgent = engine.getAgent(agentId);
+      if (resolvedAgent) await resolvedAgent.updateConfig({});
+      return c.json({ ok: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     } finally {
       tempStore?.close();
     }
   });
 
   // 导出记忆（JSON）
-  app.get("/api/memories/export", async (req, reply) => {
+  route.get("/memories/export", async (c) => {
     let tempStore = null;
     try {
-      const { store, isTemp } = getStoreForAgent(req.query.agentId);
+      const { store, isTemp } = getStoreForAgent(c.req.query("agentId"));
       if (isTemp) tempStore = store;
-      return {
+      return c.json({
         version: 2,
         exportedAt: new Date().toISOString(),
         facts: store.exportAll(),
-      };
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     } finally {
       tempStore?.close();
     }
   });
 
   // 导入记忆（直接写入，无需 embedding）
-  app.post("/api/memories/import", async (req, reply) => {
+  route.post("/memories/import", async (c) => {
     let tempStore = null;
     try {
-      const { facts, memories } = req.body || {};
+      const body = await safeJson(c);
+      const { facts, memories } = body;
       // 兼容 v1 导出格式（memories 字段）和 v2 格式（facts 字段）
       const entries = facts || memories;
       if (!Array.isArray(entries) || entries.length === 0) {
-        reply.code(400);
-        return { error: "facts must be a non-empty array" };
+        return c.json({ error: "facts must be a non-empty array" }, 400);
       }
 
       const importEntries = entries.map((e) => ({
@@ -496,58 +440,28 @@ export default async function configRoute(app, { engine }) {
         session_id: e.session_id || "imported",
       }));
 
-      const { store, isTemp } = getStoreForAgent(req.query.agentId);
+      const { store, isTemp } = getStoreForAgent(c.req.query("agentId"));
       if (isTemp) tempStore = store;
       store.importAll(importEntries);
       debugLog()?.log("api", `POST /api/memories/import: ${importEntries.length} entries`);
-      return { ok: true, imported: importEntries.length };
+      return c.json({ ok: true, imported: importEntries.length });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     } finally {
       tempStore?.close();
     }
   });
 
-  // ── 全局 Favorites（跨 agent 共享的收藏模型列表）──
-
-  app.get("/api/favorites", async (req, reply) => {
-    try {
-      return { favorites: engine.readFavorites() };
-    } catch (err) {
-      reply.code(500);
-      return { error: err.message };
-    }
-  });
-
-  app.put("/api/favorites", async (req, reply) => {
-    try {
-      const { favorites } = req.body || {};
-      if (!Array.isArray(favorites)) {
-        reply.code(400);
-        return { error: "favorites must be an array" };
-      }
-      debugLog()?.log("api", `PUT /api/favorites (${favorites.length} items)`);
-      await engine.saveFavorites(favorites);
-      return { ok: true };
-    } catch (err) {
-      debugLog()?.error("api", `PUT /api/favorites failed: ${err.message}`);
-      reply.code(500);
-      return { error: err.message };
-    }
-  });
-
   // ── 搜索 API Key 验证 ──
 
-  app.post("/api/search/verify", async (req, reply) => {
-    const { provider, api_key } = req.body || {};
+  route.post("/search/verify", async (c) => {
+    const body = await safeJson(c);
+    const { provider, api_key } = body;
     if (!provider) {
-      reply.code(400);
-      return { ok: false, error: "provider is required" };
+      return c.json({ ok: false, error: "provider is required" }, 400);
     }
     if (!api_key) {
-      reply.code(400);
-      return { ok: false, error: "api_key is required" };
+      return c.json({ ok: false, error: "api_key is required" }, 400);
     }
     try {
       const { verifySearchKey } = await import("../../lib/tools/web-search.js");
@@ -555,10 +469,12 @@ export default async function configRoute(app, { engine }) {
       engine.setSearchConfig({ provider, api_key });
       await engine.updateConfig({ search: { provider, api_key } });
       debugLog()?.log("api", `POST /api/search/verify provider=${provider} (ok)`);
-      return { ok: true };
+      return c.json({ ok: true });
     } catch (err) {
       debugLog()?.warn("api", `POST /api/search/verify provider=${provider} failed: ${err.message}`);
-      return { ok: false, error: err.message };
+      return c.json({ ok: false, error: err.message });
     }
   });
+
+  return route;
 }

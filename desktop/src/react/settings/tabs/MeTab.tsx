@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
+import { invalidateConfigCache } from '../../hooks/use-config';
 import { t } from '../helpers';
 import { loadSettingsConfig } from '../actions';
+import styles from '../Settings.module.css';
 
-const platform = (window as any).platform;
+const platform = window.platform;
 
 export function MeTab() {
   const { settingsConfig, userAvatarUrl, showToast } = useSettingsStore();
@@ -56,6 +58,7 @@ export function MeTab() {
 
       showToast(t('settings.saved'), 'success');
       if (partial?.user?.name) store.set({ userName: partial.user.name });
+      if (Object.keys(partial).length) invalidateConfigCache();
 
       await loadSettingsConfig();
     } catch (err: any) {
@@ -64,6 +67,7 @@ export function MeTab() {
   };
 
   const handleAvatarClick = () => {
+    // eslint-disable-next-line no-restricted-syntax -- ephemeral file picker, not part of React tree
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/png,image/jpeg,image/webp';
@@ -79,54 +83,53 @@ export function MeTab() {
   };
 
   return (
-    <div className="settings-tab-content active" data-tab="me">
-      <section className="settings-section">
-        <h2 className="settings-section-title">{t('settings.me.title')}</h2>
+    <div className={`${styles['settings-tab-content']} ${styles['active']}`} data-tab="me">
+      <section className={styles['settings-section']}>
+        <h2 className={styles['settings-section-title']}>{t('settings.me.title')}</h2>
 
-        <div className="settings-avatar-center">
-          <div className="avatar-upload" onClick={handleAvatarClick} title="">
+        <div className={styles['settings-avatar-center']}>
+          <div className={styles['avatar-upload']} onClick={handleAvatarClick} title="">
             {userAvatarUrl ? (
-              <img className="avatar-preview" src={userAvatarUrl} draggable={false} />
+              <img className={styles['avatar-preview']} src={userAvatarUrl} draggable={false} />
             ) : (
-              <div className="avatar-preview avatar-preview-emoji">
+              <div className={`${styles['avatar-preview']} ${styles['avatar-preview-emoji']}`}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </div>
             )}
-            <div className="avatar-upload-overlay">{t('settings.me.changeAvatar')}</div>
+            <div className={styles['avatar-upload-overlay']}>{t('settings.me.changeAvatar')}</div>
           </div>
         </div>
 
-        <div className="settings-field settings-field-center">
-          <span className="settings-field-hint">{t('settings.me.userNameHint')}</span>
+        <div className={`${styles['settings-field']} ${styles['settings-field-center']}`}>
+          <span className={styles['settings-field-hint']}>{t('settings.me.userNameHint')}</span>
           <input
-            className="settings-input"
+            className={styles['settings-input']}
             type="text"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
           />
         </div>
 
-        <div className="settings-field">
-          <label className="settings-field-label">{t('settings.me.userProfile')}</label>
+        <div className={styles['settings-field']}>
+          <label className={styles['settings-field-label']}>{t('settings.me.userProfile')}</label>
           <textarea
-            className="settings-textarea"
+            className={styles['settings-textarea']}
             rows={8}
             spellCheck={false}
             value={userProfile}
             onChange={(e) => setUserProfile(e.target.value)}
           />
-          <span className="settings-field-hint">{t('settings.me.userProfileHint')}</span>
+          <span className={styles['settings-field-hint']}>{t('settings.me.userProfileHint')}</span>
+        </div>
+        <div className={styles['settings-field']} style={{ display: 'flex', justifyContent: 'center' }}>
+          <button className={styles['settings-save-btn-sm']} onClick={save}>
+            {t('settings.save')}
+          </button>
         </div>
       </section>
-
-      <div className="settings-section-footer">
-        <button className="settings-save-btn-sm" onClick={save}>
-          {t('settings.save')}
-        </button>
-      </div>
     </div>
   );
 }

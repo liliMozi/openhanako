@@ -1,83 +1,4938 @@
 {
-  "_comment": "常用模型参考字典。仅用于设置页展示和默认参考，不参与 runtime provider/model fallback。",
-
-  "qwen3.5-plus": { "context": 1000000, "maxOutput": 65536 },
-  "qwen3.5-max": { "context": 1000000, "maxOutput": 65536 },
-  "qwen3-plus": { "context": 131072, "maxOutput": 16384 },
-  "qwen3-max": { "context": 262144, "maxOutput": 32768 },
-  "qwen3-mini": { "context": 131072, "maxOutput": 16384 },
-  "qwen-plus": { "context": 131072, "maxOutput": 16384 },
-  "qwen-turbo": { "context": 131072, "maxOutput": 16384 },
-  "qwen-max": { "context": 32768, "maxOutput": 16384 },
-  "qwen-long": { "context": 10000000, "maxOutput": 16384 },
-
-  "deepseek-chat": { "context": 128000, "maxOutput": 8192 },
-  "deepseek-reasoner": { "context": 128000, "maxOutput": 64000 },
-
-  "gpt-4o": { "context": 128000, "maxOutput": 16384 },
-  "gpt-4o-mini": { "context": 128000, "maxOutput": 16384 },
-  "gpt-4.1": { "context": 1047576, "maxOutput": 32768 },
-  "gpt-4.1-mini": { "context": 1047576, "maxOutput": 32768 },
-  "gpt-4.1-nano": { "context": 1047576, "maxOutput": 32768 },
-  "o3": { "context": 200000, "maxOutput": 100000 },
-  "o3-mini": { "context": 200000, "maxOutput": 100000 },
-  "o4-mini": { "context": 200000, "maxOutput": 100000 },
-  "gpt-5.1": { "context": 272000, "maxOutput": 128000 },
-  "gpt-5.1-codex-mini": { "context": 272000, "maxOutput": 128000 },
-  "gpt-5.2": { "context": 272000, "maxOutput": 128000 },
-  "gpt-5.2-codex": { "context": 272000, "maxOutput": 128000 },
-  "gpt-5.3-codex": { "context": 272000, "maxOutput": 128000 },
-  "gpt-5.3-codex-spark": { "context": 128000, "maxOutput": 128000 },
-  "gpt-5.4": { "context": 272000, "maxOutput": 128000 },
-
-  "claude-opus-4-6": { "context": 200000, "maxOutput": 128000 },
-  "claude-sonnet-4-6": { "context": 200000, "maxOutput": 64000 },
-  "claude-sonnet-4-5": { "context": 200000, "maxOutput": 64000 },
-  "claude-opus-4-5": { "context": 200000, "maxOutput": 64000 },
-  "claude-opus-4-1": { "context": 200000, "maxOutput": 32000 },
-  "claude-sonnet-4-20250514": { "context": 200000, "maxOutput": 64000 },
-  "claude-opus-4-20250514": { "context": 200000, "maxOutput": 32000 },
-  "claude-3-7-sonnet": { "context": 200000, "maxOutput": 16000 },
-  "claude-3-5-sonnet": { "context": 200000, "maxOutput": 8192 },
-  "claude-3-5-haiku": { "context": 200000, "maxOutput": 8192 },
-  "claude-haiku-4-5": { "context": 200000, "maxOutput": 64000 },
-
-  "gemini-2.5-pro": { "context": 1048576, "maxOutput": 65536 },
-  "gemini-2.5-flash": { "context": 1048576, "maxOutput": 65536 },
-  "gemini-2.0-flash": { "context": 1048576, "maxOutput": 8192 },
-
-  "kimi-k2.5": { "context": 262144, "maxOutput": 262144 },
-  "kimi-k2": { "context": 131072, "maxOutput": 8192 },
-  "moonshot-v1-128k": { "context": 131072, "maxOutput": 4096 },
-  "moonshot-v1-32k": { "context": 32768, "maxOutput": 4096 },
-  "moonshot-v1-8k": { "context": 8192, "maxOutput": 4096 },
-
-  "doubao-seed-2-0-pro-260215": { "context": 262144, "maxOutput": 16384 },
-  "doubao-seed-2-0-mini-260215": { "context": 131072, "maxOutput": 16384 },
-  "doubao-pro-256k": { "context": 262144, "maxOutput": 4096 },
-  "doubao-pro-128k": { "context": 131072, "maxOutput": 4096 },
-  "doubao-pro-32k": { "context": 32768, "maxOutput": 4096 },
-  "doubao-pro-4k": { "context": 4096, "maxOutput": 4096 },
-  "doubao-lite-128k": { "context": 131072, "maxOutput": 4096 },
-  "doubao-lite-32k": { "context": 32768, "maxOutput": 4096 },
-  "doubao-lite-4k": { "context": 4096, "maxOutput": 4096 },
-  "doubao-vision-pro-32k": { "context": 32768, "maxOutput": 4096 },
-  "doubao-vision-lite-32k": { "context": 32768, "maxOutput": 4096 },
-
-  "llama3.1": { "context": 131072, "maxOutput": 8192 },
-  "llama3.2": { "context": 131072, "maxOutput": 8192 },
-  "qwen2.5": { "context": 131072, "maxOutput": 8192 },
-  "qwen3": { "context": 131072, "maxOutput": 8192 },
-  "gemma2": { "context": 8192, "maxOutput": 8192 },
-  "gemma3": { "context": 131072, "maxOutput": 8192 },
-  "mistral": { "context": 32768, "maxOutput": 8192 },
-  "deepseek-r1": { "context": 131072, "maxOutput": 8192 },
-  "phi3": { "context": 131072, "maxOutput": 4096 },
-  "phi4": { "context": 16384, "maxOutput": 4096 },
-  "codellama": { "context": 16384, "maxOutput": 4096 },
-
-  "text-embedding-v4": { "context": 8192, "maxOutput": null },
-  "text-embedding-v3": { "context": 8192, "maxOutput": null },
-  "text-embedding-3-large": { "context": 8191, "maxOutput": null },
-  "text-embedding-3-small": { "context": 8191, "maxOutput": null }
+  "_comment": "模型参考词典。provider + model 为唯一键。model-sync.js 对表时查询。vision/reasoning 缺省为 false，quirks 缺省为 []。",
+  "dashscope": {
+    "qwen3.5-plus": {
+      "name": "Qwen 3.5 Plus",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3.5-max": {
+      "name": "Qwen 3.5 Max",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3.5-flash": {
+      "name": "Qwen 3.5 Flash",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3-plus": {
+      "name": "Qwen 3 Plus",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3-max": {
+      "name": "Qwen 3 Max",
+      "context": 262144,
+      "maxOutput": 32768,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3-mini": {
+      "name": "Qwen 3 Mini",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen-plus": {
+      "name": "Qwen Plus",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "qwen-turbo": {
+      "name": "Qwen Turbo",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "qwen-max": {
+      "name": "Qwen Max",
+      "context": 32768,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "qwen-long": {
+      "name": "Qwen Long",
+      "context": 10000000,
+      "maxOutput": 16384
+    },
+    "text-embedding-v4": {
+      "name": "Text Embedding V4",
+      "context": 8192,
+      "maxOutput": null
+    },
+    "text-embedding-v3": {
+      "name": "Text Embedding V3",
+      "context": 8192,
+      "maxOutput": null
+    },
+    "kimi-k2.5": {
+      "name": "Kimi K2.5",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true,
+      "reasoning": true
+    },
+    "kimi-k2": {
+      "name": "Kimi K2",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "qwen-coder": {
+      "name": "Qwen Coder",
+      "context": 1000000,
+      "maxOutput": 16384,
+      "reasoning": true
+    },
+    "qwen-flash": {
+      "name": "Qwen Flash",
+      "context": 997952,
+      "maxOutput": 32768,
+      "reasoning": true
+    },
+    "qwen-flash-2025-07-28": {
+      "name": "Qwen Flash 2025.07.28",
+      "context": 997952,
+      "maxOutput": 32768,
+      "reasoning": true
+    },
+    "qwen-plus-2025-01-25": {
+      "name": "Qwen Plus 2025.01.25",
+      "context": 129024,
+      "maxOutput": 8192,
+      "reasoning": true,
+      "vision": true
+    },
+    "qwen-plus-2025-04-28": {
+      "name": "Qwen Plus 2025.04.28",
+      "context": 129024,
+      "maxOutput": 16384,
+      "reasoning": true,
+      "vision": true
+    },
+    "qwen-plus-2025-07-14": {
+      "name": "Qwen Plus 2025.07.14",
+      "context": 129024,
+      "maxOutput": 16384,
+      "reasoning": true,
+      "vision": true
+    },
+    "qwen-plus-2025-07-28": {
+      "name": "Qwen Plus 2025.07.28",
+      "context": 997952,
+      "maxOutput": 32768,
+      "reasoning": true,
+      "vision": true
+    },
+    "qwen-plus-2025-09-11": {
+      "name": "Qwen Plus 2025.09.11",
+      "context": 997952,
+      "maxOutput": 32768,
+      "reasoning": true,
+      "vision": true
+    },
+    "qwen-plus-latest": {
+      "name": "Qwen Plus Latest",
+      "context": 997952,
+      "maxOutput": 32768,
+      "reasoning": true
+    },
+    "qwen-turbo-2024-11-01": {
+      "name": "Qwen Turbo 2024.11.01",
+      "context": 1000000,
+      "maxOutput": 8192,
+      "reasoning": true,
+      "vision": true
+    },
+    "qwen-turbo-2025-04-28": {
+      "name": "Qwen Turbo 2025.04.28",
+      "context": 1000000,
+      "maxOutput": 16384,
+      "reasoning": true,
+      "vision": true
+    },
+    "qwen-turbo-latest": {
+      "name": "Qwen Turbo Latest",
+      "context": 1000000,
+      "maxOutput": 16384,
+      "reasoning": true
+    },
+    "qwen3-30b-a3b": {
+      "name": "Qwen3.30b A3b",
+      "context": 129024,
+      "maxOutput": 16384,
+      "reasoning": true
+    },
+    "qwen3-coder-flash": {
+      "name": "Qwen3 Coder Flash",
+      "context": 997952,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "qwen3-coder-flash-2025-07-28": {
+      "name": "Qwen3 Coder Flash 2025.07.28",
+      "context": 997952,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "qwen3-coder-plus": {
+      "name": "Qwen3 Coder Plus",
+      "context": 997952,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "qwen3-coder-plus-2025-07-22": {
+      "name": "Qwen3 Coder Plus 2025.07.22",
+      "context": 997952,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "qwen3-max-preview": {
+      "name": "Qwen3 Max Preview",
+      "context": 258048,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "qwen3-max-2026-01-23": {
+      "name": "Qwen3 Max 2026.01.23",
+      "context": 258048,
+      "maxOutput": 65536,
+      "reasoning": true,
+      "vision": true
+    },
+    "qwen3-next-80b-a3b-instruct": {
+      "name": "Qwen3 Next 80b A3b Instruct",
+      "context": 262144,
+      "maxOutput": 65536
+    },
+    "qwen3-next-80b-a3b-thinking": {
+      "name": "Qwen3 Next 80b A3b Thinking",
+      "context": 262144,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "qwen3-vl-235b-a22b-instruct": {
+      "name": "Qwen3 Vl 235b A22b Instruct",
+      "context": 131072,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "qwen3-vl-235b-a22b-thinking": {
+      "name": "Qwen3 Vl 235b A22b Thinking",
+      "context": 131072,
+      "maxOutput": 32768,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen3-vl-32b-instruct": {
+      "name": "Qwen3 Vl 32b Instruct",
+      "context": 131072,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "qwen3-vl-32b-thinking": {
+      "name": "Qwen3 Vl 32b Thinking",
+      "context": 131072,
+      "maxOutput": 32768,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen3-vl-plus": {
+      "name": "Qwen3 Vl Plus",
+      "context": 260096,
+      "maxOutput": 32768,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwq-plus": {
+      "name": "Qwq Plus",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": false,
+      "reasoning": true
+    },
+    "qwen3.5-omni-plus": {
+      "name": "Qwen3.5 Omni Plus",
+      "context": 262144,
+      "maxOutput": 32768,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen3.5-omni-flash": {
+      "name": "Qwen3.5 Omni Flash",
+      "context": 262144,
+      "maxOutput": 32768,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen3.5-omni-light": {
+      "name": "Qwen3.5 Omni Light",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen3.6-plus-preview": {
+      "name": "Qwen3.6 Plus Preview",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "vision": false,
+      "reasoning": true
+    }
+  },
+  "dashscope-coding": {
+    "kimi-k2.5": {
+      "name": "Kimi K2.5",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "kimi-k2": {
+      "name": "Kimi K2",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    }
+  },
+  "deepseek": {
+    "deepseek-chat": {
+      "name": "DeepSeek Chat",
+      "context": 128000,
+      "maxOutput": 8192,
+      "vision": false
+    },
+    "deepseek-reasoner": {
+      "name": "DeepSeek Reasoner",
+      "context": 128000,
+      "maxOutput": 64000,
+      "vision": false,
+      "reasoning": true
+    },
+    "deepseek-v3.2": {
+      "name": "DeepSeek V3.2",
+      "context": 163840,
+      "maxOutput": 65536,
+      "vision": false
+    },
+    "deepseek-coder": {
+      "name": "Deepseek Coder",
+      "context": 128000,
+      "maxOutput": 4096,
+      "vision": false
+    },
+    "deepseek-r1": {
+      "name": "Deepseek R1",
+      "context": 65536,
+      "maxOutput": 8192,
+      "vision": false,
+      "reasoning": true
+    },
+    "deepseek-v3": {
+      "name": "Deepseek V3",
+      "context": 65536,
+      "maxOutput": 8192,
+      "vision": false
+    }
+  },
+  "openai": {
+    "gpt-4o": {
+      "name": "GPT-4o",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-4o-mini": {
+      "name": "GPT-4o Mini",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-4.1": {
+      "name": "GPT-4.1",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "gpt-4.1-mini": {
+      "name": "GPT-4.1 Mini",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "gpt-4.1-nano": {
+      "name": "GPT-4.1 Nano",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "o3": {
+      "name": "o3",
+      "context": 200000,
+      "maxOutput": 100000,
+      "vision": true,
+      "reasoning": true
+    },
+    "o3-mini": {
+      "name": "o3 Mini",
+      "context": 200000,
+      "maxOutput": 100000,
+      "reasoning": true
+    },
+    "o4-mini": {
+      "name": "o4 Mini",
+      "context": 200000,
+      "maxOutput": 100000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.1": {
+      "name": "GPT-5.1",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.1-codex-mini": {
+      "name": "GPT-5.1 Codex Mini",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.2": {
+      "name": "GPT-5.2",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.2-codex": {
+      "name": "GPT-5.2 Codex",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.3-codex": {
+      "name": "GPT-5.3 Codex",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.3-codex-spark": {
+      "name": "GPT-5.3 Codex Spark",
+      "context": 128000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.4": {
+      "name": "GPT-5.4",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "text-embedding-3-large": {
+      "name": "Text Embedding 3 Large",
+      "context": 8191,
+      "maxOutput": null
+    },
+    "text-embedding-3-small": {
+      "name": "Text Embedding 3 Small",
+      "context": 8191,
+      "maxOutput": null
+    },
+    "chatgpt-4o-latest": {
+      "name": "Chatgpt 4o Latest",
+      "context": 128000,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "ft:gpt-3.5-turbo": {
+      "name": "Ft:Gpt 3.5 Turbo",
+      "context": 16385,
+      "maxOutput": 4096
+    },
+    "ft:gpt-3.5-turbo-0125": {
+      "name": "Ft:Gpt 3.5 Turbo 0125",
+      "context": 16385,
+      "maxOutput": 4096
+    },
+    "ft:gpt-3.5-turbo-0613": {
+      "name": "Ft:Gpt 3.5 Turbo 0613",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "ft:gpt-3.5-turbo-1106": {
+      "name": "Ft:Gpt 3.5 Turbo 1106",
+      "context": 16385,
+      "maxOutput": 4096
+    },
+    "ft:gpt-4-0613": {
+      "name": "Ft:Gpt 4.0613",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "ft:gpt-4o-2024-08-06": {
+      "name": "Ft:Gpt 4o 2024.08.06",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "ft:gpt-4o-2024-11-20": {
+      "name": "Ft:Gpt 4o 2024.11.20",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "ft:gpt-4o-mini-2024-07-18": {
+      "name": "Ft:Gpt 4o Mini 2024.07.18",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "ft:gpt-4.1-2025-04-14": {
+      "name": "Ft:Gpt 4.1.2025.04.14",
+      "context": 1047576,
+      "maxOutput": 32768
+    },
+    "ft:gpt-4.1-mini-2025-04-14": {
+      "name": "Ft:Gpt 4.1 Mini 2025.04.14",
+      "context": 1047576,
+      "maxOutput": 32768
+    },
+    "ft:gpt-4.1-nano-2025-04-14": {
+      "name": "Ft:Gpt 4.1 Nano 2025.04.14",
+      "context": 1047576,
+      "maxOutput": 32768
+    },
+    "ft:o4-mini-2025-04-16": {
+      "name": "Ft:O4 Mini 2025.04.16",
+      "context": 200000,
+      "maxOutput": 100000,
+      "reasoning": true
+    },
+    "gpt-3.5-turbo": {
+      "name": "Gpt 3.5 Turbo",
+      "context": 16385,
+      "maxOutput": 4096
+    },
+    "gpt-3.5-turbo-0125": {
+      "name": "Gpt 3.5 Turbo 0125",
+      "context": 16385,
+      "maxOutput": 4096
+    },
+    "gpt-3.5-turbo-1106": {
+      "name": "Gpt 3.5 Turbo 1106",
+      "context": 16385,
+      "maxOutput": 4096
+    },
+    "gpt-3.5-turbo-16k": {
+      "name": "Gpt 3.5 Turbo 16k",
+      "context": 16385,
+      "maxOutput": 4096
+    },
+    "gpt-4": {
+      "name": "Gpt 4",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "gpt-4-0125-preview": {
+      "name": "Gpt 4.0125 Preview",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-4-0314": {
+      "name": "Gpt 4.0314",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "gpt-4-0613": {
+      "name": "Gpt 4.0613",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "gpt-4-1106-preview": {
+      "name": "Gpt 4.1106 Preview",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-4-turbo": {
+      "name": "Gpt 4 Turbo",
+      "context": 128000,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "gpt-4-turbo-2024-04-09": {
+      "name": "Gpt 4 Turbo 2024.04.09",
+      "context": 128000,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "gpt-4-turbo-preview": {
+      "name": "Gpt 4 Turbo Preview",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-4.1-2025-04-14": {
+      "name": "Gpt 4.1.2025.04.14",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "gpt-4.1-mini-2025-04-14": {
+      "name": "Gpt 4.1 Mini 2025.04.14",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "gpt-4.1-nano-2025-04-14": {
+      "name": "Gpt 4.1 Nano 2025.04.14",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "gpt-4o-2024-05-13": {
+      "name": "Gpt 4o 2024.05.13",
+      "context": 128000,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "gpt-4o-2024-08-06": {
+      "name": "Gpt 4o 2024.08.06",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-4o-2024-11-20": {
+      "name": "Gpt 4o 2024.11.20",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-4o-audio-preview": {
+      "name": "Gpt 4o Audio Preview",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-4o-audio-preview-2024-12-17": {
+      "name": "Gpt 4o Audio Preview 2024.12.17",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-4o-audio-preview-2025-06-03": {
+      "name": "Gpt 4o Audio Preview 2025.06.03",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-audio": {
+      "name": "Gpt Audio",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-audio-1.5": {
+      "name": "Gpt Audio 1.5",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-audio-2025-08-28": {
+      "name": "Gpt Audio 2025.08.28",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-audio-mini": {
+      "name": "Gpt Audio Mini",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-audio-mini-2025-10-06": {
+      "name": "Gpt Audio Mini 2025.10.06",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-audio-mini-2025-12-15": {
+      "name": "Gpt Audio Mini 2025.12.15",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-4o-mini-2024-07-18": {
+      "name": "Gpt 4o Mini 2024.07.18",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-4o-mini-audio-preview": {
+      "name": "Gpt 4o Mini Audio Preview",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-4o-mini-audio-preview-2024-12-17": {
+      "name": "Gpt 4o Mini Audio Preview 2024.12.17",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "gpt-4o-mini-realtime-preview": {
+      "name": "Gpt 4o Mini Realtime Preview",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-4o-mini-realtime-preview-2024-12-17": {
+      "name": "Gpt 4o Mini Realtime Preview 2024.12.17",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-4o-mini-search-preview": {
+      "name": "Gpt 4o Mini Search Preview",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-4o-mini-search-preview-2025-03-11": {
+      "name": "Gpt 4o Mini Search Preview 2025.03.11",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-4o-realtime-preview": {
+      "name": "Gpt 4o Realtime Preview",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-4o-realtime-preview-2024-12-17": {
+      "name": "Gpt 4o Realtime Preview 2024.12.17",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-4o-realtime-preview-2025-06-03": {
+      "name": "Gpt 4o Realtime Preview 2025.06.03",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-4o-search-preview": {
+      "name": "Gpt 4o Search Preview",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-4o-search-preview-2025-03-11": {
+      "name": "Gpt 4o Search Preview 2025.03.11",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-5": {
+      "name": "Gpt 5",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.1-2025-11-13": {
+      "name": "Gpt 5.1.2025.11.13",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.1-chat-latest": {
+      "name": "Gpt 5.1 Chat Latest",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.2-2025-12-11": {
+      "name": "Gpt 5.2.2025.12.11",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.2-chat-latest": {
+      "name": "Gpt 5.2 Chat Latest",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.3-chat-latest": {
+      "name": "Gpt 5.3 Chat Latest",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.4-2026-03-05": {
+      "name": "Gpt 5.4.2026.03.05",
+      "context": 1050000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.4-mini": {
+      "name": "Gpt 5.4 Mini",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5.4-nano": {
+      "name": "Gpt 5.4 Nano",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5-2025-08-07": {
+      "name": "Gpt 5.2025.08.07",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5-chat": {
+      "name": "Gpt 5 Chat",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5-chat-latest": {
+      "name": "Gpt 5 Chat Latest",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5-mini": {
+      "name": "Gpt 5 Mini",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5-mini-2025-08-07": {
+      "name": "Gpt 5 Mini 2025.08.07",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5-nano": {
+      "name": "Gpt 5 Nano",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-5-nano-2025-08-07": {
+      "name": "Gpt 5 Nano 2025.08.07",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "gpt-realtime": {
+      "name": "Gpt Realtime",
+      "context": 32000,
+      "maxOutput": 4096
+    },
+    "gpt-realtime-1.5": {
+      "name": "Gpt Realtime 1.5",
+      "context": 32000,
+      "maxOutput": 4096
+    },
+    "gpt-realtime-mini": {
+      "name": "Gpt Realtime Mini",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-realtime-2025-08-28": {
+      "name": "Gpt Realtime 2025.08.28",
+      "context": 32000,
+      "maxOutput": 4096
+    },
+    "o1": {
+      "name": "O1",
+      "context": 200000,
+      "maxOutput": 100000,
+      "vision": true,
+      "reasoning": true
+    },
+    "o1-2024-12-17": {
+      "name": "O1.2024.12.17",
+      "context": 200000,
+      "maxOutput": 100000,
+      "vision": true,
+      "reasoning": true
+    },
+    "o3-2025-04-16": {
+      "name": "O3.2025.04.16",
+      "context": 200000,
+      "maxOutput": 100000,
+      "vision": true,
+      "reasoning": true
+    },
+    "o3-mini-2025-01-31": {
+      "name": "O3 Mini 2025.01.31",
+      "context": 200000,
+      "maxOutput": 100000,
+      "reasoning": true
+    },
+    "o4-mini-2025-04-16": {
+      "name": "O4 Mini 2025.04.16",
+      "context": 200000,
+      "maxOutput": 100000,
+      "vision": true,
+      "reasoning": true
+    },
+    "container": {
+      "name": "Container",
+      "context": 128000
+    },
+    "gpt-5-search-api": {
+      "name": "Gpt 5 Search Api",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true
+    },
+    "gpt-5-search-api-2025-10-14": {
+      "name": "Gpt 5 Search Api 2025.10.14",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true
+    },
+    "gpt-realtime-mini-2025-10-06": {
+      "name": "Gpt Realtime Mini 2025.10.06",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-realtime-mini-2025-12-15": {
+      "name": "Gpt Realtime Mini 2025.12.15",
+      "context": 128000,
+      "maxOutput": 4096
+    },
+    "gpt-image-1": {
+      "name": "GPT Image 1",
+      "type": "image"
+    },
+    "gpt-image-1.5": {
+      "name": "GPT Image 1.5",
+      "type": "image"
+    },
+    "gpt-image-1-mini": {
+      "name": "GPT Image 1 Mini",
+      "type": "image"
+    },
+    "dall-e-3": {
+      "name": "DALL-E 3",
+      "type": "image"
+    }
+  },
+  "anthropic": {
+    "claude-opus-4-6": {
+      "name": "Claude Opus 4.6",
+      "context": 200000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-sonnet-4-6": {
+      "name": "Claude Sonnet 4.6",
+      "context": 200000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-sonnet-4-5": {
+      "name": "Claude Sonnet 4.5",
+      "context": 200000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-opus-4-5": {
+      "name": "Claude Opus 4.5",
+      "context": 200000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-opus-4-1": {
+      "name": "Claude Opus 4.1",
+      "context": 200000,
+      "maxOutput": 32000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-sonnet-4-20250514": {
+      "name": "Claude Sonnet 4",
+      "context": 200000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-opus-4-20250514": {
+      "name": "Claude Opus 4",
+      "context": 200000,
+      "maxOutput": 32000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-3-7-sonnet": {
+      "name": "Claude 3.7 Sonnet",
+      "context": 200000,
+      "maxOutput": 16000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-3-5-sonnet": {
+      "name": "Claude 3.5 Sonnet",
+      "context": 200000,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "claude-3-5-haiku": {
+      "name": "Claude 3.5 Haiku",
+      "context": 200000,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "claude-haiku-4-5": {
+      "name": "Claude Haiku 4.5",
+      "context": 200000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-haiku-4-5-20251001": {
+      "name": "Claude Haiku 4.5 20251001",
+      "context": 200000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-3-7-sonnet-20250219": {
+      "name": "Claude 3.7 Sonnet 20250219",
+      "context": 200000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-3-haiku-20240307": {
+      "name": "Claude 3 Haiku 20240307",
+      "context": 200000,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "claude-3-opus-20240229": {
+      "name": "Claude 3 Opus 20240229",
+      "context": 200000,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "claude-4-opus-20250514": {
+      "name": "Claude 4 Opus 20250514",
+      "context": 200000,
+      "maxOutput": 32000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-4-sonnet-20250514": {
+      "name": "Claude 4 Sonnet 20250514",
+      "context": 1000000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-sonnet-4-5-20250929": {
+      "name": "Claude Sonnet 4.5 20250929",
+      "context": 200000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-opus-4-1-20250805": {
+      "name": "Claude Opus 4.1 20250805",
+      "context": 200000,
+      "maxOutput": 32000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-opus-4-5-20251101": {
+      "name": "Claude Opus 4.5 20251101",
+      "context": 200000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "claude-opus-4-6-20260205": {
+      "name": "Claude Opus 4.6 20260205",
+      "context": 1000000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    }
+  },
+  "gemini": {
+    "gemini-2.5-pro": {
+      "name": "Gemini 2.5 Pro",
+      "context": 1048576,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-2.5-flash": {
+      "name": "Gemini 2.5 Flash",
+      "context": 1048576,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-2.0-flash": {
+      "name": "Gemini 2.0 Flash",
+      "context": 1048576,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "gemini-robotics-er-1.5-preview": {
+      "name": "Gemini Robotics Er 1.5 Preview",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-2.0-flash-001": {
+      "name": "Gemini 2.0 Flash 001",
+      "context": 1048576,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "gemini-2.0-flash-lite": {
+      "name": "Gemini 2.0 Flash Lite",
+      "context": 1048576,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "gemini-2.5-flash-lite": {
+      "name": "Gemini 2.5 Flash Lite",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-2.5-flash-lite-preview-09-2025": {
+      "name": "Gemini 2.5 Flash Lite Preview 09.2025",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-2.5-flash-preview-09-2025": {
+      "name": "Gemini 2.5 Flash Preview 09.2025",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-flash-latest": {
+      "name": "Gemini Flash Latest",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-flash-lite-latest": {
+      "name": "Gemini Flash Lite Latest",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-2.5-flash-lite-preview-06-17": {
+      "name": "Gemini 2.5 Flash Lite Preview 06.17",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-2.5-computer-use-preview-10-2025": {
+      "name": "Gemini 2.5 Computer Use Preview 10.2025",
+      "context": 128000,
+      "maxOutput": 64000,
+      "vision": true
+    },
+    "gemini-3-pro-preview": {
+      "name": "Gemini 3 Pro Preview",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-3.1-flash-lite-preview": {
+      "name": "Gemini 3.1 Flash Lite Preview",
+      "context": 1048576,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-3-flash-preview": {
+      "name": "Gemini 3 Flash Preview",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-3.1-pro-preview": {
+      "name": "Gemini 3.1 Pro Preview",
+      "context": 1048576,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-3.1-pro-preview-customtools": {
+      "name": "Gemini 3.1 Pro Preview Customtools",
+      "context": 1048576,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "gemini-2.5-pro-preview-tts": {
+      "name": "Gemini 2.5 Pro Preview Tts",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true
+    },
+    "gemini-exp-1114": {
+      "name": "Gemini Exp 1114",
+      "context": 1048576,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "gemini-exp-1206": {
+      "name": "Gemini Exp 1206",
+      "context": 2097152,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "gemini-gemma-2-27b-it": {
+      "name": "Gemini Gemma 2.27b It",
+      "context": 8192,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "gemini-gemma-2-9b-it": {
+      "name": "Gemini Gemma 2.9b It",
+      "context": 8192,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "gemma-3-27b-it": {
+      "name": "Gemma 3.27b It",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "learnlm-1.5-pro-experimental": {
+      "name": "Learnlm 1.5 Pro Experimental",
+      "context": 32767,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "gemini-2.0-flash-lite-001": {
+      "name": "Gemini 2.0 Flash Lite 001",
+      "context": 1048576,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "gemini-2.5-flash-native-audio-latest": {
+      "name": "Gemini 2.5 Flash Native Audio Latest",
+      "context": 1048576,
+      "maxOutput": 8192
+    },
+    "gemini-2.5-flash-native-audio-preview-09-2025": {
+      "name": "Gemini 2.5 Flash Native Audio Preview 09.2025",
+      "context": 1048576,
+      "maxOutput": 8192
+    },
+    "gemini-2.5-flash-native-audio-preview-12-2025": {
+      "name": "Gemini 2.5 Flash Native Audio Preview 12.2025",
+      "context": 1048576,
+      "maxOutput": 8192
+    },
+    "gemini-pro-latest": {
+      "name": "Gemini Pro Latest",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    }
+  },
+  "kimi-coding": {
+    "kimi-k2.5": {
+      "name": "Kimi K2.5",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true,
+      "reasoning": true
+    },
+    "kimi-k2": {
+      "name": "Kimi K2",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    }
+  },
+  "moonshot": {
+    "kimi-k2.5": {
+      "name": "Kimi K2.5",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true,
+      "reasoning": true
+    },
+    "kimi-k2": {
+      "name": "Kimi K2",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "moonshot-v1-128k": {
+      "name": "Moonshot V1 128K",
+      "context": 131072,
+      "maxOutput": 4096
+    },
+    "moonshot-v1-32k": {
+      "name": "Moonshot V1 32K",
+      "context": 32768,
+      "maxOutput": 4096
+    },
+    "moonshot-v1-8k": {
+      "name": "Moonshot V1 8K",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "kimi-k2-0711-preview": {
+      "name": "Kimi K2.0711 Preview",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "kimi-k2-0905-preview": {
+      "name": "Kimi K2.0905 Preview",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "kimi-k2-turbo-preview": {
+      "name": "Kimi K2 Turbo Preview",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "kimi-latest": {
+      "name": "Kimi Latest",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "kimi-latest-128k": {
+      "name": "Kimi Latest 128k",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "kimi-latest-32k": {
+      "name": "Kimi Latest 32k",
+      "context": 32768,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "kimi-latest-8k": {
+      "name": "Kimi Latest 8k",
+      "context": 8192,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "kimi-thinking-preview": {
+      "name": "Kimi Thinking Preview",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "kimi-k2-thinking": {
+      "name": "Kimi K2 Thinking",
+      "context": 262144,
+      "maxOutput": 262144,
+      "reasoning": true
+    },
+    "kimi-k2-thinking-turbo": {
+      "name": "Kimi K2 Thinking Turbo",
+      "context": 262144,
+      "maxOutput": 262144,
+      "reasoning": true
+    },
+    "moonshot-v1-128k-0430": {
+      "name": "Moonshot V1.128k 0430",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "moonshot-v1-128k-vision-preview": {
+      "name": "Moonshot V1.128k Vision Preview",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "moonshot-v1-32k-0430": {
+      "name": "Moonshot V1.32k 0430",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "moonshot-v1-32k-vision-preview": {
+      "name": "Moonshot V1.32k Vision Preview",
+      "context": 32768,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "moonshot-v1-8k-0430": {
+      "name": "Moonshot V1.8k 0430",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "moonshot-v1-8k-vision-preview": {
+      "name": "Moonshot V1.8k Vision Preview",
+      "context": 8192,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "moonshot-v1-auto": {
+      "name": "Moonshot V1 Auto",
+      "context": 131072,
+      "maxOutput": 131072
+    }
+  },
+  "volcengine": {
+    "doubao-seed-1-6-flash-250828": {
+      "name": "Doubao Seed 1.6 Flash",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "doubao-seed-2-0-pro-260215": {
+      "name": "Doubao Seed 2.0 Pro",
+      "context": 262144,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true
+    },
+    "doubao-seed-2-0-mini-260215": {
+      "name": "Doubao Seed 2.0 Mini",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "doubao-pro-256k": {
+      "name": "Doubao Pro 256K",
+      "context": 262144,
+      "maxOutput": 4096
+    },
+    "doubao-pro-128k": {
+      "name": "Doubao Pro 128K",
+      "context": 131072,
+      "maxOutput": 4096
+    },
+    "doubao-pro-32k": {
+      "name": "Doubao Pro 32K",
+      "context": 32768,
+      "maxOutput": 4096
+    },
+    "doubao-pro-4k": {
+      "name": "Doubao Pro 4K",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "doubao-lite-128k": {
+      "name": "Doubao Lite 128K",
+      "context": 131072,
+      "maxOutput": 4096
+    },
+    "doubao-lite-32k": {
+      "name": "Doubao Lite 32K",
+      "context": 32768,
+      "maxOutput": 4096
+    },
+    "doubao-lite-4k": {
+      "name": "Doubao Lite 4K",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "doubao-vision-pro-32k": {
+      "name": "Doubao Vision Pro 32K",
+      "context": 32768,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "doubao-vision-lite-32k": {
+      "name": "Doubao Vision Lite 32K",
+      "context": 32768,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "deepseek-v3-2-251201": {
+      "name": "Deepseek V3.2",
+      "context": 98304,
+      "maxOutput": 32768,
+      "vision": false,
+      "reasoning": true
+    },
+    "glm-4-7-251222": {
+      "name": "Glm 4.7",
+      "context": 204800,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "kimi-k2-thinking-251104": {
+      "name": "Kimi K2 Thinking",
+      "context": 229376,
+      "maxOutput": 32768,
+      "reasoning": true
+    },
+    "doubao-seed-2-0-lite-260215": {
+      "name": "Doubao Seed 2.0 Lite",
+      "context": 256000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "doubao-seed-2-0-code-preview-260215": {
+      "name": "Doubao Seed 2.0 Code Preview",
+      "context": 256000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "doubao-seedream-3-0-t2i": {
+      "name": "Seedream 3.0",
+      "type": "image"
+    },
+    "doubao-seedream-4-0-250828": {
+      "name": "Seedream 4.0",
+      "type": "image"
+    },
+    "doubao-seedream-4-5-251128": {
+      "name": "Seedream 4.5",
+      "type": "image"
+    },
+    "doubao-seedream-5-0-lite-260128": {
+      "name": "Seedream 5.0 Lite",
+      "type": "image"
+    }
+  },
+  "minimax": {
+    "MiniMax-M2": {
+      "name": "MiniMax M2",
+      "context": 196608,
+      "maxOutput": 128000,
+      "vision": false,
+      "reasoning": true
+    },
+    "MiniMax-M2.1": {
+      "name": "MiniMax M2.1",
+      "context": 204800,
+      "maxOutput": 131072,
+      "vision": false,
+      "reasoning": true
+    },
+    "MiniMax-M2.5": {
+      "name": "MiniMax M2.5",
+      "context": 204800,
+      "maxOutput": 131072,
+      "vision": false,
+      "reasoning": true
+    },
+    "MiniMax-M2.5-highspeed": {
+      "name": "MiniMax M2.5 Highspeed",
+      "context": 204800,
+      "maxOutput": 131072,
+      "vision": false,
+      "reasoning": true
+    },
+    "MiniMax-M2.7": {
+      "name": "MiniMax M2.7",
+      "context": 204800,
+      "maxOutput": 131072,
+      "vision": false,
+      "reasoning": true
+    },
+    "MiniMax-M2.7-highspeed": {
+      "name": "MiniMax M2.7 Highspeed",
+      "context": 204800,
+      "maxOutput": 131072,
+      "vision": false,
+      "reasoning": true
+    },
+    "MiniMax-M2.1-lightning": {
+      "name": "MiniMax M2.1 Lightning",
+      "context": 1000000,
+      "maxOutput": 8192,
+      "vision": false,
+      "reasoning": true
+    },
+    "MiniMax-M2.5-lightning": {
+      "name": "MiniMax M2.5 Lightning",
+      "context": 1000000,
+      "maxOutput": 8192,
+      "vision": false,
+      "reasoning": true
+    }
+  },
+  "mimo": {
+    "mimo-v2-pro": {
+      "name": "MiMo V2 Pro",
+      "context": 1048576,
+      "maxOutput": 131072,
+      "vision": true,
+      "reasoning": true
+    },
+    "mimo-v2-omni": {
+      "name": "MiMo V2 Omni",
+      "context": 262144,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "mimo-v2-flash": {
+      "name": "MiMo V2 Flash (309B MoE)",
+      "context": 262144,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "mimo-v2-tts": {
+      "name": "MiMo V2 TTS",
+      "context": 131072,
+      "maxOutput": 8192
+    }
+  },
+  "zhipu": {
+    "glm-5": {
+      "name": "GLM-5",
+      "context": 200000,
+      "maxOutput": 128000,
+      "vision": false,
+      "reasoning": true
+    },
+    "glm-5-turbo": {
+      "name": "GLM-5 Turbo",
+      "context": 205000,
+      "maxOutput": 131072,
+      "vision": false,
+      "reasoning": true
+    },
+    "glm-4-plus": {
+      "name": "GLM-4 Plus",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "glm-4-flash": {
+      "name": "GLM-4 Flash",
+      "context": 131072,
+      "maxOutput": 4096,
+      "vision": true
+    }
+  },
+  "ollama": {
+    "llama3.1": {
+      "name": "Llama 3.1",
+      "context": 131072,
+      "maxOutput": 8192
+    },
+    "llama3.2": {
+      "name": "Llama 3.2",
+      "context": 131072,
+      "maxOutput": 8192
+    },
+    "qwen2.5": {
+      "name": "Qwen 2.5",
+      "context": 131072,
+      "maxOutput": 8192
+    },
+    "qwen3": {
+      "name": "Qwen 3",
+      "context": 131072,
+      "maxOutput": 8192
+    },
+    "gemma2": {
+      "name": "Gemma 2",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "gemma3": {
+      "name": "Gemma 3",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "mistral": {
+      "name": "Mistral",
+      "context": 32768,
+      "maxOutput": 8192
+    },
+    "deepseek-r1": {
+      "name": "DeepSeek R1",
+      "context": 131072,
+      "maxOutput": 8192,
+      "reasoning": true,
+      "vision": false
+    },
+    "phi3": {
+      "name": "Phi 3",
+      "context": 131072,
+      "maxOutput": 4096
+    },
+    "phi4": {
+      "name": "Phi 4",
+      "context": 16384,
+      "maxOutput": 4096
+    },
+    "codellama": {
+      "name": "Code Llama",
+      "context": 16384,
+      "maxOutput": 4096
+    },
+    "codegeex4": {
+      "name": "Codegeex4",
+      "context": 32768,
+      "maxOutput": 8192
+    },
+    "deepseek-coder-v2-instruct": {
+      "name": "Deepseek Coder V2 Instruct",
+      "context": 32768,
+      "maxOutput": 8192
+    },
+    "deepseek-coder-v2-lite-instruct": {
+      "name": "Deepseek Coder V2 Lite Instruct",
+      "context": 32768,
+      "maxOutput": 8192
+    },
+    "deepseek-v3.1:671b-cloud": {
+      "name": "Deepseek V3.1:671b Cloud",
+      "context": 163840,
+      "maxOutput": 163840
+    },
+    "gpt-oss:120b-cloud": {
+      "name": "Gpt Oss:120b Cloud",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "gpt-oss:20b-cloud": {
+      "name": "Gpt Oss:20b Cloud",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "internlm2_5-20b-chat": {
+      "name": "Internlm2.5 20b Chat",
+      "context": 32768,
+      "maxOutput": 8192
+    },
+    "llama2": {
+      "name": "Llama2",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama2:13b": {
+      "name": "Llama2:13b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama2:70b": {
+      "name": "Llama2:70b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama2:7b": {
+      "name": "Llama2:7b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama3": {
+      "name": "Llama3",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "llama3:70b": {
+      "name": "Llama3:70b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "llama3:8b": {
+      "name": "Llama3:8b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "mistral-7B-Instruct-v0.1": {
+      "name": "Mistral 7B Instruct V0.1",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "mistral-7B-Instruct-v0.2": {
+      "name": "Mistral 7B Instruct V0.2",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mistral-large-instruct-2407": {
+      "name": "Mistral Large Instruct 2407",
+      "context": 65536,
+      "maxOutput": 8192
+    },
+    "mixtral-8x22B-Instruct-v0.1": {
+      "name": "Mixtral 8x22B Instruct V0.1",
+      "context": 65536,
+      "maxOutput": 65536
+    },
+    "mixtral-8x7B-Instruct-v0.1": {
+      "name": "Mixtral 8x7B Instruct V0.1",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen3-coder:480b-cloud": {
+      "name": "Qwen3 Coder:480b Cloud",
+      "context": 262144,
+      "maxOutput": 262144
+    }
+  },
+  "groq": {
+    "llama-3.1-8b-instant": {
+      "name": "Llama 3.1.8b Instant",
+      "context": 128000,
+      "maxOutput": 8192
+    },
+    "llama-3.3-70b-versatile": {
+      "name": "Llama 3.3.70b Versatile",
+      "context": 128000,
+      "maxOutput": 32768
+    },
+    "gemma-7b-it": {
+      "name": "Gemma 7b It",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "meta-llama/llama-guard-4-12b": {
+      "name": "Meta Llama/Llama Guard 4.12b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "meta-llama/llama-4-maverick-17b-128e-instruct": {
+      "name": "Meta Llama/Llama 4 Maverick 17b 128e Instruct",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "meta-llama/llama-4-scout-17b-16e-instruct": {
+      "name": "Meta Llama/Llama 4 Scout 17b 16e Instruct",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "moonshotai/kimi-k2-instruct-0905": {
+      "name": "Moonshotai/Kimi K2 Instruct 0905",
+      "context": 262144,
+      "maxOutput": 16384
+    },
+    "openai/gpt-oss-120b": {
+      "name": "Openai/Gpt Oss 120b",
+      "context": 131072,
+      "maxOutput": 32766,
+      "reasoning": true
+    },
+    "openai/gpt-oss-20b": {
+      "name": "Openai/Gpt Oss 20b",
+      "context": 131072,
+      "maxOutput": 32768,
+      "reasoning": true
+    },
+    "openai/gpt-oss-safeguard-20b": {
+      "name": "Openai/Gpt Oss Safeguard 20b",
+      "context": 131072,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "qwen/qwen3-32b": {
+      "name": "Qwen/Qwen3.32b",
+      "context": 131000,
+      "maxOutput": 131000,
+      "reasoning": true
+    }
+  },
+  "together": {
+    "together-ai-21.1b-41b": {
+      "name": "Together Ai 21.1b 41b",
+      "context": 128000
+    },
+    "together-ai-4.1b-8b": {
+      "name": "Together Ai 4.1b 8b",
+      "context": 128000
+    },
+    "together-ai-41.1b-80b": {
+      "name": "Together Ai 41.1b 80b",
+      "context": 128000
+    },
+    "together-ai-8.1b-21b": {
+      "name": "Together Ai 8.1b 21b",
+      "context": 1000
+    },
+    "together-ai-81.1b-110b": {
+      "name": "Together Ai 81.1b 110b",
+      "context": 128000
+    },
+    "together-ai-up-to-4b": {
+      "name": "Together Ai Up To 4b",
+      "context": 128000
+    },
+    "Qwen/Qwen2.5-72B-Instruct-Turbo": {
+      "name": "Qwen/Qwen2.5.72B Instruct Turbo",
+      "context": 128000
+    },
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "name": "Qwen/Qwen2.5.7B Instruct Turbo",
+      "context": 128000
+    },
+    "Qwen/Qwen3-235B-A22B-Instruct-2507-tput": {
+      "name": "Qwen/Qwen3.235B A22B Instruct 2507 Tput",
+      "context": 262000
+    },
+    "Qwen/Qwen3-235B-A22B-Thinking-2507": {
+      "name": "Qwen/Qwen3.235B A22B Thinking 2507",
+      "context": 256000
+    },
+    "Qwen/Qwen3-235B-A22B-fp8-tput": {
+      "name": "Qwen/Qwen3.235B A22B Fp8 Tput",
+      "context": 40000
+    },
+    "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8": {
+      "name": "Qwen/Qwen3 Coder 480B A35B Instruct FP8",
+      "context": 256000
+    },
+    "deepseek-ai/DeepSeek-R1": {
+      "name": "Deepseek Ai/DeepSeek R1",
+      "context": 128000,
+      "maxOutput": 20480,
+      "vision": false,
+      "reasoning": true
+    },
+    "deepseek-ai/DeepSeek-R1-0528-tput": {
+      "name": "Deepseek Ai/DeepSeek R1.0528 Tput",
+      "context": 128000
+    },
+    "deepseek-ai/DeepSeek-V3": {
+      "name": "Deepseek Ai/DeepSeek V3",
+      "context": 65536,
+      "maxOutput": 8192,
+      "vision": false
+    },
+    "deepseek-ai/DeepSeek-V3.1": {
+      "name": "Deepseek Ai/DeepSeek V3.1",
+      "context": 128000,
+      "reasoning": true
+    },
+    "meta-llama/Llama-3.2-3B-Instruct-Turbo": {
+      "name": "Meta Llama/Llama 3.2.3B Instruct Turbo",
+      "context": 128000
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "name": "Meta Llama/Llama 3.3.70B Instruct Turbo",
+      "context": 128000
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free": {
+      "name": "Meta Llama/Llama 3.3.70B Instruct Turbo Free",
+      "context": 128000
+    },
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": {
+      "name": "Meta Llama/Llama 4 Maverick 17B 128E Instruct FP8",
+      "context": 128000
+    },
+    "meta-llama/Llama-4-Scout-17B-16E-Instruct": {
+      "name": "Meta Llama/Llama 4 Scout 17B 16E Instruct",
+      "context": 128000,
+      "vision": true
+    },
+    "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {
+      "name": "Meta Llama/Meta Llama 3.1.405B Instruct Turbo",
+      "context": 128000
+    },
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": {
+      "name": "Meta Llama/Meta Llama 3.1.70B Instruct Turbo",
+      "context": 128000
+    },
+    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": {
+      "name": "Meta Llama/Meta Llama 3.1.8B Instruct Turbo",
+      "context": 128000
+    },
+    "mistralai/Mistral-7B-Instruct-v0.1": {
+      "name": "Mistralai/Mistral 7B Instruct V0.1",
+      "context": 128000
+    },
+    "mistralai/Mistral-Small-24B-Instruct-2501": {
+      "name": "Mistralai/Mistral Small 24B Instruct 2501",
+      "context": 128000
+    },
+    "mistralai/Mixtral-8x7B-Instruct-v0.1": {
+      "name": "Mistralai/Mixtral 8x7B Instruct V0.1",
+      "context": 128000
+    },
+    "moonshotai/Kimi-K2-Instruct": {
+      "name": "Moonshotai/Kimi K2 Instruct",
+      "context": 128000,
+      "vision": true
+    },
+    "openai/gpt-oss-120b": {
+      "name": "Openai/Gpt Oss 120b",
+      "context": 128000
+    },
+    "openai/gpt-oss-20b": {
+      "name": "Openai/Gpt Oss 20b",
+      "context": 128000
+    },
+    "togethercomputer/CodeLlama-34b-Instruct": {
+      "name": "Togethercomputer/CodeLlama 34b Instruct",
+      "context": 128000
+    },
+    "zai-org/GLM-4.5-Air-FP8": {
+      "name": "Zai Org/GLM 4.5 Air FP8",
+      "context": 128000
+    },
+    "zai-org/GLM-4.6": {
+      "name": "Zai Org/GLM 4.6",
+      "context": 200000,
+      "maxOutput": 200000,
+      "reasoning": true
+    },
+    "zai-org/GLM-4.7": {
+      "name": "Zai Org/GLM 4.7",
+      "context": 200000,
+      "maxOutput": 200000,
+      "reasoning": true
+    },
+    "moonshotai/Kimi-K2.5": {
+      "name": "Moonshotai/Kimi K2.5",
+      "context": 256000,
+      "maxOutput": 256000,
+      "vision": true,
+      "reasoning": true
+    },
+    "moonshotai/Kimi-K2-Instruct-0905": {
+      "name": "Moonshotai/Kimi K2 Instruct 0905",
+      "context": 262144
+    },
+    "Qwen/Qwen3-Next-80B-A3B-Instruct": {
+      "name": "Qwen/Qwen3 Next 80B A3B Instruct",
+      "context": 262144
+    },
+    "Qwen/Qwen3-Next-80B-A3B-Thinking": {
+      "name": "Qwen/Qwen3 Next 80B A3B Thinking",
+      "context": 262144
+    },
+    "Qwen/Qwen3.5-397B-A17B": {
+      "name": "Qwen/Qwen3.5.397B A17B",
+      "context": 262144,
+      "vision": true,
+      "reasoning": true
+    }
+  },
+  "fireworks": {
+    "deepseek-coder-v2-instruct": {
+      "name": "Deepseek Coder V2 Instruct",
+      "context": 65536,
+      "maxOutput": 65536
+    },
+    "deepseek-r1": {
+      "name": "Deepseek R1",
+      "context": 128000,
+      "maxOutput": 20480,
+      "vision": false,
+      "reasoning": true
+    },
+    "deepseek-r1-0528": {
+      "name": "Deepseek R1.0528",
+      "context": 160000,
+      "maxOutput": 160000
+    },
+    "deepseek-r1-basic": {
+      "name": "Deepseek R1 Basic",
+      "context": 128000,
+      "maxOutput": 20480,
+      "vision": false,
+      "reasoning": true
+    },
+    "deepseek-v3": {
+      "name": "Deepseek V3",
+      "context": 128000,
+      "maxOutput": 8192,
+      "vision": false
+    },
+    "deepseek-v3-0324": {
+      "name": "Deepseek V3.0324",
+      "context": 163840,
+      "maxOutput": 163840
+    },
+    "deepseek-v3p1": {
+      "name": "Deepseek V3p1",
+      "context": 128000,
+      "maxOutput": 8192,
+      "reasoning": true
+    },
+    "deepseek-v3p1-terminus": {
+      "name": "Deepseek V3p1 Terminus",
+      "context": 128000,
+      "maxOutput": 8192,
+      "reasoning": true
+    },
+    "deepseek-v3p2": {
+      "name": "Deepseek V3p2",
+      "context": 163840,
+      "maxOutput": 163840,
+      "reasoning": true,
+      "vision": false
+    },
+    "firefunction-v2": {
+      "name": "Firefunction V2",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "glm-4p5": {
+      "name": "Glm 4p5",
+      "context": 128000,
+      "maxOutput": 96000,
+      "reasoning": true
+    },
+    "glm-4p5-air": {
+      "name": "Glm 4p5 Air",
+      "context": 128000,
+      "maxOutput": 96000,
+      "reasoning": true
+    },
+    "glm-4p6": {
+      "name": "Glm 4p6",
+      "context": 202800,
+      "maxOutput": 202800,
+      "reasoning": true
+    },
+    "glm-4p7": {
+      "name": "Glm 4p7",
+      "context": 202800,
+      "maxOutput": 202800,
+      "reasoning": true
+    },
+    "gpt-oss-120b": {
+      "name": "Gpt Oss 120b",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "gpt-oss-20b": {
+      "name": "Gpt Oss 20b",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "kimi-k2-instruct": {
+      "name": "Kimi K2 Instruct",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "kimi-k2-instruct-0905": {
+      "name": "Kimi K2 Instruct 0905",
+      "context": 262144,
+      "maxOutput": 32768
+    },
+    "kimi-k2-thinking": {
+      "name": "Kimi K2 Thinking",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "kimi-k2p5": {
+      "name": "Kimi K2.5",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true,
+      "reasoning": true
+    },
+    "llama-v3p1-405b-instruct": {
+      "name": "Llama V3p1.405b Instruct",
+      "context": 128000,
+      "maxOutput": 16384
+    },
+    "llama-v3p1-8b-instruct": {
+      "name": "Llama V3p1.8b Instruct",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "llama-v3p2-11b-vision-instruct": {
+      "name": "Llama V3p2.11b Vision Instruct",
+      "context": 16384,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "llama-v3p2-1b-instruct": {
+      "name": "Llama V3p2.1b Instruct",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "llama-v3p2-3b-instruct": {
+      "name": "Llama V3p2.3b Instruct",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "llama-v3p2-90b-vision-instruct": {
+      "name": "Llama V3p2.90b Vision Instruct",
+      "context": 16384,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "llama4-maverick-instruct-basic": {
+      "name": "Llama4 Maverick Instruct Basic",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llama4-scout-instruct-basic": {
+      "name": "Llama4 Scout Instruct Basic",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "minimax-m2p1": {
+      "name": "Minimax M2p1",
+      "context": 204800,
+      "maxOutput": 204800,
+      "vision": false,
+      "reasoning": true
+    },
+    "mixtral-8x22b-instruct-hf": {
+      "name": "Mixtral 8x22b Instruct Hf",
+      "context": 65536,
+      "maxOutput": 65536
+    },
+    "qwen2-72b-instruct": {
+      "name": "Qwen2.72b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-32b-instruct": {
+      "name": "Qwen2p5 Coder 32b Instruct",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "yi-large": {
+      "name": "Yi Large",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen3-coder-480b-a35b-instruct": {
+      "name": "Qwen3 Coder 480b A35b Instruct",
+      "context": 262144,
+      "maxOutput": 262144,
+      "reasoning": true
+    },
+    "chronos-hermes-13b-v2": {
+      "name": "Chronos Hermes 13b V2",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "code-llama-13b": {
+      "name": "Code Llama 13b",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "code-llama-13b-instruct": {
+      "name": "Code Llama 13b Instruct",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "code-llama-13b-python": {
+      "name": "Code Llama 13b Python",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "code-llama-34b": {
+      "name": "Code Llama 34b",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "code-llama-34b-instruct": {
+      "name": "Code Llama 34b Instruct",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "code-llama-34b-python": {
+      "name": "Code Llama 34b Python",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "code-llama-70b": {
+      "name": "Code Llama 70b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "code-llama-70b-instruct": {
+      "name": "Code Llama 70b Instruct",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "code-llama-70b-python": {
+      "name": "Code Llama 70b Python",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "code-llama-7b": {
+      "name": "Code Llama 7b",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "code-llama-7b-instruct": {
+      "name": "Code Llama 7b Instruct",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "code-llama-7b-python": {
+      "name": "Code Llama 7b Python",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "code-qwen-1p5-7b": {
+      "name": "Code Qwen 1p5.7b",
+      "context": 65536,
+      "maxOutput": 65536
+    },
+    "codegemma-2b": {
+      "name": "Codegemma 2b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "codegemma-7b": {
+      "name": "Codegemma 7b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "cogito-671b-v2-p1": {
+      "name": "Cogito 671b V2 P1",
+      "context": 163840,
+      "maxOutput": 163840
+    },
+    "cogito-v1-preview-llama-3b": {
+      "name": "Cogito V1 Preview Llama 3b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "cogito-v1-preview-llama-70b": {
+      "name": "Cogito V1 Preview Llama 70b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "cogito-v1-preview-llama-8b": {
+      "name": "Cogito V1 Preview Llama 8b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "cogito-v1-preview-qwen-14b": {
+      "name": "Cogito V1 Preview Qwen 14b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "cogito-v1-preview-qwen-32b": {
+      "name": "Cogito V1 Preview Qwen 32b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "dbrx-instruct": {
+      "name": "Dbrx Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "deepseek-coder-1b-base": {
+      "name": "Deepseek Coder 1b Base",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "deepseek-coder-33b-instruct": {
+      "name": "Deepseek Coder 33b Instruct",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "deepseek-coder-7b-base": {
+      "name": "Deepseek Coder 7b Base",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "deepseek-coder-7b-base-v1p5": {
+      "name": "Deepseek Coder 7b Base V1p5",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "deepseek-coder-7b-instruct-v1p5": {
+      "name": "Deepseek Coder 7b Instruct V1p5",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "deepseek-coder-v2-lite-base": {
+      "name": "Deepseek Coder V2 Lite Base",
+      "context": 163840,
+      "maxOutput": 163840
+    },
+    "deepseek-coder-v2-lite-instruct": {
+      "name": "Deepseek Coder V2 Lite Instruct",
+      "context": 163840,
+      "maxOutput": 163840
+    },
+    "deepseek-prover-v2": {
+      "name": "Deepseek Prover V2",
+      "context": 163840,
+      "maxOutput": 163840
+    },
+    "deepseek-r1-0528-distill-qwen3-8b": {
+      "name": "Deepseek R1.0528 Distill Qwen3.8b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "deepseek-r1-distill-llama-70b": {
+      "name": "Deepseek R1 Distill Llama 70b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "deepseek-r1-distill-llama-8b": {
+      "name": "Deepseek R1 Distill Llama 8b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "deepseek-r1-distill-qwen-14b": {
+      "name": "Deepseek R1 Distill Qwen 14b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "deepseek-r1-distill-qwen-1p5b": {
+      "name": "Deepseek R1 Distill Qwen 1p5b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "deepseek-r1-distill-qwen-32b": {
+      "name": "Deepseek R1 Distill Qwen 32b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "deepseek-r1-distill-qwen-7b": {
+      "name": "Deepseek R1 Distill Qwen 7b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "deepseek-v2-lite-chat": {
+      "name": "Deepseek V2 Lite Chat",
+      "context": 163840,
+      "maxOutput": 163840
+    },
+    "deepseek-v2p5": {
+      "name": "Deepseek V2p5",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "devstral-small-2505": {
+      "name": "Devstral Small 2505",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "dobby-mini-unhinged-plus-llama-3-1-8b": {
+      "name": "Dobby Mini Unhinged Plus Llama 3.1 8b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "dobby-unhinged-llama-3-3-70b-new": {
+      "name": "Dobby Unhinged Llama 3.3 70b New",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "dolphin-2-9-2-qwen2-72b": {
+      "name": "Dolphin 2.9 2 Qwen2.72b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "dolphin-2p6-mixtral-8x7b": {
+      "name": "Dolphin 2p6 Mixtral 8x7b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "ernie-4p5-21b-a3b-pt": {
+      "name": "Ernie 4p5.21b A3b Pt",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "ernie-4p5-300b-a47b-pt": {
+      "name": "Ernie 4p5.300b A47b Pt",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "fare-20b": {
+      "name": "Fare 20b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "firefunction-v1": {
+      "name": "Firefunction V1",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "firellava-13b": {
+      "name": "Firellava 13b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "firesearch-ocr-v6": {
+      "name": "Firesearch Ocr V6",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "flux-1-dev": {
+      "name": "Flux 1 Dev",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "flux-1-dev-controlnet-union": {
+      "name": "Flux 1 Dev Controlnet Union",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "flux-1-schnell": {
+      "name": "Flux 1 Schnell",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "gemma-2b-it": {
+      "name": "Gemma 2b It",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "gemma-3-27b-it": {
+      "name": "Gemma 3.27b It",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "gemma-7b": {
+      "name": "Gemma 7b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "gemma-7b-it": {
+      "name": "Gemma 7b It",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "gemma2-9b-it": {
+      "name": "Gemma2.9b It",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "glm-4p5v": {
+      "name": "Glm 4p5v",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "gpt-oss-safeguard-120b": {
+      "name": "Gpt Oss Safeguard 120b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "gpt-oss-safeguard-20b": {
+      "name": "Gpt Oss Safeguard 20b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "hermes-2-pro-mistral-7b": {
+      "name": "Hermes 2 Pro Mistral 7b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "internvl3-38b": {
+      "name": "Internvl3.38b",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "internvl3-78b": {
+      "name": "Internvl3.78b",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "internvl3-8b": {
+      "name": "Internvl3.8b",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "kat-coder": {
+      "name": "Kat Coder",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "kat-dev-32b": {
+      "name": "Kat Dev 32b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "kat-dev-72b-exp": {
+      "name": "Kat Dev 72b Exp",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llama-guard-2-8b": {
+      "name": "Llama Guard 2.8b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "llama-guard-3-1b": {
+      "name": "Llama Guard 3.1b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llama-guard-3-8b": {
+      "name": "Llama Guard 3.8b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llama-v2-13b": {
+      "name": "Llama V2.13b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama-v2-13b-chat": {
+      "name": "Llama V2.13b Chat",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama-v2-70b": {
+      "name": "Llama V2.70b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama-v2-70b-chat": {
+      "name": "Llama V2.70b Chat",
+      "context": 2048,
+      "maxOutput": 2048
+    },
+    "llama-v2-7b": {
+      "name": "Llama V2.7b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama-v2-7b-chat": {
+      "name": "Llama V2.7b Chat",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama-v3-70b-instruct": {
+      "name": "Llama V3.70b Instruct",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "llama-v3-70b-instruct-hf": {
+      "name": "Llama V3.70b Instruct Hf",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "llama-v3-8b": {
+      "name": "Llama V3.8b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "llama-v3-8b-instruct-hf": {
+      "name": "Llama V3.8b Instruct Hf",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "llama-v3p1-405b-instruct-long": {
+      "name": "Llama V3p1.405b Instruct Long",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama-v3p1-70b-instruct": {
+      "name": "Llama V3p1.70b Instruct",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llama-v3p1-70b-instruct-1b": {
+      "name": "Llama V3p1.70b Instruct 1b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama-v3p1-nemotron-70b-instruct": {
+      "name": "Llama V3p1 Nemotron 70b Instruct",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llama-v3p2-1b": {
+      "name": "Llama V3p2.1b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llama-v3p2-3b": {
+      "name": "Llama V3p2.3b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llama-v3p3-70b-instruct": {
+      "name": "Llama V3p3.70b Instruct",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llamaguard-7b": {
+      "name": "Llamaguard 7b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llava-yi-34b": {
+      "name": "Llava Yi 34b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "minimax-m1-80k": {
+      "name": "Minimax M1.80k",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "minimax-m2": {
+      "name": "Minimax M2",
+      "context": 4096,
+      "maxOutput": 4096,
+      "vision": false,
+      "reasoning": true
+    },
+    "ministral-3-14b-instruct-2512": {
+      "name": "Ministral 3.14b Instruct 2512",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "ministral-3-3b-instruct-2512": {
+      "name": "Ministral 3.3b Instruct 2512",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "ministral-3-8b-instruct-2512": {
+      "name": "Ministral 3.8b Instruct 2512",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "mistral-7b": {
+      "name": "Mistral 7b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mistral-7b-instruct-4k": {
+      "name": "Mistral 7b Instruct 4k",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mistral-7b-instruct-v0p2": {
+      "name": "Mistral 7b Instruct V0p2",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mistral-7b-instruct-v3": {
+      "name": "Mistral 7b Instruct V3",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mistral-7b-v0p2": {
+      "name": "Mistral 7b V0p2",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mistral-large-3-fp8": {
+      "name": "Mistral Large 3 Fp8",
+      "context": 256000,
+      "maxOutput": 256000,
+      "vision": true
+    },
+    "mistral-nemo-base-2407": {
+      "name": "Mistral Nemo Base 2407",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "mistral-nemo-instruct-2407": {
+      "name": "Mistral Nemo Instruct 2407",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "mistral-small-24b-instruct-2501": {
+      "name": "Mistral Small 24b Instruct 2501",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mixtral-8x22b": {
+      "name": "Mixtral 8x22b",
+      "context": 65536,
+      "maxOutput": 65536
+    },
+    "mixtral-8x22b-instruct": {
+      "name": "Mixtral 8x22b Instruct",
+      "context": 65536,
+      "maxOutput": 65536
+    },
+    "mixtral-8x7b": {
+      "name": "Mixtral 8x7b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mixtral-8x7b-instruct": {
+      "name": "Mixtral 8x7b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mixtral-8x7b-instruct-hf": {
+      "name": "Mixtral 8x7b Instruct Hf",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "mythomax-l2-13b": {
+      "name": "Mythomax L2.13b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "nemotron-nano-v2-12b-vl": {
+      "name": "Nemotron Nano V2.12b Vl",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "nous-capybara-7b-v1p9": {
+      "name": "Nous Capybara 7b V1p9",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "nous-hermes-2-mixtral-8x7b-dpo": {
+      "name": "Nous Hermes 2 Mixtral 8x7b Dpo",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "nous-hermes-2-yi-34b": {
+      "name": "Nous Hermes 2 Yi 34b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "nous-hermes-llama2-13b": {
+      "name": "Nous Hermes Llama2.13b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "nous-hermes-llama2-70b": {
+      "name": "Nous Hermes Llama2.70b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "nous-hermes-llama2-7b": {
+      "name": "Nous Hermes Llama2.7b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "nvidia-nemotron-nano-12b-v2": {
+      "name": "Nvidia Nemotron Nano 12b V2",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "nvidia-nemotron-nano-9b-v2": {
+      "name": "Nvidia Nemotron Nano 9b V2",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "openchat-3p5-0106-7b": {
+      "name": "Openchat 3p5.0106.7b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "openhermes-2-mistral-7b": {
+      "name": "Openhermes 2 Mistral 7b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "openhermes-2p5-mistral-7b": {
+      "name": "Openhermes 2p5 Mistral 7b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "openorca-7b": {
+      "name": "Openorca 7b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "phi-2-3b": {
+      "name": "Phi 2.3b",
+      "context": 2048,
+      "maxOutput": 2048
+    },
+    "phi-3-mini-128k-instruct": {
+      "name": "Phi 3 Mini 128k Instruct",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "phi-3-vision-128k-instruct": {
+      "name": "Phi 3 Vision 128k Instruct",
+      "context": 32064,
+      "maxOutput": 32064
+    },
+    "phind-code-llama-34b-python-v1": {
+      "name": "Phind Code Llama 34b Python V1",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "phind-code-llama-34b-v1": {
+      "name": "Phind Code Llama 34b V1",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "phind-code-llama-34b-v2": {
+      "name": "Phind Code Llama 34b V2",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "pythia-12b": {
+      "name": "Pythia 12b",
+      "context": 2048,
+      "maxOutput": 2048
+    },
+    "qwen-qwq-32b-preview": {
+      "name": "Qwen Qwq 32b Preview",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen-v2p5-14b-instruct": {
+      "name": "Qwen V2p5.14b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen-v2p5-7b": {
+      "name": "Qwen V2p5.7b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "qwen1p5-72b-chat": {
+      "name": "Qwen1p5.72b Chat",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2-7b-instruct": {
+      "name": "Qwen2.7b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2-vl-2b-instruct": {
+      "name": "Qwen2 Vl 2b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2-vl-72b-instruct": {
+      "name": "Qwen2 Vl 72b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2-vl-7b-instruct": {
+      "name": "Qwen2 Vl 7b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-0p5b-instruct": {
+      "name": "Qwen2p5.0p5b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-14b": {
+      "name": "Qwen2p5.14b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "qwen2p5-1p5b-instruct": {
+      "name": "Qwen2p5.1p5b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-32b": {
+      "name": "Qwen2p5.32b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "qwen2p5-32b-instruct": {
+      "name": "Qwen2p5.32b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-72b": {
+      "name": "Qwen2p5.72b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "qwen2p5-72b-instruct": {
+      "name": "Qwen2p5.72b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-7b-instruct": {
+      "name": "Qwen2p5.7b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-0p5b": {
+      "name": "Qwen2p5 Coder 0p5b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-0p5b-instruct": {
+      "name": "Qwen2p5 Coder 0p5b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-14b": {
+      "name": "Qwen2p5 Coder 14b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-14b-instruct": {
+      "name": "Qwen2p5 Coder 14b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-1p5b": {
+      "name": "Qwen2p5 Coder 1p5b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-1p5b-instruct": {
+      "name": "Qwen2p5 Coder 1p5b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-32b": {
+      "name": "Qwen2p5 Coder 32b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-32b-instruct-128k": {
+      "name": "Qwen2p5 Coder 32b Instruct 128k",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "qwen2p5-coder-32b-instruct-32k-rope": {
+      "name": "Qwen2p5 Coder 32b Instruct 32k Rope",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-32b-instruct-64k": {
+      "name": "Qwen2p5 Coder 32b Instruct 64k",
+      "context": 65536,
+      "maxOutput": 65536
+    },
+    "qwen2p5-coder-3b": {
+      "name": "Qwen2p5 Coder 3b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-3b-instruct": {
+      "name": "Qwen2p5 Coder 3b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-7b": {
+      "name": "Qwen2p5 Coder 7b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-coder-7b-instruct": {
+      "name": "Qwen2p5 Coder 7b Instruct",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "qwen2p5-math-72b-instruct": {
+      "name": "Qwen2p5 Math 72b Instruct",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "qwen2p5-vl-32b-instruct": {
+      "name": "Qwen2p5 Vl 32b Instruct",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "qwen2p5-vl-3b-instruct": {
+      "name": "Qwen2p5 Vl 3b Instruct",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "qwen2p5-vl-72b-instruct": {
+      "name": "Qwen2p5 Vl 72b Instruct",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "qwen2p5-vl-7b-instruct": {
+      "name": "Qwen2p5 Vl 7b Instruct",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "qwen3-0p6b": {
+      "name": "Qwen3.0p6b",
+      "context": 40960,
+      "maxOutput": 40960
+    },
+    "qwen3-14b": {
+      "name": "Qwen3.14b",
+      "context": 40960,
+      "maxOutput": 40960
+    },
+    "qwen3-1p7b": {
+      "name": "Qwen3.1p7b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "qwen3-1p7b-fp8-draft": {
+      "name": "Qwen3.1p7b Fp8 Draft",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen3-1p7b-fp8-draft-131072": {
+      "name": "Qwen3.1p7b Fp8 Draft",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "qwen3-1p7b-fp8-draft-40960": {
+      "name": "Qwen3.1p7b Fp8 Draft 40960",
+      "context": 40960,
+      "maxOutput": 40960
+    },
+    "qwen3-235b-a22b": {
+      "name": "Qwen3.235b A22b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "qwen3-235b-a22b-instruct-2507": {
+      "name": "Qwen3.235b A22b Instruct 2507",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen3-235b-a22b-thinking-2507": {
+      "name": "Qwen3.235b A22b Thinking 2507",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen3-30b-a3b": {
+      "name": "Qwen3.30b A3b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "qwen3-30b-a3b-instruct-2507": {
+      "name": "Qwen3.30b A3b Instruct 2507",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen3-30b-a3b-thinking-2507": {
+      "name": "Qwen3.30b A3b Thinking 2507",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen3-32b": {
+      "name": "Qwen3.32b",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "qwen3-4b": {
+      "name": "Qwen3.4b",
+      "context": 40960,
+      "maxOutput": 40960
+    },
+    "qwen3-4b-instruct-2507": {
+      "name": "Qwen3.4b Instruct 2507",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen3-8b": {
+      "name": "Qwen3.8b",
+      "context": 40960,
+      "maxOutput": 40960,
+      "reasoning": true
+    },
+    "qwen3-coder-30b-a3b-instruct": {
+      "name": "Qwen3 Coder 30b A3b Instruct",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen3-coder-480b-instruct-bf16": {
+      "name": "Qwen3 Coder 480b Instruct Bf16",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "qwen3-next-80b-a3b-instruct": {
+      "name": "Qwen3 Next 80b A3b Instruct",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "qwen3-next-80b-a3b-thinking": {
+      "name": "Qwen3 Next 80b A3b Thinking",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "qwen3-vl-235b-a22b-instruct": {
+      "name": "Qwen3 Vl 235b A22b Instruct",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true
+    },
+    "qwen3-vl-235b-a22b-thinking": {
+      "name": "Qwen3 Vl 235b A22b Thinking",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen3-vl-30b-a3b-instruct": {
+      "name": "Qwen3 Vl 30b A3b Instruct",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen3-vl-30b-a3b-thinking": {
+      "name": "Qwen3 Vl 30b A3b Thinking",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen3-vl-32b-instruct": {
+      "name": "Qwen3 Vl 32b Instruct",
+      "context": 4096,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "qwen3-vl-8b-instruct": {
+      "name": "Qwen3 Vl 8b Instruct",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "qwq-32b": {
+      "name": "Qwq 32b",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "rolm-ocr": {
+      "name": "Rolm Ocr",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "snorkel-mistral-7b-pairrm-dpo": {
+      "name": "Snorkel Mistral 7b Pairrm Dpo",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "stablecode-3b": {
+      "name": "Stablecode 3b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "starcoder-16b": {
+      "name": "Starcoder 16b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "starcoder-7b": {
+      "name": "Starcoder 7b",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "starcoder2-15b": {
+      "name": "Starcoder2.15b",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "starcoder2-3b": {
+      "name": "Starcoder2.3b",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "starcoder2-7b": {
+      "name": "Starcoder2.7b",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "toppy-m-7b": {
+      "name": "Toppy M 7b",
+      "context": 32768,
+      "maxOutput": 32768
+    },
+    "yi-34b": {
+      "name": "Yi 34b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "yi-34b-200k-capybara": {
+      "name": "Yi 34b 200k Capybara",
+      "context": 200000,
+      "maxOutput": 200000
+    },
+    "yi-34b-chat": {
+      "name": "Yi 34b Chat",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "yi-6b": {
+      "name": "Yi 6b",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "zephyr-7b-beta": {
+      "name": "Zephyr 7b Beta",
+      "context": 32768,
+      "maxOutput": 32768
+    }
+  },
+  "mistral": {
+    "codestral-2405": {
+      "name": "Codestral 2405",
+      "context": 32000,
+      "maxOutput": 8191
+    },
+    "codestral-2508": {
+      "name": "Codestral 2508",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "codestral-latest": {
+      "name": "Codestral Latest",
+      "context": 32000,
+      "maxOutput": 8191
+    },
+    "codestral-mamba-latest": {
+      "name": "Codestral Mamba Latest",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "devstral-medium-2507": {
+      "name": "Devstral Medium 2507",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "devstral-small-2505": {
+      "name": "Devstral Small 2505",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "devstral-small-2507": {
+      "name": "Devstral Small 2507",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "devstral-small-latest": {
+      "name": "Devstral Small Latest",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "labs-devstral-small-2512": {
+      "name": "Labs Devstral Small 2512",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "devstral-latest": {
+      "name": "Devstral Latest",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "devstral-medium-latest": {
+      "name": "Devstral Medium Latest",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "devstral-2512": {
+      "name": "Devstral 2512",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "magistral-medium-2506": {
+      "name": "Magistral Medium 2506",
+      "context": 40000,
+      "maxOutput": 40000,
+      "reasoning": true
+    },
+    "magistral-medium-2509": {
+      "name": "Magistral Medium 2509",
+      "context": 40000,
+      "maxOutput": 40000,
+      "reasoning": true
+    },
+    "magistral-medium-1-2-2509": {
+      "name": "Magistral Medium 1.2 2509",
+      "context": 40000,
+      "maxOutput": 40000,
+      "reasoning": true
+    },
+    "magistral-medium-latest": {
+      "name": "Magistral Medium Latest",
+      "context": 40000,
+      "maxOutput": 40000,
+      "reasoning": true
+    },
+    "magistral-small-2506": {
+      "name": "Magistral Small 2506",
+      "context": 40000,
+      "maxOutput": 40000,
+      "reasoning": true
+    },
+    "magistral-small-latest": {
+      "name": "Magistral Small Latest",
+      "context": 40000,
+      "maxOutput": 40000,
+      "reasoning": true
+    },
+    "magistral-small-1-2-2509": {
+      "name": "Magistral Small 1.2 2509",
+      "context": 40000,
+      "maxOutput": 40000,
+      "reasoning": true
+    },
+    "mistral-large-2402": {
+      "name": "Mistral Large 2402",
+      "context": 32000,
+      "maxOutput": 8191
+    },
+    "mistral-large-2407": {
+      "name": "Mistral Large 2407",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "mistral-large-2411": {
+      "name": "Mistral Large 2411",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "mistral-large-latest": {
+      "name": "Mistral Large Latest",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true
+    },
+    "mistral-large-3": {
+      "name": "Mistral Large 3",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true
+    },
+    "mistral-large-2512": {
+      "name": "Mistral Large 2512",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true
+    },
+    "mistral-medium": {
+      "name": "Mistral Medium",
+      "context": 32000,
+      "maxOutput": 8191
+    },
+    "mistral-medium-2312": {
+      "name": "Mistral Medium 2312",
+      "context": 32000,
+      "maxOutput": 8191
+    },
+    "mistral-medium-2505": {
+      "name": "Mistral Medium 2505",
+      "context": 131072,
+      "maxOutput": 8191
+    },
+    "mistral-medium-latest": {
+      "name": "Mistral Medium Latest",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "mistral-medium-3-1-2508": {
+      "name": "Mistral Medium 3.1 2508",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "mistral-small": {
+      "name": "Mistral Small",
+      "context": 32000,
+      "maxOutput": 8191
+    },
+    "mistral-small-latest": {
+      "name": "Mistral Small Latest",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "mistral-small-3-2-2506": {
+      "name": "Mistral Small 3.2 2506",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "ministral-3-3b-2512": {
+      "name": "Ministral 3.3b 2512",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "ministral-3-8b-2512": {
+      "name": "Ministral 3.8b 2512",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true
+    },
+    "ministral-3-14b-2512": {
+      "name": "Ministral 3.14b 2512",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true
+    },
+    "mistral-tiny": {
+      "name": "Mistral Tiny",
+      "context": 32000,
+      "maxOutput": 8191
+    },
+    "open-codestral-mamba": {
+      "name": "Open Codestral Mamba",
+      "context": 256000,
+      "maxOutput": 256000
+    },
+    "open-mistral-7b": {
+      "name": "Open Mistral 7b",
+      "context": 32000,
+      "maxOutput": 8191
+    },
+    "open-mistral-nemo": {
+      "name": "Open Mistral Nemo",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "open-mistral-nemo-2407": {
+      "name": "Open Mistral Nemo 2407",
+      "context": 128000,
+      "maxOutput": 128000
+    },
+    "open-mixtral-8x22b": {
+      "name": "Open Mixtral 8x22b",
+      "context": 65336,
+      "maxOutput": 8191
+    },
+    "open-mixtral-8x7b": {
+      "name": "Open Mixtral 8x7b",
+      "context": 32000,
+      "maxOutput": 8191
+    },
+    "pixtral-12b-2409": {
+      "name": "Pixtral 12b 2409",
+      "context": 128000,
+      "maxOutput": 128000,
+      "vision": true
+    },
+    "pixtral-large-2411": {
+      "name": "Pixtral Large 2411",
+      "context": 128000,
+      "maxOutput": 128000,
+      "vision": true
+    },
+    "pixtral-large-latest": {
+      "name": "Pixtral Large Latest",
+      "context": 128000,
+      "maxOutput": 128000,
+      "vision": true
+    }
+  },
+  "perplexity": {
+    "codellama-34b-instruct": {
+      "name": "Codellama 34b Instruct",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "codellama-70b-instruct": {
+      "name": "Codellama 70b Instruct",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "llama-2-70b-chat": {
+      "name": "Llama 2.70b Chat",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "llama-3.1-70b-instruct": {
+      "name": "Llama 3.1.70b Instruct",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "llama-3.1-8b-instruct": {
+      "name": "Llama 3.1.8b Instruct",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "mistral-7b-instruct": {
+      "name": "Mistral 7b Instruct",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "mixtral-8x7b-instruct": {
+      "name": "Mixtral 8x7b Instruct",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "pplx-70b-chat": {
+      "name": "Pplx 70b Chat",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "pplx-70b-online": {
+      "name": "Pplx 70b Online",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "pplx-7b-chat": {
+      "name": "Pplx 7b Chat",
+      "context": 8192,
+      "maxOutput": 8192
+    },
+    "pplx-7b-online": {
+      "name": "Pplx 7b Online",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "sonar": {
+      "name": "Sonar",
+      "context": 128000
+    },
+    "sonar-deep-research": {
+      "name": "Sonar Deep Research",
+      "context": 128000,
+      "reasoning": true
+    },
+    "sonar-medium-chat": {
+      "name": "Sonar Medium Chat",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "sonar-medium-online": {
+      "name": "Sonar Medium Online",
+      "context": 12000,
+      "maxOutput": 12000
+    },
+    "sonar-pro": {
+      "name": "Sonar Pro",
+      "context": 200000,
+      "maxOutput": 8000
+    },
+    "sonar-reasoning": {
+      "name": "Sonar Reasoning",
+      "context": 128000,
+      "reasoning": true
+    },
+    "sonar-reasoning-pro": {
+      "name": "Sonar Reasoning Pro",
+      "context": 128000,
+      "reasoning": true
+    },
+    "sonar-small-chat": {
+      "name": "Sonar Small Chat",
+      "context": 16384,
+      "maxOutput": 16384
+    },
+    "sonar-small-online": {
+      "name": "Sonar Small Online",
+      "context": 12000,
+      "maxOutput": 12000
+    }
+  },
+  "xai": {
+    "grok-2": {
+      "name": "Grok 2",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "grok-2-1212": {
+      "name": "Grok 2.1212",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "grok-2-latest": {
+      "name": "Grok 2 Latest",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "grok-2-vision": {
+      "name": "Grok 2 Vision",
+      "context": 32768,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "grok-2-vision-1212": {
+      "name": "Grok 2 Vision 1212",
+      "context": 32768,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "grok-2-vision-latest": {
+      "name": "Grok 2 Vision Latest",
+      "context": 32768,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "grok-3": {
+      "name": "Grok 3",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "grok-3-beta": {
+      "name": "Grok 3 Beta",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "grok-3-fast-beta": {
+      "name": "Grok 3 Fast Beta",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "grok-3-fast-latest": {
+      "name": "Grok 3 Fast Latest",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "grok-3-latest": {
+      "name": "Grok 3 Latest",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "grok-3-mini": {
+      "name": "Grok 3 Mini",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "grok-3-mini-beta": {
+      "name": "Grok 3 Mini Beta",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "grok-3-mini-fast": {
+      "name": "Grok 3 Mini Fast",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "grok-3-mini-fast-beta": {
+      "name": "Grok 3 Mini Fast Beta",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "grok-3-mini-fast-latest": {
+      "name": "Grok 3 Mini Fast Latest",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "grok-3-mini-latest": {
+      "name": "Grok 3 Mini Latest",
+      "context": 131072,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "grok-4": {
+      "name": "Grok 4",
+      "context": 256000,
+      "maxOutput": 256000,
+      "vision": true,
+      "reasoning": true
+    },
+    "grok-4-fast-reasoning": {
+      "name": "Grok 4 Fast Reasoning",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true,
+      "reasoning": true
+    },
+    "grok-4-fast-non-reasoning": {
+      "name": "Grok 4 Fast Non Reasoning",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true
+    },
+    "grok-4-0709": {
+      "name": "Grok 4.0709",
+      "context": 256000,
+      "maxOutput": 256000,
+      "vision": true,
+      "reasoning": true
+    },
+    "grok-4-latest": {
+      "name": "Grok 4 Latest",
+      "context": 256000,
+      "maxOutput": 256000,
+      "vision": true,
+      "reasoning": true
+    },
+    "grok-4-1-fast": {
+      "name": "Grok 4.1 Fast",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true,
+      "reasoning": true
+    },
+    "grok-4-1-fast-reasoning": {
+      "name": "Grok 4.1 Fast Reasoning",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true,
+      "reasoning": true
+    },
+    "grok-4-1-fast-reasoning-latest": {
+      "name": "Grok 4.1 Fast Reasoning Latest",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true,
+      "reasoning": true
+    },
+    "grok-4-1-fast-non-reasoning": {
+      "name": "Grok 4.1 Fast Non Reasoning",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true
+    },
+    "grok-4-1-fast-non-reasoning-latest": {
+      "name": "Grok 4.1 Fast Non Reasoning Latest",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true
+    },
+    "grok-4.20-multi-agent-beta-0309": {
+      "name": "Grok 4.20 Multi Agent Beta 0309",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true,
+      "reasoning": true
+    },
+    "grok-4.20-beta-0309-reasoning": {
+      "name": "Grok 4.20 Beta 0309 Reasoning",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true,
+      "reasoning": true
+    },
+    "grok-4.20-beta-0309-non-reasoning": {
+      "name": "Grok 4.20 Beta 0309 Non Reasoning",
+      "context": 2000000,
+      "maxOutput": 2000000,
+      "vision": true
+    },
+    "grok-beta": {
+      "name": "Grok Beta",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "grok-code-fast": {
+      "name": "Grok Code Fast",
+      "context": 256000,
+      "maxOutput": 256000,
+      "reasoning": true
+    },
+    "grok-code-fast-1": {
+      "name": "Grok Code Fast 1",
+      "context": 256000,
+      "maxOutput": 256000,
+      "reasoning": true
+    },
+    "grok-code-fast-1-0825": {
+      "name": "Grok Code Fast 1.0825",
+      "context": 256000,
+      "maxOutput": 256000,
+      "reasoning": true
+    },
+    "grok-vision-beta": {
+      "name": "Grok Vision Beta",
+      "context": 8192,
+      "maxOutput": 8192,
+      "vision": true
+    }
+  },
+  "openrouter": {
+    "anthropic/claude-3-haiku": {
+      "name": "Anthropic/Claude 3 Haiku",
+      "context": 200000,
+      "vision": true
+    },
+    "anthropic/claude-3.5-sonnet": {
+      "name": "Anthropic/Claude 3.5 Sonnet",
+      "context": 200000,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "anthropic/claude-3.7-sonnet": {
+      "name": "Anthropic/Claude 3.7 Sonnet",
+      "context": 200000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "anthropic/claude-opus-4": {
+      "name": "Anthropic/Claude Opus 4",
+      "context": 200000,
+      "maxOutput": 32000,
+      "vision": true,
+      "reasoning": true
+    },
+    "anthropic/claude-opus-4.1": {
+      "name": "Anthropic/Claude Opus 4.1",
+      "context": 200000,
+      "maxOutput": 32000,
+      "vision": true,
+      "reasoning": true
+    },
+    "anthropic/claude-sonnet-4": {
+      "name": "Anthropic/Claude Sonnet 4",
+      "context": 1000000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "anthropic/claude-sonnet-4.6": {
+      "name": "Anthropic/Claude Sonnet 4.6",
+      "context": 1000000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "anthropic/claude-opus-4.5": {
+      "name": "Anthropic/Claude Opus 4.5",
+      "context": 200000,
+      "maxOutput": 32000,
+      "vision": true,
+      "reasoning": true
+    },
+    "anthropic/claude-opus-4.6": {
+      "name": "Anthropic/Claude Opus 4.6",
+      "context": 1000000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "anthropic/claude-sonnet-4.5": {
+      "name": "Anthropic/Claude Sonnet 4.5",
+      "context": 1000000,
+      "maxOutput": 1000000,
+      "vision": true,
+      "reasoning": true
+    },
+    "anthropic/claude-haiku-4.5": {
+      "name": "Anthropic/Claude Haiku 4.5",
+      "context": 200000,
+      "maxOutput": 200000,
+      "vision": true,
+      "reasoning": true
+    },
+    "bytedance/ui-tars-1.5-7b": {
+      "name": "Bytedance/Ui Tars 1.5.7b",
+      "context": 131072,
+      "maxOutput": 2048
+    },
+    "deepseek/deepseek-chat": {
+      "name": "Deepseek/Deepseek Chat",
+      "context": 65536,
+      "maxOutput": 8192
+    },
+    "deepseek/deepseek-chat-v3-0324": {
+      "name": "Deepseek/Deepseek Chat V3.0324",
+      "context": 65536,
+      "maxOutput": 8192
+    },
+    "deepseek/deepseek-chat-v3.1": {
+      "name": "Deepseek/Deepseek Chat V3.1",
+      "context": 163840,
+      "maxOutput": 163840,
+      "reasoning": true
+    },
+    "deepseek/deepseek-v3.2": {
+      "name": "Deepseek/Deepseek V3.2",
+      "context": 163840,
+      "maxOutput": 163840,
+      "reasoning": true
+    },
+    "deepseek/deepseek-v3.2-exp": {
+      "name": "Deepseek/Deepseek V3.2 Exp",
+      "context": 163840,
+      "maxOutput": 163840
+    },
+    "deepseek/deepseek-r1": {
+      "name": "Deepseek/Deepseek R1",
+      "context": 65336,
+      "maxOutput": 8192,
+      "reasoning": true
+    },
+    "deepseek/deepseek-r1-0528": {
+      "name": "Deepseek/Deepseek R1.0528",
+      "context": 65336,
+      "maxOutput": 8192,
+      "reasoning": true
+    },
+    "google/gemini-2.0-flash-001": {
+      "name": "Google/Gemini 2.0 Flash 001",
+      "context": 1048576,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "google/gemini-2.5-flash": {
+      "name": "Google/Gemini 2.5 Flash",
+      "context": 1048576,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "google/gemini-2.5-pro": {
+      "name": "Google/Gemini 2.5 Pro",
+      "context": 1048576,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "google/gemini-3-pro-preview": {
+      "name": "Google/Gemini 3 Pro Preview",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "google/gemini-3-flash-preview": {
+      "name": "Google/Gemini 3 Flash Preview",
+      "context": 1048576,
+      "maxOutput": 65535,
+      "vision": true,
+      "reasoning": true
+    },
+    "google/gemini-3.1-pro-preview": {
+      "name": "Google/Gemini 3.1 Pro Preview",
+      "context": 1048576,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "gryphe/mythomax-l2-13b": {
+      "name": "Gryphe/Mythomax L2.13b",
+      "context": 8192
+    },
+    "mancer/weaver": {
+      "name": "Mancer/Weaver",
+      "context": 8000
+    },
+    "meta-llama/llama-3-70b-instruct": {
+      "name": "Meta Llama/Llama 3.70b Instruct",
+      "context": 8192
+    },
+    "minimax/minimax-m2": {
+      "name": "Minimax/Minimax M2",
+      "context": 204800,
+      "maxOutput": 204800,
+      "reasoning": true
+    },
+    "mistralai/devstral-2512": {
+      "name": "Mistralai/Devstral 2512",
+      "context": 262144,
+      "maxOutput": 65536
+    },
+    "mistralai/ministral-3b-2512": {
+      "name": "Mistralai/Ministral 3b 2512",
+      "context": 131072,
+      "maxOutput": 131072,
+      "vision": true
+    },
+    "mistralai/ministral-8b-2512": {
+      "name": "Mistralai/Ministral 8b 2512",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true
+    },
+    "mistralai/ministral-14b-2512": {
+      "name": "Mistralai/Ministral 14b 2512",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true
+    },
+    "mistralai/mistral-large-2512": {
+      "name": "Mistralai/Mistral Large 2512",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true
+    },
+    "mistralai/mistral-7b-instruct": {
+      "name": "Mistralai/Mistral 7b Instruct",
+      "context": 8192
+    },
+    "mistralai/mistral-large": {
+      "name": "Mistralai/Mistral Large",
+      "context": 32000
+    },
+    "mistralai/mistral-small-3.1-24b-instruct": {
+      "name": "Mistralai/Mistral Small 3.1.24b Instruct",
+      "context": 32000
+    },
+    "mistralai/mistral-small-3.2-24b-instruct": {
+      "name": "Mistralai/Mistral Small 3.2.24b Instruct",
+      "context": 32000
+    },
+    "mistralai/mixtral-8x22b-instruct": {
+      "name": "Mistralai/Mixtral 8x22b Instruct",
+      "context": 65536
+    },
+    "moonshotai/kimi-k2.5": {
+      "name": "Moonshotai/Kimi K2.5",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true,
+      "reasoning": true
+    },
+    "openai/gpt-3.5-turbo": {
+      "name": "Openai/Gpt 3.5 Turbo",
+      "context": 4095
+    },
+    "openai/gpt-3.5-turbo-16k": {
+      "name": "Openai/Gpt 3.5 Turbo 16k",
+      "context": 16383
+    },
+    "openai/gpt-4": {
+      "name": "Openai/Gpt 4",
+      "context": 8192
+    },
+    "openai/gpt-4.1": {
+      "name": "Openai/Gpt 4.1",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "openai/gpt-4.1-mini": {
+      "name": "Openai/Gpt 4.1 Mini",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "openai/gpt-4.1-nano": {
+      "name": "Openai/Gpt 4.1 Nano",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "openai/gpt-4o": {
+      "name": "Openai/Gpt 4o",
+      "context": 128000,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "openai/gpt-4o-2024-05-13": {
+      "name": "Openai/Gpt 4o 2024.05.13",
+      "context": 128000,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "openai/gpt-5-chat": {
+      "name": "Openai/Gpt 5 Chat",
+      "context": 128000,
+      "maxOutput": 16384,
+      "reasoning": true,
+      "vision": true
+    },
+    "openai/gpt-5-codex": {
+      "name": "Openai/Gpt 5 Codex",
+      "context": 272000,
+      "maxOutput": 128000,
+      "reasoning": true
+    },
+    "openai/gpt-5.2-codex": {
+      "name": "Openai/Gpt 5.2 Codex",
+      "context": 272000,
+      "maxOutput": 128000,
+      "reasoning": true,
+      "vision": true
+    },
+    "openai/gpt-5": {
+      "name": "Openai/Gpt 5",
+      "context": 272000,
+      "maxOutput": 128000,
+      "reasoning": true,
+      "vision": true
+    },
+    "openai/gpt-5-mini": {
+      "name": "Openai/Gpt 5 Mini",
+      "context": 272000,
+      "maxOutput": 128000,
+      "reasoning": true,
+      "vision": true
+    },
+    "openai/gpt-5-nano": {
+      "name": "Openai/Gpt 5 Nano",
+      "context": 272000,
+      "maxOutput": 128000,
+      "reasoning": true,
+      "vision": true
+    },
+    "openai/gpt-5.1-codex-max": {
+      "name": "Openai/Gpt 5.1 Codex Max",
+      "context": 400000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "openai/gpt-5.2": {
+      "name": "Openai/Gpt 5.2",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "openai/gpt-5.2-chat": {
+      "name": "Openai/Gpt 5.2 Chat",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "openai/gpt-5.2-pro": {
+      "name": "Openai/Gpt 5.2 Pro",
+      "context": 272000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "openai/gpt-oss-120b": {
+      "name": "Openai/Gpt Oss 120b",
+      "context": 131072,
+      "maxOutput": 32768,
+      "reasoning": true
+    },
+    "openai/gpt-oss-20b": {
+      "name": "Openai/Gpt Oss 20b",
+      "context": 131072,
+      "maxOutput": 32768,
+      "reasoning": true
+    },
+    "openai/o1": {
+      "name": "Openai/O1",
+      "context": 200000,
+      "maxOutput": 100000,
+      "vision": true
+    },
+    "openai/o3-mini": {
+      "name": "Openai/O3 Mini",
+      "context": 128000,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "openai/o3-mini-high": {
+      "name": "Openai/O3 Mini High",
+      "context": 128000,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "qwen/qwen-2.5-coder-32b-instruct": {
+      "name": "Qwen/Qwen 2.5 Coder 32b Instruct",
+      "context": 33792,
+      "maxOutput": 33792
+    },
+    "qwen/qwen-vl-plus": {
+      "name": "Qwen/Qwen Vl Plus",
+      "context": 8192,
+      "maxOutput": 2048,
+      "vision": true
+    },
+    "qwen/qwen3-coder": {
+      "name": "Qwen/Qwen3 Coder",
+      "context": 262100,
+      "maxOutput": 262100
+    },
+    "qwen/qwen3-coder-plus": {
+      "name": "Qwen/Qwen3 Coder Plus",
+      "context": 997952,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "qwen/qwen3-235b-a22b-2507": {
+      "name": "Qwen/Qwen3.235b A22b 2507",
+      "context": 262144,
+      "maxOutput": 262144
+    },
+    "qwen/qwen3-235b-a22b-thinking-2507": {
+      "name": "Qwen/Qwen3.235b A22b Thinking 2507",
+      "context": 262144,
+      "maxOutput": 262144,
+      "reasoning": true
+    },
+    "qwen/qwen3.5-35b-a3b": {
+      "name": "Qwen/Qwen3.5.35b A3b",
+      "context": 262144,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen/qwen3.5-27b": {
+      "name": "Qwen/Qwen3.5.27b",
+      "context": 262144,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen/qwen3.5-122b-a10b": {
+      "name": "Qwen/Qwen3.5.122b A10b",
+      "context": 262144,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen/qwen3.5-flash-02-23": {
+      "name": "Qwen/Qwen3.5 Flash 02.23",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen/qwen3.5-plus-02-15": {
+      "name": "Qwen/Qwen3.5 Plus 02.15",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "qwen/qwen3.5-397b-a17b": {
+      "name": "Qwen/Qwen3.5.397b A17b",
+      "context": 262144,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true
+    },
+    "switchpoint/router": {
+      "name": "Switchpoint/Router",
+      "context": 131072,
+      "maxOutput": 131072
+    },
+    "undi95/remm-slerp-l2-13b": {
+      "name": "Undi95/Remm Slerp L2.13b",
+      "context": 6144
+    },
+    "x-ai/grok-4": {
+      "name": "X Ai/Grok 4",
+      "context": 256000,
+      "maxOutput": 256000,
+      "reasoning": true,
+      "vision": true
+    },
+    "z-ai/glm-4.6": {
+      "name": "Z Ai/Glm 4.6",
+      "context": 202800,
+      "maxOutput": 131000,
+      "reasoning": true
+    },
+    "z-ai/glm-4.6:exacto": {
+      "name": "Z Ai/Glm 4.6:Exacto",
+      "context": 202800,
+      "maxOutput": 131000,
+      "reasoning": true
+    },
+    "xiaomi/mimo-v2-flash": {
+      "name": "Xiaomi/Mimo V2 Flash",
+      "context": 262144,
+      "maxOutput": 16384,
+      "reasoning": true
+    },
+    "z-ai/glm-4.7": {
+      "name": "Z Ai/Glm 4.7",
+      "context": 202752,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "z-ai/glm-4.7-flash": {
+      "name": "Z Ai/Glm 4.7 Flash",
+      "context": 200000,
+      "maxOutput": 32000,
+      "vision": true,
+      "reasoning": true
+    },
+    "z-ai/glm-5": {
+      "name": "Z Ai/Glm 5",
+      "context": 202752,
+      "maxOutput": 128000,
+      "reasoning": true,
+      "vision": true
+    },
+    "minimax/minimax-m2.1": {
+      "name": "Minimax/Minimax M2.1",
+      "context": 204000,
+      "maxOutput": 64000,
+      "vision": true,
+      "reasoning": true
+    },
+    "minimax/minimax-m2.5": {
+      "name": "Minimax/Minimax M2.5",
+      "context": 196608,
+      "maxOutput": 65536,
+      "reasoning": true
+    },
+    "openrouter/auto": {
+      "name": "Openrouter/Auto",
+      "context": 2000000,
+      "vision": true,
+      "reasoning": true
+    },
+    "openrouter/free": {
+      "name": "Openrouter/Free",
+      "context": 200000,
+      "vision": true,
+      "reasoning": true
+    },
+    "openrouter/bodybuilder": {
+      "name": "Openrouter/Bodybuilder",
+      "context": 128000
+    }
+  },
+  "siliconflow": {
+    "deepseek-chat": {
+      "name": "DeepSeek Chat",
+      "context": 128000,
+      "maxOutput": 8192,
+      "vision": false
+    },
+    "deepseek-reasoner": {
+      "name": "DeepSeek Reasoner",
+      "context": 128000,
+      "maxOutput": 64000,
+      "reasoning": true,
+      "vision": false
+    },
+    "deepseek-v3.2": {
+      "name": "DeepSeek V3.2",
+      "context": 163840,
+      "maxOutput": 65536,
+      "vision": false
+    },
+    "qwen3-max": {
+      "name": "Qwen 3 Max",
+      "context": 262144,
+      "maxOutput": 32768,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3-plus": {
+      "name": "Qwen 3 Plus",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3-mini": {
+      "name": "Qwen 3 Mini",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3.5-plus": {
+      "name": "Qwen 3.5 Plus",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3.5-max": {
+      "name": "Qwen 3.5 Max",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3.5-flash": {
+      "name": "Qwen 3.5 Flash",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "kimi-k2.5": {
+      "name": "Kimi K2.5",
+      "context": 262144,
+      "maxOutput": 262144,
+      "vision": true,
+      "reasoning": true
+    },
+    "kimi-k2": {
+      "name": "Kimi K2",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "glm-5": {
+      "name": "GLM-5",
+      "context": 200000,
+      "maxOutput": 128000,
+      "vision": false,
+      "reasoning": true
+    },
+    "glm-5-turbo": {
+      "name": "GLM-5 Turbo",
+      "context": 205000,
+      "maxOutput": 131072,
+      "vision": false,
+      "reasoning": true
+    },
+    "glm-4-plus": {
+      "name": "GLM-4 Plus",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "glm-4-flash": {
+      "name": "GLM-4 Flash",
+      "context": 131072,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "deepseek-r1": {
+      "name": "Deepseek R1",
+      "context": 65536,
+      "maxOutput": 8192,
+      "reasoning": true,
+      "vision": false
+    }
+  },
+  "modelscope": {
+    "qwen3.5-plus": {
+      "name": "Qwen 3.5 Plus",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3.5-max": {
+      "name": "Qwen 3.5 Max",
+      "context": 1000000,
+      "maxOutput": 65536,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3.5-flash": {
+      "name": "Qwen 3.5 Flash",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3-max": {
+      "name": "Qwen 3 Max",
+      "context": 262144,
+      "maxOutput": 32768,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3-plus": {
+      "name": "Qwen 3 Plus",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3-mini": {
+      "name": "Qwen 3 Mini",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen-plus": {
+      "name": "Qwen Plus",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "qwen-turbo": {
+      "name": "Qwen Turbo",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "qwen-max": {
+      "name": "Qwen Max",
+      "context": 32768,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "deepseek-chat": {
+      "name": "DeepSeek Chat",
+      "context": 128000,
+      "maxOutput": 8192,
+      "vision": false
+    },
+    "deepseek-reasoner": {
+      "name": "DeepSeek Reasoner",
+      "context": 128000,
+      "maxOutput": 64000,
+      "reasoning": true,
+      "vision": false
+    }
+  },
+  "baidu-cloud": {
+    "ernie-4.5-8k": {
+      "name": "ERNIE 4.5 8K",
+      "context": 8192,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "ernie-4.5-128k": {
+      "name": "ERNIE 4.5 128K",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "ernie-4.0-8k": {
+      "name": "ERNIE 4.0 8K",
+      "context": 8192,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "ernie-4.0-turbo-8k": {
+      "name": "ERNIE 4.0 Turbo 8K",
+      "context": 8192,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "ernie-3.5-8k": {
+      "name": "ERNIE 3.5 8K",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "ernie-speed-8k": {
+      "name": "ERNIE Speed 8K",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "ernie-lite-8k": {
+      "name": "ERNIE Lite 8K",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "ernie-tiny-8k": {
+      "name": "ERNIE Tiny 8K",
+      "context": 8192,
+      "maxOutput": 4096
+    }
+  },
+  "hunyuan": {
+    "hunyuan-t1-latest": {
+      "name": "Hunyuan T1",
+      "context": 262144,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true
+    },
+    "hunyuan-turbos-latest": {
+      "name": "Hunyuan TurboS",
+      "context": 131072,
+      "maxOutput": 8192,
+      "vision": true
+    },
+    "hunyuan-turbo-latest": {
+      "name": "Hunyuan Turbo",
+      "context": 131072,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "hunyuan-pro-latest": {
+      "name": "Hunyuan Pro",
+      "context": 32768,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "hunyuan-standard-latest": {
+      "name": "Hunyuan Standard",
+      "context": 32768,
+      "maxOutput": 4096
+    },
+    "hunyuan-lite-latest": {
+      "name": "Hunyuan Lite",
+      "context": 16384,
+      "maxOutput": 4096
+    },
+    "hunyuan-vision-latest": {
+      "name": "Hunyuan Vision",
+      "context": 8192,
+      "maxOutput": 4096,
+      "vision": true
+    }
+  },
+  "baichuan": {
+    "Baichuan4-Air": {
+      "name": "Baichuan 4 Air",
+      "context": 32768,
+      "maxOutput": 4096
+    },
+    "Baichuan4-Turbo": {
+      "name": "Baichuan 4 Turbo",
+      "context": 32768,
+      "maxOutput": 4096
+    },
+    "Baichuan3-Turbo": {
+      "name": "Baichuan 3 Turbo",
+      "context": 32768,
+      "maxOutput": 4096
+    }
+  },
+  "infini": {
+    "deepseek-chat": {
+      "name": "DeepSeek Chat",
+      "context": 128000,
+      "maxOutput": 8192,
+      "vision": false
+    },
+    "deepseek-reasoner": {
+      "name": "DeepSeek Reasoner",
+      "context": 128000,
+      "maxOutput": 64000,
+      "reasoning": true,
+      "vision": false
+    },
+    "deepseek-v3.2": {
+      "name": "DeepSeek V3.2",
+      "context": 163840,
+      "maxOutput": 65536,
+      "vision": false
+    },
+    "qwen3-max": {
+      "name": "Qwen 3 Max",
+      "context": 262144,
+      "maxOutput": 32768,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    },
+    "qwen3-plus": {
+      "name": "Qwen 3 Plus",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true,
+      "quirks": [
+        "enable_thinking"
+      ]
+    }
+  },
+  "stepfun": {
+    "step-2-16k": {
+      "name": "Step 2 16K",
+      "context": 16384,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "step-2-mini": {
+      "name": "Step 2 Mini",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "step-1-8k": {
+      "name": "Step 1 8K",
+      "context": 8192,
+      "maxOutput": 4096
+    },
+    "step-1-32k": {
+      "name": "Step 1 32K",
+      "context": 32768,
+      "maxOutput": 4096
+    },
+    "step-1v-8k": {
+      "name": "Step 1V 8K",
+      "context": 8192,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "step-1v-32k": {
+      "name": "Step 1V 32K",
+      "context": 32768,
+      "maxOutput": 4096,
+      "vision": true
+    }
+  },
+  "openai-codex-oauth": {
+    "gpt-4o": {
+      "name": "GPT-4o",
+      "context": 128000,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "gpt-4.1": {
+      "name": "GPT-4.1",
+      "context": 1047576,
+      "maxOutput": 32768,
+      "vision": true
+    },
+    "o3-mini": {
+      "name": "o3 Mini",
+      "context": 200000,
+      "maxOutput": 100000,
+      "reasoning": true
+    },
+    "o4-mini": {
+      "name": "o4 Mini",
+      "context": 200000,
+      "maxOutput": 100000,
+      "vision": true,
+      "reasoning": true
+    }
+  },
+  "volcengine-coding": {
+    "doubao-seed-2-0-pro-260215": {
+      "name": "Doubao Seed 2.0 Pro",
+      "context": 262144,
+      "maxOutput": 16384,
+      "vision": true,
+      "reasoning": true
+    },
+    "doubao-seed-2-0-mini-260215": {
+      "name": "Doubao Seed 2.0 Mini",
+      "context": 131072,
+      "maxOutput": 16384,
+      "vision": true
+    },
+    "doubao-pro-256k": {
+      "name": "Doubao Pro 256K",
+      "context": 262144,
+      "maxOutput": 4096
+    },
+    "doubao-pro-128k": {
+      "name": "Doubao Pro 128K",
+      "context": 131072,
+      "maxOutput": 4096
+    },
+    "doubao-pro-32k": {
+      "name": "Doubao Pro 32K",
+      "context": 32768,
+      "maxOutput": 4096
+    },
+    "doubao-pro-4k": {
+      "name": "Doubao Pro 4K",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "doubao-lite-128k": {
+      "name": "Doubao Lite 128K",
+      "context": 131072,
+      "maxOutput": 4096
+    },
+    "doubao-lite-32k": {
+      "name": "Doubao Lite 32K",
+      "context": 32768,
+      "maxOutput": 4096
+    },
+    "doubao-lite-4k": {
+      "name": "Doubao Lite 4K",
+      "context": 4096,
+      "maxOutput": 4096
+    },
+    "doubao-vision-pro-32k": {
+      "name": "Doubao Vision Pro 32K",
+      "context": 32768,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "doubao-vision-lite-32k": {
+      "name": "Doubao Vision Lite 32K",
+      "context": 32768,
+      "maxOutput": 4096,
+      "vision": true
+    },
+    "deepseek-v3-2-251201": {
+      "name": "Deepseek V3.2",
+      "context": 98304,
+      "maxOutput": 32768,
+      "vision": false,
+      "reasoning": true
+    },
+    "glm-4-7-251222": {
+      "name": "Glm 4.7",
+      "context": 204800,
+      "maxOutput": 131072,
+      "reasoning": true
+    },
+    "kimi-k2-thinking-251104": {
+      "name": "Kimi K2 Thinking",
+      "context": 229376,
+      "maxOutput": 32768,
+      "reasoning": true
+    },
+    "doubao-seed-2-0-lite-260215": {
+      "name": "Doubao Seed 2.0 Lite",
+      "context": 256000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    },
+    "doubao-seed-2-0-code-preview-260215": {
+      "name": "Doubao Seed 2.0 Code Preview",
+      "context": 256000,
+      "maxOutput": 128000,
+      "vision": true,
+      "reasoning": true
+    }
+  }
 }

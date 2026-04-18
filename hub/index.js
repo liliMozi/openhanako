@@ -13,12 +13,18 @@
  */
 
 import path from "path";
+import fs from "fs";
+import crypto from "crypto";
 import { EventBus } from "./event-bus.js";
 import { ChannelRouter } from "./channel-router.js";
 import { GuestHandler } from "./guest-handler.js";
 import { Scheduler } from "./scheduler.js";
-import { AgentMessenger } from "./agent-messenger.js";
 import { DmRouter } from "./dm-router.js";
+import {
+  extractTextContent,
+  loadSessionHistoryMessages,
+  isValidSessionPath,
+} from "../core/message-utils.js";
 
 export class Hub {
   /**
@@ -31,16 +37,24 @@ export class Hub {
     this._channelRouter = new ChannelRouter({ hub: this });
     this._guestHandler = new GuestHandler({ hub: this });
     this._scheduler = new Scheduler({ hub: this });
-    this._agentMessenger = new AgentMessenger({ hub: this });
     this._dmRouter = new DmRouter({ hub: this });
 
-    // 双向引用：engine 也能拿到 hub
-    engine._hub = this;
+    // 注入 Hub 回调到 Engine（单向：Hub → Engine，不再双向引用）
+    engine.setHubCallbacks({
+      scheduler: this._scheduler,
+      dmRouter: this._dmRouter,
+      channelRouter: this._channelRouter,
+      eventBus: this._eventBus,
+      pauseForAgentSwitch: () => this.pauseForAgentSwitch(),
+      resumeAfterAgentSwitch: () => this.resumeAfterAgentSwitch(),
+      triggerChannelTriage: (name, opts) => this._channelRouter.triggerImmediate(name, opts),
+    });
 
     // 注入 EventBus（替代旧的 proxy hack）
     engine.setEventBus(this._eventBus);
 
-    this._setupNotifyHandler();
+    this._sessionHandlerCleanups = [];
+    this._setupSessionHandlers();
     this._setupDmHandler();
   }
 
@@ -103,27 +117,48 @@ export class Hub {
       to,
       onDelta,
       images,
+      sessionPath,
+      agentId,
     } = opts;
-    const o = { sessionKey, role, ephemeral, meta, isGroup, cwd, model, persist, from, to, onDelta, images };
+    const o = { sessionKey, role, ephemeral, meta, isGroup, cwd, model, persist, from, to, onDelta, images, sessionPath, agentId };
+
+    // ── 图片预处理：持久化到磁盘 + 插入 [attached_image] 标记 ──
+    // 在路由之前统一处理，所有消息路径（WS / Bridge DM / Bridge Group）共享
+    if (o.images?.length && this._engine.hanakoHome) {
+      const attachDir = path.join(this._engine.hanakoHome, "attachments");
+      await fs.promises.mkdir(attachDir, { recursive: true });
+      const savedPaths = [];
+      for (const img of o.images) {
+        const ext = (img.mimeType || "image/png").split("/")[1] || "png";
+        const hash = crypto.createHash("md5").update((img.data || "").slice(0, 1024)).digest("hex").slice(0, 8);
+        const filePath = path.join(attachDir, `upload-${Date.now()}-${hash}.${ext}`);
+        try {
+          await fs.promises.writeFile(filePath, Buffer.from(img.data, "base64"));
+          savedPaths.push(filePath);
+        } catch { /* best-effort; prompt still goes through */ }
+      }
+      if (savedPaths.length) {
+        const pathNote = savedPaths.map(p => `[attached_image: ${p}]`).join("\n");
+        text = `${pathNote}\n${text}`;
+      }
+    }
 
     // 路由表：按顺序匹配，第一条命中即执行。
     // 优先级通过位置保证，新增路由在此处显式插入，不依赖散落在各处的 if 顺序。
     const routes = [
-      { // Agent → Agent 私聊（优先，防止被 owner 路由吞掉）
-        match: o => o.from && o.to,
-        handle: () => this._agentMessenger.send(text, o.from, o.to, opts),
-      },
       { // 桌面端 owner
         match: o => !o.sessionKey && !o.ephemeral && o.role === "owner",
-        handle: () => this._engine.prompt(text, { images: o.images }),
+        handle: () => o.sessionPath
+          ? this._engine.promptSession(o.sessionPath, text, { images: o.images })
+          : this._engine.prompt(text, { images: o.images }),
       },
       { // Bridge guest
         match: o => o.sessionKey && o.role === "guest",
-        handle: () => this._guestHandler.handle(text, o.sessionKey, o.meta, { isGroup: o.isGroup, onDelta: o.onDelta }),
+        handle: () => this._guestHandler.handle(text, o.sessionKey, o.meta, { isGroup: o.isGroup, agentId: o.agentId, onDelta: o.onDelta, images: o.images }),
       },
       { // Bridge owner
         match: o => o.sessionKey && !o.ephemeral,
-        handle: () => this._engine.executeExternalMessage(text, o.sessionKey, o.meta, { guest: false, onDelta: o.onDelta }),
+        handle: () => this._engine.executeExternalMessage(text, o.sessionKey, o.meta, { guest: false, agentId: o.agentId, onDelta: o.onDelta, images: o.images }),
       },
       { // 隔离执行（cron/heartbeat/channel）
         match: o => o.ephemeral,
@@ -138,10 +173,12 @@ export class Hub {
   }
 
   /**
-   * 中断当前生成
+   * 中断生成（支持指定 session）
    */
-  async abort() {
-    return this._engine.abort();
+  async abort(sessionPath) {
+    return sessionPath
+      ? this._engine.abortSession(sessionPath)
+      : this._engine.abort();
   }
 
   // ──────────── 调度器管理 ────────────
@@ -157,28 +194,24 @@ export class Hub {
     this._scheduler.start();
 
     // ChannelRouter
-    const channelEnabled = engine.agent.config?.channels?.enabled !== false;
-    if (channelEnabled) {
-      this._channelRouter.start();
-    }
+    this._channelRouter.start();
 
     // 注入频道 post 回调
     this._channelRouter.setupPostHandler();
   }
 
   /**
-   * Agent 切换前暂停：只停 heartbeat（cron 全 agent 并发，不中断），ChannelRouter 持续跑
+   * Agent 切换前暂停：停所有 heartbeat（cron 全 agent 并发，不中断），ChannelRouter 持续跑
    */
   async pauseForAgentSwitch() {
     await this._scheduler.stopHeartbeat();
   }
 
   /**
-   * Agent 切换完成后恢复：重启新 agent 的 heartbeat，重新注入 handler
+   * Agent 切换完成后恢复：重启所有 agent 的 heartbeat（幂等），重新注入 handler
    */
   resumeAfterAgentSwitch() {
     this._scheduler.startHeartbeat();
-    this._setupNotifyHandler();
     this._setupDmHandler();
     this._channelRouter.setupPostHandler();
   }
@@ -204,6 +237,8 @@ export class Hub {
   // ──────────── 生命周期 ────────────
 
   async dispose() {
+    for (const cleanup of this._sessionHandlerCleanups) cleanup();
+    this._sessionHandlerCleanups = [];
     await this.stopSchedulers();
     await this._engine.dispose();
     this._eventBus.clear();
@@ -214,21 +249,123 @@ export class Hub {
   /** @returns {DmRouter} */
   get dmRouter() { return this._dmRouter; }
 
+  _setupSessionHandlers() {
+    const bus = this._eventBus;
+    const engine = this._engine;
+
+    // ── session:send ──
+    this._sessionHandlerCleanups.push(bus.handle("session:send", async ({ text, sessionPath, ...opts }) => {
+      if (!text || typeof text !== "string" || !text.trim()) {
+        throw new Error("text is required");
+      }
+      const sp = sessionPath;
+      if (!sp) throw new Error("sessionPath is required for session:send");
+      if (engine.isSessionStreaming(sp)) throw new Error("session_busy");
+      engine.promptSession(sp, text, opts).catch(err => {
+        console.error("[Hub] session:send promptSession error:", err.message);
+        bus.emit({ type: "error", error: err.message, source: "session:send" }, sp);
+      });
+      return { sessionPath: sp, accepted: true };
+    }));
+
+    // ── session:abort ──
+    this._sessionHandlerCleanups.push(bus.handle("session:abort", async ({ sessionPath } = {}) => {
+      const sp = sessionPath;
+      if (!sp) return { aborted: false };
+      const result = await engine.abortSession(sp);
+      return { aborted: !!result };
+    }));
+
+    // ── session:history ──
+    this._sessionHandlerCleanups.push(bus.handle("session:history", async ({ sessionPath, limit: rawLimit } = {}) => {
+      if (!sessionPath) throw new Error("sessionPath is required");
+      if (!isValidSessionPath(sessionPath, engine.agentsDir)) {
+        throw new Error("Invalid session path");
+      }
+      const limit = Math.min(Number(rawLimit) || 50, 200);
+      const sourceMessages = await loadSessionHistoryMessages(engine, sessionPath);
+      const messages = [];
+      for (const m of sourceMessages) {
+        if (m.role === "user") {
+          const { text, images } = extractTextContent(m.content);
+          if (text || images.length) {
+            messages.push({ role: "user", content: text, images: images.length ? images : undefined });
+          }
+        } else if (m.role === "assistant") {
+          const { text, thinking, toolUses } = extractTextContent(m.content, { stripThink: true });
+          if (text || toolUses.length) {
+            messages.push({
+              role: "assistant",
+              content: text,
+              thinking: thinking || undefined,
+              toolCalls: toolUses.length ? toolUses : undefined,
+            });
+          }
+        }
+        if (messages.length >= limit) break;
+      }
+      return { messages };
+    }));
+
+    // ── session:list ──
+    this._sessionHandlerCleanups.push(bus.handle("session:list", async ({ agentId } = {}) => {
+      const all = await engine.listSessions();
+      const filtered = agentId ? all.filter(s => s.agentId === agentId) : all;
+      const sessions = filtered.map(s => ({
+        path: s.path,
+        title: s.title,
+        firstMessage: s.firstMessage,
+        agentId: s.agentId,
+        agentName: s.agentName,
+        modelId: s.modelId,
+        messageCount: s.messageCount,
+        cwd: s.cwd,
+        modified: s.modified,
+      }));
+      return { sessions };
+    }));
+
+    // ── agent:list ──
+    this._sessionHandlerCleanups.push(bus.handle("agent:list", async () => {
+      const all = engine.listAgents();
+      const agents = all.map(a => ({
+        id: a.id,
+        name: a.name,
+        isCurrent: a.isCurrent,
+        isPrimary: a.isPrimary,
+      }));
+      return { agents };
+    }));
+
+    // ── provider & agent handlers ──
+
+    this._sessionHandlerCleanups.push(bus.handle("provider:credentials", async ({ providerId }) => {
+      const creds = engine.providerRegistry.getCredentials(providerId);
+      if (!creds?.apiKey) return { error: "no_credentials" };
+      return { apiKey: creds.apiKey, baseUrl: creds.baseUrl, api: creds.api };
+    }));
+
+    this._sessionHandlerCleanups.push(bus.handle("provider:models-by-type", async ({ type, providerId }) => {
+      if (providerId) {
+        return { models: engine.providerRegistry.getModelsByType(providerId, type) };
+      }
+      return { models: engine.providerRegistry.getAllModelsByType(type) };
+    }));
+
+    this._sessionHandlerCleanups.push(bus.handle("agent:config", async ({ agentId }) => {
+      const agent = engine.agentManager.getAgent(agentId);
+      if (!agent) return { error: "not_found" };
+      return { config: agent.config };
+    }));
+  }
+
   _setupDmHandler() {
     const engine = this._engine;
     // 给所有 agent 注入 DM 回调
     for (const [, agent] of engine.agents || []) {
-      agent._dmSentHandler = (fromId, toId) =>
-        this._dmRouter.handleNewDm(fromId, toId);
+      agent.setDmSentHandler((fromId, toId) =>
+        this._dmRouter.handleNewDm(fromId, toId));
     }
-  }
-
-  _setupNotifyHandler() {
-    const agent = this._engine.agent;
-    if (!agent) return;
-    agent._notifyHandler = (title, body) => {
-      this._eventBus.emit({ type: "notification", title, body }, null);
-    };
   }
 
 }

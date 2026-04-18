@@ -7,36 +7,29 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
-import { hanaUrl } from '../hooks/use-hana-fetch';
+import { hanaUrl, hanaFetch } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
+import { loadModels } from '../utils/ui-helpers';
+import { loadDeskFiles } from '../stores/desk-actions';
+import { clearChat } from '../stores/agent-actions';
 import type { Agent } from '../types';
+import { yuanFallbackAvatar } from '../utils/agent-helpers';
+import styles from './Welcome.module.css';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any -- store setState 回调 (s: any) */
+
+// ── 稳定头像时间戳（避免每次渲染生成新 URL） ──
+let _avatarTs = Date.now();
+export function refreshAvatarTs() { _avatarTs = Date.now(); }
 
 // ── 主组件 ──
 
 export function WelcomeScreen() {
-  const portalTarget = document.getElementById('welcome');
-  if (!portalTarget) {
-    console.warn('[WelcomeScreen] portal target #welcome not found');
-    return null;
-  }
-  return createPortal(<WelcomeInner portalTarget={portalTarget} />, portalTarget);
+  return <WelcomeInner />;
 }
 
 // ── Yuan helpers ──
-
-function yuanFallbackAvatar(yuan?: string): string {
-  const t = window.t ?? ((p: string) => p);
-  const types = t('yuan.types') as unknown;
-  if (types && typeof types === 'object') {
-    const entry = (types as Record<string, { avatar?: string }>)[yuan || 'hanako'];
-    return `assets/${entry?.avatar || 'Hanako.png'}`;
-  }
-  return 'assets/Hanako.png';
-}
 
 function randomWelcome(agentName: string, yuan: string): string {
   const t = window.t ?? ((p: string) => p);
@@ -49,7 +42,7 @@ function randomWelcome(agentName: string, yuan: string): string {
 
 // ── 内部组件 ──
 
-function WelcomeInner({ portalTarget }: { portalTarget: HTMLElement }) {
+function WelcomeInner() {
   const { t } = useI18n();
   const welcomeVisible = useStore(s => s.welcomeVisible);
   const agents = useStore(s => s.agents);
@@ -62,15 +55,6 @@ function WelcomeInner({ portalTarget }: { portalTarget: HTMLElement }) {
   const selectedFolder = useStore(s => s.selectedFolder);
   const cwdHistory = useStore(s => s.cwdHistory);
   const pendingNewSession = useStore(s => s.pendingNewSession);
-
-  // Toggle #welcome hidden class based on welcomeVisible
-  useEffect(() => {
-    if (welcomeVisible) {
-      portalTarget.classList.remove('hidden');
-    } else {
-      portalTarget.classList.add('hidden');
-    }
-  }, [welcomeVisible, portalTarget]);
 
   // Determine the displayed agent
   const displayAgent = useMemo(() => {
@@ -98,20 +82,21 @@ function WelcomeInner({ portalTarget }: { portalTarget: HTMLElement }) {
     if (welcomeVisible) {
       setGreeting(randomWelcome(displayName, displayYuan));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在 welcomeVisible 切换时重新随机，不跟踪 displayName/displayYuan 变化
   }, [welcomeVisible]);
 
   if (!welcomeVisible) return null;
 
   return (
-    <>
+    <div className={styles.welcome}>
       <WelcomeAvatar
         agentId={displayAgent?.id || null}
+        hasAvatar={displayAgent?.hasAvatar ?? false}
         agentAvatarUrl={agentAvatarUrl}
         yuan={displayYuan}
         name={displayName}
       />
-      <p className="welcome-text">{greeting}</p>
+      <p className={styles.welcomeText}>{greeting}</p>
       {agents.length >= 2 && (
         <AgentChips
           agents={agents}
@@ -124,43 +109,47 @@ function WelcomeInner({ portalTarget }: { portalTarget: HTMLElement }) {
         pendingNewSession={pendingNewSession}
       />
       <MemoryToggle enabled={memoryEnabled} t={t} />
-    </>
+    </div>
   );
 }
 
 // ── Welcome Avatar ──
 
-function WelcomeAvatar({ agentId, agentAvatarUrl, yuan, name }: {
+function WelcomeAvatar({ agentId, hasAvatar, agentAvatarUrl, yuan, name }: {
   agentId: string | null;
+  hasAvatar: boolean;
   agentAvatarUrl: string | null;
   yuan: string;
   name: string;
 }) {
   const [src, setSrc] = useState(() => {
-    if (agentId) return hanaUrl(`/api/agents/${agentId}/avatar?t=${Date.now()}`);
-    return agentAvatarUrl || yuanFallbackAvatar(yuan);
+    if (agentId && hasAvatar) return hanaUrl(`/api/agents/${agentId}/avatar?t=${_avatarTs}`);
+    return yuanFallbackAvatar(yuan);
   });
 
   useEffect(() => {
-    if (agentId) {
-      setSrc(hanaUrl(`/api/agents/${agentId}/avatar?t=${Date.now()}`));
-    } else if (agentAvatarUrl) {
-      setSrc(agentAvatarUrl);
+    if (agentId && hasAvatar) {
+      setSrc(hanaUrl(`/api/agents/${agentId}/avatar?t=${_avatarTs}`));
     } else {
       setSrc(yuanFallbackAvatar(yuan));
     }
-  }, [agentId, agentAvatarUrl, yuan]);
+  }, [agentId, hasAvatar, yuan]);
 
   const handleError = useCallback(() => {
     setSrc(yuanFallbackAvatar(yuan));
   }, [yuan]);
 
+  const handleClick = useCallback(() => {
+    window.platform?.openSettings?.('agent');
+  }, []);
+
   return (
     <img
-      className="welcome-avatar"
+      className={styles.welcomeAvatar}
       src={src}
       alt={name}
       draggable={false}
+      onClick={handleClick}
       onError={handleError}
     />
   );
@@ -173,12 +162,20 @@ function AgentChips({ agents, selectedId }: {
   selectedId: string | null;
 }) {
   const handleClick = useCallback((agentId: string) => {
-    const hanaState = window.__hanaState;
-    if (hanaState) hanaState.selectedAgentId = agentId;
-  }, []);
+    useStore.setState({ selectedAgentId: agentId });
+    // 切换到该 agent 的 chat model
+    const agent = agents.find(a => a.id === agentId) as any;
+    if (agent?.chatModel?.id) {
+      hanaFetch('/api/models/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId: agent.chatModel.id, provider: agent.chatModel.provider }),
+      }).then(() => loadModels()).catch(() => {});
+    }
+  }, [agents]);
 
   return (
-    <div className="welcome-agent-selector">
+    <div className={styles.welcomeAgentSelector}>
       {agents.map(agent => (
         <AgentChip
           key={agent.id}
@@ -197,7 +194,7 @@ function AgentChip({ agent, isSelected, onClick }: {
   onClick: (id: string) => void;
 }) {
   const [src, setSrc] = useState(() =>
-    hanaUrl(`/api/agents/${agent.id}/avatar?t=${Date.now()}`),
+    agent.hasAvatar ? hanaUrl(`/api/agents/${agent.id}/avatar?t=${_avatarTs}`) : yuanFallbackAvatar(agent.yuan),
   );
 
   const handleError = useCallback(() => {
@@ -210,11 +207,11 @@ function AgentChip({ agent, isSelected, onClick }: {
 
   return (
     <button
-      className={'welcome-agent-chip' + (isSelected ? ' selected' : '')}
+      className={`${styles.welcomeAgentChip}${isSelected ? ` ${styles.welcomeAgentChipSelected}` : ''}`}
       onClick={handleClick}
     >
       <img
-        className="welcome-agent-chip-avatar"
+        className={styles.welcomeAgentChipAvatar}
         src={src}
         draggable={false}
         onError={handleError}
@@ -252,7 +249,7 @@ function FolderPicker({ selectedFolder, cwdHistory, pendingNewSession }: {
 
   const handleBrowse = useCallback(async () => {
     setShowHistory(false);
-    const folder = await (window as any).platform?.selectFolder?.();
+    const folder = await window.platform?.selectFolder?.();
     if (!folder) return;
     applyFolderAction(folder, pendingNewSession);
   }, [pendingNewSession]);
@@ -277,18 +274,18 @@ function FolderPicker({ selectedFolder, cwdHistory, pendingNewSession }: {
 
   return (
     <div
-      className={'folder-select-wrap' + (showHistory ? ' show-history' : '')}
+      className={`${styles.folderSelectWrap}${showHistory ? ` ${styles.folderSelectWrapShowHistory}` : ''}`}
       ref={wrapRef}
     >
       <button
-        className={'folder-select-btn' + (selectedFolder ? ' has-folder' : '')}
+        className={`${styles.folderSelectBtn}${selectedFolder ? ` ${styles.folderSelectBtnHasFolder}` : ''}`}
         onClick={handleButtonClick}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
         </svg>
         <span>{label}</span>
-        <svg className="folder-swap-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg className={styles.folderSwapIcon} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="17 1 21 5 17 9"></polyline>
           <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
           <polyline points="7 23 3 19 7 15"></polyline>
@@ -314,29 +311,29 @@ function FolderHistory({ cwdHistory, selectedFolder, onSelect, onBrowse }: {
   onBrowse: () => void;
 }) {
   return (
-    <div className="folder-history">
+    <div className={styles.folderHistory}>
       {cwdHistory.map(p => {
         const name = p.split('/').pop() || p;
         const isActive = p === selectedFolder;
         return (
           <div
             key={p}
-            className={'folder-history-item' + (isActive ? ' active' : '')}
+            className={`${styles.folderHistoryItem}${isActive ? ` ${styles.folderHistoryItemActive}` : ''}`}
             title={p}
             onClick={(e) => { e.stopPropagation(); onSelect(p); }}
           >
-            <span className="folder-history-item-icon">
+            <span className={styles.folderHistoryItemIcon}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
               </svg>
             </span>
-            <span className="folder-history-item-name">{name}</span>
+            <span className={styles.folderHistoryItemName}>{name}</span>
           </div>
         );
       })}
-      <div className="folder-history-divider" />
-      <div className="folder-history-browse" onClick={(e) => { e.stopPropagation(); onBrowse(); }}>
-        <span className="folder-history-item-icon">
+      <div className={styles.folderHistoryDivider} />
+      <div className={styles.folderHistoryBrowse} onClick={(e) => { e.stopPropagation(); onBrowse(); }}>
+        <span className={styles.folderHistoryItemIcon}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             <line x1="12" y1="11" x2="12" y2="17"></line>
@@ -351,21 +348,19 @@ function FolderHistory({ cwdHistory, selectedFolder, onSelect, onBrowse }: {
 
 /** Apply folder selection — core logic preserved from bridge.ts desk shim */
 function applyFolderAction(folder: string, pendingNewSession: boolean): void {
-  const hanaState = window.__hanaState;
-  if (hanaState) hanaState.selectedFolder = folder;
+  useStore.setState({ selectedFolder: folder });
 
   if (!pendingNewSession) {
-    if (hanaState) {
-      hanaState.currentSessionPath = null;
-      hanaState.pendingNewSession = true;
-    }
-    (hanaState?.clearChat as (() => void) | undefined)?.();
-    (document.getElementById('inputBox') as HTMLTextAreaElement | null)?.focus();
+    useStore.setState({
+      currentSessionPath: null,
+      pendingNewSession: true,
+    });
+    clearChat();
+    useStore.getState().requestInputFocus();
   }
 
   // Load desk files for the new folder
-  const desk = (window as any).HanaModules?.desk;
-  desk?.loadDeskFiles?.('', folder);
+  loadDeskFiles('', folder);
 }
 
 // ── Memory Toggle ──
@@ -375,19 +370,16 @@ function MemoryToggle({ enabled, t }: {
   t: (key: string) => string;
 }) {
   const handleClick = useCallback(() => {
-    const hanaState = window.__hanaState;
-    if (hanaState) hanaState.memoryEnabled = !hanaState.memoryEnabled;
+    useStore.setState((s: any) => ({ memoryEnabled: !s.memoryEnabled }));
   }, []);
 
   return (
     <button
-      className={'memory-toggle-btn' + (enabled ? ' active' : '')}
+      className={`${styles.memoryToggleBtn}${enabled ? ` ${styles.memoryToggleBtnActive}` : ''}`}
       onClick={handleClick}
     >
-      <svg className="memory-toggle-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 8a4 4 0 1 0 0 8" />
-        <path d="M12 2v2M12 20v2" />
+      <svg className={styles.memoryToggleIcon} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2 L22 12 L12 22 L2 12 Z" />
       </svg>
       <span>{t(enabled ? 'welcome.memoryOn' : 'welcome.memoryOff')}</span>
     </button>

@@ -1,131 +1,142 @@
 /**
  * InputArea — 聊天输入区域 React 组件
  *
- * 替代 app-input-shim.ts + app-ui-shim.ts 中的模型/PlanMode/Todo 逻辑。
- * 通过 portal 渲染到 index.html 的 #inputAreaPortal。
+ * 子组件拆分到 ./input/ 目录。
+ * 斜杠命令逻辑在 ./input/slash-commands.ts。
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
 import { useStore } from '../stores';
+import { selectArtifacts, selectActiveTabId } from '../stores/artifact-slice';
 import { isImageFile } from '../utils/format';
-import { hanaFetch } from '../hooks/use-hana-fetch';
+import { fetchConfig } from '../hooks/use-config';
 import { useI18n } from '../hooks/use-i18n';
+import { ensureSession, loadSessions } from '../stores/session-actions';
+import { getWebSocket } from '../services/websocket';
 import type { ThinkingLevel } from '../stores/model-slice';
+import { TodoDisplay } from './input/TodoDisplay';
+import { AttachedFilesBar } from './input/AttachedFilesBar';
+import { PlanModeButton } from './input/PlanModeButton';
+import { DocContextButton } from './input/DocContextButton';
+import { ContextRing } from './input/ContextRing';
+import { ThinkingLevelButton } from './input/ThinkingLevelButton';
+import { ModelSelector } from './input/ModelSelector';
+import { SlashCommandMenu } from './input/SlashCommandMenu';
+import { SendButton } from './input/SendButton';
+import { QuotedSelectionCard } from './input/QuotedSelectionCard';
+import { SkillBadge } from './input/extensions/skill-badge';
+import { serializeEditor } from '../utils/editor-serializer';
+import { useSkillSlashItems } from '../hooks/use-slash-items';
+import {
+  XING_PROMPT, executeDiary, executeCompact, buildSlashCommands, getSlashMatches,
+  resolveSlashSubmitSelection,
+  type SlashItem,
+} from './input/slash-commands';
+import { attachFilesFromPaths } from '../MainContent';
+import styles from './input/InputArea.module.css';
+import type { TodoItem } from '../types';
 
-// ── Toast 通知 ──
+const EMPTY_TODOS: TodoItem[] = [];
 
-function showToast(text: string, type: 'success' | 'error' = 'success', duration = 20000) {
-  const el = document.createElement('div');
-  el.className = `hana-toast ${type}`;
-
-  const span = document.createElement('span');
-  span.textContent = text;
-  el.appendChild(span);
-
-  const close = document.createElement('button');
-  close.className = 'hana-toast-close';
-  close.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-  close.onclick = dismiss;
-  el.appendChild(close);
-
-  document.body.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('show'));
-
-  const timer = setTimeout(dismiss, duration);
-  function dismiss() {
-    clearTimeout(timer);
-    el.classList.remove('show');
-    setTimeout(() => el.remove(), 300);
-  }
-}
-
-// ── 斜杠命令 ──
-
-const XING_PROMPT = `回顾这个 session 里我（用户）发送的消息。只从我的对话内容中提取指导、偏好、纠正和工作流程，整理成一份可复用的工作指南。
-
-注意：不要提取系统提示词、记忆文件、人格设定等预注入内容，只关注我在本次对话中实际说的话。
-
-要求：
-1. 只保留可复用的模式，过滤仅限本次的具体上下文（如具体文件名、具体话题）
-2. 按类别组织：风格偏好、工作流程、质量标准、注意事项
-3. 措辞用指令式（"做 X"、"避免 Y"）
-4. 步骤流程用编号列出
-
-标题要具体，能一眼看出这个工作流是干什么的（例："战争报道事实核查流程""论文润色风格指南"），不要用泛化的名字（如"工作流总结""对话复盘"）。
-
-严格按照以下格式输出（注意用直引号 "，不要用弯引号 ""）：
-
-<xing title="具体的工作流名称">
-## 风格偏好
-- 做 X
-- 避免 Y
-
-## 工作流程
-1. 第一步
-2. 第二步
-</xing>
-
-以上是格式示范，实际内容根据对话提取。`;
-
-// ── 斜杠命令定义 ──
-
-interface SlashCommand {
-  name: string;
-  label: string;
-  description: string;
-  busyLabel: string;
-  icon: string;
-  execute: () => Promise<void>;
-}
+export type { SlashItem };
 
 // ── 主组件 ──
 
 export function InputArea() {
-  const portalEl = document.getElementById('inputAreaPortal');
-  if (!portalEl) {
-    console.warn('[InputArea] portal target #inputAreaPortal not found');
-    return null;
-  }
-  return createPortal(<InputAreaInner />, portalEl);
+  return <InputAreaInner />;
 }
-
-/** t() 翻译缺失时返回 key 本身（truthy），|| fallback 不会触发。这个包一层检测 */
-const tSafe = (t: (k: string) => string, key: string, fallback: string) => {
-  const v = t(key);
-  return v !== key ? v : fallback;
-};
 
 function InputAreaInner() {
   const { t } = useI18n();
 
   // Zustand state
-  const isStreaming = useStore(s => s.isStreaming);
+  const isStreaming = useStore(s => s.streamingSessions.includes(s.currentSessionPath || ''));
   const connected = useStore(s => s.connected);
   const pendingNewSession = useStore(s => s.pendingNewSession);
-  const sessionTodos = useStore(s => s.sessionTodos);
+  const currentSessionPath = useStore(s => s.currentSessionPath);
+  const compacting = useStore(s => currentSessionPath ? s.compactingSessions.includes(currentSessionPath) : false);
+  const inlineError = useStore(s => s.inlineErrors[s.currentSessionPath || ''] ?? null);
+  const sessionTodos = useStore(s => (s.currentSessionPath && s.todosBySession[s.currentSessionPath]) || EMPTY_TODOS);
   const attachedFiles = useStore(s => s.attachedFiles);
   const docContextAttached = useStore(s => s.docContextAttached);
-  const artifacts = useStore(s => s.artifacts);
-  const currentArtifactId = useStore(s => s.currentArtifactId);
+  const quotedSelection = useStore(s => s.quotedSelection);
+  const artifacts = useStore(selectArtifacts);
+  const activeTabId = useStore(selectActiveTabId);
   const previewOpen = useStore(s => s.previewOpen);
   const models = useStore(s => s.models);
   const agentYuan = useStore(s => s.agentYuan);
   const thinkingLevel = useStore(s => s.thinkingLevel);
   const setThinkingLevel = useStore(s => s.setThinkingLevel);
 
-  const currentModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
+  const globalModelInfo = useMemo(() => models.find(m => m.isCurrent), [models]);
+  const sessionModel = useStore(s => s.currentSessionPath ? s.sessionModelsByPath[s.currentSessionPath] : undefined);
+  const currentModelInfo = sessionModel || globalModelInfo;
+  const supportsVision = currentModelInfo?.vision !== false;
+  const modelSwitching = useStore(s => s.modelSwitching);
+  const sessionHasMessages = useStore(s => !!(s.currentSessionPath && s.chatSessions[s.currentSessionPath]?.items?.length));
 
   // Local state
-  const [inputText, setInputText] = useState('');
   const [planMode, setPlanMode] = useState(false);
   const [sending, setSending] = useState(false);
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashSelected, setSlashSelected] = useState(0);
-  const [slashBusy, setSlashBusy] = useState<string | null>(null); // command name while executing
+  const [slashBusy, setSlashBusy] = useState<string | null>(null);
+  const [slashResult, setSlashResult] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isComposing = useRef(false);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
+  const slashBtnRef = useRef<HTMLButtonElement>(null);
+  const slashDismissedTextRef = useRef<string | null>(null);
+  const [inputText, setInputText] = useState('');
+
+  // ── 全局 inline notice（截图等非斜杠命令的轻提示）──
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { text, type } = (e as CustomEvent).detail;
+      setSlashResult({ text, type });
+      setTimeout(() => setSlashResult(null), 3000);
+    };
+    window.addEventListener('hana-inline-notice', handler);
+    return () => window.removeEventListener('hana-inline-notice', handler);
+  }, []);
+
+  // ── Placeholder ──
+  const placeholder = (() => {
+    const yuanPh = t(`yuan.placeholder.${agentYuan}`);
+    return (yuanPh && !yuanPh.startsWith('yuan.')) ? yuanPh : t('input.placeholder');
+  })();
+
+  // ── TipTap editor ──
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: false,
+        blockquote: false,
+        codeBlock: false,
+        horizontalRule: false,
+        dropcursor: false,
+        gapcursor: false,
+      }),
+      Placeholder.configure({ placeholder }),
+      SkillBadge,
+    ],
+    editorProps: {
+      attributes: {
+        class: styles['input-box'],
+        id: 'inputBox',
+        spellcheck: 'false',
+      },
+    },
+  });
+
+  // Focus trigger from store
+  const inputFocusTrigger = useStore(s => s.inputFocusTrigger);
+  useEffect(() => {
+    if (inputFocusTrigger > 0) editor?.commands.focus();
+  }, [inputFocusTrigger, editor]);
 
   // Zustand actions
   const addAttachedFile = useStore(s => s.addAttachedFile);
@@ -133,122 +144,160 @@ function InputAreaInner() {
   const clearAttachedFiles = useStore(s => s.clearAttachedFiles);
   const toggleDocContext = useStore(s => s.toggleDocContext);
   const setDocContextAttached = useStore(s => s.setDocContextAttached);
+  const setDraft = useStore(s => s.setDraft);
+  const clearDraft = useStore(s => s.clearDraft);
 
-  // Doc context: current open artifact with filePath
+  // Doc context
   const currentDoc = useMemo(() => {
-    if (!previewOpen || !currentArtifactId) return null;
-    const art = artifacts.find(a => a.id === currentArtifactId);
+    if (!previewOpen || !activeTabId) return null;
+    const art = artifacts.find(a => a.id === activeTabId);
     if (!art?.filePath) return null;
     return { path: art.filePath, name: art.title || art.filePath.split('/').pop() || '' };
-  }, [previewOpen, currentArtifactId, artifacts]);
+  }, [previewOpen, activeTabId, artifacts]);
   const hasDoc = !!currentDoc;
+
+  // doc 消失时同步清 attach，避免悬空的 docContextAttached 干扰 hasContent / 发送态
+  useEffect(() => {
+    if (!hasDoc && docContextAttached) setDocContextAttached(false);
+  }, [hasDoc, docContextAttached, setDocContextAttached]);
 
   // ── 统一命令发送 ──
 
-  /** 统一的"以用户身份发送"入口，所有斜杠命令共用 */
   const sendAsUser = useCallback(async (text: string, displayText?: string): Promise<boolean> => {
-    const state = (window as any).__hanaState;
-    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return false;
-    if (useStore.getState().isStreaming) return false;
+    const ws = getWebSocket();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const _s = useStore.getState();
+    if (_s.streamingSessions.includes(_s.currentSessionPath || '')) return false;
 
     if (pendingNewSession) {
-      const _sb = () => (window as any).HanaModules.sidebar;
-      const ok = await _sb().ensureSession();
+      const ok = await ensureSession();
       if (!ok) return false;
-      _sb().loadSessions();
+      loadSessions();
     }
 
-    const _cr = () => (window as any).HanaModules.chatRender;
-    _cr().addUserMessage(displayText ?? text);
-    state.ws.send(JSON.stringify({ type: 'prompt', text }));
+    const sessionPath = useStore.getState().currentSessionPath;
+    if (sessionPath) {
+      const { renderMarkdown } = await import('../utils/markdown');
+      const msgText = displayText ?? text;
+      useStore.getState().appendItem(sessionPath, {
+        type: 'message',
+        data: { id: `user-${Date.now()}`, role: 'user', text: msgText, textHtml: renderMarkdown(msgText) },
+      });
+      useStore.setState({ welcomeVisible: false });
+    }
+    ws.send(JSON.stringify({ type: 'prompt', text, sessionPath: useStore.getState().currentSessionPath }));
     return true;
   }, [pendingNewSession]);
 
   // ── 斜杠命令 ──
 
-  const executeDiary = useCallback(async () => {
-    setSlashBusy('diary');
-    setInputText('');
-    setSlashMenuOpen(false);
-
-    try {
-      const res = await hanaFetch('/api/diary/write', { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok || data.error) {
-        showToast(tSafe(t, 'slash.diaryFailed', '日记写入失败'), 'error');
-        return;
-      }
-
-      showToast(tSafe(t, 'slash.diaryDone', '日记已保存'), 'success');
-    } catch (err) {
-      showToast(tSafe(t, 'slash.diaryFailed', '日记写入失败'), 'error');
-    } finally {
-      setSlashBusy(null);
-    }
-  }, [t]);
-
-  const executeXing = useCallback(async () => {
-    setInputText('');
-    setSlashMenuOpen(false);
-    await sendAsUser(XING_PROMPT);
-  }, [sendAsUser]);
-
-  const slashCommands: SlashCommand[] = useMemo(() => [
-    {
-      name: 'diary',
-      label: '/diary',
-      description: tSafe(t, 'slash.diary', '写今日日记'),
-      busyLabel: tSafe(t, 'slash.diaryBusy', '正在写日记...'),
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
-      execute: executeDiary,
-    },
-    {
-      name: 'xing',
-      label: '/xing',
-      description: tSafe(t, 'slash.xing', '反省当前对话'),
-      busyLabel: '',
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
-      execute: executeXing,
-    },
-  ], [executeDiary, executeXing, t]);
-
-  // 过滤匹配的命令
-  const filteredCommands = useMemo(() => {
-    if (!inputText.startsWith('/')) return slashCommands;
-    const query = inputText.slice(1).toLowerCase();
-    return slashCommands.filter(c => c.name.startsWith(query));
-  }, [inputText, slashCommands]);
-
-  // 输入 / 时打开菜单
-  const handleInputChange = useCallback((value: string) => {
-    setInputText(value);
-    if (value.startsWith('/') && value.length <= 20) {
-      setSlashMenuOpen(true);
-      setSlashSelected(0);
-    } else {
-      setSlashMenuOpen(false);
-    }
+  const showSlashResult = useCallback((text: string, type: 'success' | 'error') => {
+    setSlashBusy(null);
+    setSlashResult({ text, type });
+    setTimeout(() => setSlashResult(null), 3000);
   }, []);
 
-  // Can send?
-  const hasContent = inputText.trim().length > 0 || attachedFiles.length > 0 || docContextAttached;
-  const canSend = hasContent && connected && !isStreaming;
+  const diaryFn = useCallback(
+    executeDiary(t, showSlashResult, setSlashBusy, () => { editor?.commands.clearContent(); }, setSlashMenuOpen),
+    [t, showSlashResult, editor],
+  );
+  const xingFn = useCallback(async () => {
+    editor?.commands.clearContent();
+    setSlashMenuOpen(false);
+    await sendAsUser(XING_PROMPT);
+  }, [sendAsUser, editor]);
+  const compactFn = useCallback(
+    executeCompact(setSlashBusy, () => { editor?.commands.clearContent(); }, setSlashMenuOpen),
+    [editor],
+  );
 
-  // ── Auto resize ──
+  const skillItems = useSkillSlashItems();
+
+  const slashCommands = useMemo(
+    () => [...buildSlashCommands(t, diaryFn, xingFn, compactFn), ...skillItems],
+    [diaryFn, xingFn, compactFn, t, skillItems],
+  );
+
+  const filteredCommands = useMemo(() => {
+    if (!inputText.startsWith('/')) return slashCommands;
+    return getSlashMatches(inputText, slashCommands);
+  }, [inputText, slashCommands]);
+
+  const dismissSlashMenu = useCallback(() => {
+    const text = editor?.getText().trim() ?? inputText.trim();
+    slashDismissedTextRef.current = text.startsWith('/') ? text : null;
+    setSlashMenuOpen(false);
+  }, [editor, inputText]);
+
+  const openSlashMenu = useCallback(() => {
+    slashDismissedTextRef.current = null;
+    setSlashMenuOpen(true);
+  }, []);
+
+  // Sync editor text to React state (drives hasInput / canSend) + slash menu detection + draft save
   useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  }, [inputText]);
+    if (!editor) return;
+    const handler = () => {
+      const text = editor.getText();
+      setInputText(text);
+      if (slashDismissedTextRef.current && slashDismissedTextRef.current !== text.trim()) {
+        slashDismissedTextRef.current = null;
+      }
+      const slashMatches = getSlashMatches(text, slashCommands);
+      if (slashMatches.length > 0 && slashDismissedTextRef.current !== text.trim()) {
+        setSlashMenuOpen(true);
+        setSlashSelected(0);
+      } else {
+        setSlashMenuOpen(false);
+      }
+      // 保存草稿到 store
+      if (currentSessionPath) {
+        setDraft(currentSessionPath, text);
+      }
+      // 内容超出可见区域时，自动滚动到光标位置
+      requestAnimationFrame(() => editor.commands.scrollIntoView());
+    };
+    editor.on('update', handler);
+    return () => { editor.off('update', handler); };
+  }, [editor, currentSessionPath, setDraft, slashCommands]);
 
-  // ── Placeholder from yuan ──
-  const placeholder = (() => {
-    const yuanPh = t(`yuan.placeholder.${agentYuan}`);
-    return (yuanPh && !yuanPh.startsWith('yuan.')) ? yuanPh : t('input.placeholder');
-  })();
+  // 切换 session 时恢复草稿
+  useEffect(() => {
+    if (!editor || !currentSessionPath) return;
+    const draft = useStore.getState().drafts[currentSessionPath] || '';
+    const current = editor.getText();
+    if (draft !== current) {
+      if (!draft) {
+        editor.commands.setContent('', { emitUpdate: false });
+      } else {
+        const doc = {
+          type: 'doc' as const,
+          content: draft.split('\n').map(line => ({
+            type: 'paragraph' as const,
+            content: line ? [{ type: 'text' as const, text: line }] : [],
+          })),
+        };
+        editor.commands.setContent(doc, { emitUpdate: false });
+      }
+    }
+  }, [editor, currentSessionPath]);
 
+  // 点击外部关闭斜杠菜单
+  useEffect(() => {
+    if (!slashMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (slashMenuRef.current?.contains(e.target as Node)) return;
+      if (slashBtnRef.current?.contains(e.target as Node)) return;
+      dismissSlashMenu();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [dismissSlashMenu, slashMenuOpen]);
+
+  // Can send?
+  const hasContent = inputText.trim().length > 0 || attachedFiles.length > 0 || docContextAttached || !!quotedSelection
+    || (editor?.getJSON().content?.some(n => n.type === 'skillBadge') ?? false);
+  const canSend = hasContent && connected && !isStreaming && !modelSwitching;
 
   // ── Paste image ──
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
@@ -256,612 +305,334 @@ function InputAreaInner() {
     if (!items) return;
     for (const item of items) {
       if (!item.type.startsWith('image/')) continue;
+      if (!supportsVision) { e.preventDefault(); return; }
       e.preventDefault();
       const file = item.getAsFile();
       if (!file) continue;
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
-        // "data:image/png;base64,xxxxx" → 拆出 mimeType 和 base64
         const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
         if (!match) return;
         const [, mimeType, base64Data] = match;
         const ext = mimeType.split('/')[1] || 'png';
         addAttachedFile({
           path: `clipboard-${Date.now()}.${ext}`,
-          name: `粘贴图片.${ext}`,
+          name: `${t('input.pastedImage')}.${ext}`,
           base64Data,
           mimeType,
         });
       };
       reader.readAsDataURL(file);
-      break; // 只处理第一张
+      break;
     }
-  }, [addAttachedFile]);
+  }, [addAttachedFile, t, supportsVision]);
 
-  // ── Load plan mode + thinking level on mount ──
+  // ── Load thinking level once server port is ready + listen for plan mode sync ──
+  const serverPort = useStore(s => s.serverPort);
   useEffect(() => {
-    hanaFetch('/api/plan-mode')
-      .then(r => r.json())
-      .then(d => setPlanMode(d.enabled ?? false))
-      .catch(() => {});
+    if (serverPort) {
+      fetchConfig()
+        .then(d => { if (d.thinking_level) setThinkingLevel(d.thinking_level as ThinkingLevel); })
+        .catch((err: unknown) => console.warn('[InputArea] load config failed', err));
+    }
 
-    hanaFetch('/api/config')
-      .then(r => r.json())
-      .then(d => { if (d.thinking_level) setThinkingLevel(d.thinking_level as ThinkingLevel); })
-      .catch(() => {});
-
-    // Listen for WS plan_mode updates
     const handler = (e: Event) => {
       setPlanMode((e as CustomEvent).detail?.enabled ?? false);
     };
     window.addEventListener('hana-plan-mode', handler);
     return () => window.removeEventListener('hana-plan-mode', handler);
-  }, []);
+  }, [serverPort, setThinkingLevel]);
+
+  // ── Handle slash selection (builtin vs skill) ──
+  const handleSlashSelect = useCallback((item: SlashItem) => {
+    slashDismissedTextRef.current = null;
+    if (item.type === 'builtin') {
+      item.execute();
+      return;
+    }
+    if (!editor) return;
+    editor.chain()
+      .clearContent()
+      .insertContent({ type: 'skillBadge', attrs: { name: item.name } })
+      .insertContent(' ')
+      .focus()
+      .run();
+    setSlashMenuOpen(false);
+  }, [editor]);
 
   // ── Send message ──
   const handleSend = useCallback(async () => {
-    const text = inputText.trim();
+    if (!editor) return;
+    const editorJson = editor.getJSON();
+    const { text: rawText, skills } = serializeEditor(editorJson);
+    const text = rawText.trim();
 
-    // 斜杠命令拦截
-    if (text.startsWith('/') && slashMenuOpen && filteredCommands.length > 0) {
-      const cmd = filteredCommands[slashSelected] || filteredCommands[0];
-      if (cmd) {
-        cmd.execute();
-        return;
-      }
+    const slashSelection = resolveSlashSubmitSelection({
+      text,
+      skills,
+      commands: slashCommands,
+      selectedIndex: slashSelected,
+      dismissedText: slashDismissedTextRef.current,
+    });
+    if (slashSelection) {
+      handleSlashSelect(slashSelection);
+      return;
     }
 
     const hasFiles = attachedFiles.length > 0;
-    if ((!text && !hasFiles && !docContextAttached) || !connected) return;
-    if (isStreaming) return; // streaming 时由 handleSteer 处理
+    if ((!text && !hasFiles && !docContextAttached && !useStore.getState().quotedSelection) || !connected) return;
+    if (isStreaming) return;
     if (sending) return;
+    if (modelSwitching) return;
     setSending(true);
 
     try {
-      const state = window.__hanaState;
       if (pendingNewSession) {
-        const _sb = () => window.HanaModules.sidebar;
-        const ok = await _sb().ensureSession();
+        const ok = await ensureSession();
         if (!ok) return;
-        _sb().loadSessions();
+        loadSessions();
       }
 
-      // 分离图片和非图片附件
-      const imageFiles = hasFiles ? attachedFiles.filter(f => !f.isDirectory && isImageFile(f.name)) : [];
-      const otherFiles = hasFiles ? attachedFiles.filter(f => f.isDirectory || !isImageFile(f.name)) : [];
+      // 分离图片和非图片附件（模型不支持 vision 时，图片降级为普通附件路径）
+      const imageFiles = hasFiles && supportsVision ? attachedFiles.filter(f => !f.isDirectory && isImageFile(f.name)) : [];
+      const otherFiles = hasFiles ? attachedFiles.filter(f => f.isDirectory || !isImageFile(f.name) || !supportsVision) : [];
 
       let finalText = text;
       if (otherFiles.length > 0) {
-        const fileBlock = otherFiles
-          .map(f => f.isDirectory ? `[目录] ${f.path}` : `[附件] ${f.path}`)
-          .join('\n');
+        const fileBlock = otherFiles.map(f => f.isDirectory ? `[目录] ${f.path}` : `[附件] ${f.path}`).join('\n');
         finalText = text ? `${text}\n\n${fileBlock}` : fileBlock;
       }
 
-      // 图片文件读 base64 编码
-      const hana = (window as any).hana;
+      // 图片读 base64
+      const hana = window.hana;
       const images: Array<{ type: 'image'; data: string; mimeType: string }> = [];
-      if (imageFiles.length > 0) {
-        for (const img of imageFiles) {
-          try {
-            if (img.base64Data && img.mimeType) {
-              // 内联 base64（粘贴图片）
-              images.push({ type: 'image', data: img.base64Data, mimeType: img.mimeType });
-            } else if (hana?.readFileBase64) {
-              const base64: string = await hana.readFileBase64(img.path);
-              if (base64) {
-                const ext = img.name.toLowerCase().replace(/^.*\./, '');
-                const mimeMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', svg: 'image/svg+xml' };
-                images.push({ type: 'image', data: base64, mimeType: mimeMap[ext] || 'image/png' });
-              }
+      const imageBase64Map = new Map<string, { base64Data: string; mimeType: string }>();
+      for (const img of imageFiles) {
+        try {
+          if (img.base64Data && img.mimeType) {
+            images.push({ type: 'image', data: img.base64Data, mimeType: img.mimeType });
+          } else if (hana?.readFileBase64) {
+            const base64 = await hana.readFileBase64(img.path);
+            if (base64) {
+              const ext = img.name.toLowerCase().replace(/^.*\./, '');
+              const mimeMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', svg: 'image/svg+xml' };
+              const mimeType = mimeMap[ext] || 'image/png';
+              imageBase64Map.set(img.path, { base64Data: base64, mimeType });
+              images.push({ type: 'image', data: base64, mimeType });
             }
-          } catch {
-            // 读取失败的图片降级为路径文本
-            finalText = finalText ? `${finalText}\n\n[附件] ${img.path}` : `[附件] ${img.path}`;
           }
+        } catch {
+          finalText = finalText ? `${finalText}\n\n[附件] ${img.path}` : `[附件] ${img.path}`;
         }
       }
 
-      // 文档上下文：把当前打开的文档路径附加到消息里
+      // 文档上下文
       let docForRender: { path: string; name: string } | null = null;
       if (docContextAttached && currentDoc) {
-        const docBlock = `[参考文档] ${currentDoc.path}`;
-        finalText = finalText ? `${finalText}\n\n${docBlock}` : docBlock;
+        finalText = finalText ? `${finalText}\n\n[参考文档] ${currentDoc.path}` : `[参考文档] ${currentDoc.path}`;
         docForRender = currentDoc;
       }
+      if (docContextAttached) setDocContextAttached(false);
 
-      if (docContextAttached) {
-        setDocContextAttached(false);
+      // 引用片段
+      const qs = useStore.getState().quotedSelection;
+      if (qs) {
+        let quoteStr: string;
+        if (qs.sourceFilePath && qs.lineStart != null && qs.lineEnd != null) {
+          quoteStr = `[引用片段] ${qs.sourceTitle}（第${qs.lineStart}-${qs.lineEnd}行，共${qs.charCount}字）路径: ${qs.sourceFilePath}`;
+        } else {
+          quoteStr = `[引用片段] ${qs.text}`;
+        }
+        finalText = finalText ? `${finalText}\n\n${quoteStr}` : quoteStr;
       }
 
-      const filesToRender = hasFiles ? [...attachedFiles] : null;
-      // 文档上下文渲染为附件卡片
-      const allFiles = filesToRender ? [...filesToRender] : [];
-      if (docForRender) {
-        allFiles.push({ path: docForRender.path, name: docForRender.name });
-      }
-      const _cr = () => window.HanaModules.chatRender;
-      _cr().addUserMessage(text, allFiles.length > 0 ? allFiles : null, null);
+      const allFiles = [...(hasFiles ? attachedFiles : [])];
+      if (docForRender) allFiles.push({ path: docForRender.path, name: docForRender.name });
 
-      setInputText('');
+      // 写入 store
+      const sessionPath = useStore.getState().currentSessionPath;
+      if (sessionPath) {
+        const { renderMarkdown } = await import('../utils/markdown');
+        useStore.getState().appendItem(sessionPath, {
+          type: 'message',
+          data: {
+            id: `user-${Date.now()}`, role: 'user', text,
+            textHtml: renderMarkdown(text),
+            skills: skills.length > 0 ? skills : undefined,
+            quotedText: qs?.text,
+            attachments: allFiles.length > 0 ? allFiles.map(f => {
+              const cached = imageBase64Map.get(f.path);
+              return {
+                path: f.path, name: f.name, isDir: false,
+                base64Data: f.base64Data || cached?.base64Data || undefined,
+                mimeType: f.mimeType || cached?.mimeType || undefined,
+              };
+            }) : undefined,
+          },
+        });
+        useStore.setState({ welcomeVisible: false });
+      }
+
+      editor.commands.clearContent();
+      if (currentSessionPath) clearDraft(currentSessionPath);
       clearAttachedFiles();
+      const qs2 = useStore.getState().quotedSelection;
+      if (qs2) useStore.getState().clearQuotedSelection();
 
-      const wsMsg: any = { type: 'prompt', text: finalText };
+      const ws = getWebSocket();
+      const wsMsg: Record<string, unknown> = {
+        type: 'prompt',
+        text: finalText,
+        sessionPath: useStore.getState().currentSessionPath,
+      };
       if (images.length > 0) wsMsg.images = images;
-      state.ws?.send(JSON.stringify(wsMsg));
+      if (skills.length > 0) wsMsg.skills = skills;
+      ws?.send(JSON.stringify(wsMsg));
     } finally {
       setSending(false);
     }
-  }, [inputText, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, setDocContextAttached, slashMenuOpen, filteredCommands, slashSelected]);
+  }, [editor, attachedFiles, docContextAttached, connected, isStreaming, sending, pendingNewSession, currentDoc, clearAttachedFiles, clearDraft, currentSessionPath, setDocContextAttached, slashCommands, slashSelected, handleSlashSelect]);
 
-  // ── Steer (插话) ──
-  const handleSteer = useCallback(() => {
-    const text = inputText.trim();
+  // ── Steer ──
+  const handleSteer = useCallback(async () => {
+    if (!editor) return;
+    const text = editor.getText().trim();
     if (!text || !isStreaming) return;
-    const state = window.__hanaState;
-    if (!state.ws) return;
+    const ws = getWebSocket();
+    if (!ws) return;
+    const sessionPath = useStore.getState().currentSessionPath;
+    if (sessionPath) {
+      const { renderMarkdown } = await import('../utils/markdown');
+      useStore.getState().appendItem(sessionPath, {
+        type: 'message',
+        data: { id: `user-${Date.now()}`, role: 'user', text, textHtml: renderMarkdown(text) },
+      });
+    }
+    editor.commands.clearContent();
+    const sp = useStore.getState().currentSessionPath;
+    if (sp) clearDraft(sp);
+    ws.send(JSON.stringify({ type: 'steer', text, sessionPath: sp }));
+  }, [editor, isStreaming, clearDraft]);
 
-    // 断开当前 assistant 消息组（不封存工具），让后续回复出现在 steer 消息下方
-    window.HanaModules.chatRender.breakAssistantGroup();
-    window.HanaModules.chatRender.addUserMessage(text, null, null);
-
-    setInputText('');
-    state.ws.send(JSON.stringify({ type: 'steer', text }));
-  }, [inputText, isStreaming]);
-
-  // ── Stop generation ──
+  // ── Stop ──
   const handleStop = useCallback(() => {
-    const state = window.__hanaState;
-    if (!isStreaming || !state.ws) return;
-    state.ws.send(JSON.stringify({ type: 'abort' }));
+    const ws = getWebSocket();
+    if (!isStreaming || !ws) return;
+    ws.send(JSON.stringify({ type: 'abort', sessionPath: useStore.getState().currentSessionPath }));
   }, [isStreaming]);
 
   // ── Key handler ──
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // 斜杠菜单导航
+  const handleEditorKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (slashMenuOpen && filteredCommands.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSlashSelected(i => (i + 1) % filteredCommands.length);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSlashSelected(i => (i - 1 + filteredCommands.length) % filteredCommands.length);
-        return;
-      }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSlashSelected(i => (i + 1) % filteredCommands.length); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setSlashSelected(i => (i - 1 + filteredCommands.length) % filteredCommands.length); return; }
       if (e.key === 'Tab') {
         e.preventDefault();
         const cmd = filteredCommands[slashSelected];
-        if (cmd) setInputText('/' + cmd.name);
+        if (cmd) editor?.commands.setContent('/' + cmd.name);
         return;
       }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setSlashMenuOpen(false);
-        return;
-      }
+      if (e.key === 'Escape') { e.preventDefault(); dismissSlashMenu(); return; }
     }
     if (e.key === 'Enter' && !e.shiftKey && !isComposing.current) {
       e.preventDefault();
-      if (isStreaming && inputText.trim()) {
-        handleSteer();
-      } else {
-        handleSend();
-      }
+      if (isStreaming && (editor?.getText().trim())) handleSteer(); else handleSend();
     }
-  }, [handleSend, handleSteer, isStreaming, inputText, slashMenuOpen, filteredCommands, slashSelected]);
+  }, [dismissSlashMenu, handleSend, handleSteer, isStreaming, editor, slashMenuOpen, filteredCommands, slashSelected]);
 
   return (
     <>
-      <TodoDisplay todos={sessionTodos} />
-
-      {attachedFiles.length > 0 && (
-        <AttachedFilesBar
-          files={attachedFiles}
-          onRemove={removeAttachedFile}
-        />
-      )}
-
-      {slashMenuOpen && filteredCommands.length > 0 && (
-        <SlashCommandMenu
-          commands={filteredCommands}
-          selected={slashSelected}
-          busy={slashBusy}
-          onSelect={(cmd) => cmd.execute()}
-          onHover={(i) => setSlashSelected(i)}
-        />
-      )}
-
       {slashBusy && (
-        <div className="slash-busy-bar">
-          <span className="slash-busy-dot" />
-          <span>{slashCommands.find(c => c.name === slashBusy)?.busyLabel || '执行中...'}</span>
+        <div className={styles['slash-busy-bar']}>
+          <span className={styles['slash-busy-dot']} />
+          <span>{slashCommands.find(c => c.name === slashBusy)?.busyLabel || t('common.executing')}</span>
         </div>
       )}
-
-      <div className="input-wrapper">
-        <textarea
-          ref={textareaRef}
-          id="inputBox"
-          className="input-box"
-          placeholder={placeholder}
-          rows={1}
-          spellCheck={false}
-          value={inputText}
-          onChange={e => handleInputChange(e.target.value)}
-          onKeyDown={handleKeyDown}
+      {compacting && (
+        <div className={styles['slash-busy-bar']}>
+          <span className={styles['slash-busy-dot']} />
+          <span>{t('chat.compacting')}</span>
+        </div>
+      )}
+      {inlineError && (
+        <div className={styles['slash-error-bar']}>
+          <span className={styles['slash-error-dot']} />
+          <span>{inlineError}</span>
+        </div>
+      )}
+      {!slashBusy && !compacting && !inlineError && slashResult && (
+        <div className={styles['slash-busy-bar']}>
+          <span className={styles[slashResult.type === 'success' ? 'slash-result-dot-ok' : 'slash-result-dot-err']} />
+          <span>{slashResult.text}</span>
+        </div>
+      )}
+      {(attachedFiles.length > 0 || quotedSelection || sessionTodos.length > 0) && (
+        <div className={styles['input-context-row']}>
+          <div className={styles['input-context-left']}>
+            {attachedFiles.length > 0 && <AttachedFilesBar files={attachedFiles} onRemove={removeAttachedFile} />}
+            <QuotedSelectionCard />
+          </div>
+          <TodoDisplay todos={sessionTodos} />
+        </div>
+      )}
+      <div className={styles['slash-menu-anchor']} ref={slashMenuRef}>
+        {slashMenuOpen && filteredCommands.length > 0 && (
+          <SlashCommandMenu commands={filteredCommands} selected={slashSelected} busy={slashBusy}
+            onSelect={handleSlashSelect} onHover={(i) => setSlashSelected(i)} />
+        )}
+      </div>
+      <div className={styles['input-wrapper']}>
+        <div
+          onKeyDown={handleEditorKeyDown}
           onPaste={handlePaste}
           onCompositionStart={() => { isComposing.current = true; }}
           onCompositionEnd={() => { isComposing.current = false; }}
-        />
-
-        <div className="input-bottom-bar">
-          <div className="input-actions">
+        >
+          <EditorContent editor={editor} />
+        </div>
+        <div className={styles['input-bottom-bar']}>
+          <div className={styles['input-actions']}>
+            <button
+              className={styles['attach-btn']}
+              title={t('input.attachFiles')}
+              onClick={async () => {
+                const paths = await window.platform?.selectFiles?.();
+                if (paths && paths.length > 0) await attachFilesFromPaths(paths);
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+            <button
+              ref={slashBtnRef}
+              className={styles['attach-btn']}
+              title={t('input.commandMenu')}
+              onClick={() => {
+                if (slashMenuOpen) dismissSlashMenu();
+                else openSlashMenu();
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L14 10L22 12L14 14L12 22L10 14L2 12L10 10Z" />
+              </svg>
+            </button>
             <PlanModeButton enabled={planMode} onToggle={setPlanMode} />
-            <DocContextButton
-              active={docContextAttached}
-              disabled={!hasDoc}
-              onToggle={toggleDocContext}
-            />
+            {hasDoc && <DocContextButton active={docContextAttached} disabled={false} onToggle={toggleDocContext} />}
+            <ContextRing />
           </div>
-          <div className="input-controls">
+          <div className={styles['input-controls']}>
             {currentModelInfo?.reasoning !== false && (
-              <ThinkingLevelButton
-                level={thinkingLevel}
-                onChange={setThinkingLevel}
-                modelXhigh={currentModelInfo?.xhigh ?? false}
-              />
+              <ThinkingLevelButton level={thinkingLevel} onChange={setThinkingLevel} modelXhigh={(sessionModel ? models.find(m => m.id === sessionModel.id && m.provider === sessionModel.provider)?.xhigh : globalModelInfo?.xhigh) ?? false} />
             )}
-            <ModelSelector models={models} />
-            <SendButton
-              isStreaming={isStreaming}
-              hasInput={!!inputText.trim()}
-              disabled={isStreaming ? false : !canSend}
-              onSend={handleSend}
-              onSteer={handleSteer}
-              onStop={handleStop}
-            />
+            <ModelSelector models={models} sessionModel={sessionModel} />
+            <SendButton isStreaming={isStreaming} hasInput={!!inputText.trim()}
+              disabled={isStreaming ? false : !canSend} onSend={handleSend} onSteer={handleSteer} onStop={handleStop} />
           </div>
         </div>
       </div>
     </>
-  );
-}
-
-// ── Todo Display ──
-
-function TodoDisplay({ todos }: { todos: Array<{ text: string; done: boolean }> }) {
-  const [open, setOpen] = useState(false);
-
-  if (!todos || todos.length === 0) return null;
-
-  const done = todos.filter(td => td.done).length;
-
-  return (
-    <div className="input-top-bar">
-      <div className={'todo-display has-todos' + (open ? ' open' : '')}>
-        <button className="todo-trigger" onClick={() => setOpen(!open)}>
-          <span className="todo-trigger-icon">☑</span>
-          <span className="todo-trigger-label">To Do</span>
-          <span className="todo-trigger-count">{done}/{todos.length}</span>
-        </button>
-        {open && (
-          <div className="todo-list">
-            {todos.map((td, i) => (
-              <div key={i} className={'todo-item' + (td.done ? ' done' : '')}>
-                <span className="todo-check">{td.done ? '✓' : '○'}</span> {td.text}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Attached Files ──
-
-function AttachedFilesBar({ files, onRemove }: {
-  files: Array<{ path: string; name: string; isDirectory?: boolean }>;
-  onRemove: (index: number) => void;
-}) {
-  const { SVG_ICONS } = (window as any).HanaModules?.icons ?? {};
-
-  return (
-    <div className="attached-files">
-      {files.map((f, i) => (
-        <span key={f.path} className="file-tag">
-          <span className="file-tag-name">
-            <span
-              className="file-tag-icon"
-              dangerouslySetInnerHTML={{ __html: f.isDirectory ? SVG_ICONS?.folder : SVG_ICONS?.clip }}
-            />
-            {f.name}
-          </span>
-          <button className="file-tag-remove" onClick={() => onRemove(i)}>✕</button>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// ── Plan Mode Button ──
-
-function PlanModeButton({ enabled, onToggle }: {
-  enabled: boolean;
-  onToggle: (v: boolean) => void;
-}) {
-  const { t } = useI18n();
-
-  const handleClick = useCallback(async () => {
-    try {
-      const res = await hanaFetch('/api/plan-mode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !enabled }),
-      });
-      const data = await res.json();
-      onToggle(data.enabled);
-    } catch (err) {
-      console.error('[plan-mode] toggle failed:', err);
-    }
-  }, [enabled, onToggle]);
-
-  return (
-    <button
-      className={'plan-mode-btn' + (!enabled ? ' active' : '')}
-      title={t('input.planMode') || '操作电脑'}
-      onClick={handleClick}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
-      </svg>
-      <span className="plan-mode-label">{t('input.planMode') || '操作电脑'}</span>
-    </button>
-  );
-}
-
-// ── Doc Context Button ──
-
-function DocContextButton({ active, disabled, onToggle }: {
-  active: boolean;
-  disabled: boolean;
-  onToggle: () => void;
-}) {
-  const { t } = useI18n();
-
-  return (
-    <button
-      className={'desk-context-btn' + (active ? ' active' : '')}
-      title={t('input.docContext') || '看着文档说'}
-      disabled={disabled}
-      onClick={onToggle}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <line x1="16" y1="13" x2="8" y2="13" />
-        <line x1="16" y1="17" x2="8" y2="17" />
-        <polyline points="10 9 9 9 8 9" />
-      </svg>
-      <span className="desk-context-label">{t('input.docContext') || '看着文档说'}</span>
-    </button>
-  );
-}
-
-// ── Thinking Level Button ──
-
-const ALL_THINKING_LEVELS: ThinkingLevel[] = ['off', 'auto', 'xhigh'];
-
-function ThinkingLevelButton({ level, onChange, modelXhigh }: {
-  level: ThinkingLevel;
-  onChange: (level: ThinkingLevel) => void;
-  modelXhigh: boolean;
-}) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const availableLevels = useMemo(() => {
-    return ALL_THINKING_LEVELS.filter(lv => lv !== 'xhigh' || modelXhigh);
-  }, [modelXhigh]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
-  }, [open]);
-
-  const selectLevel = useCallback(async (next: ThinkingLevel) => {
-    onChange(next);
-    setOpen(false);
-    try {
-      await hanaFetch('/api/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thinking_level: next }),
-      });
-    } catch (err) {
-      console.error('[thinking-level] save failed:', err);
-    }
-  }, [onChange]);
-
-  const tLevel = (key: string, fallback: string) => {
-    const v = t(key);
-    return v !== key ? v : fallback;
-  };
-
-  const isOff = level === 'off';
-
-  return (
-    <div className={'thinking-selector' + (open ? ' open' : '')} ref={ref}>
-      <button
-        className={`thinking-pill${isOff ? '' : ' active'}`}
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 18h6" /><path d="M10 22h4" />
-          <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0018 8 6 6 0 006 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5" />
-          {isOff && <line x1="4" y1="4" x2="20" y2="20" strokeWidth="1.5" />}
-        </svg>
-      </button>
-      {open && (
-        <div className="thinking-dropdown">
-          {availableLevels.map(lv => (
-            <button
-              key={lv}
-              className={'thinking-option' + (lv === level ? ' active' : '')}
-              onClick={() => selectLevel(lv)}
-            >
-              <span className="thinking-option-name">{tLevel(`input.thinkingLevel.${lv}`, lv)}</span>
-              <span className="thinking-option-desc">{tLevel(`input.thinkingDesc.${lv}`, '')}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Model Selector ──
-
-function ModelSelector({ models }: { models: Array<{ id: string; name: string; isCurrent?: boolean }> }) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const current = models.find(m => m.isCurrent);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
-  }, [open]);
-
-  const switchModel = useCallback(async (modelId: string) => {
-    try {
-      await hanaFetch('/api/models/set', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId }),
-      });
-      // Reload models
-      const favRes = await hanaFetch('/api/models/favorites');
-      const favData = await favRes.json();
-      const state = window.__hanaState;
-      state.models = favData.models || [];
-      state.currentModel = favData.current;
-    } catch (err) {
-      console.error('[model] switch failed:', err);
-    }
-    setOpen(false);
-  }, []);
-
-  return (
-    <div className={'model-selector' + (open ? ' open' : '')} ref={ref}>
-      <button className="model-pill" onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
-        <span>{current?.name || t('model.unknown') || '...'}</span>
-        <span className="model-arrow">▾</span>
-      </button>
-      {open && (
-        <div className="model-dropdown">
-          {models.map(m => (
-            <button
-              key={m.id}
-              className={'model-option' + (m.isCurrent ? ' active' : '')}
-              onClick={() => switchModel(m.id)}
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Slash Command Menu ──
-
-function SlashCommandMenu({ commands, selected, busy, onSelect, onHover }: {
-  commands: SlashCommand[];
-  selected: number;
-  busy: string | null;
-  onSelect: (cmd: SlashCommand) => void;
-  onHover: (i: number) => void;
-}) {
-  return (
-    <div className="slash-menu">
-      {commands.map((cmd, i) => (
-        <button
-          key={cmd.name}
-          className={'slash-menu-item' + (i === selected ? ' selected' : '') + (busy === cmd.name ? ' busy' : '')}
-          onMouseEnter={() => onHover(i)}
-          onClick={() => !busy && onSelect(cmd)}
-          disabled={!!busy}
-        >
-          <span className="slash-menu-icon" dangerouslySetInnerHTML={{ __html: cmd.icon }} />
-          <span className="slash-menu-label">{cmd.label}</span>
-          <span className="slash-menu-desc">{cmd.description}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ── Send Button ──
-
-function SendButton({ isStreaming, hasInput, disabled, onSend, onSteer, onStop }: {
-  isStreaming: boolean;
-  hasInput: boolean;
-  disabled: boolean;
-  onSend: () => void;
-  onSteer: () => void;
-  onStop: () => void;
-}) {
-  const { t } = useI18n();
-
-  // 三态：发送 / 插话 / 停止
-  const mode = isStreaming ? (hasInput ? 'steer' : 'stop') : 'send';
-
-  return (
-    <button
-      className={'send-btn' + (mode === 'steer' ? ' is-steer' : mode === 'stop' ? ' is-streaming' : '')}
-      disabled={disabled}
-      onClick={mode === 'steer' ? onSteer : mode === 'stop' ? onStop : onSend}
-    >
-      {mode === 'send' && (
-        <span className="send-label">
-          <svg className="send-enter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 10 4 15 9 20" /><path d="M20 4v7a4 4 0 01-4 4H4" />
-          </svg>
-          <span className="send-label-text">{t('chat.send') || '发送'}</span>
-        </span>
-      )}
-      {mode === 'steer' && (
-        <span className="send-label">
-          <svg className="send-enter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          <span className="send-label-text">{t('chat.steer') || '插话'}</span>
-        </span>
-      )}
-      {mode === 'stop' && (
-        <span className="send-label">
-          <svg className="stop-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="6" width="12" height="12" rx="2" />
-          </svg>
-          <span className="send-label-text">{t('chat.stop') || '停止'}</span>
-        </span>
-      )}
-    </button>
   );
 }

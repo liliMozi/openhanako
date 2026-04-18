@@ -2,10 +2,12 @@
  * 纯工具函数，从 modules/utils.js 平移为 TS module
  */
 
+export function toSlash(s: string): string { return s.replace(/\\/g, '/'); }
+export function baseName(s: string): string { return s.replace(/\\/g, '/').split('/').pop() || s; }
+
+const _escapeMap: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export function escapeHtml(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return str.replace(/[&<>"']/g, ch => _escapeMap[ch]);
 }
 
 export function parseCSV(text: string): string[][] {
@@ -62,29 +64,31 @@ export function formatSessionDate(isoStr: string): string {
 }
 
 export function cronToHuman(schedule: number | string): string {
+  const t = window.t ?? ((p: string) => p);
   if (typeof schedule === 'number') {
     const h = Math.round(schedule / 3600000);
-    return h > 0 ? `每 ${h} 小时` : `每 ${Math.round(schedule / 60000)} 分钟`;
+    return h > 0 ? t('cron.everyHours', { n: h }) : t('cron.everyMinutes', { n: Math.round(schedule / 60000) });
   }
   const s = String(schedule);
   const parts = s.split(' ');
   if (parts.length !== 5) return s;
   const [min, hour, , , dow] = parts;
   if (min.startsWith('*/') && hour === '*' && dow === '*') {
-    return `每 ${min.slice(2)} 分钟`;
+    return t('cron.everyMinutes', { n: min.slice(2) });
   }
   if (min === '0' && hour.startsWith('*/') && dow === '*') {
-    return `每 ${hour.slice(2)} 小时`;
+    return t('cron.everyHours', { n: hour.slice(2) });
   }
-  if (min === '0' && hour === '*' && dow === '*') return '每小时';
-  if (hour === '*' && dow === '*' && /^\d+$/.test(min)) return '每小时';
+  if (min === '0' && hour === '*' && dow === '*') return t('cron.hourly');
+  if (hour === '*' && dow === '*' && /^\d+$/.test(min)) return t('cron.hourly');
   if (dow === '*' && hour !== '*' && min !== '*') {
-    return `每天 ${hour}:${min.padStart(2, '0')}`;
+    return t('cron.dailyAt', { hour, min: min.padStart(2, '0') });
   }
-  const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+  const dayNames: string[] = (window.t as (...args: unknown[]) => unknown)('cron.dayNames') as string[] || ['日', '一', '二', '三', '四', '五', '六'];
+  const weekPrefix = t('cron.weekPrefix');
   if (dow !== '*' && hour !== '*') {
-    const dayStr = dow.split(',').map(d => `周${dayNames[+d] || d}`).join('/');
-    return `${dayStr} ${hour}:${min.padStart(2, '0')}`;
+    const dayStr = dow.split(',').map(d => `${weekPrefix}${(Array.isArray(dayNames) ? dayNames : [])[+d] || d}`).join('/');
+    return t('cron.weeklyAt', { days: dayStr, hour, min: min.padStart(2, '0') });
   }
   return s;
 }
@@ -112,6 +116,7 @@ export function injectCopyButtons(container: HTMLElement): void {
   const pres = container.querySelectorAll('pre');
   for (const pre of pres) {
     if (pre.querySelector('.copy-btn')) continue;
+    // eslint-disable-next-line no-restricted-syntax -- copy button injected into rendered Markdown HTML, outside React tree
     const btn = document.createElement('button');
     btn.className = 'copy-btn';
     btn.textContent = t('attach.copy');
