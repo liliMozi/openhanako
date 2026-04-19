@@ -78,7 +78,7 @@
     font-family: inherit;
     text-align: left;
     padding: 8px 12px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     font-size: 0.88rem;
     color: var(--text-muted);
     background: none;
@@ -204,7 +204,7 @@
     cursor: pointer;
     color: var(--text-muted);
     padding: 4px;
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     display: flex;
     align-items: center;
     transition: color 0.15s;
@@ -526,7 +526,7 @@
 .agent-create-cancel,
 .agent-create-confirm {
     padding: 0.35rem 0.9rem;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     border: none;
     font-family: inherit;
     font-size: 0.82rem;
@@ -649,7 +649,7 @@
 .agent-delete-cancel,
 .agent-delete-danger {
     padding: 0.35rem 0.9rem;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     border: none;
     font-family: inherit;
     font-size: 0.82rem;
@@ -913,7 +913,7 @@
     color: var(--text);
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     padding: 0.45rem 0.65rem;
     outline: none;
     transition: border-color var(--duration) var(--ease-out);
@@ -985,7 +985,7 @@
     gap: 4px;
     padding: 4px 12px;
     border: 1px solid var(--overlay-medium);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     background: none;
     color: var(--text-muted);
     font-size: 0.75rem;
@@ -1047,7 +1047,7 @@
     padding: var(--space-lg) var(--space-md);
     min-height: 5rem;
     border: 1.5px dashed var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     color: var(--text-muted);
     font-size: 0.82rem;
     cursor: pointer;
@@ -1067,7 +1067,7 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     overflow: hidden;
 }
 
@@ -1086,13 +1086,13 @@
 
 /* 首尾 item 作为 SettingsSection body 直接子元素时，需要自带圆角贴合白卡 border-radius */
 .tool-caps-item:first-child {
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
+    border-top-left-radius: var(--radius-card, 10px);
+    border-top-right-radius: var(--radius-card, 10px);
 }
 
 .tool-caps-item:last-child {
-    border-bottom-left-radius: 10px;
-    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: var(--radius-card, 10px);
+    border-bottom-right-radius: var(--radius-card, 10px);
 }
 
 /* 缩进子项（如 allow_github_fetch） */
@@ -1129,7 +1129,7 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     overflow: hidden;
 }
 
@@ -1155,13 +1155,13 @@
 /* 作为 SettingsSection body 直接子元素时，首尾 item 需要自带圆角对齐白卡 border-radius。
  * 在 .skills-list-block 里有 overflow:hidden 裁掉，不影响视觉 */
 .skills-list-item:first-child {
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
+    border-top-left-radius: var(--radius-card, 10px);
+    border-top-right-radius: var(--radius-card, 10px);
 }
 
 .skills-list-item:last-child {
-    border-bottom-left-radius: 10px;
-    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: var(--radius-card, 10px);
+    border-bottom-right-radius: var(--radius-card, 10px);
 }
 
 .skills-list-item:hover {
@@ -1216,7 +1216,7 @@
     color: var(--text-muted);
     font-size: 0.7rem;
     cursor: pointer;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     opacity: 0;
     transition: all 0.15s;
 }
@@ -1281,7 +1281,7 @@
 /* 兼容技能路径管理 */
 .compat-paths-group {
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     overflow: hidden;
     margin-top: 0.4rem;
     box-shadow: 0 1px 4px var(--shadow);
@@ -1507,7 +1507,7 @@
     width: 32px;
     height: 32px;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     background-color: var(--bg-card);
     color: var(--text-muted);
     cursor: pointer;
@@ -1533,7 +1533,7 @@
     color: var(--text);
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     padding: 0.55rem 0.65rem;
     outline: none;
     resize: vertical;
@@ -1593,7 +1593,7 @@
     color: var(--text);
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     padding: 4px 2rem 4px 8px;
     outline: none;
     cursor: pointer;
@@ -1627,7 +1627,7 @@
     justify-content: center;
     padding: var(--space-md) var(--space-sm);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     cursor: pointer;
     text-align: center;
     transition: all 0.2s var(--ease-out);
@@ -1750,6 +1750,19 @@
     color: #636AE8;
 }
 
+/* Claude Design：手账宣纸 + 印章青蓝 */
+.theme-card[data-theme="claude-design"] {
+    background: #F5EFE4;
+}
+
+.theme-card[data-theme="claude-design"] .theme-card-name {
+    color: #2A2622;
+}
+
+.theme-card[data-theme="claude-design"] .theme-card-mode {
+    color: #537D96;
+}
+
 /* 自动：左暖纸右蓝调，硬拼色 */
 .theme-card[data-theme="auto"] {
     background: #F4F0E4;
@@ -1763,7 +1776,7 @@
     width: 50%;
     height: 100%;
     background: #171C2A;
-    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    border-radius: 0 var(--radius-card, 10px) var(--radius-card, 10px) 0;
 }
 
 .theme-card[data-theme="auto"] .theme-card-name,
@@ -1825,7 +1838,7 @@
     color: var(--accent);
     background: transparent;
     border: 1.5px solid var(--accent);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     cursor: pointer;
     transition: all 0.2s var(--ease-out);
     letter-spacing: 0.02em;
@@ -1854,7 +1867,7 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(var(--accent-rgb), 0.25);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     cursor: pointer;
     transition: all 0.2s var(--ease-out);
     letter-spacing: 0.02em;
@@ -1891,7 +1904,7 @@
     color: var(--accent);
     background: transparent;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     transition: background 0.15s var(--ease-out);
     letter-spacing: 0.02em;
@@ -1911,7 +1924,7 @@
 .thinking-level-bar {
     display: flex;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     overflow: hidden;
 }
 
@@ -1951,7 +1964,7 @@
     color: var(--accent);
     background: none;
     border: 1.5px solid var(--accent);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     cursor: pointer;
     transition: all 0.2s var(--ease-out);
 }
@@ -2191,7 +2204,7 @@ a.about-link:hover {
     margin-top: var(--space-sm);
     padding: var(--space-md);
     background: var(--overlay-light);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     font-size: 0.68rem;
     line-height: 1.6;
     color: var(--text-muted);
@@ -2230,7 +2243,7 @@ a.about-link:hover {
    ======================================== */
 .provider-list {
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     overflow: hidden;
     box-shadow: 0 1px 4px var(--shadow);
 }
@@ -2298,7 +2311,7 @@ a.about-link:hover {
     height: 26px;
     background: none;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     color: var(--text-muted);
     cursor: pointer;
     font-size: 0.82rem;
@@ -2344,7 +2357,7 @@ a.about-link:hover {
     color: var(--accent);
     background: var(--accent-light);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     cursor: pointer;
     transition: all 0.2s var(--ease-out);
     letter-spacing: 0.02em;
@@ -2359,7 +2372,7 @@ a.about-link:hover {
    ======================================== */
 .oauth-list {
     background: var(--bg-card, var(--bg));
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     box-shadow: 0 1px 4px var(--shadow);
     overflow: hidden;
 }
@@ -2400,7 +2413,7 @@ a.about-link:hover {
     align-items: center;
     gap: var(--space-sm);
     padding: 3px 6px;
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
 }
 
 .oauth-custom-model-item:hover { background: var(--bg-hover); }
@@ -2446,7 +2459,7 @@ a.about-link:hover {
     padding: 4px 10px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     color: var(--text-secondary);
     cursor: pointer;
     white-space: nowrap;
@@ -2481,7 +2494,7 @@ a.about-link:hover {
     color: var(--success, #5a9);
     background: rgba(90, 170, 153, 0.1);
     padding: 2px 8px;
-    border-radius: 10px;
+    border-radius: var(--radius-card, 10px);
     flex-shrink: 0;
 }
 
@@ -2491,7 +2504,7 @@ a.about-link:hover {
     font-family: inherit;
     font-size: 0.78rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     transition: all 0.15s;
     flex-shrink: 0;
@@ -2536,7 +2549,7 @@ a.about-link:hover {
     color: #fff;
     background: var(--accent);
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     transition: opacity 0.15s;
     flex-shrink: 0;
@@ -2567,7 +2580,7 @@ a.about-link:hover {
     padding: var(--space-xs) var(--space-md);
     background: var(--bg-secondary, #f5f5f5);
     border: 1px dashed var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     user-select: all;
     transition: background 0.15s;
@@ -2603,7 +2616,7 @@ a.about-link:hover {
     height: 420px;
     background: var(--bg-card, var(--bg));
     border: 1px solid var(--overlay-light);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     box-shadow: 0 1px 4px var(--shadow);
 }
 
@@ -2724,7 +2737,7 @@ a.about-link:hover {
     width: 360px;
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     box-shadow: 0 8px 24px var(--shadow);
     z-index: 9999;
     padding: 12px;
@@ -2750,7 +2763,7 @@ a.about-link:hover {
     font-size: 0.72rem;
     padding: 4px 10px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
@@ -2787,7 +2800,7 @@ a.about-link:hover {
     background: var(--accent);
     color: #fff;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     transition: opacity 0.15s;
 }
@@ -2904,7 +2917,7 @@ a.about-link:hover {
     height: 28px;
     background: none;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     color: var(--text-muted);
     cursor: pointer;
     flex-shrink: 0;
@@ -2936,7 +2949,7 @@ a.about-link:hover {
     background: var(--accent);
     color: #fff;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     white-space: nowrap;
     transition: opacity 0.15s;
@@ -2953,7 +2966,7 @@ a.about-link:hover {
     background: transparent;
     color: var(--accent);
     border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     transition: all 0.15s;
 }
@@ -2968,7 +2981,7 @@ a.about-link:hover {
     font-size: 0.72rem;
     padding: 3px 8px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
@@ -3013,7 +3026,7 @@ a.about-link:hover {
     align-items: center;
     gap: 6px;
     padding: 3px 6px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
 }
 
 .pv-fav-item:hover { background: var(--accent-light); }
@@ -3073,7 +3086,7 @@ a.about-link:hover {
 .pv-model-edit-card {
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     box-shadow: 0 8px 24px var(--shadow);
     padding: 12px;
     display: flex;
@@ -3139,7 +3152,7 @@ a.about-link:hover {
     color: var(--text-muted);
     background: var(--bg-input, var(--bg));
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     padding: 0 10px;
     white-space: nowrap;
@@ -3179,7 +3192,7 @@ a.about-link:hover {
     align-items: center;
     justify-content: center;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
@@ -3203,7 +3216,7 @@ a.about-link:hover {
     color: var(--text-muted);
     background: var(--bg-input, var(--bg));
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     transition: border-color 0.15s;
 }
@@ -3214,7 +3227,7 @@ a.about-link:hover {
     /* position/left/top/width/maxHeight/zIndex set by JS */
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     box-shadow: 0 4px 16px var(--shadow);
     overflow: hidden;
     display: flex;
@@ -3291,7 +3304,7 @@ a.about-link:hover {
     flex: 1;
     padding: 4px 8px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     font-family: inherit;
     font-size: 0.75rem;
     color: var(--text);
@@ -3328,7 +3341,7 @@ a.about-link:hover {
     border: none;
     cursor: pointer;
     padding: 2px 6px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
 }
 
 .pv-fetch-btn:hover { color: var(--accent); background: var(--accent-light); }
@@ -3339,7 +3352,7 @@ a.about-link:hover {
     padding: 4px 8px;
     margin-bottom: var(--space-xs);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     background: var(--bg-input, var(--bg));
     color: var(--text);
     font-family: inherit;
@@ -3365,7 +3378,7 @@ a.about-link:hover {
     align-items: center;
     gap: 6px;
     padding: 4px 6px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
 }
 
 .pv-model-item:hover { background: var(--accent-light); }
@@ -3437,7 +3450,7 @@ a.about-link:hover {
     justify-content: center;
     background: none;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     color: var(--text-muted);
     cursor: pointer;
     flex-shrink: 0;
@@ -3452,7 +3465,7 @@ a.about-link:hover {
     color: var(--danger, #c55);
     background: transparent;
     border: 1px solid var(--danger, #c55);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     cursor: pointer;
     padding: 3px 10px;
     opacity: 0.6;
@@ -3474,7 +3487,7 @@ a.about-link:hover {
     z-index: 9999;
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     box-shadow: 0 8px 24px var(--shadow);
     padding: 16px 20px;
     width: 320px;
@@ -3510,7 +3523,7 @@ a.about-link:hover {
    Pin 列表（置顶记忆管理）
    ======================================== */
 .pin-list {
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     overflow: hidden;
 }
 
@@ -3579,7 +3592,7 @@ a.about-link:hover {
     height: 26px;
     background: none;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     color: var(--text-muted);
     cursor: pointer;
     font-size: 0.82rem;
@@ -3617,7 +3630,7 @@ a.about-link:hover {
     color: var(--accent);
     background: var(--accent-light);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     cursor: pointer;
     transition: all 0.2s var(--ease-out);
     flex-shrink: 0;
@@ -3647,7 +3660,7 @@ a.about-link:hover {
 
 .exp-block {
     background: var(--bg-card, var(--bg));
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     box-shadow: 0 1px 4px var(--shadow);
     padding: 0.6rem var(--space-md) 0.5rem;
     transition: box-shadow 0.2s var(--ease-out);
@@ -3693,7 +3706,7 @@ a.about-link:hover {
     height: 26px;
     background: none;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     color: var(--text-muted);
     cursor: pointer;
     transition: all 0.2s var(--ease-out);
@@ -3743,7 +3756,7 @@ a.about-link:hover {
     color: var(--text);
     background: transparent;
     border: 1px solid var(--overlay-light);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     padding: 0.4rem 0.55rem;
     resize: vertical;
     width: 100%;
@@ -3781,7 +3794,7 @@ a.about-link:hover {
     padding: 0.4rem var(--space-md);
     font-size: 0.82rem;
     border: 1px solid var(--overlay-light);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     background: var(--bg-card, var(--bg));
     color: var(--text);
     cursor: pointer;
@@ -3831,7 +3844,7 @@ a.about-link:hover {
     right: 0;
     min-width: 140px;
     background: var(--bg-card, var(--bg));
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     box-shadow: 0 4px 16px var(--shadow);
     z-index: 60;
     margin-bottom: 4px;
@@ -3906,7 +3919,7 @@ a.about-link:hover {
     padding: 0.35rem var(--space-lg);
     font-size: 0.82rem;
     border: 1px solid var(--overlay-light);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     background: var(--bg-card, var(--bg));
     color: var(--text);
     cursor: pointer;
@@ -3921,7 +3934,7 @@ a.about-link:hover {
     padding: 0.35rem var(--space-lg);
     font-size: 0.82rem;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     background: var(--coral);
     color: white;
     cursor: pointer;
@@ -3936,7 +3949,7 @@ a.about-link:hover {
     padding: 0.35rem var(--space-lg);
     font-size: 0.82rem;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     background: var(--accent);
     color: white;
     cursor: pointer;
@@ -3998,7 +4011,7 @@ a.about-link:hover {
     color: var(--text-muted);
     font-size: 0.9rem;
     cursor: pointer;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     transition: all 0.15s;
 }
 
@@ -4031,7 +4044,7 @@ a.about-link:hover {
     color: var(--danger, #c44);
     background: none;
     border: 1px solid var(--overlay-light);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     padding: 2px 8px;
     cursor: pointer;
     opacity: 0.7;
@@ -4182,7 +4195,7 @@ a.about-link:hover {
     color: var(--text-muted);
     font-size: 0.9rem;
     cursor: pointer;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     transition: all 0.15s;
 }
 
@@ -4196,7 +4209,7 @@ a.about-link:hover {
     width: 256px;
     height: 256px;
     overflow: hidden;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     background: var(--overlay-subtle);
     cursor: grab;
     touch-action: none;
@@ -4242,7 +4255,7 @@ a.about-link:hover {
     font-family: inherit;
     font-size: 0.8rem;
     padding: 0.35rem 1rem;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     border: none;
     cursor: pointer;
     transition: all 0.15s var(--ease-out);
@@ -4284,7 +4297,7 @@ a.about-link:hover {
     color: var(--text);
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     padding: 0.45rem 0.65rem;
     cursor: pointer;
     text-align: left;
@@ -4335,7 +4348,7 @@ a.about-link:hover {
     max-height: 240px;
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     z-index: 60;
     margin-top: 4px;
     overflow-y: auto;
@@ -4439,7 +4452,7 @@ a.about-link:hover {
     color: var(--accent);
     background: var(--accent-light);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     cursor: pointer;
     transition: all 0.2s var(--ease-out);
 }
@@ -4459,7 +4472,7 @@ a.about-link:hover {
     max-height: 320px;
     background-color: var(--bg-card);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     box-shadow: 0 4px 16px var(--shadow);
     z-index: 60;
     overflow: hidden;
@@ -4555,18 +4568,18 @@ a.about-link:hover {
 .cml-col-list {
     min-width: 0;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-card, 10px);
     overflow: visible;
     box-shadow: 0 1px 4px var(--shadow);
 }
 
 .cml-col-list > .cml-list-header:first-child {
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border-radius: var(--radius-card, 10px) var(--radius-card, 10px) 0 0;
 }
 
 .cml-col-list > .cml-item:last-of-type,
 .cml-col-list > .cml-item:last-of-type + .cml-edit-panel {
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    border-radius: 0 0 var(--radius-card, 10px) var(--radius-card, 10px);
 }
 
 .cml-list-header,
@@ -4628,7 +4641,7 @@ a.about-link:hover {
     border: none;
     cursor: pointer;
     padding: 0.1rem 0.25rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     transition: all 0.15s;
     line-height: 1;
     opacity: 0;
@@ -4652,7 +4665,7 @@ a.about-link:hover {
     border: none;
     cursor: pointer;
     padding: 0.1rem 0.25rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     transition: all 0.15s;
     line-height: 1;
     opacity: 0;
@@ -4676,7 +4689,7 @@ a.about-link:hover {
     border: none;
     cursor: pointer;
     padding: 0.1rem 0.25rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     transition: all 0.15s;
     line-height: 1;
     opacity: 0;
@@ -4719,7 +4732,7 @@ a.about-link:hover {
     color: var(--text);
     background-color: var(--bg-card);
     border: none;
-    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    border-radius: var(--radius-input, 4px) 0 0 var(--radius-input, 4px);
     padding: 0.25rem 0.45rem;
     outline: none;
     box-shadow: 0 1px 3px var(--shadow);
@@ -4742,7 +4755,7 @@ a.about-link:hover {
     font-size: 0.68rem;
     padding: 0 0.35rem;
     border: none;
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    border-radius: 0 var(--radius-input, 4px) var(--radius-input, 4px) 0;
     background: var(--overlay-light);
     color: var(--text-muted);
     cursor: pointer;
@@ -4763,7 +4776,7 @@ a.about-link:hover {
     right: 0;
     margin-bottom: 2px;
     background-color: var(--bg-card);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     box-shadow: 0 4px 12px var(--shadow);
     z-index: 100;
     overflow: hidden;
@@ -4810,7 +4823,7 @@ a.about-link:hover {
     font-family: inherit;
     font-size: 0.72rem;
     padding: 0.2rem 0.6rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input, 4px);
     border: none;
     background: var(--overlay-subtle);
     color: var(--text-muted);
@@ -4841,7 +4854,7 @@ a.about-link:hover {
     margin-left: auto;
     padding: 1px 6px;
     background: var(--bg-secondary);
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -4880,7 +4893,7 @@ a.about-link:hover {
     color: var(--text);
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     padding: 0.45rem 0.65rem;
     cursor: pointer;
     text-align: left;
@@ -4923,7 +4936,7 @@ a.about-link:hover {
     max-height: 320px;
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: var(--radius-input, 4px);
     z-index: 60;
     margin-top: 4px;
     overflow: hidden;
@@ -5043,7 +5056,7 @@ a.about-link:hover {
     color: var(--text);
     background-color: var(--bg-card);
     border: none;
-    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    border-radius: var(--radius-input, 4px) 0 0 var(--radius-input, 4px);
     padding: 0.3rem 0.5rem;
     outline: none;
     box-shadow: 0 1px 3px var(--shadow);
@@ -5058,7 +5071,7 @@ a.about-link:hover {
     font-size: 0.75rem;
     padding: 0.3rem 0.5rem;
     border: none;
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    border-radius: 0 var(--radius-input, 4px) var(--radius-input, 4px) 0;
     background: var(--overlay-light);
     color: var(--text-muted);
     cursor: pointer;
@@ -5162,7 +5175,7 @@ a.about-link:hover {
   padding: var(--space-sm);
   background: var(--bg-card, #fcfaf5);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card, 10px);
   cursor: pointer;
   text-align: left;
   font-family: inherit;

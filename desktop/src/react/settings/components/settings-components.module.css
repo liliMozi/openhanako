@@ -48,8 +48,8 @@
     display: flex;
     flex-direction: column;
     background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    border: var(--border-width, 1px) solid var(--border);
+    border-radius: var(--radius-card, 10px);
     /* 左右 padding 移到 row/warning 自己上，让分隔线能贴卡片 border */
 }
 
@@ -58,7 +58,7 @@
     justify-content: flex-end;
     /* 和 row 一样的 padding 节奏；border-top 作为和上一个 row 的分隔线 */
     padding: var(--space-sm) var(--space-md);
-    border-top: 1px solid var(--border);
+    border-top: var(--border-width, 1px) solid var(--border);
 }
 
 /* Hero variant：用于 AboutTab */
@@ -144,7 +144,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 1px;
+    height: var(--border-width, 1px);
     background: var(--border);
 }
 
@@ -264,8 +264,8 @@
 .numberInputField {
     width: 64px;
     padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    border: var(--border-width, 1px) solid var(--border);
+    border-radius: var(--radius-input, 4px);
     background: var(--bg-card);
     color: var(--text);
     font-family: inherit;

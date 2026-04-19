@@ -19,6 +19,7 @@ const THEME_NAME_KEYS: Record<string, string> = {
   'absolutely': 'settings.appearance.absolutely',
   'delve': 'settings.appearance.delve',
   'deep-think': 'settings.appearance.deepThink',
+  'claude-design': 'settings.appearance.claudeDesign',
   'auto': 'settings.appearance.auto',
 };
 
@@ -31,6 +32,7 @@ const THEME_MODE_KEYS: Record<string, string> = {
   'absolutely': 'settings.appearance.absolutelyMode',
   'delve': 'settings.appearance.delveMode',
   'deep-think': 'settings.appearance.deepThinkMode',
+  'claude-design': 'settings.appearance.claudeDesignMode',
   'auto': 'settings.appearance.autoMode',
 };
 

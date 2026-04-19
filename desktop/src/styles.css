@@ -14,6 +14,11 @@
     --radius-md: 10px;
     --radius-lg: 16px;
 
+    /* 主题可覆盖的抽象 token（默认值和现有视觉一致；主题 CSS 可 override） */
+    --radius-input: 4px;        /* input / select / textarea / ghost button / sdw / mdw */
+    --radius-card: 10px;        /* SettingsSection body / skill-list-item 首尾 / tool-caps 首尾 */
+    --border-width: 1px;        /* 表单控件 / section body 边框粗细 */
+
     /* 动效 */
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --duration: 0.3s;

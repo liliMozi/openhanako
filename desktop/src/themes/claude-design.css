@@ -1,0 +1,84 @@
+/*
+ * Hana Theme: 新暖纸（试验）
+ * 基于 Claude Design 工具导出的 "Hanako Design System" 规范，
+ * 纸本世界 + 5 档墨色 + 印章青蓝 + 极方圆角 + 0.5px hairline。
+ *
+ * 文件名 / data-theme key 保留 claude-design 以避免破坏用户已保存
+ * 的 localStorage 主题选择；显示名（i18n）为"新暖纸"。
+ *
+ * 字体离线打包：107 个 woff2 文件（Inter + EB Garamond + JetBrains Mono + Noto Serif SC
+ * 各字重 × latin / latin-ext / chinese-simplified subset）在 ./fonts/ 下，
+ * @font-face 声明在 ./claude-design-fonts.css。不联网、无 CDN 阻塞风险。
+ */
+
+@import url('./claude-design-fonts.css');
+
+[data-theme="claude-design"] {
+    /* ─── Paper 系 ─── */
+    --bg:           #F5EFE4;                    /* paper · 宣纸主面 */
+    --bg-card:      #FBF7EE;                    /* paper-sunk · 浮起的卡（光落上去更亮） */
+    --bg-glass:     rgba(251, 247, 238, 0.92);
+    --sidebar-bg:   #EFE8DB;                    /* paper-2 · 侧边更深一层 */
+
+    /* ─── 墨 5 档 ─── */
+    --text:         #2A2622;                    /* 浓墨 */
+    --text-light:   #4A433C;                    /* 二级 */
+    --text-muted:   #6B6158;                    /* 三级 captions */
+    /* ink-4 #8F867B / ink-5 #B8B0A3 暂未映射到 Hana 变量，保留在主题里供后续使用 */
+
+    /* ─── 分割线（结构骨干）─── */
+    --border:       #D8CFBE;                    /* ink-line · 主分割 */
+    --shadow:       rgba(42, 38, 34, 0.04);     /* 几乎无 */
+
+    /* ─── 印章青蓝（唯一 accent）─── */
+    --accent:       #537D96;                    /* seal · 一抹远山青 */
+    --accent-hover: #3F6179;                    /* pressed */
+    --accent-light: rgba(83, 125, 150, 0.08);
+    --accent-rgb:   83, 125, 150;
+
+    /* ─── 语义色（墨染，极克制）─── */
+    --green:        #4A6B4A;                    /* success · 墨绿 */
+    --green-rgb:    74, 107, 74;
+    --coral:        #8B2C1F;                    /* danger 文本 · 深朱 */
+    --coral-rgb:    139, 44, 31;
+    --danger:       #8B2C1F;
+    --danger-rgb:   139, 44, 31;
+
+    /* plan-mode 操作电脑那抹色：沿用 seal（规范里没给 mood，复用 accent 最不违和） */
+    --mood-text:    #3F6179;
+    --mood-bg:      rgba(83, 125, 150, 0.05);
+    --mood-border:  rgba(83, 125, 150, 0.18);
+
+    /* ─── 其他（继承原有语义，但色值对齐纸本）─── */
+    --hana-text:    #2A2622;
+    --tool-bg:      rgba(83, 125, 150, 0.06);
+    --tool-text:    #6B6158;
+    --user-bg:      rgba(83, 125, 150, 0.08);
+    --drop-overlay-bg: rgba(245, 239, 228, 0.85);
+    --attach-bg:    rgba(42, 38, 34, 0.04);
+
+    --jian-note-bg:     #FBF7EE;
+    --jian-note-border: rgba(216, 207, 190, 0.4);
+
+    --overlay-subtle: rgba(42, 38, 34, 0.03);
+    --overlay-light:  rgba(42, 38, 34, 0.04);
+    --overlay-medium: rgba(42, 38, 34, 0.08);
+    --overlay-strong: rgba(42, 38, 34, 0.15);
+
+    /* ─── 主题级 override：圆角与边框（规范强约束："controls are seals, 方") ───
+     * 同时覆盖 :root 定义的全局 radius token，让整个应用（不止设置页）统一为方 */
+    --radius-sm:     2px;                       /* 规范 --r-sm：input/button/chip */
+    --radius-md:     3px;                       /* 规范 --r-md：card / list block / dropzone */
+    --radius-lg:     4px;                       /* 规范 --r-lg：modal */
+    --radius-input:  2px;                       /* 设置页专用变量 */
+    --radius-card:   3px;
+    --border-width:  0.5px;                     /* 规范：0.5px hairline */
+
+    /* ─── 字体（规范强约束：serif 用于 reading + display，UI 字体仅 chrome）─── */
+    --font-ui:      'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    --font-serif:   'EB Garamond', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+    --font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* Select 下拉箭头（跟随 text-muted） */
+    --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6158' fill='none' stroke-width='1.25' stroke-linecap='round'/%3E%3C/svg%3E");
+}

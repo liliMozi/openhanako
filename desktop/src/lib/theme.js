@@ -15,6 +15,7 @@ const _THEME_FILES = {
   "absolutely": "themes/absolutely.css",
   "delve": "themes/delve.css",
   "deep-think": "themes/deep-think.css",
+  "claude-design": "themes/claude-design.css",
 };
 
 function systemPreferredTheme() {
