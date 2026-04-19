@@ -13,12 +13,45 @@ import { Hono } from "hono";
 import { safeReadFile } from "../../shared/safe-fs.js";
 import { resolveAgent } from "../utils/resolve-agent.js";
 
-/** 安全路径校验：resolved 必须在 allowedRoots 之一内部 */
-function isSafePath(filePath, allowedRoots) {
+function isInsideRoot(candidatePath, rootPath) {
+  return candidatePath === rootPath || candidatePath.startsWith(rootPath + path.sep);
+}
+
+/**
+ * 解析并校验文件路径。
+ * - 现有文件：拒绝 symlink，且 realpath 后必须仍在 allowedRoots 内
+ * - 不存在文件：保留原有 404 语义，只要其父目录 realpath 在 allowedRoots 内即可
+ * @returns {string|null}
+ */
+function resolveAllowedPath(filePath, allowedRoots) {
   const resolved = path.resolve(filePath);
-  return allowedRoots.some(
-    (root) => resolved === root || resolved.startsWith(root + path.sep)
-  );
+
+  for (const root of allowedRoots) {
+    const resolvedRoot = path.resolve(root);
+    if (!isInsideRoot(resolved, resolvedRoot)) continue;
+
+    let realRoot = null;
+    try { realRoot = fs.realpathSync(resolvedRoot); }
+    catch { continue; }
+
+    try {
+      const stat = fs.lstatSync(resolved);
+      if (stat.isSymbolicLink()) return null;
+      const realPath = fs.realpathSync(resolved);
+      if (isInsideRoot(realPath, realRoot)) return realPath;
+      return null;
+    } catch (err) {
+      if (err?.code !== "ENOENT") return null;
+      try {
+        const realParent = fs.realpathSync(path.dirname(resolved));
+        if (isInsideRoot(realParent, realRoot)) return resolved;
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return null;
 }
 
 export function createFsRoute(engine) {
@@ -38,10 +71,11 @@ export function createFsRoute(engine) {
   route.get("/fs/read", async (c) => {
     const filePath = c.req.query("path");
     if (!filePath) return c.json({ error: "missing path" }, 400);
-    if (!isSafePath(filePath, getAllowedRoots(c))) {
+    const allowedPath = resolveAllowedPath(filePath, getAllowedRoots(c));
+    if (!allowedPath) {
       return c.json({ error: "path not allowed" }, 403);
     }
-    const content = safeReadFile(filePath, null);
+    const content = safeReadFile(allowedPath, null);
     if (content === null) return c.json({ error: "file not found" }, 404);
     return c.text(content);
   });
@@ -50,11 +84,12 @@ export function createFsRoute(engine) {
   route.get("/fs/read-base64", async (c) => {
     const filePath = c.req.query("path");
     if (!filePath) return c.json({ error: "missing path" }, 400);
-    if (!isSafePath(filePath, getAllowedRoots(c))) {
+    const allowedPath = resolveAllowedPath(filePath, getAllowedRoots(c));
+    if (!allowedPath) {
       return c.json({ error: "path not allowed" }, 403);
     }
     try {
-      const buf = fs.readFileSync(filePath);
+      const buf = fs.readFileSync(allowedPath);
       return c.text(buf.toString("base64"));
     } catch {
       return c.json({ error: "file not found" }, 404);
@@ -65,15 +100,16 @@ export function createFsRoute(engine) {
   route.get("/fs/docx-html", async (c) => {
     const filePath = c.req.query("path");
     if (!filePath) return c.json({ error: "missing path" }, 400);
-    if (!isSafePath(filePath, getAllowedRoots(c))) {
+    const allowedPath = resolveAllowedPath(filePath, getAllowedRoots(c));
+    if (!allowedPath) {
       return c.json({ error: "path not allowed" }, 403);
     }
     try {
-      const stat = fs.statSync(filePath);
+      const stat = fs.statSync(allowedPath);
       if (!stat.isFile()) return c.json({ error: "not a file" }, 400);
       if (stat.size > 20 * 1024 * 1024) return c.json({ error: "file too large" }, 413);
       const mammoth = (await import("mammoth")).default;
-      const result = await mammoth.convertToHtml({ path: filePath });
+      const result = await mammoth.convertToHtml({ path: allowedPath });
       return c.text(result.value);
     } catch (err) {
       if (err?.code === "ENOENT") return c.json({ error: "file not found" }, 404);

@@ -272,6 +272,26 @@ describe("syncModels", () => {
     expect(result.providers.ollama.models[0].id).toBe("llama3");
   });
 
+  it("allows IPv6 loopback providers without api_key", async () => {
+    const syncModels = await loadSync();
+
+    const providers = {
+      ollama: {
+        base_url: "http://[::1]:11434/v1",
+        api: "openai-completions",
+        models: ["llama3"],
+      },
+    };
+
+    const changed = syncModels(providers, { modelsJsonPath });
+
+    expect(changed).toBe(true);
+    const result = JSON.parse(fs.readFileSync(modelsJsonPath, "utf-8"));
+    expect(result.providers.ollama).toBeDefined();
+    expect(result.providers.ollama.apiKey).toBe("local");
+    expect(result.providers.ollama.models[0].id).toBe("llama3");
+  });
+
   it("handles multiple providers in one call", async () => {
     const syncModels = await loadSync();
 

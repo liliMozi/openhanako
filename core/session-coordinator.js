@@ -475,11 +475,11 @@ After dispatching subagent or other background tasks:
 
     try {
       // 估算当前上下文 token 数
+      const msgs = session.agent?.state?.messages || [];
       const usage = session.getContextUsage?.();
       let currentTokens = usage?.tokens;
       if (currentTokens == null) {
         // fallback: 逐消息估算
-        const msgs = session.agent.state.messages;
         currentTokens = msgs.reduce((sum, m) => sum + estimateTokens(m), 0);
       }
 

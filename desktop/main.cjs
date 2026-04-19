@@ -35,7 +35,14 @@ const { wrapIpcHandler, wrapIpcOn } = require('./ipc-wrapper.cjs');
 function resolveLoginShellPath() {
   if (process.platform === "win32") return Promise.resolve();
   return new Promise((resolve) => {
-    const loginShell = process.env.SHELL || "/bin/zsh";
+    const loginShell = [
+      process.env.SHELL,
+      "/bin/zsh",
+      "/bin/bash",
+      "/usr/bin/zsh",
+      "/usr/bin/bash",
+    ].find((candidate) => candidate && fs.existsSync(candidate));
+    if (!loginShell) return resolve();
     execFile(loginShell, ["-l", "-c", "printenv PATH"], { timeout: 5000, encoding: "utf8" }, (err, stdout) => {
       if (!err && stdout) {
         const resolved = stdout.trim();
@@ -139,7 +146,7 @@ function _getMainI18n() {
     // 从 preferences.json 读取全局 locale（和 server/renderer 一致）
     let locale = null;
     try {
-      const prefs = JSON.parse(fs.readFileSync(path.join(hanakoHome, "preferences.json"), "utf-8"));
+      const prefs = JSON.parse(fs.readFileSync(path.join(hanakoHome, "user", "preferences.json"), "utf-8"));
       locale = prefs.locale || null;
     } catch { /* preferences.json 不存在时 fallback */ }
     const key = _resolveLocaleKey(locale);
