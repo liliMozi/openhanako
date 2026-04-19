@@ -16,6 +16,9 @@ import { loadDeskFiles } from './desk-actions';
 import { syncPreviewPanelForOwner } from './artifact-actions';
 import { loadModels } from '../utils/ui-helpers';
 import { updateKeyed } from './create-keyed-slice';
+import { snapshotStreamBuffer, type StreamBufferSnapshot } from './stream-invalidator';
+import { renderMarkdown } from '../utils/markdown';
+import type { ChatMessage, ContentBlock } from './chat-types';
 
 // ── 防竞争计数器 ──
 
@@ -66,7 +69,33 @@ export async function loadMessages(forPath?: string): Promise<void> {
     } else {
       useStore.getState().initSession(targetPath, [], false);
     }
+    // In-flight guard: jsonl 仅在 turn_end 落盘。若 session 在 stream 进行中
+    // 被 reload（switchSession 冷启动 / stream-resume truncated），合并 buffer
+    // 当前快照作为末尾 assistant，避免 UI 上"正在写的消息消失"。
+    // 同步执行，不 await，保证中途不会有 text_delta 事件插入。
+    const snapshot = snapshotStreamBuffer(targetPath);
+    if (snapshot?.hasContent) {
+      useStore.getState().appendItem(targetPath, {
+        type: 'message',
+        data: buildInflightAssistantMessage(snapshot),
+      });
+    }
   } catch (err) { console.error('[loadMessages] error:', err); }
+}
+
+function buildInflightAssistantMessage(snap: StreamBufferSnapshot): ChatMessage {
+  const blocks: ContentBlock[] = [];
+  if (snap.thinking || snap.inThinking) {
+    blocks.push({ type: 'thinking', content: snap.thinking, sealed: !snap.inThinking });
+  }
+  if (snap.mood) {
+    blocks.push({ type: 'mood', yuan: snap.moodYuan, text: snap.mood });
+  }
+  if (snap.text) {
+    const displayText = snap.text.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
+    blocks.push({ type: 'text', html: renderMarkdown(displayText) });
+  }
+  return { id: `inflight-${Date.now()}`, role: 'assistant', blocks };
 }
 
 /** 上滑加载更早的消息（分页） */

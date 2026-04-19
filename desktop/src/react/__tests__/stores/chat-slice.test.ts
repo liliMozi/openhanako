@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createChatSlice, type ChatSlice } from '../../stores/chat-slice';
 import type { SessionModel } from '../../stores/chat-types';
+import { registerStreamBufferInvalidator } from '../../stores/stream-invalidator';
 
 function makeSlice(): ChatSlice {
   let state: ChatSlice;
@@ -126,6 +127,24 @@ describe('chat-slice', () => {
       slice.clearSession('/a');
       expect(slice.sessionModelsByPath['/a']).toBeUndefined();
       expect(slice.sessionModelsByPath['/b']).toEqual(MODEL);
+    });
+
+    it('通知 streamBufferManager invalidate 对应 session（归属方主动清）', () => {
+      const invalidator = vi.fn();
+      registerStreamBufferInvalidator(invalidator);
+      slice.initSession('/a', [], false);
+      slice.clearSession('/a');
+      expect(invalidator).toHaveBeenCalledWith('/a');
+    });
+
+    it('LRU eviction 时也 invalidate 被淘汰 session 的 streamBuffer', () => {
+      const invalidator = vi.fn();
+      registerStreamBufferInvalidator(invalidator);
+      for (let i = 0; i < 9; i++) {
+        slice.initSession(`/s${i}`, [], false);
+      }
+      // 第 9 次 initSession 会淘汰最老的 /s0（keys.find(k => k !== path)）
+      expect(invalidator).toHaveBeenCalledWith('/s0');
     });
   });
 });

@@ -90,6 +90,17 @@ vi.mock('../../stores/create-keyed-slice', () => ({
   updateKeyed: vi.fn(),
 }));
 
+vi.mock('../../stores/stream-invalidator', () => ({
+  snapshotStreamBuffer: vi.fn(),
+  invalidateStreamBuffer: vi.fn(),
+  registerStreamBufferInvalidator: vi.fn(),
+  registerStreamBufferSnapshot: vi.fn(),
+}));
+
+vi.mock('../../utils/markdown', () => ({
+  renderMarkdown: (s: string) => `<p>${s}</p>`,
+}));
+
 vi.mock('../../services/websocket', () => ({
   getWebSocket: () => null,
 }));
@@ -133,6 +144,11 @@ function installStoreMethods() {
     models[path] = model;
   });
   s.setSessionTodosForPath = vi.fn();
+  s.appendItem = vi.fn((path: string, item: unknown) => {
+    const chat = mockState.chatSessions as Record<string, { items: unknown[] }>;
+    const entry = chat[path];
+    if (entry) entry.items.push(item);
+  });
   s.clearQuotedSelection = vi.fn();
   s.setActivePanel = vi.fn((v: unknown) => { mockState.activePanel = v; });
   s.requestInputFocus = vi.fn();
@@ -146,9 +162,11 @@ function installStoreMethods() {
 import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { loadDeskFiles } from '../../stores/desk-actions';
 import { loadMessages, switchSession } from '../../stores/session-actions';
+import { snapshotStreamBuffer } from '../../stores/stream-invalidator';
 
 const mockFetch = vi.mocked(hanaFetch);
 const mockLoadDeskFiles = vi.mocked(loadDeskFiles);
+const mockSnapshot = vi.mocked(snapshotStreamBuffer);
 
 function jsonResponse(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;
@@ -162,6 +180,8 @@ describe('session-actions', () => {
     installStoreMethods();
     mockFetch.mockReset();
     mockLoadDeskFiles.mockReset();
+    mockSnapshot.mockReset();
+    mockSnapshot.mockReturnValue(null);
     dispatchedEvents.length = 0;
   });
 
@@ -196,6 +216,44 @@ describe('session-actions', () => {
       await loadMessages('/a');
       const initSession = (mockState as unknown as { initSession: ReturnType<typeof vi.fn> }).initSession;
       expect(initSession).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('loadMessages 合并 in-flight snapshot', () => {
+    it('buf 有 in-flight 内容时，initSession 后 append 一条 assistant', async () => {
+      mockSnapshot.mockReturnValue({
+        hasContent: true,
+        text: '正文',
+        thinking: '',
+        mood: 'Vibe: 好',
+        moodYuan: 'hanako',
+        inThinking: false,
+        inMood: false,
+      });
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        messages: [{ text: 'u', role: 'user' }], blocks: [], todos: [], hasMore: false,
+      }));
+      await loadMessages('/a');
+
+      const chat = mockState.chatSessions as Record<string, { items: Array<{ type: string; data: { role?: string; blocks?: Array<{ type: string }> } }> }>;
+      const items = chat['/a'].items;
+      expect(items.length).toBe(2);
+      expect(items[1].type).toBe('message');
+      expect(items[1].data.role).toBe('assistant');
+      const blocks = items[1].data.blocks!;
+      expect(blocks.some(b => b.type === 'mood')).toBe(true);
+      expect(blocks.some(b => b.type === 'text')).toBe(true);
+    });
+
+    it('buf 为空（snapshot=null）时不 append 额外消息', async () => {
+      mockSnapshot.mockReturnValue(null);
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        messages: [{ text: 'u', role: 'user' }], blocks: [], todos: [], hasMore: false,
+      }));
+      await loadMessages('/a');
+
+      const chat = mockState.chatSessions as Record<string, { items: unknown[] }>;
+      expect(chat['/a'].items.length).toBe(1);
     });
   });
 

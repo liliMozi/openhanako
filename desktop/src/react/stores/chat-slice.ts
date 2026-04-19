@@ -4,6 +4,7 @@
 
 import type { ChatListItem, ChatMessage, SessionMessages, SessionModel } from './chat-types';
 import { invalidateSessionCache } from './selectors/file-refs';
+import { invalidateStreamBuffer } from './stream-invalidator';
 
 export interface ChatSlice {
   chatSessions: Record<string, SessionMessages>;
@@ -61,6 +62,7 @@ export const createChatSlice = (
       if (oldest) {
         delete sessions[oldest];
         invalidateSessionCache(oldest);
+        invalidateStreamBuffer(oldest);
       }
     }
     return { chatSessions: sessions };
@@ -183,8 +185,9 @@ export const createChatSlice = (
     delete models[path];
     const versions = { ...s._loadMessagesVersion };
     delete versions[path];
-    // FileRef 缓存绑定 session 生命周期
+    // FileRef 缓存和 streamBuffer 都绑定 session 生命周期，归属方主动清
     invalidateSessionCache(path);
+    invalidateStreamBuffer(path);
     return { chatSessions: sessions, sessionModelsByPath: models, _loadMessagesVersion: versions };
   }),
 

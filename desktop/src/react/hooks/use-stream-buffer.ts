@@ -12,6 +12,11 @@ import type { ChatMessage, ContentBlock } from '../stores/chat-types';
 import { useStore } from '../stores';
 import { renderMarkdown } from '../utils/markdown';
 import { cleanMoodText } from '../utils/message-parser';
+import {
+  registerStreamBufferInvalidator,
+  registerStreamBufferSnapshot,
+  type StreamBufferSnapshot,
+} from '../stores/stream-invalidator';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- 流式消息 handle(msg) 接收动态 JSON */
 
@@ -67,16 +72,22 @@ class StreamBufferManager {
 
   /** 确保 store 中已为该 session 追加了一条空 assistant message */
   private ensureMessage(buf: Buffer): void {
-    if (buf.messageAppended) return;
-    buf.messageAppended = true;
-
     const store = useStore.getState();
     const session = store.chatSessions[buf.sessionPath];
-    if (!session) return; // session 未初始化（可能还没 loadMessages）
+    if (!session) return; // session 未初始化（loadMessages 尚未完成）
+
+    // 自愈：messageAppended=true 不够，还要看 store 里 last item 是不是
+    // assistant。否则 clearSession + loadMessages 把末尾恢复成 user message
+    // 之后，后续 text_delta 的 flush 会写到 user 消息上（历史 bug）。
+    const items = session.items;
+    const last = items[items.length - 1];
+    const lastIsAssistant = last?.type === 'message' && last.data.role === 'assistant';
+    if (buf.messageAppended && lastIsAssistant) return;
 
     const id = `stream-${Date.now()}`;
     const msg: ChatMessage = { id, role: 'assistant', blocks: [] };
     store.appendItem(buf.sessionPath, { type: 'message', data: msg });
+    buf.messageAppended = true;
   }
 
   /** 调度节流 flush */
@@ -339,7 +350,35 @@ class StreamBufferManager {
     }
     this.buffers.clear();
   }
+
+  /**
+   * 取当前 buffer 的快照。供 loadMessages 在 session 重建后合并 in-flight
+   * 内容：jsonl 只在 turn_end 落盘，在 stream 进行中重建 session 时，
+   * 这份快照是避免 UI 上"正在流的消息凭空消失"的唯一来源。
+   */
+  snapshot(sessionPath: string): StreamBufferSnapshot | null {
+    const buf = this.buffers.get(sessionPath);
+    if (!buf) return null;
+    const hasContent = !!(buf.textAcc || buf.thinkingAcc || buf.moodAcc);
+    if (!hasContent) return null;
+    return {
+      hasContent: true,
+      text: buf.textAcc,
+      thinking: buf.thinkingAcc,
+      mood: buf.inMood ? buf.moodAcc : cleanMoodText(buf.moodAcc),
+      moodYuan: buf.moodYuan,
+      inThinking: buf.inThinking,
+      inMood: buf.inMood,
+    };
+  }
 }
 
 /** 全局 singleton */
 export const streamBufferManager = new StreamBufferManager();
+
+// 让 chat-slice / session-actions 通过桥接模块触达 manager，打破循环依赖。
+registerStreamBufferInvalidator((sessionPath) => {
+  if (sessionPath == null) streamBufferManager.clearAll();
+  else streamBufferManager.clear(sessionPath);
+});
+registerStreamBufferSnapshot((sessionPath) => streamBufferManager.snapshot(sessionPath));
