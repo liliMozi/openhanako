@@ -708,6 +708,9 @@ html[data-platform="linux"] .tb-toggle-right {
     color: var(--text-muted);
     margin-top: 1px;
     opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* 归档按钮（session 右上角） */
@@ -1881,6 +1884,14 @@ html[data-platform="linux"] .tb-toggle-right {
     letter-spacing: 0.02em;
 }
 
+.message-timestamp {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    opacity: 0.6;
+    white-space: nowrap;
+    margin-left: 0.2rem;
+}
+
 /* 单条消息 */
 .message {
     max-width: 92%;
@@ -1934,7 +1945,7 @@ html[data-platform="linux"] .tb-toggle-right {
     border-radius: var(--radius-sm) var(--radius-md) var(--radius-md) var(--radius-md);
     color: var(--text);
     font-size: 0.95rem;
-    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .message.bridge-user-msg .user-text p:last-child {
@@ -1956,7 +1967,7 @@ html[data-platform="linux"] .tb-toggle-right {
     border-radius: var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-md);
     color: var(--text);
     font-size: 0.95rem;
-    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .message.bridge-owner-msg .user-text p:last-child {
@@ -2648,6 +2659,76 @@ html[data-platform="linux"] .tb-toggle-right {
     background: var(--coral);
     color: #fff;
     border-color: var(--coral);
+}
+
+/* 企业微信用户昵称映射 */
+.bridge-usermap-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 6px 0;
+    max-height: 160px;
+    overflow-y: auto;
+}
+.bridge-usermap-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: var(--bg-alt, var(--bg));
+    font-size: 0.82rem;
+}
+.bridge-usermap-id {
+    font-family: var(--font-mono);
+    color: var(--fg-dim);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.bridge-usermap-arrow {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+.bridge-usermap-name {
+    color: var(--fg);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.bridge-usermap-remove {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--coral);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.bridge-usermap-remove:hover {
+    background: var(--coral);
+    color: #fff;
+    border-color: var(--coral);
+}
+.bridge-usermap-add-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+.bridge-usermap-input {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.82rem;
+    padding: 5px 8px;
 }
 
 /* 微信 ClawBot 扫码登录 */

@@ -518,10 +518,21 @@ function handleServerMessage(msg: any): void {
           if (msg.message.direction === 'in') {
             // 用户消息（来自外部平台）— 显示飞书用户名而非桌面用户
             let displayText = msg.message.text || '';
-            const pfx = displayText.match(/^\[.+?\]\s*.+?:\s*/);
-            if (pfx) displayText = displayText.slice(pfx[0].length);
-            const senderName = msg.message.sender || '用户';
-            _crBridge().addBridgeUserMessage(displayText, senderName);
+            // 1) 去掉 "[来自 xxx]" 前缀
+            displayText = displayText.replace(/^\[来自\s+[^\]]+\]\s*/, '');
+            // 2) 去掉 "[MM-DD HH:mm]" 时间标签（bridge-manager 添加的）
+            displayText = displayText.replace(/^\[\d{2}-\d{2}\s+\d{2}:\d{2}\]\s*/, '');
+            // 3) 提取用户名前缀（如 "username: "）
+            const pfx = displayText.match(/^(.+?):\s*/);
+            const ts = msg.message.ts ? new Date(msg.message.ts).toISOString() : null;
+            if (pfx) {
+              const senderName = pfx[1];
+              displayText = displayText.slice(pfx[0].length);
+              _crBridge().addBridgeUserMessage(displayText, senderName, ts);
+            } else {
+              const senderName = msg.message.sender || '用户';
+              _crBridge().addBridgeUserMessage(displayText, senderName, ts);
+            }
           } else if (msg.message.direction === 'owner_echo') {
             // 桌面端用户自己的消息回显（已在本地渲染，跳过）
           } else {
@@ -530,7 +541,8 @@ function handleServerMessage(msg: any): void {
               .replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '')
               .replace(/```(?:mood|pulse|reflect)[\s\S]*?```\n*/gi, '')
               .replace(/<(?:mood|pulse|reflect)>[\s\S]*?<\/(?:mood|pulse|reflect)>\s*/g, '');
-            const group = _crBridge().ensureGroup('assistant');
+            const ts = msg.message.ts ? new Date(msg.message.ts).toISOString() : null;
+            const group = _crBridge().ensureGroup('assistant', ts);
             const bubble = document.createElement('div');
             bubble.className = 'message assistant';
             const textEl = document.createElement('div');

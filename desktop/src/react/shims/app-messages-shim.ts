@@ -344,21 +344,36 @@ async function loadBridgeMessages(sessionKey: string): Promise<void> {
   try {
     const res = await hanaFetch(`/api/bridge/sessions/${encodeURIComponent(sessionKey)}/messages`);
     const data = await res.json();
-
+    console.log(data);
     if (data.messages && data.messages.length > 0) {
       for (const msg of data.messages) {
         if (msg.role === 'user') {
-          // 提取前缀中的用户名：[飞书 私聊] 用户名: 消息内容
           let displayText = msg.content;
-          const prefixMatch = displayText.match(/^\[.+?\]\s*(.+?):\s*/);
-          if (prefixMatch) {
-            // 有前缀 → 外部平台用户（飞书/TG 等）
-            const senderName = prefixMatch[1];
-            displayText = displayText.slice(prefixMatch[0].length);
-            _cr().addBridgeUserMessage(displayText, senderName);
+          let senderName = (msg as any).senderName || null;
+          // 如果 API 返回了 senderName，直接从内容中剥离前缀
+          if (senderName) {
+            // 去掉 "[来自 xxx]" 前缀
+            displayText = displayText.replace(/^\[来自\s+[^\]]+\]\s*/, '');
+            // 去掉 "[MM-DD HH:mm]" 时间标签
+            displayText = displayText.replace(/^\[\d{2}-\d{2}\s+\d{2}:\d{2}\]\s*/, '');
+            // 去掉 "username: " 前缀
+            const prefixMatch = displayText.match(/^(.+?):\s*/);
+            if (prefixMatch) {
+              displayText = displayText.slice(prefixMatch[0].length);
+            }
+            _cr().addBridgeUserMessage(displayText, senderName, msg.timestamp);
           } else {
-            // 无前缀 → Owner 消息（桌面端用户发的）
-            _cr().addOwnerBridgeMessage(displayText);
+            // 回退：从内容中解析
+            displayText = displayText.replace(/^\[来自\s+[^\]]+\]\s*/, '');
+            displayText = displayText.replace(/^\[\d{2}-\d{2}\s+\d{2}:\d{2}\]\s*/, '');
+            const prefixMatch = displayText.match(/^(.+?):\s*/);
+            if (prefixMatch) {
+              senderName = prefixMatch[1];
+              displayText = displayText.slice(prefixMatch[0].length);
+              _cr().addBridgeUserMessage(displayText, senderName, msg.timestamp);
+            } else {
+              _cr().addBridgeUserMessage(displayText, '用户', msg.timestamp);
+            }
           }
         } else if (msg.role === 'assistant') {
           // 去掉内部标签
@@ -366,7 +381,7 @@ async function loadBridgeMessages(sessionKey: string): Promise<void> {
             .replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '')
             .replace(/```(?:mood|pulse|reflect)[\s\S]*?```\n*/gi, '')
             .replace(/<(?:mood|pulse|reflect)>[\s\S]*?<\/(?:mood|pulse|reflect)>\s*/g, '');
-          const group = _cr().ensureGroup('assistant');
+          const group = _cr().ensureGroup('assistant', msg.timestamp);
           const bubble = document.createElement('div');
           bubble.className = 'message assistant';
           const textEl = document.createElement('div');

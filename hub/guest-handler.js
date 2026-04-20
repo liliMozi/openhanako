@@ -25,9 +25,10 @@ export class GuestHandler {
    */
   async handle(text, sessionKey, meta, opts = {}) {
     const senderName = meta?.name || "访客";
+    const userId = meta?.userId || null;
     const isGroup = opts.isGroup || false;
 
-    // A: 消息前缀
+    // A: 消息前缀 — 标注发送者身份
     const prefixed = `[来自 ${senderName}] ${text}`;
 
     // B: 上下文标签（注入到 system prompt 末尾）

@@ -260,6 +260,8 @@ const state = new Proxy(_stateLocal, {
 
 // bridge 用：暴露 state Proxy 供 DOM ref 访问（currentAssistantEl 等）
 window.__hanaState = state;
+// 暴露 md 实例给 bridge 消息渲染（app-ws-shim.ts 通过 __hanaState.md 访问）
+state.md = md;
 // 暴露 helper 给 bridge.ts desk shim（late-binding）
 state.clearChat = (...a) => _ag().clearChat(...a);
 

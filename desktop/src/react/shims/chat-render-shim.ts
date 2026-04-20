@@ -31,9 +31,22 @@ interface ToolGroup {
   items: ToolItem[]; collapsed?: boolean; arrowEl?: HTMLElement;
 }
 
+// ── 辅助函数 ──
+
+function formatTimestamp(ts: string | number | null): string {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}-${dd} ${hh}:${mi}`;
+}
+
 // ── 消息组 ──
 
-function ensureGroup(role: string): HTMLElement {
+function ensureGroup(role: string, timestamp?: string | null): HTMLElement {
   const messagesEl = crCtx!.messagesEl;
   if (crState().lastRole === role && (messagesEl.lastElementChild as HTMLElement)?.classList.contains(role)) {
     return messagesEl.lastElementChild as HTMLElement;
@@ -80,6 +93,13 @@ function ensureGroup(role: string): HTMLElement {
     name.className = 'avatar-name';
     name.textContent = (crState().userName as string) || 'User';
     avatarRow.appendChild(name);
+  }
+
+  if (timestamp) {
+    const timeEl = document.createElement('span');
+    timeEl.className = 'message-timestamp';
+    timeEl.textContent = formatTimestamp(timestamp);
+    avatarRow.appendChild(timeEl);
   }
 
   group.appendChild(avatarRow);
@@ -217,7 +237,7 @@ function addUserMessage(text: string, files?: Array<{ isDirectory?: boolean; nam
 
 // ── Bridge 外部平台用户消息（显示外部用户名） ──
 
-function addBridgeUserMessage(text: string, senderName: string): void {
+function addBridgeUserMessage(text: string, senderName: string, timestamp?: string | null): void {
   useStore.getState().setWelcomeVisible(false);
 
   const messagesEl = crCtx!.messagesEl;
@@ -239,6 +259,14 @@ function addBridgeUserMessage(text: string, senderName: string): void {
   name.textContent = senderName || '用户';
   avatarRow.appendChild(name);
 
+  // 时间戳
+  if (timestamp) {
+    const timeEl = document.createElement('span');
+    timeEl.className = 'message-timestamp';
+    timeEl.textContent = formatTimestamp(timestamp);
+    avatarRow.appendChild(timeEl);
+  }
+
   group.appendChild(avatarRow);
   messagesEl.appendChild(group);
   crState().lastRole = 'bridge-user';
@@ -259,7 +287,7 @@ function addBridgeUserMessage(text: string, senderName: string): void {
 
 // ── Bridge Owner 消息（桌面端用户在 bridge 模式下发的消息） ──
 
-function addOwnerBridgeMessage(text: string): void {
+function addOwnerBridgeMessage(text: string, timestamp?: string | null): void {
   useStore.getState().setWelcomeVisible(false);
 
   const messagesEl = crCtx!.messagesEl;
@@ -288,6 +316,14 @@ function addOwnerBridgeMessage(text: string): void {
   name.className = 'avatar-name';
   name.textContent = (crState().userName as string) || 'Owner';
   avatarRow.appendChild(name);
+
+  // 时间戳
+  if (timestamp) {
+    const timeEl = document.createElement('span');
+    timeEl.className = 'message-timestamp';
+    timeEl.textContent = formatTimestamp(timestamp);
+    avatarRow.appendChild(timeEl);
+  }
 
   group.appendChild(avatarRow);
   messagesEl.appendChild(group);

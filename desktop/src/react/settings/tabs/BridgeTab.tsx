@@ -24,6 +24,9 @@ interface InstanceStatus {
   appID?: string;
   // Wechat
   baseUrl?: string;
+  // WeCom
+  botId?: string;
+  secretMasked?: string;
 }
 
 interface BridgeStatus {
@@ -32,10 +35,11 @@ interface BridgeStatus {
   whatsapp: any;
   qq: any;
   wechat: any;
+  workwechat: any;
   instances: Record<string, InstanceStatus>;
   readOnly: boolean;
-  knownUsers: { telegram?: any[]; feishu?: any[]; whatsapp?: any[]; qq?: any[]; wechat?: any[] };
-  owner: { telegram?: string; feishu?: string; whatsapp?: string; qq?: string; wechat?: string };
+  knownUsers: { telegram?: any[]; feishu?: any[]; whatsapp?: any[]; qq?: any[]; wechat?: any[]; workwechat?: any[] };
+  owner: { telegram?: string; feishu?: string; whatsapp?: string; qq?: string; wechat?: string; workwechat?: string };
 }
 
 export function BridgeTab() {
@@ -106,6 +110,8 @@ export function BridgeTab() {
       });
 
       if (data.qq?.appID && !qqAppId) setQqAppId(data.qq.appID);
+      // 初始化企业微信用户映射
+      if (data.workwechat?.userMap) setWcUserMap(data.workwechat.userMap);
     } catch (err) {
       console.error('[bridge] load status failed:', err);
     }
@@ -144,12 +150,12 @@ export function BridgeTab() {
 
   useEffect(() => { loadStatus(); }, []);
 
-  const saveBridgeConfig = async (platform_: string, credentials: any, enabled?: boolean, label?: string, role?: string) => {
+  const saveBridgeConfig = async (platform_: string, credentials: any, enabled?: boolean, label?: string, role?: string, userMap?: Record<string, string>) => {
     try {
       await hanaFetch('/api/bridge/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: platform_, credentials, enabled, label, role }),
+        body: JSON.stringify({ platform: platform_, credentials, enabled, label, role, userMap }),
       });
       showToast(t('settings.saved'), 'success');
       await loadStatus();
@@ -162,12 +168,15 @@ export function BridgeTab() {
     btn.disabled = true;
     btn.textContent = '...';
     try {
+      console.log(`[bridge test] testing ${platform_}...`);
       const res = await hanaFetch('/api/bridge/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform: platform_, credentials }),
       });
+      console.log(`[bridge test] response status: ${res.status}`);
       const data = await res.json();
+      console.log(`[bridge test] response data:`, data);
       if (data.ok) {
         const info = platform_ === 'telegram' ? ` @${data.info?.username || ''}` : '';
         showToast(t('settings.bridge.testOk') + info, 'success');
@@ -175,6 +184,7 @@ export function BridgeTab() {
         showToast(t('settings.bridge.testFail') + ': ' + (data.error || ''), 'error');
       }
     } catch (err: any) {
+      console.error(`[bridge test] error:`, err);
       showToast(t('settings.bridge.testFail') + ': ' + err.message, 'error');
     } finally {
       btn.disabled = false;
@@ -190,6 +200,7 @@ export function BridgeTab() {
         body: JSON.stringify({ platform: platform_, userId: userId || null }),
       });
       showToast(t('settings.bridge.ownerSaved'), 'success');
+      await loadStatus();
     } catch {
       showToast(t('settings.saveFailed'), 'error');
     }
@@ -199,7 +210,15 @@ export function BridgeTab() {
   const waInfo = status?.whatsapp || {};
   const qqInfo = status?.qq || {};
   const wxInfo = status?.wechat || {};
+  const wcInfo = status?.workwechat || {};
   const readOnly = !!status?.readOnly;
+
+  // 企业微信智能机器人凭证
+  const [wcBotId, setWcBotId] = useState('');
+  const [wcSecret, setWcSecret] = useState('');
+  const [wcUserMap, setWcUserMap] = useState<Record<string, string>>({});
+  const [wcNewUserId, setWcNewUserId] = useState('');
+  const [wcNewUserName, setWcNewUserName] = useState('');
 
   // 微信扫码登录状态
   const [wxLoginState, setWxLoginState] = useState<'idle' | 'qr' | 'polling' | 'success' | 'error'>('idle');
@@ -580,6 +599,136 @@ export function BridgeTab() {
           users={status?.knownUsers?.wechat || []}
           currentOwner={status?.owner?.wechat}
           onChange={(userId) => setOwner('wechat', userId)}
+        />
+      </section>
+
+      {/* 企业微信智能机器人 */}
+      <section className="settings-section">
+        <h2 className="settings-section-title">{t('settings.bridge.workwechat') || '企业微信智能机器人'}</h2>
+        <div className="bridge-platform-header">
+          <BridgeStatusDot status={wcInfo.status} />
+          <BridgeStatusText status={wcInfo.status} error={wcInfo.error} />
+          <Toggle
+            on={!!wcInfo.enabled}
+            onChange={async (on) => {
+              const botId = wcBotId || '';
+              const secret = wcSecret || '';
+              const hasSaved = !!wcInfo.secretMasked;
+              if (on && !botId && !secret && !hasSaved) {
+                showToast('请输入 Bot ID 和 Secret', 'error');
+                return;
+              }
+              await saveBridgeConfig('workwechat', (botId && secret) ? { botId, secret } : null, on);
+            }}
+          />
+        </div>
+        <div className="settings-field">
+          <label className="settings-field-label">Bot ID</label>
+          <input
+            className="settings-input"
+            type="text"
+            value={wcBotId}
+            onChange={(e) => setWcBotId(e.target.value)}
+            onBlur={async () => {
+              if (wcBotId.trim() && wcSecret.trim()) {
+                await saveBridgeConfig('workwechat', { botId: wcBotId.trim(), secret: wcSecret.trim() }, undefined);
+              }
+            }}
+          />
+        </div>
+        <div className="settings-field">
+          <label className="settings-field-label">Secret</label>
+          <div className="bridge-input-row">
+            <KeyInput
+              value={wcSecret}
+              onChange={setWcSecret}
+              placeholder={wcInfo.secretMasked || ''}
+              onBlur={async () => {
+                if (wcBotId.trim() && wcSecret.trim()) {
+                  await saveBridgeConfig('workwechat', { botId: wcBotId.trim(), secret: wcSecret.trim() }, undefined);
+                }
+              }}
+            />
+            <button
+              className="bridge-test-btn"
+              onClick={(e) => {
+                if (!wcBotId.trim() || !wcSecret.trim()) { showToast('请输入 Bot ID 和 Secret', 'error'); return; }
+                const btn = e.currentTarget as HTMLButtonElement;
+                console.log('[bridge test] workwechat button clicked, botId=', wcBotId.trim());
+                testPlatform('workwechat', { botId: wcBotId.trim(), secret: wcSecret.trim() }, btn);
+              }}
+            >
+              {t('settings.bridge.test')}
+            </button>
+          </div>
+          <span className="settings-field-hint">{t('settings.bridge.workwechatHint') || '在企业微信管理后台创建智能机器人，获取 Bot ID 和 Secret'}</span>
+        </div>
+        {/* 用户昵称映射 */}
+        <div className="settings-field">
+          <label className="settings-field-label">{t('settings.bridge.userMap') || '用户昵称映射'}</label>
+          <span className="settings-field-hint">{t('settings.bridge.userMapHint') || '配置企业微信用户的 userid 对应的显示昵称'}</span>
+          {/* 已有映射列表 */}
+          {Object.keys(wcUserMap).length > 0 && (
+            <div className="bridge-usermap-list">
+              {Object.entries(wcUserMap).map(([uid, name]) => (
+                <div key={uid} className="bridge-usermap-row">
+                  <span className="bridge-usermap-id">{uid}</span>
+                  <span className="bridge-usermap-arrow">→</span>
+                  <span className="bridge-usermap-name">{name}</span>
+                  <button
+                    className="bridge-usermap-remove"
+                    onClick={async () => {
+                      const next = { ...wcUserMap };
+                      delete next[uid];
+                      setWcUserMap(next);
+                      await saveBridgeConfig('workwechat', null, undefined, undefined, undefined, next);
+                    }}
+                    title="删除"
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* 添加新映射 */}
+          <div className="bridge-usermap-add-row">
+            <input
+              className="settings-input bridge-usermap-input"
+              type="text"
+              placeholder="User ID"
+              value={wcNewUserId}
+              onChange={(e) => setWcNewUserId(e.target.value)}
+            />
+            <input
+              className="settings-input bridge-usermap-input"
+              type="text"
+              placeholder="昵称"
+              value={wcNewUserName}
+              onChange={(e) => setWcNewUserName(e.target.value)}
+            />
+            <button
+              className="bridge-test-btn"
+              onClick={async () => {
+                if (!wcNewUserId.trim() || !wcNewUserName.trim()) {
+                  showToast('请输入 User ID 和昵称', 'error');
+                  return;
+                }
+                const next = { ...wcUserMap, [wcNewUserId.trim()]: wcNewUserName.trim() };
+                setWcUserMap(next);
+                setWcNewUserId('');
+                setWcNewUserName('');
+                await saveBridgeConfig('workwechat', null, undefined, undefined, undefined, next);
+                showToast(t('settings.saved'), 'success');
+              }}
+            >
+              {t('settings.bridge.addUserMap') || '添加'}
+            </button>
+          </div>
+        </div>
+        <OwnerSelect
+          platform_="workwechat"
+          users={status?.knownUsers?.workwechat || []}
+          currentOwner={status?.owner?.workwechat}
+          onChange={(userId) => setOwner('workwechat', userId)}
         />
       </section>
 

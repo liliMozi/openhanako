@@ -236,6 +236,16 @@ export class BridgeSessionManager {
           index[sessionKey] = entry;
         }
         this.writeIndex(index);
+
+        // 如果 meta.userId 存在，给 JSONL 最后一条 user 消息追加 userId 字段
+        // 这样加载历史消息时能正确映射昵称
+        if (meta?.userId) {
+          try {
+            this._appendUserIdToLastMessage(sessionPath, meta.userId);
+          } catch (err) {
+            console.warn(`[bridge-session] append userId to JSONL failed:`, err.message);
+          }
+        }
       }
 
       return capturedText.trim() || null;
@@ -292,6 +302,33 @@ export class BridgeSessionManager {
     } catch (err) {
       console.error(`[bridge-session] injectMessage failed: ${err.message}`);
       return false;
+    }
+  }
+
+  /**
+   * 在 JSONL 文件中给最后一条 user 消息追加 userId 字段。
+   * SessionManager 只写 {role, content, ...}，这里读取最后一行，
+   * 如果是 user 消息就把 userId 写回去。
+   */
+  _appendUserIdToLastMessage(sessionPath, userId) {
+    const raw = fs.readFileSync(sessionPath, "utf-8");
+    const lines = raw.trimEnd().split("\n");
+    if (lines.length === 0) return;
+
+    // 从后往前找最后一条 type === "message" 且 role === "user" 的行
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      let obj;
+      try { obj = JSON.parse(line); } catch { continue; }
+      if (obj.type !== "message") continue;
+      if (obj.message?.role !== "user") continue;
+
+      // 找到最后一条 user 消息，追加 userId
+      obj.message.userId = userId;
+      lines[i] = JSON.stringify(obj);
+      fs.writeFileSync(sessionPath, lines.join("\n") + "\n", "utf-8");
+      return;
     }
   }
 

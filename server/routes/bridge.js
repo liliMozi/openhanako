@@ -6,6 +6,7 @@
 
 import fs from "fs";
 import path from "path";
+import WebSocket from "ws";
 import { debugLog } from "../../lib/debug-log.js";
 import { parseSessionKey, collectKnownUsers, KNOWN_PLATFORMS, isValidInstanceId, getBasePlatform } from "../../lib/bridge/session-key.js";
 
@@ -86,6 +87,20 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
           baseUrl: cfg.baseUrl || "",
           label: cfg.label || null,
         };
+      } else if (base === "workwechat") {
+        const botId = cfg.botId || "";
+        const secret = cfg.secret || "";
+        instances[id] = {
+          basePlatform: base,
+          configured: !!(botId && secret),
+          enabled: !!cfg.enabled,
+          status: liveEntry.status || "disconnected",
+          error: liveEntry.error || null,
+          botId,
+          secretMasked: secret ? mask(secret) : "",
+          label: cfg.label || null,
+          userMap: cfg.userMap || {},
+        };
       }
     }
 
@@ -94,12 +109,14 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     const fsDef = instances["feishu"] || {};
     const qqDef = instances["qq"] || {};
     const wxDef = instances["wechat"] || {};
+    const wcDef = instances["workwechat"] || {};
 
     return {
       telegram: tgDef,
       feishu: fsDef,
       qq: qqDef,
       wechat: wxDef,
+      workwechat: wcDef,
       instances,
       readOnly: !!bridge.readOnly,
       knownUsers: collectKnownUsers(engine.getBridgeIndex()),
@@ -156,6 +173,11 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
     // 更新角色（"ai" = Hanako AI 自动回复, "owner" = 桌面端 Owner 转发通道）
     if (typeof req.body?.role === "string" && ["ai", "owner"].includes(req.body.role)) {
       prefs.bridge[platform].role = req.body.role;
+    }
+
+    // 更新用户昵称映射（企业微信等）
+    if (typeof req.body?.userMap === "object" && req.body.userMap !== null) {
+      prefs.bridge[platform].userMap = req.body.userMap;
     }
 
     engine.savePreferences(prefs);
@@ -294,6 +316,11 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
       return { error: "invalid session path", messages: [] };
     }
 
+    // 获取 userMap（用于 senderName 映射）
+    const prefs = engine.getPreferences();
+    const { platform: rawPlatform } = parseSessionKey(sessionKey);
+    const userMap = prefs.bridge?.[rawPlatform]?.userMap || {};
+
     try {
       const raw = fs.readFileSync(fp, "utf-8");
       const lines = raw.trim().split("\n").map(l => {
@@ -311,7 +338,22 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
           : (typeof msg.content === "string" ? msg.content : "");
 
         if (!content) continue;
-        messages.push({ role: msg.role, content });
+
+        // 从 JSONL 的 userId 字段 + userMap 提取 senderName
+        const msgUserId = msg.userId || null;
+        let senderName = null;
+        if (msgUserId) {
+          senderName = userMap[msgUserId] || null;
+        }
+        // 回退：没有 userId/userMap 时，从内容前缀解析
+        if (!senderName) {
+          const laiPrefix = content.match(/^\[来自\s+([^\]]+)\]\s*/);
+          if (laiPrefix) {
+            senderName = laiPrefix[1];
+          }
+        }
+
+        messages.push({ role: msg.role, content, senderName, timestamp: line.timestamp || null, userId: msgUserId });
       }
 
       return { messages };
@@ -433,6 +475,71 @@ export default async function bridgeRoute(app, { engine, bridgeManager }) {
           return { ok: true, info: { username: me.username, name: me.username } };
         }
         return { ok: false, error: me.message || "获取机器人信息失败" };
+      } else if (basePlatform === "workwechat") {
+        if (!credentials.botId || !credentials.secret) {
+          return { ok: false, error: "botId 和 secret 不能为空" };
+        }
+        console.log(`[bridge test] workwechat testing botId=${credentials.botId}`);
+        try {
+          const result = await new Promise((resolve) => {
+            const reqId = `test_${Date.now()}`;
+            const ws = new WebSocket("wss://openws.work.weixin.qq.com", [], { handshakeTimeout: 10_000 });
+            let resolved = false;
+            const done = (val) => {
+              if (resolved) return;
+              resolved = true;
+              clearTimeout(timer);
+              try { ws.terminate(); } catch {}
+              console.log(`[bridge test] workwechat resolved:`, val);
+              resolve(val);
+            };
+            const timer = setTimeout(() => {
+              console.log(`[bridge test] workwechat timeout after 10s`);
+              done({ ok: false, error: "连接超时（10s）" });
+            }, 10_000);
+
+            ws.on("open", () => {
+              console.log(`[bridge test] workwechat WS open, sending subscribe...`);
+              const frame = JSON.stringify({
+                cmd: "aibot_subscribe",
+                headers: { req_id: reqId },
+                body: { bot_id: credentials.botId, secret: credentials.secret },
+              });
+              console.log(`[bridge test] workwechat sending frame: ${frame.slice(0, 120)}...`);
+              ws.send(frame);
+            });
+
+            ws.on("message", (data) => {
+              try {
+                const msg = JSON.parse(data.toString());
+                console.log(`[bridge test] workwechat received:`, data.toString().slice(0, 120));
+                if (msg?.headers?.req_id === reqId) {
+                  if (msg.errcode === 0) {
+                    done({ ok: true, info: { msg: "订阅成功" } });
+                  } else {
+                    done({ ok: false, error: `errcode=${msg.errcode} ${msg.errmsg || ""}` });
+                  }
+                }
+              } catch (err) {
+                console.error(`[bridge test] workwechat parse error:`, err.message);
+                done({ ok: false, error: `解析响应失败: ${err.message}` });
+              }
+            });
+
+            ws.on("error", (err) => {
+              console.error(`[bridge test] workwechat WS error:`, err.message);
+              done({ ok: false, error: err.message });
+            });
+            ws.on("close", (code, reason) => {
+              console.log(`[bridge test] workwechat WS closed: code=${code} reason=${reason || ""}`);
+              if (!resolved) done({ ok: false, error: `连接关闭 code=${code}` });
+            });
+          });
+          return result;
+        } catch (err) {
+          console.error(`[bridge test] workwechat error:`, err.message);
+          return { ok: false, error: err.message };
+        }
       }
       return { ok: false, error: "该平台暂不支持测试" };
     } catch (err) {
