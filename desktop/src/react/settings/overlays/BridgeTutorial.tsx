@@ -33,7 +33,7 @@ export function BridgeTutorial() {
             <h4 className="bridge-tutorial-section-title">Telegram</h4>
             <ol className="bridge-tutorial-steps">
               {Array.isArray(tgSteps) && tgSteps.map((step, i) => (
-                <li key={i} dangerouslySetInnerHTML={{ __html: step }} />
+                <li key={`tg-step-${i}`} dangerouslySetInnerHTML={{ __html: step }} />
               ))}
             </ol>
           </section>
@@ -41,7 +41,7 @@ export function BridgeTutorial() {
             <h4 className="bridge-tutorial-section-title">{t('settings.bridge.feishu')}</h4>
             <ol className="bridge-tutorial-steps">
               {Array.isArray(fsSteps) && fsSteps.map((step, i) => (
-                <li key={i} dangerouslySetInnerHTML={{ __html: step }} />
+                <li key={`fs-step-${i}`} dangerouslySetInnerHTML={{ __html: step }} />
               ))}
             </ol>
           </section>

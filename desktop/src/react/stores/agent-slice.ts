@@ -1,4 +1,4 @@
-import type { Agent, SessionAgent } from '../types';
+import type { Agent } from '../types';
 
 export interface AgentSlice {
   agentName: string;
@@ -10,7 +10,6 @@ export interface AgentSlice {
   currentAgentId: string | null;
   selectedAgentId: string | null;
   settingsAgentId: string | null;
-  sessionAgent: SessionAgent | null;
   setAgentName: (name: string) => void;
   setUserName: (name: string) => void;
   setAgentAvatarUrl: (url: string | null) => void;
@@ -20,7 +19,6 @@ export interface AgentSlice {
   setCurrentAgentId: (id: string | null) => void;
   setSelectedAgentId: (id: string | null) => void;
   setSettingsAgentId: (id: string | null) => void;
-  setSessionAgent: (agent: SessionAgent | null) => void;
 }
 
 export const createAgentSlice = (
@@ -35,7 +33,6 @@ export const createAgentSlice = (
   currentAgentId: null,
   selectedAgentId: null,
   settingsAgentId: null,
-  sessionAgent: null,
   setAgentName: (name) => set({ agentName: name }),
   setUserName: (name) => set({ userName: name }),
   setAgentAvatarUrl: (url) => set({ agentAvatarUrl: url }),
@@ -45,5 +42,4 @@ export const createAgentSlice = (
   setCurrentAgentId: (id) => set({ currentAgentId: id }),
   setSelectedAgentId: (id) => set({ selectedAgentId: id }),
   setSettingsAgentId: (id) => set({ settingsAgentId: id }),
-  setSessionAgent: (agent) => set({ sessionAgent: agent }),
 });

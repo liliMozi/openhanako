@@ -20,7 +20,7 @@ const i18n = {
   /** Per-agent 局部覆盖（同 locale JSON 结构的子集） */
   _agentOverrides: {},
 
-  /** 当前 locale（"zh" / "en"） */
+  /** 当前 locale（"zh" / "zh-TW" / "ja" / "ko" / "en"） */
   locale: "zh",
 
   /** 默认 agent 名（占位符 {name} 的 fallback） */
@@ -28,18 +28,36 @@ const i18n = {
 
   /**
    * 加载语言包
-   * @param {string} locale  "zh" / "en"
+   * @param {string} locale  "zh-CN" / "zh-TW" / "ja" / "ko" / "en" 等
    */
   async load(locale) {
-    const key = locale?.startsWith("en") ? "en" : "zh";
+    const key = this._resolveKey(locale);
     this.locale = key;
     try {
       const res = await fetch(`./locales/${key}.json`);
+      if (!res.ok) throw new Error(res.statusText);
       this._data = await res.json();
     } catch (err) {
       console.error(`[i18n] Failed to load locale "${key}":`, err);
-      this._data = {};
+      if (key !== "en") {
+        try {
+          const fb = await fetch("./locales/en.json");
+          this._data = await fb.json();
+        } catch { this._data = {}; }
+      } else {
+        this._data = {};
+      }
     }
+  },
+
+  /** locale 字符串 → JSON 文件名 key */
+  _resolveKey(locale) {
+    if (!locale) return "zh";
+    if (locale === "zh-TW" || locale === "zh-Hant") return "zh-TW";
+    if (locale.startsWith("zh")) return "zh";
+    if (locale.startsWith("ja")) return "ja";
+    if (locale.startsWith("ko")) return "ko";
+    return "en";
   },
 
   /**

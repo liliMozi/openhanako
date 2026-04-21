@@ -21,26 +21,24 @@ vi.mock("../lib/memory/config-loader.js", () => ({
   }),
 }));
 
+// mock callText（现在 triage 走 Pi SDK，不再直接 fetch）
+let callTextSpy;
+vi.mock("../core/llm-client.js", () => ({
+  callText: vi.fn(async () => "NO"),
+}));
+
 describe("ChannelRouter._executeCheck personality 来源", () => {
   it("当 engine.agents 有该 agent 实例时，使用内存中的 personality 而不读磁盘", async () => {
-    const readFileSyncCalls = [];
+    const { callText } = await import("../core/llm-client.js");
+    callTextSpy = callText;
+    callTextSpy.mockResolvedValue("NO");
 
-    // 构造 mock agent 实例（内存中已有）
     const mockAgent = {
       config: { agent: { name: "Hana", yuan: "hanako" } },
       personality: "我是 Hana，一个温柔的助手。这是内存中的 personality。",
     };
 
     const mockAgentsMap = new Map([["hana", mockAgent]]);
-
-    // triage 返回 NO（我们只验证 personality 来源，不需要真正回复）
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: "NO" } }],
-      }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
 
     const router = new ChannelRouter({
       hub: {
@@ -64,7 +62,6 @@ describe("ChannelRouter._executeCheck personality 来源", () => {
       },
     });
 
-    // 捕获 triage 系统提示中的 personality 内容
     const result = await router._executeCheck(
       "hana",
       "general",
@@ -72,32 +69,20 @@ describe("ChannelRouter._executeCheck personality 来源", () => {
       [],
     );
 
-    expect(result.replied).toBe(false); // triage 返回 NO
+    expect(result.replied).toBe(false);
 
-    // 验证 fetch 被调用（triage 请求），且 system 消息包含内存中的 personality
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    const systemContent = body.messages[0].content;
-    expect(systemContent).toContain("我是 Hana，一个温柔的助手。这是内存中的 personality。");
-
-    vi.unstubAllGlobals();
+    // 验证 callText 被调用，且 systemPrompt 包含内存中的 personality
+    expect(callTextSpy).toHaveBeenCalledTimes(1);
+    const callArgs = callTextSpy.mock.calls[0][0];
+    expect(callArgs.systemPrompt).toContain("我是 Hana，一个温柔的助手。这是内存中的 personality。");
   });
 
   it("当 engine.agents 为 undefined 时 fallback 到磁盘读取", async () => {
-    // 这个测试验证 fallback 路径仍然工作
-    // engine.agents 返回 undefined → agentInstance 为 undefined → 走 readFile fallback
+    const { callText } = await import("../core/llm-client.js");
+    callText.mockResolvedValue("NO");
+
     const { loadConfig } = await import("../lib/memory/config-loader.js");
-
-    // 解除 loadConfig 的 throw mock，让它返回正常 config
     loadConfig.mockReturnValueOnce({ agent: { name: "TestAgent", yuan: "hanako" } });
-
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: "NO" } }],
-      }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
 
     const router = new ChannelRouter({
       hub: {
@@ -106,7 +91,7 @@ describe("ChannelRouter._executeCheck personality 来源", () => {
           channelsDir: "/fake/channels",
           productDir: "/fake/product",
           userDir: "/fake/user",
-          agents: undefined, // 没有 agents getter
+          agents: undefined,
           resolveUtilityConfig: () => ({
             utility: "test-model",
             utility_large: "test-model-large",
@@ -122,7 +107,6 @@ describe("ChannelRouter._executeCheck personality 来源", () => {
       },
     });
 
-    // _executeCheck 会走 readFile fallback，文件读取会失败但不会 crash
     const result = await router._executeCheck(
       "hana",
       "general",
@@ -130,11 +114,7 @@ describe("ChannelRouter._executeCheck personality 来源", () => {
       [],
     );
 
-    // 应该正常完成（triage NO → replied false）
     expect(result.replied).toBe(false);
-    // loadConfig 被调用了（fallback 路径）
     expect(loadConfig).toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
   });
 });

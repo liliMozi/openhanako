@@ -3,27 +3,44 @@
  */
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fromRoot } from "../shared/hana-root.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const localesDir = path.join(__dirname, "..", "desktop", "src", "locales");
+const localesDir = fromRoot("desktop", "src", "locales");
 
 let data = {};
 let currentLocale = "zh";
 
 /**
+ * locale 字符串 → JSON 文件名 key
+ */
+function resolveKey(locale) {
+  if (!locale) return "zh";
+  if (locale === "zh-TW" || locale === "zh-Hant") return "zh-TW";
+  if (locale.startsWith("zh")) return "zh";
+  if (locale.startsWith("ja")) return "ja";
+  if (locale.startsWith("ko")) return "ko";
+  return "en";
+}
+
+/**
  * 加载语言包
- * @param {string} locale  config.yaml 里的 locale 值，如 "zh-CN" / "en"
+ * @param {string} locale  config.yaml 里的 locale 值，如 "zh-CN" / "zh-TW" / "ja" / "ko" / "en"
  */
 export function loadLocale(locale) {
-  const key = locale?.startsWith("en") ? "en" : "zh";
+  const key = resolveKey(locale);
   currentLocale = key;
   try {
     const file = path.join(localesDir, `${key}.json`);
     data = JSON.parse(fs.readFileSync(file, "utf-8"));
   } catch (err) {
     console.error(`[i18n] Failed to load locale "${key}":`, err.message);
-    data = {};
+    if (key !== "en") {
+      try {
+        data = JSON.parse(fs.readFileSync(path.join(localesDir, "en.json"), "utf-8"));
+      } catch { data = {}; }
+    } else {
+      data = {};
+    }
   }
 }
 

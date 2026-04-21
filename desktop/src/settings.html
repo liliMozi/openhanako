@@ -4,17 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; img-src 'self' data: file: http://127.0.0.1:* https://liteapp.weixin.qq.com; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self';">
+          content="default-src 'self'; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; img-src 'self' data: file: http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:;">
     <title>Settings</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="themes/warm-paper.css" id="themeSheet">
     <style>
         /* 窗口级覆盖：settings-panel 填满整个窗口 */
         body {
-            background: var(--bg);
-            background-image: var(--bg-texture, none);
-            background-repeat: repeat;
-            background-size: 400px;
+            background-color: var(--bg);
             overflow: hidden;
         }
         .settings-panel {
@@ -30,7 +27,7 @@
         }
         .settings-header {
             -webkit-app-region: drag;
-            padding: 44px 0 var(--space-md, 12px) 20px;
+            padding: 36px 0 var(--space-md, 12px) 20px;
         }
         .settings-header button,
         .settings-header input,
@@ -42,30 +39,37 @@
         .settings-back-btn { display: none; }
         /* Windows/Linux：透明标题栏覆盖层，只为承载 window controls 注入点 */
         .titlebar-minimal {
-            background: transparent;
+            background: transparent !important;
+            background-image: none !important;
             border-bottom: none;
+            z-index: 100;
         }
-        /* Windows/Linux：无红绿灯，不需要大 padding-top；
-           取消 header drag，改由 titlebar-minimal 承担拖拽 */
+        /* Windows/Linux：settings-panel 顶部让出 titlebar 高度，避免 drag 区域冲突 */
+        html[data-platform="win32"] .settings-panel,
+        html[data-platform="linux"] .settings-panel {
+            top: 38px;
+        }
         html[data-platform="win32"] .settings-header,
         html[data-platform="linux"] .settings-header {
-            -webkit-app-region: no-drag;
             padding-top: 10px;
         }
         html[data-platform="win32"] .titlebar-minimal,
         html[data-platform="linux"] .titlebar-minimal {
             pointer-events: auto;
+            height: 38px;
         }
         /* 加载蒙版 */
         .settings-loading-mask {
             position: fixed;
             inset: 0;
             z-index: 9999;
-            background: var(--bg);
-            background-image: var(--bg-texture, none);
-            background-repeat: repeat;
-            background-size: 400px;
+            background-color: var(--bg);
             transition: opacity 0.25s ease;
+        }
+        body:not(.no-paper-texture) .settings-loading-mask {
+            background-image: url(./assets/textures/rice-paper.png);
+            background-repeat: repeat;
+            background-size: 160px;
         }
         .settings-loading-mask.fade-out {
             opacity: 0;
@@ -74,11 +78,10 @@
     </style>
 </head>
 <body>
-    <!-- Windows/Linux 自绘窗口控制按钮注入点（platform.js initPlatform 查找 .titlebar 并注入） -->
-    <div class="titlebar titlebar-minimal"></div>
     <div id="react-root"></div>
+    <!-- Windows/Linux 自绘窗口控制按钮注入点：必须在 react-root 之后，否则被 React 渲染层遮蔽 -->
+    <div class="titlebar titlebar-minimal"></div>
 
-    <script src="lib/markdown-it.min.js"></script>
     <script src="lib/i18n.js"></script>
     <script src="lib/theme.js"></script>
     <script src="modules/platform.js"></script>

@@ -1,0 +1,81 @@
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+}
+
+.overlay.visible {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  max-width: 340px;
+  width: 90%;
+  position: relative;
+  text-align: center;
+}
+
+.closeBtn {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.closeBtn:hover {
+  opacity: 1;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--space-md);
+}
+
+.qrcodeContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  margin-bottom: var(--space-md);
+}
+
+.qrcodeImg {
+  max-width: 220px;
+  max-height: 220px;
+  image-rendering: pixelated;
+}
+
+.statusText {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-height: 20px;
+}
+
+.statusText.success {
+  color: var(--color-ok, #5a9a6a);
+}
+
+.statusText.error {
+  color: var(--color-err, #c44);
+}
+
+.loading {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}

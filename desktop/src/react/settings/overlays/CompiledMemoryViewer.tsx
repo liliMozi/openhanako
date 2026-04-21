@@ -3,6 +3,7 @@ import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
 import { t } from '../helpers';
 import { renderMarkdown } from '../../utils/markdown';
+import styles from '../Settings.module.css';
 
 export function CompiledMemoryViewer() {
   const [visible, setVisible] = useState(false);
@@ -45,22 +46,22 @@ export function CompiledMemoryViewer() {
   if (!visible) return null;
 
   return (
-    <div className="memory-viewer-overlay visible" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-      <div className="memory-viewer">
-        <div className="memory-viewer-header">
-          <h3 className="memory-viewer-title">{t('settings.memory.compiled')}</h3>
-          <div className="memory-viewer-header-actions">
-            <button className="compiled-clear-btn" onClick={clearCompiled}>
+    <div className={`${styles['memory-viewer-overlay']} ${styles['visible']}`} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div className={styles['memory-viewer']}>
+        <div className={styles['memory-viewer-header']}>
+          <h3 className={styles['memory-viewer-title']}>{t('settings.memory.compiled')}</h3>
+          <div className={styles['memory-viewer-header-actions']}>
+            <button className={styles['compiled-clear-btn']} onClick={clearCompiled}>
               {t('settings.memory.compiledClear')}
             </button>
-            <button className="memory-viewer-close" onClick={close}>✕</button>
+            <button className={styles['memory-viewer-close']} onClick={close}>✕</button>
           </div>
         </div>
-        <div className="memory-viewer-body compiled-memory-body">
+        <div className={`${styles['memory-viewer-body']} ${styles['compiled-memory-body']}`}>
           {loading ? (
             <div className="memory-viewer-empty">Loading...</div>
           ) : content.trim() ? (
-            <div className="compiled-memory-md md-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
+            <div className={`${styles['compiled-memory-md']} ${'md-content'}`} dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
           ) : (
             <div className="memory-viewer-empty">{t('settings.memory.compiledEmpty')}</div>
           )}

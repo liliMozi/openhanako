@@ -8,6 +8,10 @@ user/
 # 文档 / 参考文件
 # ═══════════════════════════════════════════
 .docs/
+CLAUDE.md
+AGENTS.md
+docs/superpowers/
+.superpowers/
 archived/
 devlog/
 handoff-*.md
@@ -16,6 +20,11 @@ handoff-*.md
 # 构建产物
 # ═══════════════════════════════════════════
 dist/
+dist-server/
+dist-server-bundle/
+desktop/main.bundle.cjs
+desktop/preload.bundle.cjs
+.cache/
 desktop/dist-renderer/
 vendor/
 inbox/
@@ -59,3 +68,6 @@ logs/
 
 # Codex reviews
 reviews/
+
+# Codex environments
+.codex/

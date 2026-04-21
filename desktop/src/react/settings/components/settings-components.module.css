@@ -1,0 +1,290 @@
+/* ═══════════════════════════════════════════
+ * 设置页共享结构组件样式
+ * 对应 SETTINGS-SPEC.md v2
+ * 该 CSS module 独立于 Settings.module.css
+ * 旧 class（.tool-caps-* 等）在 Phase 16 统一清理
+ * ═══════════════════════════════════════════ */
+
+/* ─── Section ─── */
+
+.section {
+    margin-bottom: var(--space-xl);
+}
+
+.section:last-child {
+    margin-bottom: 0;
+}
+
+.sectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.sectionTitle {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    margin: 0;
+    /* SPEC §4.1：左对齐，不画装饰线。整体 margin-bottom 由 sectionHeader 承担 */
+}
+
+.sectionContext {
+    flex-shrink: 0;
+    /* context 容器（如 AgentSelect）：让内部控件自控宽度 */
+}
+
+/* context 里的组件不应自带外部 margin（会让 align-items: center 基于错误的 margin-box 计算中心）
+ * margin 是父布局的职责，原子组件保持"无外框距" */
+.sectionContext > * {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.sectionBody {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border: var(--border-width, 1px) solid var(--border);
+    border-radius: var(--radius-card, 10px);
+    /* 左右 padding 移到 row/warning 自己上，让分隔线能贴卡片 border */
+}
+
+.sectionFooter {
+    display: flex;
+    justify-content: flex-end;
+    /* 和 row 一样的 padding 节奏；border-top 作为和上一个 row 的分隔线 */
+    padding: var(--space-sm) var(--space-md);
+    border-top: var(--border-width, 1px) solid var(--border);
+}
+
+/* Hero variant：用于 AboutTab */
+.sectionHero {
+    padding: var(--space-xl) var(--space-md);
+    text-align: center;
+}
+
+/* Variant 覆盖：hero / double-column / flush 不加卡片背景 */
+.sectionHero .sectionBody,
+.sectionDoubleColumn .sectionBody,
+.sectionFlush .sectionBody {
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.sectionHero .sectionBody {
+    align-items: center;
+}
+
+/* Double-column variant：用于 ProvidersTab / MediaTab */
+.sectionDoubleColumn {
+    /* pv-layout 内部保留原样式，这里只做外壳 */
+}
+
+/* Flush variant：内部已自带视觉容器（如 theme-options、input/textarea），不需要外层卡片 */
+.sectionFlush {
+    /* body 不加卡片 */
+}
+
+/* flush 下 row 不做左右 inset（无卡片容器需要内缩），也不画 row + row divider
+ * （字段本身就是独立视觉元素，靠自身的 border/bg 分隔，不需要水平线） */
+.sectionFlush .row {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.sectionFlush .row + .row::before {
+    display: none;
+}
+
+/* Section 内的警告块（sandbox 关闭时显示等）
+ * 位置：卡片内，row 之后，和 row 之间用贴边的伪元素分隔线 */
+.sectionWarning {
+    padding: var(--space-sm) var(--space-md);
+    color: var(--danger, #b56b66);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    position: relative;
+}
+
+/* ─── SubBlock ─── */
+
+.subBlock {
+    margin-bottom: var(--space-md);
+}
+
+.subBlock:last-child {
+    margin-bottom: 0;
+}
+
+.subBlockTitle {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-light);
+    margin: 0 0 var(--space-sm) 0;
+}
+
+/* ─── Row ─── */
+
+.row {
+    padding: var(--space-sm) var(--space-md);
+    position: relative;
+}
+
+/* 内部分隔线：row/warning 之间的线，贴卡片左右 border（到底，不留白）
+ * row 自己承担左右 padding，伪元素从 row edge 到 edge = 卡片内宽全宽 */
+.row + .row::before,
+.row + .sectionWarning::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--border-width, 1px);
+    background: var(--border);
+}
+
+/* stacked row 本身自带足够高度（label + hint + control），无需和邻居再画分隔线
+ * divider 只用于 inline row 之间（行高扁，需要线分区） */
+.row.rowStacked + .row::before,
+.row + .row.rowStacked::before {
+    display: none;
+}
+
+.rowInline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.rowStacked {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.rowText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.rowLabel {
+    font-size: 0.9rem;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.rowHint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.rowHintWarn {
+    color: var(--danger, #b56b66);
+}
+
+.rowControl {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.rowStacked .rowControl {
+    width: 100%;
+    display: block;
+}
+
+/* ─── ExpandableRow ─── */
+
+.expandable {
+    margin-top: var(--space-sm);
+}
+
+.expandableHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    background: none;
+    border: none;
+    padding: var(--space-sm) 0;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: color 0.15s;
+    width: 100%;
+    text-align: left;
+}
+
+.expandableHeader:hover {
+    color: var(--text);
+}
+
+.expandableChevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+.expandableChevron[data-expanded="true"] {
+    transform: rotate(90deg);
+}
+
+.expandableCount {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.expandableBody {
+    padding: var(--space-sm) 0 var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+/* ─── NumberInput（SPEC §3.6 Number-Unit Row 用）─── */
+
+.numberInput {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.numberInputField {
+    width: 64px;
+    padding: 4px 8px;
+    border: var(--border-width, 1px) solid var(--border);
+    border-radius: var(--radius-input, 4px);
+    background: var(--bg-card);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    text-align: right;
+    transition: border-color var(--duration) var(--ease-out);
+}
+
+.numberInputField:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.numberInputField:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.numberInputUnit {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}

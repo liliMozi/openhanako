@@ -6,12 +6,6 @@
 
 import type { PlatformApi } from './react/types';
 
-interface MarkdownItInstance {
-  render(src: string): string;
-  core: { ruler: { after: (name: string, ruleName: string, fn: (state: unknown) => void) => void } };
-  renderer: { rules: Record<string, unknown> };
-}
-
 declare global {
   interface Window {
     // ── i18n ──
@@ -21,28 +15,15 @@ declare global {
     platform: PlatformApi;
     hana: PlatformApi;
 
-    // ── Vanilla ↔ React 桥接 ──
-    // __hanaActivateProxy / __hanaGetState 在 bridge.ts 中声明（需要 StoreState 类型）
-    __hanaState: Record<string, unknown> & {
-      ws?: { send(data: string): void; readyState?: number };
-    };
-    __hanaInit: (() => Promise<void>) | undefined;
+    // ── 日志上报 ──
     __hanaLog: (level: string, module: string, message: string) => void;
-    __REACT_MANAGED: boolean;
 
-    // ── HanaModules（shim 层注入） ──
-    HanaModules: Record<string, Record<string, (...args: any[]) => any>>;
+    // ── 主题 ──
+    applyTheme?: (theme: string) => void;
 
-    // ── Bridge callbacks ──
-    __hanaBridgeLoadStatus?: () => void;
-    __hanaBridgeOnMessage?: (msg: {
-      sessionKey: string;
-      direction: string;
-      text: string;
-    }) => void;
-
-    // ── Markdown 渲染器 ──
-    markdownit: (opts: Record<string, boolean>) => MarkdownItInstance;
+    // ── Notification bridge ──
+    showNotification?: (title: string, body: string) => void;
+    updateBrowserViewer?: (data: { url: string; thumbnail?: string }) => void;
 
     // ── i18n loader ──
     i18n: {
@@ -56,10 +37,12 @@ declare global {
     };
   }
 
-  // theme helpers（app.js 顶层）
+  // theme helpers（theme.js 全局函数）
   function loadSavedTheme(): void;
   function loadSavedFont(): void;
   function setTheme(theme: string): void;
+  function setSerifFont(enabled: boolean): void;
+  function setPaperTexture(enabled: boolean): void;
 }
 
 export {};

@@ -1,140 +1,150 @@
 /**
  * 模型管理 REST 路由
  */
-import { supportsXhigh } from "@mariozechner/pi-ai";
+import { Hono } from "hono";
+import { safeJson } from "../hono-helpers.js";
 import { t } from "../i18n.js";
-import { createRequire } from "module";
-const _require = createRequire(import.meta.url);
-const _knownModels = _require("../../lib/known-models.json");
+import { modelRefEquals } from "../../shared/model-ref.js";
+import { lookupKnown } from "../../shared/known-models.js";
 
 /** 查询模型显示名：overrides > SDK name > known-models > id */
-function resolveModelName(id, sdkName, overrides) {
+function resolveModelName(id, sdkName, overrides, provider) {
   if (overrides?.[id]?.displayName) return overrides[id].displayName;
   if (sdkName && sdkName !== id) return sdkName;
-  if (_knownModels[id]?.name) return _knownModels[id].name;
+  const known = lookupKnown(provider, id);
+  if (known?.name) return known.name;
   return sdkName || id;
 }
 
-export default async function modelsRoute(app, { engine }) {
+export function createModelsRoute(engine) {
+  const route = new Hono();
 
   // 列出可用模型
-  app.get("/api/models", async (req, reply) => {
+  route.get("/models", async (c) => {
     try {
       const overrides = engine.config?.models?.overrides;
+      const cur = engine.currentModel;
+      const activeModel = engine.activeSessionModel;
       const models = engine.availableModels.map(m => ({
         id: m.id,
-        name: resolveModelName(m.id, m.name, overrides),
+        name: resolveModelName(m.id, m.name, overrides, m.provider),
         provider: m.provider,
-        isCurrent: m.id === engine.currentModel?.id,
+        isCurrent: modelRefEquals(m, cur),
+        vision: m.vision,
+        reasoning: m.reasoning,
+        contextWindow: m.contextWindow,
+        maxTokens: m.maxTokens,
       }));
-      return { models, current: engine.currentModel?.id || null };
+      return c.json({
+        models,
+        current: cur?.id || null,
+        activeModel: activeModel ? { id: activeModel.id, provider: activeModel.provider } : null,
+      });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
 
-  // 收藏模型列表（给聊天页面用，直接读 favorites，和设置页同源）
-  app.get("/api/models/favorites", async (req, reply) => {
+  // 健康检测：向 completion 端点发最小请求，验证模型存在且凭证有效。
+  // 契约：body 必须同时传 modelId 和 provider（复合键），无按 id 兜底。
+  route.post("/models/health", async (c) => {
     try {
-      const favorites = engine.readFavorites();
-      const available = engine.availableModels;
+      const body = await safeJson(c);
+      const modelId = body.modelId;
+      const provider = body.provider;
+      if (!modelId) return c.json({ error: "modelId required" }, 400);
+      if (!provider) return c.json({ error: "provider required" }, 400);
 
-      const overrides = engine.config?.models?.overrides;
-      const result = favorites.map(id => {
-        const m = available.find(am => am.id === id);
-        return {
-          id,
-          name: resolveModelName(id, m?.name, overrides),
-          provider: m?.provider || "",
-          isCurrent: id === engine.currentModel?.id,
-          reasoning: m ? !!m.reasoning : false,
-          xhigh: m ? supportsXhigh(m) : false,
-        };
+      // 统一凭证解析（找模型 + 拿凭证一步到位）
+      const resolved = engine.resolveModelWithCredentials({ id: modelId, provider });
+
+      // Codex Responses API 无法简单探测
+      if (resolved.api === "openai-codex-responses") {
+        return c.json({ ok: true, status: 0, provider: resolved.provider, skipped: t("error.codexNoHealthCheck") });
+      }
+
+      // 向 completion 端点发最小请求（max_tokens=2 避免部分 provider 空响应）
+      // 只检查 HTTP 状态码，不要求返回有意义的文本
+      const { buildProviderAuthHeaders } = await import("../../lib/llm/provider-client.js");
+      const base = resolved.base_url.replace(/\/+$/, "");
+      let endpoint, headers, reqBody;
+
+      if (resolved.api === "anthropic-messages") {
+        endpoint = `${base}/v1/messages`;
+        headers = { "Content-Type": "application/json", "anthropic-version": "2023-06-01" };
+        if (resolved.api_key) headers["x-api-key"] = resolved.api_key;
+        reqBody = { model: resolved.model, max_tokens: 2, messages: [{ role: "user", content: "." }] };
+      } else {
+        endpoint = `${base}/chat/completions`;
+        headers = buildProviderAuthHeaders(resolved.api, resolved.api_key, { allowMissingApiKey: true });
+        reqBody = { model: resolved.model, max_tokens: 2, messages: [{ role: "user", content: "." }] };
+      }
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(reqBody),
+        signal: AbortSignal.timeout(15_000),
       });
 
-      return {
-        models: result,
-        current: engine.currentModel?.id || null,
-        hasFavorites: favorites.length > 0,
-      };
+      const authOk = res.status !== 401 && res.status !== 403;
+      return c.json({ ok: authOk, status: res.status, provider: resolved.provider });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ ok: false, error: err.message });
     }
   });
 
-
-  // 健康检测：发一个最小请求测试模型连通性
-  app.post("/api/models/health", async (req, reply) => {
+  // 切换模型（下次 createSession 生效，不改活跃 session）
+  route.post("/models/set", async (c) => {
     try {
-      const { modelId } = req.body || {};
-      if (!modelId) { reply.code(400); return { error: "modelId required" }; }
-
-      const model = engine.availableModels.find(m => m.id === modelId);
-      if (!model) { reply.code(404); return { error: `model "${modelId}" not found` }; }
-
-      // 凭证解析：providers.yaml → auth.json OAuth（含 resourceUrl）→ 模型对象自带 baseUrl
-      const creds = engine._resolveProviderCredentials(model.provider);
-
-      // OAuth provider 可能有 resourceUrl（实际使用的域名，可能和内置不同）
-      const oauthCred = engine.authStorage.get(model.provider);
-      const oauthBaseUrl = oauthCred?.type === "oauth" ? oauthCred.resourceUrl : "";
-
-      const baseUrl = creds.base_url || oauthBaseUrl || model.baseUrl || "";
-      if (!baseUrl) return { ok: false, error: "no base_url" };
-
-      let apiKey = creds.api_key;
-      if (!apiKey) {
-        try { apiKey = await engine.authStorage.getApiKey(model.provider); } catch {}
-      }
-      if (!apiKey) return { ok: false, error: "no api_key" };
-
-      const { buildProviderAuthHeaders } = await import("../../lib/llm/provider-client.js");
-      const api = creds.api || model.api || "openai-completions";
-
-      // Anthropic 兼容 API：发最小 messages 请求
-      if (api === "anthropic-messages") {
-        const url = baseUrl.replace(/\/+$/, "") + "/v1/messages";
-        const headers = buildProviderAuthHeaders(api, apiKey);
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: modelId, max_tokens: 1, messages: [{ role: "user", content: "." }] }),
-          signal: AbortSignal.timeout(10000),
-        });
-        // 200 或 400（参数错误但连通）都算健康
-        return { ok: res.ok || res.status === 400, status: res.status, provider: model.provider };
-      }
-
-      // OpenAI Codex Responses API：无法通过简单请求检测（Cloudflare 反爬），跳过
-      if (api === "openai-codex-responses") {
-        return { ok: true, status: 0, provider: model.provider, skipped: "codex API 不支持健康检测" };
-      }
-
-      // OpenAI 兼容 API：用 /models 端点
-      const url = baseUrl.replace(/\/+$/, "") + "/models";
-      const headers = buildProviderAuthHeaders(api, apiKey);
-      const res = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
-      return { ok: res.ok, status: res.status, provider: model.provider };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
-  });
-
-  // 切换模型
-  app.post("/api/models/set", async (req, reply) => {
-    try {
-      const { modelId } = req.body || {};
+      const body = await safeJson(c);
+      const { modelId, provider } = body;
       if (!modelId) {
-        reply.code(400);
-        return { error: t("error.missingParam", { param: "modelId" }) };
+        return c.json({ error: t("error.missingParam", { param: "modelId" }) }, 400);
       }
-      await engine.setModel(modelId);
-      return { ok: true, model: engine.currentModel?.name };
+      if (!provider) {
+        return c.json({ error: t("error.missingParam", { param: "provider" }) }, 400);
+      }
+      engine.setPendingModel(modelId, provider);
+      return c.json({ ok: true, model: engine.currentModel?.name, pendingModel: true });
     } catch (err) {
-      reply.code(500);
-      return { error: err.message };
+      return c.json({ error: err.message }, 500);
     }
   });
+
+  // 会话内切换模型
+  route.post("/models/switch", async (c) => {
+    try {
+      const body = await safeJson(c);
+      const { sessionPath, modelId, provider } = body;
+      if (!sessionPath) return c.json({ error: t("error.missingParam", { param: "sessionPath" }) }, 400);
+      if (!modelId) return c.json({ error: t("error.missingParam", { param: "modelId" }) }, 400);
+      if (!provider) return c.json({ error: t("error.missingParam", { param: "provider" }) }, 400);
+
+      if (engine.isSessionStreaming(sessionPath)) {
+        return c.json({ error: "cannot switch model while streaming" }, 409);
+      }
+
+      const result = await engine.switchSessionModel(sessionPath, modelId, provider);
+
+      // Build model info for response
+      const session = engine.getSessionByPath(sessionPath);
+      const sessionModel = session?.model;
+      const overrides = engine.config?.models?.overrides;
+      const modelInfo = sessionModel ? {
+        id: sessionModel.id,
+        name: resolveModelName(sessionModel.id, sessionModel.name, overrides, sessionModel.provider),
+        provider: sessionModel.provider,
+        vision: sessionModel.vision,
+        reasoning: sessionModel.reasoning,
+        contextWindow: sessionModel.contextWindow,
+      } : null;
+
+      return c.json({ ok: true, model: modelInfo, adaptations: result.adaptations });
+    } catch (err) {
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  return route;
 }

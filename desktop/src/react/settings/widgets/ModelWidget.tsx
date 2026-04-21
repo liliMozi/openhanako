@@ -1,30 +1,46 @@
 /**
  * MDW（模型下拉组件）的 React 版本
- * 支持按 provider 分组、favorites 标星、自定义输入
+ * 从 /api/models 读取唯一信源，按 provider 分组、支持搜索和自定义输入
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { hanaFetch } from '../api';
+import styles from '../Settings.module.css';
+
+interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  contextWindow?: number | null;
+}
 
 interface ModelWidgetProps {
-  providers: Record<string, { models?: string[]; base_url?: string }>;
-  favorites: Set<string>;
+  /** @deprecated 不再使用，保留兼容签名 */
+  providers?: Record<string, { models?: string[]; base_url?: string }>;
   value: string;
-  onSelect: (modelId: string) => void;
-  onToggleFavorite?: (modelId: string, isFav: boolean) => void;
+  onSelect: (ref: { id: string; provider: string }) => void;
   placeholder?: string;
   lookupModelMeta?: (id: string) => any;
   formatContext?: (n: number) => string;
 }
 
 export function ModelWidget({
-  providers, favorites, value, onSelect, onToggleFavorite,
-  placeholder, lookupModelMeta, formatContext,
+  value, onSelect,
+  placeholder, formatContext,
 }: ModelWidgetProps) {
-  const t = (window as any).t || ((k: string) => k);
+  const t = window.t || ((k: string) => k);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [customInput, setCustomInput] = useState('');
+  const [models, setModels] = useState<ModelInfo[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // 从唯一信源获取模型列表
+  useEffect(() => {
+    hanaFetch('/api/models').then(r => r.json()).then(data => {
+      setModels(data.models || []);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -44,29 +60,40 @@ export function ModelWidget({
 
   const query = search.toLowerCase();
 
+  // 按 provider 分组
+  const grouped = useMemo(() => {
+    const groups: Record<string, ModelInfo[]> = {};
+    for (const m of models) {
+      if (query && !m.id.toLowerCase().includes(query) && !m.name.toLowerCase().includes(query)) continue;
+      const g = m.provider || '';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(m);
+    }
+    return groups;
+  }, [models, query]);
+
   const handleCustomSubmit = () => {
     const val = customInput.trim();
     if (!val) return;
-    if (!favorites.has(val)) onToggleFavorite?.(val, true);
-    onSelect(val);
+    onSelect({ id: val, provider: '' });
     setCustomInput('');
     setOpen(false);
   };
 
   return (
-    <div className="mdw" ref={ref}>
+    <div className={styles['mdw']} ref={ref}>
       <button
-        className="mdw-trigger"
+        className={styles['mdw-trigger']}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
       >
-        <span className="mdw-value">{value || `— ${placeholder || t('settings.api.selectModel')} —`}</span>
-        <span className="mdw-arrow">▾</span>
+        <span className={styles['mdw-value']}>{value || `— ${placeholder || t('settings.api.selectModel')} —`}</span>
+        <span className={styles['mdw-arrow']}>▾</span>
       </button>
-      <div className={`mdw-popup${open ? ' open' : ''}`}>
+      <div className={`${styles['mdw-popup']}${open ? ' ' + styles['open'] : ''}`}>
         <input
           ref={searchRef}
-          className="mdw-search"
+          className={styles['mdw-search']}
           type="text"
           placeholder={t('settings.api.searchModel')}
           spellCheck={false}
@@ -74,31 +101,29 @@ export function ModelWidget({
           onChange={(e) => setSearch(e.target.value)}
           onClick={(e) => e.stopPropagation()}
         />
-        <div className="mdw-options">
-          {/* 直接显示主模型列表 */}
-          {[...favorites]
-            .filter(mid => !query || mid.toLowerCase().includes(query))
-            .map(mid => {
-              const meta = lookupModelMeta?.(mid);
-              return (
+        <div className={styles['mdw-options']}>
+          {Object.entries(grouped).map(([provider, items]) => (
+            <div key={provider || '__none'}>
+              {provider && <div className={styles['mdw-group-header']}>{provider}</div>}
+              {items.map(m => (
                 <button
-                  key={mid}
-                  className={`mdw-option${mid === value ? ' selected' : ''}`}
+                  key={`${m.provider}/${m.id}`}
+                  className={`${styles['mdw-option']}${m.id === value ? ' ' + styles['selected'] : ''}`}
                   type="button"
-                  onClick={() => { onSelect(mid); setOpen(false); }}
+                  onClick={() => { onSelect({ id: m.id, provider: m.provider }); setOpen(false); }}
                 >
-                  <span className="mdw-option-name">{mid}</span>
-                  {meta?.context && formatContext && (
-                    <span className="mdw-option-ctx">{formatContext(meta.context)}</span>
+                  <span className={styles['mdw-option-name']}>{m.name || m.id}</span>
+                  {m.contextWindow && formatContext && (
+                    <span className={styles['mdw-option-ctx']}>{formatContext(m.contextWindow)}</span>
                   )}
                 </button>
-              );
-            })
-          }
-          <div className="mdw-custom-row">
+              ))}
+            </div>
+          ))}
+          <div className={styles['mdw-custom-row']}>
             <input
               type="text"
-              className="mdw-custom-input"
+              className={styles['mdw-custom-input']}
               placeholder={t('settings.api.customInput')}
               spellCheck={false}
               value={customInput}
@@ -111,7 +136,7 @@ export function ModelWidget({
             />
             <button
               type="button"
-              className="mdw-custom-confirm"
+              className={styles['mdw-custom-confirm']}
               onClick={(e) => { e.stopPropagation(); handleCustomSubmit(); }}
             >
               ↵

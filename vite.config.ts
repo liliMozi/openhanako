@@ -4,25 +4,61 @@ import path from 'path';
 import fs from 'fs';
 
 /**
- * Dev 模式下放宽 CSP：
- * - 加 'unsafe-inline' 到 script-src（React Refresh 需要）
- * - 加 ws://localhost:5173 到 connect-src（Vite HMR 需要）
- * Production build 不受影响。
+ * CSP 集中管理：
+ * 所有窗口的 CSP 策略统一定义在此，Vite 构建/开发时注入。
+ * HTML 源文件中保留 CSP meta tag 作为 fallback（loadFile 回退路径）。
+ *
+ * 修改 CSP 时只改这里，然后同步更新 HTML 源文件。
  */
-function devCsp(): Plugin {
+const CSP_PROFILES: Record<string, string> = {
+  // 主窗口：需要 API 连接、图片、字体（KaTeX）、iframe（artifacts）
+  'index.html':
+    "default-src 'self'; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; img-src 'self' data: file: http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; frame-src blob: data: http://127.0.0.1:* http://localhost:*",
+  // 设置窗口：需要 API 连接、图片、字体
+  'settings.html':
+    "default-src 'self'; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; img-src 'self' data: file: http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:",
+  // Onboarding：需要 API 连接、图片、字体
+  'onboarding.html':
+    "default-src 'self'; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; img-src 'self' data: file: http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:",
+  // 以下窗口不加载第三方字体，保持严格策略
+  'splash.html':
+    "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' file:",
+  'browser-viewer.html':
+    "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' file:",
+  'editor-window.html':
+    "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'",
+};
+
+function injectCsp(): Plugin {
   return {
-    name: 'hana-dev-csp',
-    transformIndexHtml(html) {
-      if (process.env.NODE_ENV === 'production') return html;
-      return html
-        .replace(
-          /script-src 'self'/g,
-          "script-src 'self' 'unsafe-inline'"
-        )
-        .replace(
-          /connect-src 'self'/g,
-          "connect-src 'self' ws://localhost:5173"
+    name: 'hana-inject-csp',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html, ctx) {
+        const filename = path.basename(ctx.filename);
+        const profile = CSP_PROFILES[filename];
+        if (!profile) return html;
+
+        let csp = profile;
+        // Dev 模式放宽：React Refresh 需要 unsafe-inline，Vite HMR 需要 ws
+        if (process.env.NODE_ENV !== 'production') {
+          csp = csp.replace(
+            /script-src 'self'/,
+            "script-src 'self' 'unsafe-inline'",
+          );
+          if (csp.includes('connect-src')) {
+            csp = csp.replace(
+              /connect-src 'self'/,
+              "connect-src 'self' ws://localhost:5173",
+            );
+          }
+        }
+
+        return html.replace(
+          /<meta\s+http-equiv="Content-Security-Policy"\s+content="[^"]*"\s*\/?>/,
+          `<meta http-equiv="Content-Security-Policy" content="${csp}">`,
         );
+      },
     },
   };
 }
@@ -90,9 +126,7 @@ function copyLegacyFiles(): Plugin {
       const outDir = path.resolve(__dirname, 'desktop/dist-renderer');
 
       const dirs = ['lib', 'modules', 'themes', 'assets', 'locales'];
-      const files = ['app.js', 'styles.css',
-        'splash.html', 'onboarding.html', 'onboarding.js',
-        'browser-viewer.html', 'skill-viewer.html', 'devtools.html'];
+      const files = ['styles.css'];
 
       for (const dir of dirs) {
         const src = path.join(srcDir, dir);
@@ -119,7 +153,7 @@ export default defineConfig({
   plugins: [
     preserveLegacyCss(),
     react(),
-    devCsp(),
+    injectCsp(),
     restoreLegacyCss(),
     copyLegacyFiles(),
   ],
@@ -135,6 +169,9 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'desktop/src/index.html'),
         settings: path.resolve(__dirname, 'desktop/src/settings.html'),
+        onboarding: path.resolve(__dirname, 'desktop/src/onboarding.html'),
+        splash: path.resolve(__dirname, 'desktop/src/splash.html'),
+        'browser-viewer': path.resolve(__dirname, 'desktop/src/browser-viewer.html'),
         'editor-window': path.resolve(__dirname, 'desktop/src/editor-window.html'),
       },
     },

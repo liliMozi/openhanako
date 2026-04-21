@@ -5,7 +5,11 @@
  * 每轮回复对应一个 streamId，流内每条事件按 seq 递增。
  */
 
-const DEFAULT_MAX_EVENTS = 200;
+// 一个正常 turn（含 thinking + mood + 1.7k 字正文 + 少量 tool events）约产生
+// 1~2k 条事件。把 ring buffer 提到 5000 让 resume 在常规情况下一定能 replay
+// 成功；trim 作为硬上限防止异常 turn 把内存打爆。turn 结束时 events 会被
+// finishSessionStream 清掉，不会持续占内存。
+const DEFAULT_MAX_EVENTS = 5000;
 
 /** 创建初始流状态 */
 export function createSessionStreamState(opts = {}) {
@@ -47,10 +51,11 @@ export function appendSessionStreamEvent(state, event) {
   return entry;
 }
 
-/** 结束当前流 */
+/** 结束当前流；events 随 turn 生命周期归零，下一轮从空开始累积 */
 export function finishSessionStream(state) {
   state.isStreaming = false;
   state.endedAt = Date.now();
+  state.events = [];
 }
 
 /**

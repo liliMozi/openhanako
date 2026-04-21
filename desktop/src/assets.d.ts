@@ -19,3 +19,21 @@ declare module '*.webp' {
   const src: string;
   export default src;
 }
+declare module '*.mp4' {
+  const src: string;
+  export default src;
+}
+declare module '*.module.css' {
+  const classes: { readonly [key: string]: string };
+  export default classes;
+}
+declare module 'markdown-it-task-lists' {
+  import type MarkdownIt from 'markdown-it';
+  interface TaskListsOptions {
+    enabled?: boolean;
+    label?: boolean;
+    labelAfter?: boolean;
+  }
+  const taskLists: MarkdownIt.PluginWithOptions<TaskListsOptions>;
+  export default taskLists;
+}

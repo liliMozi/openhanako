@@ -3,8 +3,9 @@ import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
 import { t } from '../helpers';
 import { switchToAgent } from '../actions';
+import styles from '../Settings.module.css';
 
-const platform = (window as any).platform;
+const platform = window.platform;
 
 export function AgentCreateOverlay() {
   const { showToast } = useSettingsStore();
@@ -41,10 +42,10 @@ export function AgentCreateOverlay() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      await switchToAgent(data.id);
       close();
       showToast(t('settings.agent.created', { name: data.name }), 'success');
       platform?.settingsChanged?.('agent-created', { agentId: data.id, name: data.name });
-      await switchToAgent(data.id);
     } catch (err: any) {
       showToast(t('settings.agent.createFailed') + ': ' + err.message, 'error');
     } finally {
@@ -58,13 +59,13 @@ export function AgentCreateOverlay() {
   const entries = Object.entries(types) as [string, any][];
 
   return (
-    <div className="agent-create-overlay visible" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-      <div className="agent-create-card">
-        <h3 className="agent-create-title">{t('settings.agent.createTitle')}</h3>
-        <div className="settings-field">
+    <div className={`${styles['agent-create-overlay']} ${styles['visible']}`} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div className={styles['agent-create-card']}>
+        <h3 className={styles['agent-create-title']}>{t('settings.agent.createTitle')}</h3>
+        <div className={styles['settings-field']}>
           <input
             ref={inputRef}
-            className="settings-input"
+            className={styles['settings-input']}
             type="text"
             placeholder={t('settings.agent.namePlaceholder')}
             value={name}
@@ -75,7 +76,7 @@ export function AgentCreateOverlay() {
             }}
           />
         </div>
-        <div className="settings-field">
+        <div className={styles['settings-field']}>
           <div className="yuan-selector">
             <div className="yuan-chips">
               {entries.filter(([key]) => key !== 'kong').map(([key, meta]) => (
@@ -109,9 +110,9 @@ export function AgentCreateOverlay() {
             ))}
           </div>
         </div>
-        <div className="agent-create-actions">
-          <button className="agent-create-cancel" onClick={close}>{t('settings.agent.cancel')}</button>
-          <button className="agent-create-confirm" onClick={create} disabled={creating}>{t('settings.agent.confirm')}</button>
+        <div className={styles['agent-create-actions']}>
+          <button className={styles['agent-create-cancel']} onClick={close}>{t('settings.agent.cancel')}</button>
+          <button className={styles['agent-create-confirm']} onClick={create} disabled={creating}>{t('settings.agent.confirm')}</button>
         </div>
       </div>
     </div>

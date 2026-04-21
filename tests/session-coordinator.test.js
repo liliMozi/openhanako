@@ -8,11 +8,14 @@ const { createAgentSessionMock, sessionManagerCreateMock } = vi.hoisted(() => ({
   sessionManagerCreateMock: vi.fn(),
 }));
 
-vi.mock("@mariozechner/pi-coding-agent", () => ({
+vi.mock("../lib/pi-sdk/index.js", () => ({
   createAgentSession: createAgentSessionMock,
   SessionManager: {
     create: sessionManagerCreateMock,
     open: vi.fn(),
+  },
+  SettingsManager: {
+    inMemory: vi.fn(() => ({})),
   },
 }));
 
@@ -37,6 +40,7 @@ describe("SessionCoordinator", () => {
       session: {
         sessionManager: { getSessionFile: () => "/tmp/session.jsonl" },
         subscribe: vi.fn(() => vi.fn()),
+        setActiveToolsByName: vi.fn(),
       },
     });
   });
@@ -52,6 +56,7 @@ describe("SessionCoordinator", () => {
       setMemoryEnabled: vi.fn((enabled) => {
         sessionMemoryEnabled = !!enabled;
       }),
+      buildSystemPrompt: () => sessionMemoryEnabled ? "MEMORY ON" : "MEMORY OFF",
     };
 
     const resourceLoader = {
@@ -116,15 +121,15 @@ describe("SessionCoordinator", () => {
         agentDir: tempDir,
         sessionDir: tempDir,
         agentName: "test-agent",
-        config: { models: { chat: "default-model" } },
+        config: { models: { chat: { id: "default-model", provider: "test" } } },
         tools: [],
       }),
       getActiveAgentId: () => "hana",
       getModels: () => ({
         authStorage: {},
         modelRegistry: {},
-        defaultModel: { id: "default-model" },
-        availableModels: [{ id: "default-model" }],
+        defaultModel: { id: "default-model", provider: "test" },
+        availableModels: [{ id: "default-model", provider: "test" }],
         resolveExecutionModel: (model) => model,
         resolveThinkingLevel: () => "medium",
       }),
@@ -143,7 +148,7 @@ describe("SessionCoordinator", () => {
       listAgents: () => [],
     });
 
-    const result = await coordinator.executeIsolated("delegate task", {
+    const result = await coordinator.executeIsolated("subagent task", {
       signal: controller.signal,
     });
 

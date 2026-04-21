@@ -1,22 +1,18 @@
 /**
  * BrowserCard — 浏览器浮动卡片
  *
- * 替代旧 artifacts.js 的 renderBrowserCard 逻辑。
- * 当 browserRunning 为 true 时，在聊天区顶部显示浮动卡片。
- * 通过 portal 渲染到 .main-content 内的 #browserCardPortal。
+ * 当前 session 浏览器运行时，在聊天区顶部显示浮动卡片。
+ * 由 App.tsx 在 .main-content 内直接渲染。
  */
 
 import { useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useStore } from '../stores';
+import { updateKeyed } from '../stores/create-keyed-slice';
 import { hanaFetch } from '../hooks/use-hana-fetch';
+import { useBrowserState } from '../stores/browser-slice';
 
 export function BrowserCard() {
-  const browserRunning = useStore(s => s.browserRunning);
-  const browserUrl = useStore(s => s.browserUrl);
-  const browserThumbnail = useStore(s => s.browserThumbnail);
-  const setBrowserRunning = useStore(s => s.setBrowserRunning);
-  const setBrowserThumbnail = useStore(s => s.setBrowserThumbnail);
+  const { running: browserRunning, url: browserUrl, thumbnail: browserThumbnail } = useBrowserState();
 
   const handleClick = useCallback(() => {
     window.platform?.openBrowserViewer?.();
@@ -24,24 +20,22 @@ export function BrowserCard() {
 
   const handleClose = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setBrowserRunning(false);
-    setBrowserThumbnail(null);
-    window.platform?.browserEmergencyStop?.();
     const sessionPath = useStore.getState().currentSessionPath;
+    if (sessionPath) {
+      updateKeyed('browserBySession', sessionPath,
+        { running: false, url: null, thumbnail: null },
+      );
+    }
+    window.platform?.browserEmergencyStop?.();
     if (sessionPath) {
       hanaFetch('/api/browser/close-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionPath }),
-      }).catch(() => {});
+      }).catch(err => console.warn('[browser] close session failed:', err));
     }
-  }, [setBrowserRunning, setBrowserThumbnail]);
+  }, []);
 
-  const portalTarget = document.getElementById('browserCardPortal');
-  if (!portalTarget) {
-    if (browserRunning) console.warn('[BrowserCard] portal target #browserCardPortal not found');
-    return null;
-  }
   if (!browserRunning) return null;
 
   let displayUrl = '';
@@ -51,7 +45,7 @@ export function BrowserCard() {
     displayUrl = browserUrl || '';
   }
 
-  return createPortal(
+  return (
     <div className="browser-floating-card" id="browserFloatingCard" onClick={handleClick}>
       <div className="browser-floating-info">
         <div className="browser-floating-icon">
@@ -83,7 +77,6 @@ export function BrowserCard() {
           </svg>
         </button>
       </div>
-    </div>,
-    portalTarget,
+    </div>
   );
 }

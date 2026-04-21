@@ -1,0 +1,273 @@
+/* Solarized Light Theme - Desktop Version */
+/* Design Philosophy: Warm paper-like feel, elegant typography, comfortable desktop reading */
+
+:root {
+  /* Solarized Base Colors */
+  --base03:  #002b36;
+  --base02:  #073642;
+  --base01:  #586e75;
+  --base00:  #657b83;
+  --base0:   #839496;
+  --base1:   #93a1a1;
+  --base2:   #eee8d5;
+  --base3:   #F8F5ED;
+  
+  /* Solarized Accent Colors */
+  --yellow:  #b58900;
+  --orange:  #cb4b16;
+  --red:     #dc322f;
+  --magenta: #d33682;
+  --violet:  #6c71c4;
+  --blue:    #268bd2;
+  --cyan:    #2aa198;
+  --green:   #859900;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "Lora", "Georgia", serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #4a5d66;
+  background-color: var(--base3);
+  padding: 2rem 3rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Typography Scale */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  color: var(--base01);
+  margin-top: 2em;
+  margin-bottom: 0.8em;
+  line-height: 1.4;
+}
+
+h1 {
+  font-size: 2rem;
+  border-bottom: 1px solid var(--base2);
+  padding-bottom: 0.5em;
+  margin-top: 0;
+}
+
+h2 {
+  font-size: 1.5rem;
+}
+
+h3 {
+  font-size: 1.25rem;
+}
+
+h4 {
+  font-size: 1.1rem;
+}
+
+p {
+  margin-bottom: 1.2em;
+  text-align: justify;
+}
+
+/* Links */
+a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+a:hover {
+  border-bottom-color: var(--blue);
+}
+
+/* Lists */
+ul, ol {
+  margin-bottom: 1.2em;
+  padding-left: 2em;
+}
+
+li {
+  margin-bottom: 0.4em;
+}
+
+li > ul, li > ol {
+  margin-top: 0.4em;
+  margin-bottom: 0;
+}
+
+/* Blockquote - elegant sidebar style */
+blockquote {
+  border-left: 3px solid var(--yellow);
+  margin: 1.5em 0;
+  padding: 0.8em 1.5em;
+  background-color: var(--base2);
+  color: var(--base01);
+  font-style: italic;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Code - Solarized Dark for contrast */
+code {
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", "Consolas", monospace;
+  font-size: 0.9em;
+  background-color: var(--base2);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  color: var(--base01);
+}
+
+pre {
+  background-color: var(--base02);
+  color: var(--base1);
+  padding: 1.2em 1.5em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1.5em 0;
+  line-height: 1.5;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: 0.85em;
+}
+
+/* Syntax Highlighting - Solarized Dark */
+.hljs-keyword,
+.hljs-selector-tag { color: var(--green); }
+.hljs-string,
+.hljs-attr { color: var(--cyan); }
+.hljs-number,
+.hljs-literal { color: var(--magenta); }
+.hljs-comment { color: var(--base01); font-style: italic; }
+.hljs-function,
+.hljs-title { color: var(--blue); }
+.hljs-variable,
+.hljs-params { color: var(--orange); }
+.hljs-type,
+.hljs-class { color: var(--yellow); }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: 0.95em;
+}
+
+th, td {
+  border: 1px solid var(--base2);
+  padding: 0.6em 1em;
+  text-align: left;
+}
+
+th {
+  background-color: var(--base2);
+  color: var(--base01);
+  font-weight: 600;
+}
+
+tr:nth-child(even) {
+  background-color: rgba(238, 232, 213, 0.5);
+}
+
+/* Horizontal Rule */
+hr {
+  border: none;
+  border-top: 1px solid var(--base2);
+  margin: 2em 0;
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+/* Strong & Emphasis */
+strong {
+  font-weight: 600;
+  color: var(--base01);
+}
+
+em {
+  font-style: italic;
+}
+
+/* Task Lists */
+input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+
+/* Definition Lists */
+dl {
+  margin-bottom: 1.2em;
+}
+
+dt {
+  font-weight: 600;
+  color: var(--base01);
+}
+
+dd {
+  margin-left: 2em;
+  margin-bottom: 0.5em;
+}
+
+/* Footnotes */
+.footnote {
+  font-size: 0.85em;
+  color: var(--base00);
+}
+
+/* Conversation Mode */
+.chat-user {
+  color: #5C3317;
+}
+
+.chat-user p,
+.chat-user li,
+.chat-user blockquote {
+  color: #5C3317;
+}
+
+.chat-label {
+  font-weight: 600;
+  margin: 1.8em 0 0.4em 0;
+  font-size: 0.92em;
+}
+
+.chat-label-user {
+  color: #5C3317;
+}
+
+.chat-label-assistant {
+  color: var(--base01);
+}
+
+.chat-divider {
+  border: none;
+  border-top: 1px dashed var(--base2);
+  margin: 1.8em 0;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--yellow);
+  color: var(--base3);
+}

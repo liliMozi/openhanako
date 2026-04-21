@@ -1,0 +1,785 @@
+/* ========================================
+   Titlebar 标签组
+   ======================================== */
+.tbTabs {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: auto;
+    -webkit-app-region: no-drag;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--overlay-light);
+    border-radius: var(--radius-md);
+    padding: 2px;
+}
+
+.tbTabsSlider {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    border-radius: var(--radius-sm);
+    background: var(--tab-slider-bg, var(--bg-card));
+    box-shadow: var(--tab-slider-shadow, 0 1px 3px var(--shadow));
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+}
+
+.tbTab {
+    position: relative;
+    z-index: 1;
+    padding: 4px 14px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s var(--ease-out);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.tbTab:hover {
+    color: var(--text-light);
+}
+
+.tbTabActive {
+    color: var(--text);
+}
+
+.tbTabBadge {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+/* ── Drag states ── */
+.tbTabDragging {
+    opacity: 0.4;
+}
+
+.tbTabDragOver {
+    box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ========================================
+   频道 — 频道列表
+   ======================================== */
+.channelListWrap {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.channelList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 var(--space-sm) 42px;
+}
+
+.channelDisabledOverlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    z-index: 5;
+    backdrop-filter: blur(2px);
+}
+
+.channelDisabledOverlay span {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+}
+
+.channelDisabledOverlayHidden {
+    display: none;
+}
+
+.btnDisabled {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.channelToggleBar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-top: 1px solid var(--overlay-light);
+    z-index: 6;
+}
+
+.channelToggleBarLabel {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+
+.channelSectionLabel {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    padding: 12px 12px 4px;
+    user-select: none;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.channelSectionHint {
+    font-size: 0.6rem;
+    font-weight: 400;
+    opacity: 0.5;
+}
+
+.channelItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 8px var(--space-sm);
+    margin-bottom: 1px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.channelItem:hover {
+    background: var(--overlay-light);
+}
+
+.channelItemActive {
+    background: var(--accent-light);
+}
+
+.channelItemIcon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--overlay-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+/* ── DM 双头像 + 链接符号 ── */
+.channelDmIcon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.channelDmAvatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--overlay-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.5rem;
+    font-weight: 600;
+    color: var(--accent);
+    overflow: hidden;
+    border: 1.5px solid var(--bg);
+    position: relative;
+}
+
+.channelDmAvatar + .channelDmLink + .channelDmAvatar {
+    margin-left: -4px;
+}
+
+.channelDmAvatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.channelDmLink {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    opacity: 0.45;
+    margin: 0 -1px;
+    z-index: 1;
+}
+
+.channelItemBody {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.channelItemName {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.channelItemPreview {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.channelItemMeta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.channelItemTime {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.channelUnreadBadge {
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ========================================
+   频道 — 主区域 IM 视图 (ChannelHeader)
+   ======================================== */
+.channelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px var(--space-lg);
+    padding-top: 60px;
+    border-bottom: 1px solid var(--overlay-light);
+    flex-shrink: 0;
+}
+
+.channelHeaderInfo {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.channelHeaderName {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.channelHeaderMembers {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.channelHeaderActions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.channelHeaderActionBtn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s, color 0.15s;
+}
+
+.channelHeaderActionBtn:hover {
+    background: var(--overlay-light);
+    color: var(--text);
+}
+
+/* ── IM 风格消息 ── */
+.channelMsg {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+}
+
+.channelMsgContinuation {
+    padding: 1px 0;
+}
+
+.channelMsgContinuation .channelMsgAvatar {
+    visibility: hidden;
+}
+
+.channelMsgContinuation .channelMsgHeader {
+    display: none;
+}
+
+.channelMsgAvatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--overlay-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 2px;
+    overflow: hidden;
+}
+
+.channelMsgAvatarImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.channelMsgBody {
+    flex: 1;
+    min-width: 0;
+}
+
+.channelMsgHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 1px;
+}
+
+.channelMsgSender {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.channelMsgTime {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.channelMsgText {
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.6;
+    word-break: break-word;
+}
+
+.channelMsgText p {
+    margin: 0 0 0.3em;
+}
+
+.channelMsgText p:last-child {
+    margin-bottom: 0;
+}
+
+/* ── IM 气泡样式 ── */
+
+/* 他人消息：左侧气泡 */
+.channelMsg:not(.channelMsgSelf) .channelMsgText {
+    background: var(--overlay-light);
+    padding: 8px 12px;
+    border-radius: 14px 14px 14px 2px;
+    display: inline-block;
+    max-width: 70%;
+}
+
+/* 右侧消息（用户 or 主 agent） */
+.channelMsgSelf {
+    flex-direction: row-reverse;
+}
+
+.channelMsgSelf .channelMsgBody {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+}
+
+.channelMsgSelf .channelMsgText {
+    background: rgba(var(--accent-rgb), 0.1);
+    padding: 8px 12px;
+    border-radius: 14px 14px 2px 14px;
+    display: inline-block;
+    max-width: 70%;
+}
+
+.channelMsgSelf .channelMsgHeader {
+    flex-direction: row-reverse;
+}
+
+/* ── 频道输入区 ── */
+.channelInputWrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-sm);
+    max-width: 646px;
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid rgba(var(--accent-rgb), 0.12);
+    border-radius: var(--radius-lg);
+    padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+    box-shadow: 0 3px 10px var(--shadow);
+    transition: border-color 0.5s var(--ease-out),
+                box-shadow 0.5s var(--ease-out);
+}
+
+.channelInputWrapper:focus-within {
+    border-color: rgba(0, 0, 0, 0.10);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.07);
+}
+
+/* @ 联想下拉框 */
+.channelMentionDropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 60px;
+    margin-bottom: 4px;
+    background: var(--bg-card, var(--bg));
+    border: 1px solid var(--overlay-medium);
+    border-radius: var(--radius-md);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+    max-height: 160px;
+    overflow-y: auto;
+    z-index: 50;
+}
+
+.channelMentionItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-primary);
+    transition: background 0.1s;
+}
+
+.channelMentionItem:hover,
+.channelMentionItemActive {
+    background: var(--overlay-light);
+}
+
+.channelMentionAvatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--overlay-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.channelMentionAvatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.channelInputBox {
+    flex: 1;
+    resize: none;
+    border: none;
+    padding: 4px 0;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    background: none;
+    color: var(--text);
+    outline: none;
+    max-height: 120px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+}
+
+.channelInputBox::-webkit-scrollbar {
+    display: none;
+}
+
+.channelInputBox::placeholder {
+    color: var(--text-muted);
+}
+
+.channelSendBtn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.65rem;
+    background: var(--accent);
+    color: white;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--duration) var(--ease-out);
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+}
+
+.channelSendBtn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* ── 频道为空时的提示 ── */
+.channelWelcome {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* ========================================
+   频道 — 新建频道弹窗
+   ======================================== */
+.createOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 110;
+}
+
+.createOverlayVisible {
+    display: flex;
+}
+
+.createCard {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    width: 440px;
+    max-width: 90vw;
+    box-shadow: 0 12px 48px var(--shadow);
+    animation: dropdown-in 0.2s var(--ease-out);
+}
+
+.createTitle {
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: var(--space-md);
+    color: var(--text);
+}
+
+.createField {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: var(--space-md);
+}
+
+.createFieldLabel {
+    font-size: 0.82rem;
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+.createInput {
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text);
+    background: var(--bg-card);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 0.45rem 0.65rem;
+    outline: none;
+    box-shadow: 0 1px 3px var(--shadow);
+    transition: box-shadow var(--duration) var(--ease-out);
+    width: 100%;
+}
+
+.createInput:focus {
+    box-shadow: 0 1px 3px var(--shadow), 0 0 0 2px rgba(var(--accent-rgb), 0.12);
+}
+
+.createInput::placeholder {
+    color: var(--text-muted);
+}
+
+.createActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+}
+
+.createCancel,
+.createConfirm {
+    padding: 0.35rem 0.9rem;
+    border-radius: var(--radius-md);
+    border: none;
+    font-family: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s var(--ease-out);
+}
+
+.createCancel {
+    background: var(--overlay-subtle);
+    color: var(--text-light);
+}
+
+.createCancel:hover {
+    background: var(--overlay-light);
+}
+
+.createConfirm {
+    background: var(--accent);
+    color: #fff;
+}
+
+.createConfirm:hover {
+    background: var(--accent-hover);
+}
+
+/* ── 成员选择器 ── */
+.channelCreateMembers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.channelCreateMemberChip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--overlay-medium);
+    background: none;
+    color: var(--text-light);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s var(--ease-out);
+}
+
+.channelCreateMemberChip:hover {
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.channelCreateMemberChipSelected {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.channelCreateMemberChip .chipAvatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--overlay-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.55rem;
+    font-weight: 600;
+    color: var(--accent);
+    overflow: hidden;
+}
+
+.chipAvatarImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.channelCreateMemberChipSelected .chipAvatar {
+    background: rgba(var(--accent-rgb), 0.15);
+}
+
+.channelCreateIntro {
+    line-height: 1.5;
+}
+
+/* ========================================
+   频道 — 右侧栏成员列表
+   ======================================== */
+.channelMemberItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 4px 0;
+}
+
+.channelMemberAvatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--overlay-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: var(--accent);
+    overflow: hidden;
+}
+
+.channelMemberAvatarImg {
+    width: 24px;
+    height: 24px;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.channelMemberName {
+    font-size: 0.82rem;
+    color: var(--text);
+}

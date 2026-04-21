@@ -164,7 +164,7 @@ engine.subscribe((event) => {
 });
 
 // ── 启动 session ──
-let session = await engine.createSession();
+let { session } = await engine.createSession();
 console.log("✿ 记忆系统已激活\n");
 
 // ── CLI 交互 ──
@@ -198,13 +198,14 @@ const ask = () => {
     if (trimmed === "/model") {
       console.log("\n可用模型：");
       available.forEach((m, i) => {
-        const current = m.id === engine.currentModel?.id ? " ← 当前" : "";
+        const cur = engine.currentModel;
+        const current = (m.id === cur?.id && m.provider === cur?.provider) ? " ← 当前" : "";
         console.log(`  ${i + 1}. ${m.name} (${m.provider})${current}`);
       });
       rl.question("\n选择模型编号 > ", async (num) => {
         const idx = parseInt(num) - 1;
         if (idx >= 0 && idx < available.length) {
-          await engine.setModel(available[idx].id);
+          await engine.setPendingModel(available[idx].id, available[idx].provider);
           console.log(`\n✿ 已切换到: ${available[idx].name}`);
         } else {
           console.log("\n取消切换");
@@ -289,7 +290,7 @@ const ask = () => {
     if (trimmed === "/new") {
       console.log("\n✿ 开始新的对话...");
       moodParser.reset();
-      session = await engine.createSession();
+      ({ session } = await engine.createSession());
       console.log("✿ 新 session 已创建");
       ask();
       return;

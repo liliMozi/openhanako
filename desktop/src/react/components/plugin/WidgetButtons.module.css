@@ -1,0 +1,119 @@
+/* ── Widget buttons in titlebar ── */
+.container {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    pointer-events: auto;
+    -webkit-app-region: no-drag;
+}
+
+.btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.btn:hover {
+    color: var(--text-light);
+    background: var(--overlay-light);
+}
+
+.active {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 130px;
+    max-width: 200px;
+    background: var(--bg-card);
+    border: 1px solid var(--overlay-medium);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 16px var(--shadow);
+    z-index: 100;
+    padding: 4px;
+    animation: dropdown-in 0.15s var(--ease-out);
+}
+
+.dropdownItem {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text-light);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.1s, color 0.1s;
+}
+
+.dropdownItem:hover {
+    background: var(--overlay-light);
+    color: var(--text);
+}
+
+.dropdownRow {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.dropdownRow .dropdownItem {
+    flex: 1;
+    min-width: 0;
+}
+
+.pinBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s, color 0.1s, background 0.1s;
+}
+
+.dropdownRow:hover .pinBtn {
+    opacity: 1;
+}
+
+.pinBtn:hover {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.divider {
+    width: 1px;
+    height: 14px;
+    background: var(--overlay-medium);
+    margin: 0 4px;
+    flex-shrink: 0;
+}
