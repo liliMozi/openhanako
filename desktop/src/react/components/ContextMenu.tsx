@@ -85,6 +85,7 @@ export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
           <div
             key={`${item.label || 'item'}-${i}`}
             className={`context-menu-item${item.danger ? ' danger' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => handleItemClick(e, item.action)}
           >
             {item.label || ''}
