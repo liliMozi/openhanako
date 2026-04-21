@@ -408,6 +408,9 @@ export class Agent {
       setSubagentController: (id, ctrl) => this._cb?.setSubagentController?.(id, ctrl),
       removeSubagentController: (id) => this._cb?.removeSubagentController?.(id),
       getSessionPath: () => this._cb?.getCurrentSessionPath?.(),
+      // Subagent 继承 parent session 的 cwd（不是 agent 的 home_folder）：
+      // 用户在主 session 里可能把 cwd 切到某个子项目，派出 subagent 时应当在同一处干活。
+      getParentCwd: () => this._cb?.getCwd?.() || null,
       listAgents: this._listAgents || null,
       currentAgentId: this.channelsDir && this.agentsDir ? this.id : undefined,
       agentDir: this.agentDir,
