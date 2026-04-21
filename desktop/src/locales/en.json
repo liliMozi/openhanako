@@ -552,6 +552,7 @@
       "namePlaceholder": "Give them a name",
       "cancel": "Cancel",
       "confirm": "Create",
+      "creating": "Creating…",
       "nameRequired": "Please enter a name",
       "created": "{name} created ✿",
       "createFailed": "Create failed",

@@ -59,8 +59,8 @@ export function AgentCreateOverlay() {
   const entries = Object.entries(types) as [string, any][];
 
   return (
-    <div className={`${styles['agent-create-overlay']} ${styles['visible']}`} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-      <div className={styles['agent-create-card']}>
+    <div className={`${styles['agent-create-overlay']} ${styles['visible']}`} onClick={(e) => { if (!creating && e.target === e.currentTarget) close(); }}>
+      <div className={styles['agent-create-card']} aria-busy={creating || undefined}>
         <h3 className={styles['agent-create-title']}>{t('settings.agent.createTitle')}</h3>
         <div className={styles['settings-field']}>
           <input
@@ -70,9 +70,10 @@ export function AgentCreateOverlay() {
             placeholder={t('settings.agent.namePlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            disabled={creating}
             onKeyDown={(e) => {
               if (e.key === 'Enter') { e.preventDefault(); create(); }
-              if (e.key === 'Escape') close();
+              if (e.key === 'Escape' && !creating) close();
             }}
           />
         </div>
@@ -84,6 +85,7 @@ export function AgentCreateOverlay() {
                   key={key}
                   className={`yuan-chip${key === yuan ? ' selected' : ''}`}
                   type="button"
+                  disabled={creating}
                   onClick={() => setYuan(key)}
                 >
                   <img className="yuan-chip-avatar" src={`assets/${meta.avatar || 'Hanako.png'}`} draggable={false} />
@@ -111,8 +113,10 @@ export function AgentCreateOverlay() {
           </div>
         </div>
         <div className={styles['agent-create-actions']}>
-          <button className={styles['agent-create-cancel']} onClick={close}>{t('settings.agent.cancel')}</button>
-          <button className={styles['agent-create-confirm']} onClick={create} disabled={creating}>{t('settings.agent.confirm')}</button>
+          <button className={styles['agent-create-cancel']} onClick={close} disabled={creating}>{t('settings.agent.cancel')}</button>
+          <button className={styles['agent-create-confirm']} onClick={create} disabled={creating}>
+            {creating ? t('settings.agent.creating') : t('settings.agent.confirm')}
+          </button>
         </div>
       </div>
     </div>

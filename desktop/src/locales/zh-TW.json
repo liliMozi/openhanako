@@ -547,6 +547,7 @@
       "namePlaceholder": "起個名字",
       "cancel": "取消",
       "confirm": "建立",
+      "creating": "正在建立…",
       "nameRequired": "請輸入助手名字",
       "created": "{name} 已建立 ✿",
       "createFailed": "建立失敗",

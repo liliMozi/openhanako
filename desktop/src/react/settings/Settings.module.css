@@ -552,6 +552,16 @@
     background: var(--accent-hover);
 }
 
+.agent-create-cancel:disabled,
+.agent-create-confirm:disabled {
+    opacity: 0.55;
+    cursor: progress;
+}
+
+.agent-create-confirm:disabled:hover {
+    background: var(--accent);
+}
+
 /* 卡片下方操作栏 */
 .agent-stack-actions {
     display: flex;

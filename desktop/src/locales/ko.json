@@ -547,6 +547,7 @@
       "namePlaceholder": "이름을 지어주세요",
       "cancel": "취소",
       "confirm": "만들기",
+      "creating": "생성 중…",
       "nameRequired": "이름을 입력해 주세요",
       "created": "{name} 생성 완료 ✿",
       "createFailed": "생성 실패",

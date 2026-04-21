@@ -557,6 +557,7 @@
       "namePlaceholder": "起个名字",
       "cancel": "取消",
       "confirm": "创建",
+      "creating": "正在创建…",
       "nameRequired": "请输入助手名字",
       "created": "{name} 已创建 ✿",
       "createFailed": "创建失败",

@@ -547,6 +547,7 @@
       "namePlaceholder": "名前をつけてください",
       "cancel": "キャンセル",
       "confirm": "作成",
+      "creating": "作成中…",
       "nameRequired": "名前を入力してください",
       "created": "{name} を作成しました ✿",
       "createFailed": "作成に失敗しました",

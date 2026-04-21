@@ -92,9 +92,25 @@ function seedDefaultAgent(agentsDir, productDir) {
   } catch {}
 
 
+  // 与 createAgent 同策略：按 yuan（= agentId）+ locale 优先，通用 example 兜底。
+  // 首次播种读刚写入的 config.yaml 拿 locale。
+  let isZh = true;
+  try {
+    if (fs.existsSync(cfgDest)) {
+      const raw = YAML.load(fs.readFileSync(cfgDest, "utf-8")) || {};
+      isZh = String(raw.locale || "zh").startsWith("zh");
+    }
+  } catch {}
+  const langDir = isZh ? "" : "en/";
+  const firstExisting = (paths) => paths.find((p) => fs.existsSync(p));
+
   // identity.md（填入默认名字）
-  const identitySrc = path.join(productDir, "identity.example.md");
-  if (fs.existsSync(identitySrc)) {
+  const identitySrc = firstExisting([
+    path.join(productDir, "identity-templates", `${langDir}${agentId}.md`),
+    path.join(productDir, "identity-templates", `${agentId}.md`),
+    path.join(productDir, "identity.example.md"),
+  ]);
+  if (identitySrc) {
     const tmpl = fs.readFileSync(identitySrc, "utf-8");
     const filled = tmpl
       .replace(/\{\{agentName\}\}/g, "Hanako")
@@ -105,14 +121,21 @@ function seedDefaultAgent(agentsDir, productDir) {
   // yuan 由 buildSystemPrompt 实时从 lib/yuan/ 读取，无需复制
 
   // ishiki.md
-  const ishikiSrc = path.join(productDir, "ishiki.example.md");
-  if (fs.existsSync(ishikiSrc)) {
+  const ishikiSrc = firstExisting([
+    path.join(productDir, "ishiki-templates", `${langDir}${agentId}.md`),
+    path.join(productDir, "ishiki-templates", `${agentId}.md`),
+    path.join(productDir, "ishiki.example.md"),
+  ]);
+  if (ishikiSrc) {
     fs.copyFileSync(ishikiSrc, path.join(agentDir, "ishiki.md"));
   }
 
   // public-ishiki.md（对外意识模板）
-  const publicIshikiSrc = path.join(productDir, "public-ishiki-templates", `${agentId}.md`);
-  if (fs.existsSync(publicIshikiSrc)) {
+  const publicIshikiSrc = firstExisting([
+    path.join(productDir, "public-ishiki-templates", `${langDir}${agentId}.md`),
+    path.join(productDir, "public-ishiki-templates", `${agentId}.md`),
+  ]);
+  if (publicIshikiSrc) {
     fs.copyFileSync(publicIshikiSrc, path.join(agentDir, "public-ishiki.md"));
   }
 

@@ -315,10 +315,21 @@ export class AgentManager {
     }
     fs.writeFileSync(path.join(agentDir, "config.yaml"), config, "utf-8");
 
+    // 与 personality/buildSystemPrompt 的 fallback 链保持一致：
+    // yuan 专属（locale 细分） → yuan 专属（通用语言） → 通用 example。
+    // 保证选不同 yuan 时写入的是该 yuan 的默认内容，而不是通用兜底。
+    const isZh = String(currentAgent?.config?.locale || "zh").startsWith("zh");
+    const langDir = isZh ? "" : "en/";
+    const firstExisting = (paths) => paths.find((p) => fs.existsSync(p));
+
     // identity.md
-    const identityTemplate = path.join(this._d.productDir, "identity.example.md");
-    if (fs.existsSync(identityTemplate)) {
-      const tmpl = fs.readFileSync(identityTemplate, "utf-8");
+    const identitySrc = firstExisting([
+      path.join(this._d.productDir, "identity-templates", `${langDir}${yuanType}.md`),
+      path.join(this._d.productDir, "identity-templates", `${yuanType}.md`),
+      path.join(this._d.productDir, "identity.example.md"),
+    ]);
+    if (identitySrc) {
+      const tmpl = fs.readFileSync(identitySrc, "utf-8");
       const filled = tmpl
         .replace(/\{\{agentName\}\}/g, name.trim())
         .replace(/\{\{userName\}\}/g, currentAgent?.userName || t("error.fallbackUserName"));
@@ -326,14 +337,21 @@ export class AgentManager {
     }
 
     // ishiki.md
-    const ishikiSrc = path.join(this._d.productDir, "ishiki.example.md");
-    if (fs.existsSync(ishikiSrc)) {
+    const ishikiSrc = firstExisting([
+      path.join(this._d.productDir, "ishiki-templates", `${langDir}${yuanType}.md`),
+      path.join(this._d.productDir, "ishiki-templates", `${yuanType}.md`),
+      path.join(this._d.productDir, "ishiki.example.md"),
+    ]);
+    if (ishikiSrc) {
       fs.copyFileSync(ishikiSrc, path.join(agentDir, "ishiki.md"));
     }
 
     // public-ishiki.md（对外意识模板）
-    const publicIshikiSrc = path.join(this._d.productDir, "public-ishiki-templates", `${yuanType}.md`);
-    if (fs.existsSync(publicIshikiSrc)) {
+    const publicIshikiSrc = firstExisting([
+      path.join(this._d.productDir, "public-ishiki-templates", `${langDir}${yuanType}.md`),
+      path.join(this._d.productDir, "public-ishiki-templates", `${yuanType}.md`),
+    ]);
+    if (publicIshikiSrc) {
       fs.copyFileSync(publicIshikiSrc, path.join(agentDir, "public-ishiki.md"));
     }
 
