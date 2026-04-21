@@ -442,11 +442,6 @@ export class ConfigCoordinator {
                 globalChanged = true;
               }
             }
-=======
-          } else if (this.getHeartbeatMaster() !== false) {
-            this._d.emitDevLog("[heartbeat] 巡检已开启");
-            hb.start();
->>>>>>> upstream/main
           }
         }
       }
