@@ -1,6 +1,6 @@
 # Contributing to Hanako
 
-感谢你对 Hanako 的关注！欢迎提交 issue 和 pull request。
+感谢你对 Hanako 的关注！
 
 ## 开发环境
 
@@ -40,15 +40,11 @@ npm run start:vite
 
 ### Native Module 注意事项
 
-项目使用 `better-sqlite3`，需要为 Electron 编译 native module。`npm install` 会自动执行 `electron-rebuild`。如果遇到 `ERR_DLOPEN_FAILED`，手动执行：
-
-```bash
-npx electron-rebuild -f -w better-sqlite3
-```
+Server 以独立 Node.js 进程运行（`spawn`，非 `fork`），不在 Electron 主进程内，因此 `better-sqlite3` **不需要 `electron-rebuild`**。`build-server.mjs` 在目标 Node.js runtime 下执行 `npm install --omit=dev`，native addon 的 ABI 自动匹配。
 
 ## Pull Request
 
-项目目前处于早期阶段，**暂不接受 Pull Request**。如果你有想法或发现了问题，欢迎先开 issue 讨论。
+项目目前处于早期阶段，**不接受 Pull Request**。如果你有想法或发现了问题，欢迎开 issue 讨论。
 
 ## 报告问题
 
@@ -64,12 +60,15 @@ npx electron-rebuild -f -w better-sqlite3
 
 ```
 core/           # Engine 编排层 + Manager
-lib/            # 核心库（bridge、sandbox、memory、tools）
-server/         # Fastify HTTP + WebSocket 服务
+lib/            # 核心库（bridge、sandbox、memory、tools、providers）
+server/         # Hono HTTP + WebSocket 服务
+hub/            # 后台任务（调度器、频道路由、Agent 通信、DM 路由）
 desktop/        # Electron 应用 + React 前端
-hub/            # Scheduler 后台任务
+shared/         # 跨层共享工具（config schema、error bus、模型引用等）
+plugins/        # 内置系统插件（随应用打包）
+skills2set/     # 内置技能定义
+scripts/        # 构建工具（server 打包、启动器、签名）
 tests/          # Vitest 测试
-skills2set/     # Skills 定义
 ```
 
 ## License

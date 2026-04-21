@@ -2,11 +2,13 @@
   "channel": {
     "tab": "频道",
     "chatTab": "聊天",
+    "moreTabs": "更多标签",
     "empty": "还没有频道 ✿",
     "dmLabel": "私聊",
     "dmHint": "仅显示主助手的私聊",
     "groupLabel": "频道",
     "noMessages": "暂无消息",
+    "selectHint": "选择一个频道或私聊开始对话",
     "nameExists": "该频道名已存在",
     "membersCount": "位成员",
     "info": "频道信息",
@@ -18,6 +20,7 @@
     "createNamePlaceholder": "例如：design-team",
     "createMembers": "成员",
     "createIntro": "频道介绍",
+    "createIntroOptional": "说明",
     "createIntroPlaceholder": "描述一下这个频道的用途...",
     "createCancel": "取消",
     "createConfirm": "创建",
@@ -32,7 +35,10 @@
     "deleteFailed": "删除失败",
     "warningTitle": "关于频道",
     "warningBody": "我相信让不同记忆与思维方式的助手互动、聊天可以带来更多灵感的碰撞，所以我给 agents 们搭建了一个可以互相说话的地方，在你不在的时候也可以消耗用不完的 token。\n\n但你需要注意的是，频道功能目前是测试版，可能会出现以下问题：\n1. token 消耗过多\n2. 助手未按预期回复\n3. 记忆出现错乱\n\n建议谨慎使用",
-    "warningConfirm": "我了解了，开启频道"
+    "warningConfirm": "我了解了，开启频道",
+    "disabled": "频道功能已关闭",
+    "toggleLabel": "频道功能开关",
+    "members": "成员"
   },
   "sidebar": {
     "title": "对话",
@@ -42,19 +48,53 @@
     "empty": "还没有对话哦 ✿",
     "activity": "助手活动",
     "jian": "书桌",
-    "bridge": "接入社交平台"
+    "bridge": "接入社交平台",
+    "toggle": "侧边栏",
+    "bridgeShort": "接入社交平台"
   },
   "session": {
     "untitled": "新对话",
     "messageCount": "{n} 条消息",
     "switchFailed": "切换 session 失败",
     "createFailed": "新建 session 失败",
-    "archiveFailed": "归档 session 失败"
+    "archiveFailed": "归档 session 失败",
+    "rename": "重命名"
+  },
+  "common": {
+    "on": "开",
+    "off": "关",
+    "copy": "复制",
+    "copied": "已复制",
+    "copyText": "复制文本",
+    "confirm": "确认",
+    "cancel": "取消",
+    "approve": "批准",
+    "reject": "拒绝",
+    "approved": "已批准",
+    "rejected": "已拒绝",
+    "changeRejected": "{label} 修改已取消",
+    "changeTimeout": "{label} 确认超时",
+    "noChats": "暂无对话",
+    "noFiles": "暂无文件",
+    "executing": "执行中...",
+    "user": "用户",
+    "me": "我",
+    "more": "更多",
+    "empty": "空",
+    "edit": "编辑",
+    "screenshot": "截图",
+    "selectMessage": "选择消息",
+    "screenshotSaved": "截图已保存到工作目录下的「截图」文件夹",
+    "screenshotFailed": "截图保存失败",
+    "selectedCount": "已选 {count} 条",
+    "allDone": "全部完成"
   },
   "chat": {
     "send": "发送",
     "steer": "插话",
-    "stop": "停止"
+    "stop": "停止",
+    "browserScreenshot": "浏览器截图",
+    "compacting": "上下文压缩中"
   },
   "time": {
     "justNow": "刚刚",
@@ -72,7 +112,9 @@
     "connected": "已连接",
     "disconnected": "连接断开",
     "serverNotReady": "Server 未就绪",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "reconnecting": "重连中",
+    "reconnect": "重新连接"
   },
   "input": {
     "placeholder": "说点什么...",
@@ -81,23 +123,33 @@
     "selectWorkspace": "选择工作空间",
     "planMode": "操作电脑",
     "deskContext": "看着书桌说",
+    "pastedImage": "粘贴图片",
+    "attachFiles": "添加文件",
+    "commandMenu": "命令菜单",
     "docContext": "看着文档说",
     "thinkingLevel": {
       "off": "关闭",
       "auto": "自动",
+      "high": "深度",
       "xhigh": "极限"
     },
     "thinkingDesc": {
       "off": "不推理",
       "auto": "模型决定深度",
+      "high": "深度推理",
       "xhigh": "最强推理"
-    }
+    },
+    "contextWindow": "上下文 {windowK}k",
+    "tokensUsed": "已用 {tokensK}k ({pct}%)"
   },
   "slash": {
     "diary": "写今日日记",
     "diaryBusy": "正在写日记...",
-    "diaryDone": "日记已保存",
-    "diaryFailed": "日记写入失败"
+    "diaryDone": "日记写入完成，已保存到 diary 文件夹",
+    "diaryFailed": "日记写入失败",
+    "xing": "从对话中提炼技能",
+    "compact": "压缩上下文",
+    "compactBusy": "正在压缩..."
   },
   "welcome": {
     "messages": [
@@ -113,10 +165,22 @@
   },
   "yuan": {
     "types": {
-      "hanako": { "label": "均衡的助手", "avatar": "Hanako.png" },
-      "butter": { "label": "更富有感情", "avatar": "Butter.png" },
-      "ming":   { "label": "更理性冷静", "avatar": "Ming.png" },
-      "kong":   { "label": "模型原本的样子", "avatar": "Kong.png" }
+      "hanako": {
+        "label": "均衡的助手",
+        "avatar": "Hanako.png"
+      },
+      "butter": {
+        "label": "更富有感情",
+        "avatar": "Butter.png"
+      },
+      "ming": {
+        "label": "更理性冷静",
+        "avatar": "Ming.png"
+      },
+      "kong": {
+        "label": "模型原本的样子",
+        "avatar": "Kong.png"
+      }
     },
     "title": "元",
     "splash": {
@@ -182,10 +246,29 @@
       "reject": "取消",
       "created": "✓ 已创建",
       "rejected": "已取消"
-    }
+    },
+    "everyHours": "每 {n} 小时",
+    "everyMinutes": "每 {n} 分钟",
+    "hourly": "每小时",
+    "dailyAt": "每天 {hour}:{min}",
+    "weeklyAt": "{days} {hour}:{min}",
+    "dayNames": [
+      "日",
+      "一",
+      "二",
+      "三",
+      "四",
+      "五",
+      "六"
+    ],
+    "weekPrefix": "周"
   },
   "mood": {
     "label": "✿ MOOD"
+  },
+  "xing": {
+    "title": "反省",
+    "thinking": "{name} 正在思考"
   },
   "thinking": {
     "phrases": [
@@ -225,29 +308,148 @@
       "验证中",
       "正在拆解问题",
       "归纳中"
-    ]
+    ],
+    "done": "思考完成",
+    "active": "思考中"
   },
   "toolGroup": {
     "success": "✿ {name} 忙完了，小事一桩～ · {n} 步",
-    "failed": "⚠ 好像出了点问题 · {n} 步"
+    "failed": "⚠ 好像出了点问题 · {n} 步",
+    "countWithFail": "{total} 个工具（{fail} 个失败）",
+    "count": "{n} 个工具",
+    "running": "{n} 个工具运行中"
   },
   "tool": {
-    "web_search":    { "running": "🌐 {name} 正在互联网冲浪",       "done": "🌐 {name} 冲浪回来了",       "failed": "🌐 {name} 没冲到浪" },
-    "web_fetch":     { "running": "📄 {name} 正在读取网页",         "done": "📄 {name} 读取完成",         "failed": "📄 {name} 网页读取失败" },
-    "search_memory": { "running": "💭 {name} 正在努力回想中",       "done": "💭 {name} 回想完毕",         "failed": "💭 {name} 记忆检索失败" },
-    "bash":          { "running": "💻 {name} 正在小心翼翼地用你的电脑", "done": "💻 {name} 用完电脑了",       "failed": "💻 {name} 指令执行失败" },
-    "read":          { "running": "📖 {name} 正在读取文件",         "done": "📖 {name} 读取完成",         "failed": "📖 {name} 读取失败" },
-    "write":         { "running": "✏️ {name} 提笔写字中",           "done": "✏️ {name} 写完了",           "failed": "✏️ {name} 写入失败" },
-    "edit":          { "running": "✏️ {name} 提笔写字中",           "done": "✏️ {name} 改完了",           "failed": "✏️ {name} 修改失败" },
-    "edit-diff":     { "running": "✏️ {name} 提笔写字中",           "done": "✏️ {name} 改完了",           "failed": "✏️ {name} 修改失败" },
-    "glob":          { "running": "🔍 {name} 正在寻找文件",         "done": "🔍 {name} 找到了",           "failed": "🔍 {name} 查找失败" },
-    "grep":          { "running": "🔍 {name} 正在文件中搜索",       "done": "🔍 {name} 搜索完成",         "failed": "🔍 {name} 搜索失败" },
-    "find":          { "running": "🔍 {name} 正在寻找文件",         "done": "🔍 {name} 找到了",           "failed": "🔍 {name} 查找失败" },
-    "ls":            { "running": "📂 {name} 正在查看目录",         "done": "📂 {name} 查看完成",         "failed": "📂 {name} 查看失败" },
-    "truncate":      { "running": "✂️ {name} 正在整理文件",         "done": "✂️ {name} 整理完成",         "failed": "✂️ {name} 整理失败" },
-    "present_files": { "running": "📎 {name} 正在整理文件",         "done": "📎 文件就绪",                "failed": "📎 文件呈现失败" },
-    "browser":       { "running": "🌐 {name} 正在操作浏览器",       "done": "🌐 {name} 浏览器操作完成",   "failed": "🌐 {name} 浏览器操作失败" },
-    "_fallback":     { "running": "🔧 {name} 正在忙碌中…",         "done": "🔧 {name} 操作完成",         "failed": "🔧 {name} 操作失败" }
+    "web_search": {
+      "running": "🌐 {name} 正在互联网冲浪",
+      "done": "🌐 {name} 冲浪回来了",
+      "failed": "🌐 {name} 没冲到浪"
+    },
+    "web_fetch": {
+      "running": "📄 {name} 正在看网页",
+      "done": "📄 {name} 了然于心",
+      "failed": "📄 {name} 上网失败"
+    },
+    "search_memory": {
+      "running": "💭 {name} 正在努力回想",
+      "done": "💭 {name} 想起来了",
+      "failed": "💭 {name} 怎么也想不起来"
+    },
+    "bash": {
+      "running": "💻 {name} 正在小心翼翼地用你的电脑",
+      "done": "💻 {name} 用完电脑了",
+      "failed": "💻 {name} 电脑没听话"
+    },
+    "read": {
+      "running": "📖 {name} 正在翻阅文件",
+      "done": "📖 {name} 翻完了",
+      "failed": "📖 {name} 没翻到"
+    },
+    "write": {
+      "running": "✏️ {name} 提笔写字中",
+      "done": "✏️ {name} 落笔了",
+      "failed": "✏️ {name} 笔没墨了"
+    },
+    "edit": {
+      "running": "✏️ {name} 提笔改字中",
+      "done": "✏️ {name} 改好了",
+      "failed": "✏️ {name} 越改越乱了"
+    },
+    "edit-diff": {
+      "running": "✏️ {name} 提笔改字中",
+      "done": "✏️ {name} 改好了",
+      "failed": "✏️ {name} 越改越乱了"
+    },
+    "glob": {
+      "running": "🔍 {name} 正在找文件",
+      "done": "🔍 {name} 找到了",
+      "failed": "🔍 {name} 翻遍了也没找到"
+    },
+    "grep": {
+      "running": "🔍 {name} 正在文件里翻找",
+      "done": "🔍 {name} 翻到了",
+      "failed": "🔍 {name} 翻了个遍，没有"
+    },
+    "find": {
+      "running": "🔍 {name} 正在找文件",
+      "done": "🔍 {name} 找到了",
+      "failed": "🔍 {name} 翻遍了也没找到"
+    },
+    "ls": {
+      "running": "📂 {name} 正在看文件夹里有什么",
+      "done": "📂 {name} 看完了",
+      "failed": "📂 {name} 打不开这个目录"
+    },
+    "truncate": {
+      "running": "✂️ {name} 正在整理文件",
+      "done": "✂️ {name} 整理好了",
+      "failed": "✂️ {name} 整理不动了"
+    },
+    "stage_files": {
+      "running": "📎 {name} 正在整理文件",
+      "done": "📎 在这！",
+      "failed": "📎 文件没放好"
+    },
+    "browser": {
+      "running": "🌐 {name} 正在操作浏览器",
+      "done": "🌐 {name} 操作完了",
+      "failed": "🌐 {name} 浏览器不听使唤"
+    },
+    "subagent": {
+      "running": "🧭 子代理执行中",
+      "done": "🧭 子代理已完成",
+      "failed": "🧭 子代理执行失败"
+    },
+    "wait": {
+      "running": "⏳ {name} 正在等待结果",
+      "done": "⏳ 等待结束",
+      "failed": "⏳ 等待被中断"
+    },
+    "check_pending_tasks": {
+      "running": "📋 {name} 正在找找没做完的事儿",
+      "done": "📋 {name} 找完了",
+      "failed": "📋 找不着"
+    },
+    "cron": {
+      "running": "⏰ {name} 正在设定时任务",
+      "done": "⏰ 设好了",
+      "failed": "⏰ 没设成"
+    },
+    "notify": {
+      "running": "🔔 {name} 正在发通知",
+      "done": "🔔 通知发了",
+      "failed": "🔔 通知没发出去"
+    },
+    "artifact": {
+      "running": "🖼️ {name} 正在写写画画",
+      "done": "🖼️ 画好了",
+      "failed": "🖼️ 画崩了"
+    },
+    "dm": {
+      "running": "✉️ {name} 打开了手机",
+      "done": "✉️ 发出去了",
+      "failed": "✉️ 没发出去"
+    },
+    "channel": {
+      "running": "📢 {name} 正在频道发言",
+      "done": "📢 发完了",
+      "failed": "📢 发不出去"
+    },
+    "install_skill": {
+      "running": "📥 {name} 正在装技能",
+      "done": "📥 装好了",
+      "failed": "📥 没装上"
+    },
+    "update_settings": {
+      "running": "⚙️ {name} 正在改设置",
+      "done": "⚙️ 改好了",
+      "failed": "⚙️ 没改成"
+    },
+    "_fallback": {
+      "running": "🔧 {name} 正在忙碌中…",
+      "done": "🔧 {name} 忙完了",
+      "failed": "🔧 {name} 没忙明白"
+    }
   },
   "file_output": {
     "open": "打开",
@@ -270,7 +472,8 @@
       "Ta 把散落的情绪重新收好",
       "{name} 闻到了某个下午的橘子味",
       "那些对话还带着体温"
-    ]
+    ],
+    "installing": "{name} 正在更新到 v{version}，请稍候……"
   },
   "settings": {
     "title": "设置",
@@ -285,12 +488,16 @@
       "agent": "助手",
       "me": "我",
       "providers": "供应商",
+      "media": "多媒体",
       "models": "模型",
       "memory": "记忆",
-      "work": "工作",
+      "work": "工作空间",
       "skills": "技能",
       "bridge": "社交平台",
-      "about": "关于"
+      "sharing": "分享",
+      "plugins": "插件",
+      "about": "关于",
+      "security": "安全"
     },
     "appearance": {
       "title": "外观",
@@ -311,10 +518,16 @@
       "delveMode": "探究一下",
       "deepThink": "用户彻底怒了",
       "deepThinkMode": "小鲸鱼",
+      "claudeDesign": "新暖纸",
+      "claudeDesignMode": "试验",
       "auto": "自动",
       "autoMode": "跟随系统",
       "serifFont": "衬线字体",
-      "serifFontHint": "使用衬线体显示正文内容"
+      "serifFontHint": "使用衬线体显示正文内容",
+      "paperTexture": "纸质纹理",
+      "paperTextureHint": "为背景添加宣纸质感",
+      "leavesOverlay": "晴天模式",
+      "leavesOverlayHint": "没事儿晒晒太阳"
     },
     "locale": {
       "title": "语言和地区",
@@ -335,8 +548,10 @@
       "ishikiHint": "定义助手的性格、语气和行为方式。名字会自动注入，无需手动填写",
       "publicIshiki": "对外意识",
       "publicIshikiHint": "出于隐私考虑，助手与访客对话时无法访问记忆、你的个人信息，以及电脑上的任何文件与工具。\n你可以在这里设定助手对访客说话时的回复风格以及注意事项。",
-      "chatModel": "对话模型",
-      "chatModelHint": "Ta 在对话中使用的模型。在「模型」页添加可选模型",
+      "chatModel": "Ta 的模型",
+      "chatModelHint": "Ta 在对话与工作中使用的模型",
+      "imageModel": "图片模型",
+      "imageModelHint": "Ta 在图片生成时使用的模型",
       "addAgent": "新建助手",
       "createTitle": "新建助手",
       "namePlaceholder": "起个名字",
@@ -360,7 +575,18 @@
       "setActive": "设为主助手",
       "lastAgent": "至少保留一个助手",
       "yuan": "元",
-      "yuanHint": "「元」是助手的先天思维方式，你可以选择它更理性还是更感性\n以此为基础搭建你独一无二的伙伴"
+      "yuanHint": "「元」是助手的先天思维方式，以此为基础搭建你独一无二的伙伴",
+      "tools": {
+        "title": "工具",
+        "description": "修改将在新会话时生效。当前进行中的会话使用的是创建时的工具集。",
+        "items": {
+          "browser": { "label": "浏览器", "summary": "控制无头浏览器浏览网页" },
+          "cron": { "label": "定时任务", "summary": "在指定时间自动执行任务" },
+          "dm": { "label": "私信", "summary": "向其他 Agent 发送一对一消息" },
+          "install_skill": { "label": "安装技能", "summary": "从 GitHub 或技能库安装新技能" },
+          "update_settings": { "label": "修改设置", "summary": "让 Agent 修改应用配置项" }
+        }
+      }
     },
     "about": {
       "title": "关于 Ta",
@@ -368,17 +594,38 @@
       "license": "许可证",
       "copyright": "版权",
       "licenseToggle": "许可证全文",
-      "permissions": "权限",
-      "fullAccess": "全权模式",
-      "fullAccessDesc": "关闭沙盒隔离和命令限制，Agent 拥有完整的文件系统和终端权限（新会话生效）",
-      "fullAccessWarningTitle": "关于全权模式",
-      "fullAccessWarningBody1": "开启后，Agent 将获得完整的系统权限，包括：",
-      "fullAccessWarningBody2": "1. 文件系统不受沙盒保护，可读写任意路径\n2. 终端命令不受限制，可执行 sudo、chmod 等操作\n3. OS 级隔离（macOS Seatbelt / Linux bubblewrap）将被关闭",
-      "fullAccessWarningBody3": "仅建议在完全信任 Agent 行为且需要系统级操作时开启。",
-      "fullAccessCancel": "取消",
-      "fullAccessConfirm": "我了解风险，开启",
-      "updateAvailable": "有新版本可用：v{{version}}",
-      "updateDownload": "下载"
+      "updateAvailable": "有新版本可用：v{version}",
+      "updateDownload": "下载",
+      "updateChecking": "正在检查更新…",
+      "updateDownloading": "{agentName}正在准备新家 {percent}%",
+      "updateReadyInstall": "v{version} 已就绪",
+      "updateInstall": "重启更新",
+      "updateProgress": "{percent}%",
+      "updateError": "检查更新失败",
+      "updateLatest": "已是最新版本",
+      "updateCheckBtn": "检查更新",
+      "updateNeedInstall": "请先将 Hanako 移动到应用程序文件夹",
+      "updateDiskSpace": "磁盘空间不足，无法下载更新",
+      "betaUpdates": "接收测试版更新",
+      "autoCheckUpdates": "自动检查更新"
+    },
+    "security": {
+      "sandbox": "沙盒",
+      "sandboxDesc": "限制 AI 的文件系统访问范围，仅允许操作工作目录和必要的数据文件夹",
+      "sandboxWarning": "关闭沙盒后 AI 可以访问系统上的任意文件，可能产生意想不到的结果",
+      "fileBackup": "文件备份",
+      "fileBackupDesc": "AI 修改或删除文件前自动保存原始内容",
+      "retention": "保留时长",
+      "retention1d": "1 天",
+      "retention3d": "3 天",
+      "retention7d": "7 天",
+      "maxFileSize": "忽略大于",
+      "viewBackups": "查看备份",
+      "hideBackups": "收起",
+      "restoreBtn": "恢复",
+      "noBackups": "暂无备份记录",
+      "restoreSuccess": "已恢复",
+      "restoreFailed": "恢复失败"
     },
     "me": {
       "title": "我",
@@ -429,6 +676,28 @@
       "noKey": "未配置",
       "remove": "移除",
       "deleteConfirm": "确定删除供应商 {name}？相关模型和收藏将一并清除。"
+    },
+    "media": {
+      "imageGeneration": "图片生成",
+      "defaultModel": "默认图片模型",
+      "credentialOk": "API Key 已配置（复用供应商设置）",
+      "credentialMissing": "未配置，前往供应商设置",
+      "addModel": "添加图片模型",
+      "providerDefaults": "默认参数",
+      "size": "尺寸",
+      "format": "格式",
+      "quality": "质量",
+      "watermark": "水印",
+      "aspectRatio": "长宽比",
+      "speechRecognition": "语音识别",
+      "speechSynthesis": "语音合成",
+      "comingSoon": "即将推出",
+      "noProvider": "请选择一个供应商查看详情",
+      "models": "图片模型",
+      "globalDefault": "全局默认",
+      "followGlobal": "跟随全局默认",
+      "default": "默认"
+>>>>>>> upstream/main
     },
     "oauth": {
       "title": "快速登录",
@@ -494,9 +763,16 @@
       "thinkingLevelHint": "控制模型的推理深度，仅对支持推理的模型生效",
       "thinkingLevels": {
         "off": "关闭",
+        "low": "浅思",
+        "medium": "中等",
+        "high": "深思",
         "auto": "自动",
         "xhigh": "极限"
-      }
+      },
+      "addedModels": "已添加的模型",
+      "displayName": "显示名称",
+      "vision": "视觉",
+      "reasoning": "推理"
     },
     "memory": {
       "sectionTitle": "记忆",
@@ -547,7 +823,8 @@
         "title": "记忆水位线",
         "hint": "有多少记忆能被记住由你决定。有一些杂音是可以的，大语言模型可以很好的识别",
         "stats": "记住 {remembered} 条 / 共 {total} 条记忆"
-      }
+      },
+      "activeOnly": "请先将此助手设为主助手"
     },
     "pins": {
       "title": "置顶记忆",
@@ -559,7 +836,9 @@
     "experience": {
       "title": "经验",
       "hint": "助手积累的工作经验，按分类整理。助手在开始工作前会自动检查相关经验",
-      "empty": "暂无经验积累"
+      "empty": "暂无经验积累",
+      "edit": "编辑",
+      "deleteCategory": "删除分类"
     },
     "search": {
       "verify": "验证",
@@ -571,6 +850,8 @@
     },
     "work": {
       "title": "巡检",
+      "heartbeatMaster": "巡检总开关",
+      "heartbeatMasterDesc": "关闭后所有助手的巡检均暂停",
       "heartbeatEnabled": "巡检模式",
       "heartbeatOn": "已开启",
       "heartbeatOff": "已关闭",
@@ -588,11 +869,17 @@
       "homeFolderBrowse": "选择文件夹"
     },
     "toolCaps": {
-      "title": "自学 Skills"
+      "title": "技能安全设置"
     },
     "skills": {
       "title": "技能管理",
       "desc": "启用或关闭助手的技能。启用后，助手在相关对话中会自动识别并使用对应技能。",
+      "manageTitle": "已装技能",
+      "agentConfigTitle": "Agent Skill 配置",
+      "configureFor": "正在配置:",
+      "userSkillsTitle": "助手技能配置",
+      "learnedSkillsTitle": "自学技能",
+      "learnedEmpty": "该助手还没有自学过技能",
       "user": "用户技能",
       "system": "系统技能",
       "add": "添加技能",
@@ -619,9 +906,69 @@
       "compatAddPath": "添加目录",
       "compatRemove": "移除",
       "compatAutoDiscovered": "自动发现",
-      "compatNotInstalled": "未安装"
+      "compatNotInstalled": "未安装",
+      "learnCreate": "自行创建 / 安装技能",
+      "learnCreateDesc": "允许 Agent 编写新技能或通过工具调用安装到自己的目录",
+      "fetchRemote": "从 GitHub / ClawHub 主动获取技能",
+      "fetchRemoteDesc": "开启后 Agent 会在执行专业任务时主动搜索并安装合适的技能，请谨慎",
+      "safetyReview": "安装前安全审查",
+      "safetyReviewDesc": "安装技能前通过 AI 检测 prompt injection 等安全风险",
+      "fetchWarning": {
+        "title": "关于主动获取技能",
+        "body1": "开启后，Agent 在执行专业任务时会主动从 GitHub 和 ClawHub 搜索、下载并安装合适的技能。",
+        "body2": "虽然安装前会进行自动安全审查和 star 数门槛检查，但仍存在以下风险：",
+        "risk1": "技能内容未经人工审核，可能包含不当指令",
+        "risk2": "Agent 可能安装与预期不符的技能",
+        "risk3": "恶意技能可能尝试操控 Agent 行为",
+        "confirm": "我了解风险，开启"
+      },
+      "safetyWarning": {
+        "title": "关闭安全审查",
+        "body1": "安全审查会在安装技能前检测潜在的恶意内容，包括：",
+        "risk1": "Prompt injection（越权指令）",
+        "risk2": "过于宽泛的触发条件",
+        "risk3": "社会工程和权限提升尝试",
+        "body2": "关闭后，所有技能将不经审查直接安装。",
+        "confirm": "我了解风险，关闭审查"
+      }
+    },
+    "plugins": {
+      "title": "插件",
+      "desc": "管理社区插件。",
+      "empty": "暂无插件",
+      "reload": "刷新",
+      "statusLoaded": "已加载",
+      "statusFailed": "加载失败",
+      "statusDisabled": "已禁用",
+      "fullAccessToggle": "允许全权插件",
+      "fullAccessDesc": "开启后，声明 full-access 的插件将获得完整系统权限（路由、钩子、Provider 等）",
+      "dropzone": "拖入插件文件夹或 .zip 安装，或点击选择",
+      "statusRestricted": "需要全权许可",
+      "deleteConfirm": "移除插件「{name}」？插件数据将保留。",
+      "installSuccess": "插件「{name}」已安装",
+      "installError": "插件安装失败",
+      "invalidPlugin": "不是有效的插件目录",
+      "pluginsDir": "插件目录：{path}",
+      "needsFullAccess": "请先开启「允许全权插件」"
+    },
+    "screenshot": {
+      "title": "截图分享",
+      "desc": "选择你分享对话的截图样式与排版",
+      "color": "配色",
+      "width": "宽度",
+      "light": "浅色",
+      "dark": "深色",
+      "sakura": "青空与樱",
+      "mobile": "手机看",
+      "desktop": "电脑看",
+      "mobileTitle": "手机排版",
+      "mobileDesc": "长图，适合手机分享",
+      "desktopTitle": "电脑排版",
+      "desktopDesc": "更宽，适合电脑保存与分享"
+>>>>>>> upstream/main
     },
     "bridge": {
+      "agent": "Agent",
       "telegram": "Telegram",
       "telegramToken": "Bot Token",
       "telegramHint": "从 @BotFather 获取",
@@ -633,6 +980,20 @@
       "qqAppId": "App ID",
       "qqAppSecret": "App Secret",
       "qqHint": "从 QQ 机器人开放平台（q.qq.com/qqbot）获取",
+      "wechat": "微信",
+      "wechatHint": "通过微信 iLink 协议接入个人号",
+      "wechatExclusive": "一个微信号只能绑定一个 Agent，绑定新 Agent 后旧的会自动失效",
+      "wechatScan": "扫码登录",
+      "wechatRescan": "重新登录",
+      "wechatLoggedIn": "已登录",
+      "wechatNeedScan": "请先扫码登录",
+      "wechatScanning": "请用微信扫描二维码",
+      "wechatScanned": "已扫码，请在手机上确认",
+      "wechatExpired": "二维码已过期",
+      "wechatLoginSuccess": "登录成功",
+      "wechatLoginFailed": "登录失败",
+      "wechatUnbind": "解除绑定",
+      "wechatUnbound": "已解除微信绑定",
       "connected": "已连接",
       "disconnected": "未连接",
       "error": "连接失败",
@@ -653,7 +1014,7 @@
         "在 Telegram 找到你的 Bot，发消息试试吧"
       ],
       "ownerSelect": "哪个账号是你",
-      "ownerWarning": "注意：你选择的账号可以访问你的电脑、记忆以及各种隐私信息，请确保账号主人是你自己，谨慎选择。",
+      "ownerWarning": "所选账号可访问你的文件和隐私信息，请确认是你本人。",
       "ownerNone": "发送一条消息后即可选择",
       "ownerSaved": "已保存",
       "ownerConfirmTitle": "确认设为 Owner？",
@@ -670,7 +1031,8 @@
         "点击「添加事件」，添加 <code>im.message.receive_v1</code>（接收消息）",
         "重要：进入「版本管理与发布」，先创建并发布一个版本（长连接配置需要应用已发布才能保存）",
         "将 App ID 和 App Secret 粘贴到上方输入框，打开开关即可"
-      ]
+      ],
+      "whatsappHint": "即将支持"
     }
   },
   "onboarding": {
@@ -748,13 +1110,14 @@
     "empty": "暂时没有活动记录，日常巡检或定时任务执行后会出现在这里",
     "back": "返回",
     "heartbeat": "日常巡检",
-    "delegate": "委派任务",
+    "subagent": "子 agent 任务",
     "cron": "定时任务",
     "patrolDone": "日常巡检完毕",
     "cronDone": "定时任务执行完毕",
     "error": "执行异常",
     "viewSession": "查看对话 →",
-    "duration": "耗时 {text}"
+    "duration": "耗时 {text}",
+    "promote": "升格为对话"
   },
   "automation": {
     "title": "任务计划",
@@ -762,6 +1125,12 @@
     "defaultModel": "默认模型",
     "edit": "编辑",
     "delete": "删除"
+  },
+  "ctx": {
+    "cut": "剪切",
+    "copy": "复制",
+    "paste": "粘贴",
+    "selectAll": "全选"
   },
   "desk": {
     "title": "书桌",
@@ -772,9 +1141,11 @@
     "cwdSkillsDesc": "技能跟随工作空间",
     "cwdSkillsDrop": "拖入文件夹或 .zip 安装技能",
     "deleteSkill": "删除技能",
-    "openInFinder": "在访达中打开",
+    "openInFinder": "打开文件夹",
     "jianLabel": "笺",
     "jianPlaceholder": "写点什么，告诉助手这个文件夹里面的文件该如何处理...",
+    "execLogLabel": "执行记录",
+    "execLogDelete": "删除此条记录",
     "emptyTitle": "书桌还空空的呢",
     "emptyHint": "书桌是助手日常巡检的工作空间，也是每次对话的默认目录\n去设置里指定一个文件夹吧",
     "goToSettings": "前往设置",
@@ -783,7 +1154,7 @@
     "newFolder": "新建文件夹",
     "ctx": {
       "open": "打开",
-      "openInFinder": "在访达中打开",
+      "openInFinder": "打开文件夹",
       "rename": "重命名",
       "copyPath": "复制路径",
       "delete": "删除",
@@ -805,9 +1176,21 @@
       "typeShort": "类型"
     }
   },
+  "window": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "close": "关闭"
+  },
   "browser": {
     "using": "正在用浏览器",
-    "close": "关闭浏览器"
+    "close": "关闭浏览器",
+    "closeBtn": "关闭",
+    "back": "后退",
+    "forward": "前进",
+    "reload": "刷新",
+    "emergencyStop": "紧急停止 AI 控制",
+    "backgroundHint": "后台浏览器运行中，点击查看",
+    "background": "后台浏览器"
   },
   "bridge": {
     "selectChat": "选择一个对话",
@@ -816,7 +1199,7 @@
     "empty": "暂无消息记录",
     "notConfigured": "尚未配置 {platform}",
     "goToSettings": "前往设置",
-    "resetContext": "清除上下文",
+    "resetContext": "重启上下文",
     "resetContextTip": "下次消息将开启新对话"
   },
   "error": {
@@ -826,6 +1209,562 @@
     "missingParam": "缺少 {param} 参数",
     "invalidJson": "请求体必须是 JSON 对象",
     "sessionNotFound": "Session 文件不存在",
-    "stillStreaming": "{name} 还在说话，请等一下"
-  }
+    "stillStreaming": "{name} 还在说话，请等一下",
+    "agentNameEmpty": "助手名字不能为空",
+    "agentIdInvalid": "助手 ID 包含非法字符",
+    "agentAlreadyExists": "助手 \"{id}\" 已存在",
+    "agentSwitching": "正在切换助手，请稍后再试",
+    "agentNotFound": "助手 \"{id}\" 不存在或未初始化",
+    "agentModelNotAvailable": "agent \"{id}\" 配置的模型 \"{model}\" 不在可用列表中",
+    "agentDeleteActive": "不能删除当前正在使用的助手",
+    "agentNotExists": "助手 \"{id}\" 不存在",
+    "modelNoResponse": "模型未返回任何内容，请检查 API 配置和网络连接。",
+    "noActiveSession": "没有活跃的 session",
+    "compacting": "正在压缩中",
+    "waitForReply": "请等待回复结束后再压缩",
+    "compactFailed": "压缩失败: {msg}",
+    "maxImages": "最多支持 {max} 张图片",
+    "unsupportedImageFormat": "不支持的图片格式: {mime}",
+    "imageTooLarge": "单张图片不得超过 20MB",
+    "viewImage": "（看图）",
+    "modelNoVision": "当前模型不支持图片，请切换到支持图片的模型后再试",
+    "searchProviderNotConfigured": "未配置搜索 provider",
+    "searchProviderMissingKey": "搜索 provider \"{provider}\" 缺少 API Key",
+    "searchProviderUnknown": "未知搜索 provider: {provider}",
+    "searchFailed": "搜索失败: {msg}",
+    "searchEmptyQuery": "请提供搜索关键词。",
+    "searchNoResults": "没有找到相关结果。(via {provider})",
+    "searchResults": "搜索结果 (via {provider}):\n\n{results}",
+    "searchError": "搜索出错: {msg}",
+    "fetchEmptyUrl": "请提供要抓取的 URL。",
+    "fetchHttpOnly": "只支持 http/https 协议的 URL。",
+    "fetchInvalidUrl": "无效的 URL: {url}",
+    "fetchSsrf": "禁止访问内网地址: {host}",
+    "fetchRedirectLimit": "重定向次数超限（{max}）",
+    "fetchHttpError": "抓取失败: HTTP {status} {statusText}",
+    "fetchTruncated": "\n\n[... 内容已截断，共 {len} 字符]",
+    "fetchSource": "来源: {host}{path} ({format})\n\n",
+    "fetchTimeout": "抓取超时（{sec}s）: {url}",
+    "fetchError": "抓取出错: {msg}",
+    "browserError": "错误: {msg}",
+    "browserAlreadyRunning": "浏览器已在运行中",
+    "browserLaunched": "浏览器已启动",
+    "browserNotRunning": "浏览器未在运行",
+    "browserClosed": "浏览器已关闭",
+    "browserNavigateNeedUrl": "navigate 需要 url 参数",
+    "browserNavigated": "已导航到 {title}\nURL: {url}\n\n{snapshot}",
+    "browserClickNeedRef": "click 需要 ref 参数",
+    "browserClicked": "已点击 [{ref}]\n\n{snapshot}",
+    "browserTypeNeedText": "type 需要 text 参数",
+    "browserTyped": "已输入文本{target}\n\n{snapshot}",
+    "browserScrollNeedDir": "scroll 需要 direction 参数（up/down）",
+    "browserScrolled": "已向{dir}滚动\n\n{snapshot}",
+    "browserSelectNeedRef": "select 需要 ref 参数",
+    "browserSelectNeedValue": "select 需要 value 参数",
+    "browserSelected": "已选择 [{ref}] → \"{value}\"\n\n{snapshot}",
+    "browserKeyNeedKey": "key 需要 key 参数",
+    "browserKeyPressed": "已按键 {key}\n\n{snapshot}",
+    "browserWaitDone": "等待完成\n\n{snapshot}",
+    "browserEvalNeedExpr": "evaluate 需要 expression 参数",
+    "browserOutputTruncated": "\n\n[... 输出已截断]",
+    "browserShown": "浏览器窗口已置前",
+    "browserUnknownAction": "未知操作: {action}",
+    "browserActionFailed": "浏览器操作失败: {msg}",
+    "skillNeedAbsolutePath": "需要绝对路径",
+    "skillPathNotExists": "路径不存在",
+    "skillMissingSkillMd": "文件夹中缺少 SKILL.md",
+    "skillUnsupportedFormat": "仅支持 .zip 或 .skill 文件",
+    "skillMissingSkillMdInZip": "压缩包中缺少 SKILL.md",
+    "skillExtractFailed": "解压失败: {msg}",
+    "skillMissingName": "SKILL.md 中缺少 name 字段",
+    "skillNameInvalid": "技能名称无效（\"{name}\"）。仅允许字母、数字、下划线和短横线。",
+    "skillPathMustBeAbsolute": "路径必须是绝对路径: {path}",
+    "skillCannotAddSelfDir": "不能添加 Hanako 自身的技能目录",
+    "skillInvalidName": "无效的技能名称",
+    "skillExternalCannotDelete": "外部兼容技能无法从此处删除",
+    "skillNotExists": "技能不存在",
+    "channelReadNeedChannel": "错误：read 需要 channel 参数",
+    "channelNotExists": "频道 \"{channel}\" 不存在",
+    "agentNotChannelMember": "你不是频道 \"{channel}\" 的成员，无法发送消息",
+    "channelNoMessages": "(频道暂无消息)",
+    "channelPostNeedParams": "错误：post 需要 channel 和 content 参数",
+    "channelPosted": "已发送到 #{channel}",
+    "channelCreateNeedParams": "错误：create 需要 name 和 members 参数",
+    "channelCreated": "频道 #{name} ({id}) 已创建，成员：{members}",
+    "channelCreateFailed": "创建失败：{msg}",
+    "channelNoJoined": "还没有加入任何频道",
+    "unknownAction": "未知操作: {action}",
+    "cannotSelfDm": "不能给自己发私信",
+    "dmSent": "已发送私信给 {name}",
+    "cronNoJobs": "没有定时任务",
+    "cronAddNeedParams": "错误：add 需要 scheduleType, schedule, prompt 参数",
+    "cronEveryMustBeNumber": "错误：every 类型的 schedule 必须是正整数（毫秒）",
+    "cronCreated": "已创建定时任务: {label} ({id})",
+    "cronConfirmed": "用户已确认，定时任务已创建: {label} ({id})",
+    "cronRejected": "用户取消了定时任务「{label}」的创建",
+    "cronTimeout": "定时任务「{label}」确认超时",
+    "cronPendingConfirm": "准备创建定时任务: {label}，等待确认",
+    "cronRemoveNeedId": "错误：remove 需要 id 参数",
+    "cronJobNotFound": "任务 {id} 不存在",
+    "cronRemoved": "已删除任务 {id}",
+    "cronToggleNeedId": "错误：toggle 需要 id 参数",
+    "cronToggled": "任务 {id} {state}",
+    "cronEnabled": "已启用",
+    "cronDisabled": "已禁用",
+    "notifySent": "已发送通知: {title}",
+    "notifyFailed": "通知发送失败: {msg}",
+    "artifactCreated": "已创建预览: {title}",
+    "pinnedAlreadyExists": "这条已经在置顶记忆里了。",
+    "pinnedAdded": "已记住：{content}",
+    "pinnedEmpty": "置顶记忆是空的，没有可移除的内容。",
+    "pinnedNotFound": "没找到包含「{keyword}」的置顶记忆。",
+    "pinnedRemoved": "已移除 {count} 条：{items}",
+    "expEmpty": "经验库为空。",
+    "expCategoryNotFound": "没有找到分类「{category}」的经验。",
+    "expEmptyInput": "分类名和经验内容不能为空。",
+    "expDuplicate": "这条经验已经记录过了。",
+    "expRecorded": "已记录经验 [{category}]：{content}",
+    "outputFileNeedPaths": "需要提供 filepaths 数组或 filePath。",
+    "outputFileNotAbsolute": "路径必须是绝对路径: {path}",
+    "outputFileNotFound": "文件不存在: {path}",
+    "outputFilePresented": "文件已呈现: {summary}",
+    "settingsUnknownKey": "未知的设置项「{key}」。请先用 search 查找正确的 key。",
+    "settingsInvalidValue": "「{value}」不是有效的选项。可选：{options}",
+    "settingsInvalidToggle": "toggle 类型仅接受 \"true\" 或 \"false\"。",
+    "settingsNotReady": "设置系统未就绪",
+    "settingsNoAgent": "当前没有活跃的 Agent，无法修改此设置",
+    "settingsApplied": "已将「{label}」修改为 {value}",
+    "settingsApplyFailed": "设置修改失败: {msg}",
+    "settingsCancelled": "用户取消了「{label}」的修改",
+    "settingsTimeout": "「{label}」修改确认超时，设置未变更",
+    "subagentMaxConcurrent": "当前已有 {max} 个子 agent 在运行，请等待完成后再发起。",
+    "subagentFailed": "子 agent 执行失败: {msg}",
+    "subagentTimeout": "子 agent 执行超时（{minutes} 分钟）",
+    "subagentAborted": "子 agent 已被终止",
+    "subagentNoOutput": "(子 agent 未产生输出)",
+    "subagentDispatched": "子代理已出发 (task-id: {taskId})。完成后结果会自动送达。",
+    "installSkillDisabled": "自学技能能力未启用。请在设置中开启「允许 Agent 自行创建/安装技能」。",
+    "installSkillGithubDisabled": "GitHub 技能获取未启用。请在设置中开启「允许从 GitHub 获取技能」。",
+    "installSkillInvalidGithubUrl": "无效的 GitHub URL：{url}",
+    "installSkillGithubApiFailed": "无法获取仓库信息（HTTP {status}）。请检查 URL 是否正确。",
+    "installSkillGithubApiError": "访问 GitHub API 失败：{msg}",
+    "installSkillStarTooLow": "该仓库仅有 {stars} stars（门槛 {min}），安全性无法保证，拒绝安装。",
+    "installSkillNoSkillMd": "在 {owner}/{repo} 中找不到 SKILL.md（已尝试路径：{paths}）。",
+    "installSkillSafetyFailed": "[安全策略] 技能安全审查未通过，已阻止安装。\n原因：{reason}\n\n请告知用户此技能未通过安全审查，说明具体原因。用户可以在设置中关闭安全审查（不推荐）。",
+    "installSkillNameInvalid": "技能名称无效{name}。名称仅允许字母、数字、下划线和短横线。",
+    "installSkillSuccess": "技能「{name}」安装成功！\n来源：{source}（⭐ {stars} stars）\n理由：{reason}",
+    "installSkillNeedInput": "请提供 github_url 或 skill_content（SKILL.md 内容）。",
+    "installSkillNeedName": "使用 skill_content 模式时，必须提供 skill_name。",
+    "installSkillSuccessLocal": "技能「{name}」安装成功！\n理由：{reason}",
+    "installSkillSizeLimit": "技能内容超过大小上限（{size}KB > {max}KB）",
+    "installSkillNoUtility": "安全审查不可用：未配置 utility 模型，请在设置中配置辅助模型",
+    "installSkillUtilityIncomplete": "安全审查不可用：辅助模型配置不完整（缺少 API key 或 base URL），请在设置中补全",
+    "installSkillSafetyPassed": "✓ 安全审查已通过",
+    "installSkillSafetyEmpty": "安全审查返回空响应",
+    "installSkillSafetyUnexpected": "安全审查返回未预期的格式: {reply}",
+    "installSkillSafetyTimeout": "安全审查超时或网络错误",
+    "activeSessionOnly": "只能提升当前助手的活动 session",
+    "heartbeatTriggered": "心跳已触发",
+    "dirNotAllowed": "目录不在允许范围内",
+    "noWorkspace": "未设置工作空间",
+    "tokenSuccess": "token 获取成功",
+    "verifyFailed": "验证失败",
+    "tokenFetchFailed": "获取 access_token 失败",
+    "botInfoFailed": "获取机器人信息失败",
+    "platformTestUnsupported": "该平台暂不支持测试",
+    "codexNoHealthCheck": "codex API 不支持健康检测",
+    "modelNotFound": "找不到模型: {id}",
+    "noUtilityModel": "未配置 utility 模型，请在设置中添加",
+    "noUtilityLargeModel": "未配置 utility_large 模型，请在设置中添加",
+    "modelNoProvider": "{role} 模型 \"{model}\" 没有 provider 归属",
+    "providerMissingApi": "provider \"{provider}\" 缺少 API 协议配置",
+    "providerMissingCreds": "provider \"{provider}\" 缺少完整凭证",
+    "utilityApiProviderMismatch": "utility_api.provider 必须与模型 \"{model}\" 的 provider 一致",
+    "utilityApiMissingCreds": "utility_api 缺少完整凭证（provider: {provider}）",
+    "noAvailableModel": "没有可用的模型，请先在设置中配置 API key 和模型",
+    "noActiveSessionPrompt": "没有活跃的 session，请先调用 createSession()",
+    "sessionNotInCache": "session \"{path}\" 不在缓存中",
+    "agentNotInitialized": "agent \"{id}\" 不存在或未初始化",
+    "resolveModelNoChatModel": "resolveModel: 未指定 models.chat，无法选择模型",
+    "resolveModelNotAvailable": "resolveModel: 模型 \"{id}\" 不在可用列表中",
+    "executeIsolatedNoModel": "executeIsolated: agent \"{name}\" 无可用模型",
+    "bridgeAgentNoChatModel": "[bridge] agent \"{name}\" 未配置 models.chat",
+    "bridgeAgentModelNotAvailable": "[bridge] agent \"{name}\" 配置的模型 \"{model}\" 不在可用列表中",
+    "noAgentsFound": "agents/ 目录下没有找到任何助手，请先创建一个",
+    "channelNotFoundById": "频道 \"{id}\" 不存在",
+    "channelAlreadyExists": "频道 \"{id}\" 已存在",
+    "providerMissingBaseUrl": "provider \"{provider}\" 缺少 Base URL",
+    "providerMissingApiKey": "provider \"{provider}\" 缺少 API Key",
+    "modelNameEmpty": "模型名不能为空",
+    "modelNotRegistered": "模型 \"{model}\" 未在 models.json 中注册 provider",
+    "modelProviderMissingApi": "模型 \"{model}\" 所属 provider \"{provider}\" 缺少 API 协议配置",
+    "modelProviderIncomplete": "模型 \"{model}\" 所属 provider \"{provider}\" 配置不完整",
+    "browserDesktopOnly": "浏览器功能仅在 Electron 桌面模式下可用",
+    "browserCmdTimeout": "浏览器命令超时: {cmd}",
+    "agentExecNotInit": "agent \"{id}\" 不存在或未初始化",
+    "bridgeMgrNotStarted": "外部平台管理器未启动",
+    "qqTokenFailed": "获取 access_token 失败: {detail}",
+    "missingApiProtocol": "缺少 API 协议配置",
+    "missingApiKey": "缺少 API Key",
+    "unsupportedApiProtocol": "不支持的 API 协议: {api}",
+    "missingModelId": "缺少模型 ID",
+    "missingBaseUrl": "缺少 Base URL",
+    "llmInvalidJson": "LLM 返回了无法解析的 JSON ({status})",
+    "llmEmptyResponse": "LLM 返回了空内容",
+    "xlsxParseFailed": "无法解析 {ext} 文件: {msg}",
+    "docxParseFailed": "无法解析 {ext} 文件: {msg}",
+    "compatDirCreated": "创建了 {count} 个缺失目录",
+    "compatConfigEmpty": "文件为空",
+    "compatConfigInvalid": "不像 YAML 格式",
+    "compatConfigCorrupted": "config.yaml 损坏 ({msg})，已从模板重建",
+    "compatConfigBackedUp": "config.yaml 损坏 ({msg})，已备份为 {backup}",
+    "compatFactsCorrupted": "facts.db 损坏已备份，将重建空库",
+    "defaultChannelName": "工作群",
+    "defaultChannelDesc": "工作协调频道，所有成员在这里沟通日常事务。",
+    "memorySearchLabel": "搜索记忆",
+    "memorySearchDesc": "搜索记忆库。当你对某件事拿不准、觉得之前聊过但想不起细节、或者需要更多上下文时使用。输入自然语言查询和可选的标签过滤。结果包含匹配的元事实和对应时间。",
+    "memorySearchQueryDesc": "搜索查询，用自然语言描述你想找的内容",
+    "memorySearchTagsDesc": "标签过滤，输入 2~5 个关键词标签来精确匹配。例如 [\"巧克力\", \"食物偏好\"]",
+    "memorySearchDateFromDesc": "起始日期，格式 YYYY-MM-DD",
+    "memorySearchDateToDesc": "结束日期，格式 YYYY-MM-DD",
+    "memorySearchEmpty": "记忆库里没有找到相关内容。",
+    "memorySearchError": "记忆搜索出错: {msg}",
+    "fallbackUserName": "用户",
+    "uploadFailed": "文件导入失败",
+    "uploadPartialFail": "部分文件导入失败：{files}",
+    "stopTaskNotFound": "未找到任务 {taskId}，可能已完成或不存在",
+    "stopTaskAlready": "任务 {taskId} 已经被终止过了",
+    "stopTaskNoHandler": "任务 {taskId} 的类型不支持终止",
+    "stopTaskDone": "已终止任务 {taskId}"
+  },
+  "main": {
+    "tray": {
+      "show": "显示 Hanako",
+      "settings": "设置",
+      "quit": "退出"
+    },
+    "dialog": {
+      "selectFolder": "选择工作文件夹",
+      "selectSkill": "选择技能",
+      "selectPlugin": "选择插件",
+      "launchFailedTitle": "Hanako 启动失败",
+      "launchFailedBody": "Hanako v{version}\n\n{detail}\n\n详细日志已保存到：\n{logPath}\n\n请将此截图或日志文件发送给开发者。",
+      "serverRestartFailed": "Hanako v{version}\n\nServer 崩溃后重启失败。\n{error}\n\n请重新启动应用。",
+      "serverMultipleCrash": "Hanako v{version}\n\nServer 多次崩溃 ({reason})。\n\n请重新启动应用。",
+      "serverStartTimeout": "Server 启动超时（60s）",
+      "serverKilledBySignal": "Server 被信号终止 ({signal})",
+      "serverExitedWithCode": "Server 退出，code: {code}",
+      "installFailedTitle": "Hanako 更新",
+      "installFailedBody": "更新安装失败：\n{error}\n\n请重启 Hanako 后重试，或前往设置页面手动检查更新。"
+    },
+    "notification": {
+      "ready": "通知已就绪"
+    }
+  },
+  "devtools": {
+    "heartbeat": "心跳巡检",
+    "memoryExport": "记忆导出",
+    "onboarding": "Onboarding",
+    "previewGuide": "预览引导",
+    "reloadFrontend": "刷新前端",
+    "tabLogs": "活动日志",
+    "tabSessions": "Session 列表",
+    "tabPrompt": "System Prompt",
+    "waitingConnection": "等待连接...",
+    "waitingServer": "等待 Server 启动...",
+    "loading": "加载中...",
+    "loadFailed": "加载失败",
+    "refreshBtn": "刷新",
+    "clickRefresh": "点击上方「刷新」加载",
+    "noActivities": "暂无活动记录",
+    "heartbeatLabel": "自动巡检",
+    "cronLabel": "定时任务",
+    "heartbeatRunning": "心跳执行中...",
+    "heartbeatGenerating": "正在生成摘要...",
+    "heartbeatDone": "心跳完成",
+    "heartbeatNoSummary": "心跳完成（无摘要）",
+    "memoryExported": "记忆已导出",
+    "exportFailed": "导出失败",
+    "onboardingOpened": "Onboarding 窗口已打开",
+    "previewOpened": "预览模式已打开",
+    "openFailed": "打开失败",
+    "frontendReloaded": "前端已刷新",
+    "refreshFailed": "刷新失败",
+    "triggerFailed": "触发失败",
+    "requestFailed": "请求失败",
+    "justNow": "刚刚",
+    "minutesAgo": "{n}分钟前",
+    "hoursAgo": "{n}小时前",
+    "chars": "字",
+    "empty": "空",
+    "serverConnected": "Server 已连接 (port {port})"
+  },
+  "skillViewer": {
+    "cantRead": "无法读取文件",
+    "copied": "已复制到技能列表",
+    "installFailed": "安装失败: "
+  },
+  "toolDef": {
+    "webSearch": {
+      "label": "搜索网页",
+      "description": "搜索互联网获取实时信息。当你需要查找最新资讯、技术文档、新闻事件、或任何记忆中没有的外部知识时使用。",
+      "queryDesc": "搜索关键词",
+      "maxResultsDesc": "返回结果数量，默认 5"
+    },
+    "webFetch": {
+      "label": "抓取网页",
+      "description": "抓取指定 URL 的网页内容并提取文本。适用于读取文章、文档、API 响应等。搭配 web_search 使用：先搜索找到 URL，再用 web_fetch 读取详细内容。",
+      "urlDesc": "要抓取的完整 URL（包含 https://）",
+      "maxLenDesc": "返回的最大字符数，默认 {max}"
+    },
+    "browser": {
+      "label": "浏览器",
+      "description": "控制无头浏览器（导航、点击、输入、滚动、截图、执行 JS）。通过 action 参数选择操作，具体每个 action 需要的参数见 action 字段的说明。注意：snapshot 返回的 [ref] 编号在 navigate/click/type 后会失效，这些操作会自动返回新的 snapshot，请始终使用最新 snapshot 里的 ref。",
+      "actionDesc": "要执行的操作。每个 action 的必填参数：navigate→url；click→ref；type→text（可选 ref、pressEnter）；scroll→direction（可选 amount）；select→ref+value；key→key；wait→（可选 timeout、state）；evaluate→expression。start、stop、snapshot、screenshot、show 无需额外参数。",
+      "urlDesc": "URL（navigate 时必填）",
+      "refDesc": "元素 ref 编号（click/type/select 时使用）",
+      "textDesc": "输入文本（type 时必填）",
+      "directionDesc": "滚动方向（scroll 时必填）",
+      "amountDesc": "滚动量（scroll 时可选，默认 3）",
+      "valueDesc": "选项值（select 时必填）",
+      "keyDesc": "按键名（key 时必填），如 Enter、Escape、Tab、Control+a",
+      "expressionDesc": "JavaScript 表达式（evaluate 时必填）",
+      "timeoutDesc": "超时毫秒数（wait 时可选，默认 5000）",
+      "stateDesc": "等待状态（wait 时可选）：domcontentloaded / idle",
+      "pressEnterDesc": "输入后按回车（type 时可选）"
+    },
+    "channel": {
+      "label": "频道",
+      "description": "管理频道消息（适合多人广播、群组讨论）。\n操作：\n- read(channel, count?)：查看频道最近消息\n- post(channel, content)：往频道发送消息\n- create(name, members, intro?)：创建新频道\n- list：查看自己加入的频道\n注意：如需与某个 agent 一对一私信，请用 dm 工具，不要用频道模拟私聊。",
+      "actionDesc": "操作类型",
+      "channelDesc": "频道名称（read/post 时必填）",
+      "contentDesc": "消息内容（post 时必填）",
+      "nameDesc": "新频道名称（create 时必填）",
+      "membersDesc": "成员列表（create 时必填），如 [\"hana\", \"butter\"]",
+      "introDesc": "频道介绍（create 时可选）",
+      "countDesc": "读取消息条数（read 时可选，默认 20）"
+    },
+    "artifact": {
+      "label": "创建预览",
+      "description": "当你需要向用户展示 HTML 页面、代码片段或长篇 Markdown 内容时，调用此工具。\n内容会在独立的预览面板中渲染，用户可以实时查看效果。\n适用场景：可运行的 HTML/CSS/JS 页面、交互式可视化、SVG 图表、完整代码文件、长篇格式化文档。\n不适用场景：简短的文字回复、对话性回答、单行代码片段（直接在消息中展示即可）。",
+      "typeDesc": "内容类型：html（渲染页面）、code（语法高亮）、markdown（文档）",
+      "titleDesc": "展示标题，简短描述内容",
+      "contentDesc": "完整内容（HTML 源码 / 代码 / Markdown 文本）",
+      "languageDesc": "编程语言（仅 type=code 时有效），如 javascript, python, css"
+    },
+    "dm": {
+      "label": "私信",
+      "description": "仅用于给另一个 agent 发一条私信，让对方知道某件事。\n不要用这个工具派任务或获取结果，那是 subagent 的职责。",
+      "toDesc": "目标 agent 的 ID",
+      "messageDesc": "消息内容"
+    },
+    "cron": {
+      "label": "定时任务",
+      "description": "创建和管理定时任务。定时任务在后台自动执行，到时间时会开一个独立 session 运行指定的 prompt。\n操作：\n- list：查看所有任务\n- add(scheduleType, schedule, prompt, label?, model?)：创建任务\n  - scheduleType \"at\"：一次性，schedule 为 ISO 时间字符串\n  - scheduleType \"every\"：间隔，schedule 为分钟数（如 60 = 每小时）\n  - scheduleType \"cron\"：cron 表达式（如 \"0 7 * * *\" = 每天早上 7 点）\n  - model：可选，指定执行任务使用的模型（不填则使用默认对话模型）\n- remove(id)：删除任务\n- toggle(id)：启用/禁用任务",
+      "actionDesc": "操作类型",
+      "scheduleTypeDesc": "调度类型（add 时必填）",
+      "scheduleDesc": "调度参数：ISO 时间(at)，分钟数(every，如 60=每小时)，cron 表达式(cron)",
+      "promptDesc": "到时间时执行的 prompt（add 时必填）",
+      "labelDesc": "任务显示标签（可选）",
+      "modelDesc": "指定执行模型（可选，不填则使用默认对话模型）",
+      "idDesc": "任务 ID（remove/toggle 时必填）"
+    },
+    "notify": {
+      "label": "通知",
+      "description": "向用户发送系统通知（桌面弹窗）。\n使用场景：\n- 用户说「提醒我 xxx」「到时候通知我」「记得叫我 xxx」\n- 定时任务的 prompt 中明确包含「通知」「提醒」等意图\n- 巡检/定时任务中发现需要用户关注的事项\n如果一切正常、无异常，不要调用此工具。",
+      "titleDesc": "通知标题（简短）",
+      "bodyDesc": "通知内容"
+    },
+    "todoWrite": {
+      "label": "待办",
+      "description": "管理当前 session 内的待办清单。每次调用传入完整的 todos 数组覆盖当前状态（替换式）。\n每条 todo 需要：\n- content：静态描述（如『读取 spec』）\n- activeForm：执行中态描述（如『正在读取 spec』）\n- status：pending | in_progress | completed\n约定同时最多一条 in_progress。",
+      "contentDesc": "todo 的静态描述文本",
+      "activeFormDesc": "执行中态的描述文本（用于 UI 展示 in_progress 时）",
+      "statusDesc": "三态：pending / in_progress / completed",
+      "todosDesc": "完整的 todo 列表，每次调用都会覆盖旧列表",
+      "summaryEmpty": "已清空待办",
+      "summaryStats": "共 {total} 条待办：{completed} 完成，{in_progress} 进行中，{pending} 待处理"
+    },
+    "pinnedMemory": {
+      "pinLabel": "置顶记忆",
+      "pinDescription": "将一条内容存入置顶记忆。当用户说「记住这个」「帮我记一下」「以后别忘了」时使用。置顶记忆始终保留在上下文中。",
+      "pinContentDesc": "要记住的内容",
+      "unpinLabel": "移除置顶记忆",
+      "unpinDescription": "从置顶记忆中移除一条内容。当用户说「忘掉 xxx」「删掉这条记忆」时使用。支持模糊匹配：只要某行包含你提供的关键词就会被移除。",
+      "unpinKeywordDesc": "要移除的记忆的关键词，会模糊匹配"
+    },
+    "experience": {
+      "recallLabel": "查看经验",
+      "recallDescription": "查看经验库。不传参数返回所有分类概览，传分类名返回该分类的具体经验。当用户要求你完成一项具体工作（写代码、搜索资料、创建文档、分析问题等）时，开始前应先调用此工具检查是否有相关经验可参考。普通闲聊、问答、日常对话不需要调用。",
+      "recallCategoryDesc": "分类名。不传则返回所有分类概览",
+      "recordLabel": "记录经验",
+      "recordDescription": "将一条经验教训记录到经验库。在以下情况使用：用户指出你犯了错误并说明正确做法、你尝试多种方法后发现了有效做法、用户明确说「以后要/不要这样做」。每条经验应简洁直接，一句话概括。",
+      "recordCategoryDesc": "经验所属分类，2-4 字短语，如「工具使用」「搜索技巧」「回答风格」",
+      "recordContentDesc": "具体的经验内容，简洁直接，一句话"
+    },
+    "outputFile": {
+      "label": "交付文件",
+      "description": "当你为任何人（用户、agents）成功创建了文件，或被要求提供某个文件时，调用此工具将文件呈现在对话中，让用户可以直接点击打开。只在文件存在时调用，不要在文件找不到或者创建失败时调用。不要仅在文本里提及文件路径，必须调用此工具。",
+      "filepathsDesc": "文件绝对路径数组",
+      "filePathDesc": "(兼容) 单个文件的绝对路径",
+      "labelDesc": "(兼容) 显示给用户的文件名"
+    },
+    "wait": {
+      "label": "等待",
+      "description": "等待指定秒数。用于等待后台任务完成时保持 turn 活跃。",
+      "secondsDesc": "等待秒数（1-300）"
+    },
+    "subagent": {
+      "label": "启动子 Agent",
+      "description": "将任务派给子 agent 执行。可指定其他 agent（传 agent 参数），不指定则自己分身执行。传 agent=\"?\" 查看可用 agent 列表。\n\n派出后的行为：\n1. 子代理立即在后台开始执行\n2. 继续做手头的工作，不要停下来等\n3. 手头工作做完后，用 check_pending_tasks 检查状态\n4. 如果还没完成，根据任务复杂度估算等待时间，用 wait 等待后再查。最多查 2 次，之后不再轮询\n5. 任务完成后系统会自动通知（<hana-background-result> 消息），届时处理结果\n\n适用场景：\n- 需要大量搜索、阅读后总结为简短结论的调研任务\n- 可以和当前思路并行的独立子问题\n- 需要在多个方向同时探索的任务（可同时发起多个 subagent 调用）\n- 让另一个 agent 从其专业视角处理任务\n\n重要：\n- task 参数要写清楚完整的指令和必要背景，子 agent 看不到当前对话历史\n- 明确告知子 agent 是只做调研（只读），还是可以修改文件。不声明时子 agent 默认只做调研、不修改任何文件",
+      "taskDesc": "子 agent 的完整指令。格式：第一行写「任务：xxx」作为任务标题，空一行后写详细要求和必要背景。子 agent 看不到当前对话历史，必要上下文都要写在这里。",
+      "agentDesc": "目标 agent ID。不填则当前 agent 自己执行，传 \"?\" 列出可用 agent。",
+      "modelDesc": "指定模型（可选，默认使用 utility 模型）"
+    },
+    "installSkill": {
+      "label": "安装技能",
+      "description": "为自己安装新技能（skill）。模式 A：提供 GitHub 仓库 URL（含 SKILL.md），自动获取并安装。模式 B：直接提供 skill_content + skill_name，适合自行编写。安装后技能立即生效。",
+      "githubUrlDesc": "GitHub 仓库 URL（模式 A）",
+      "skillContentDesc": "SKILL.md 的完整内容（模式 B）",
+      "skillNameDesc": "技能名称（模式 B 必填）",
+      "reasonDesc": "说明为什么需要这个技能（审计用，必填）",
+      "userRequestedDesc": "是否由用户主动请求安装（true 时安装为用户技能，否则为自学技能）"
+    },
+    "updateSettings": {
+      "label": "设置",
+      "description": "修改 Hanako 的设置。支持两种操作：\n- search + query：用关键词搜索设置项，查看当前值和可选项\n- apply + key + value：修改指定设置项，需用户确认\n\n如果已知确切 key，可以直接 apply 跳过搜索。",
+      "actionDesc": "操作类型：search 搜索设置项 / apply 修改设置",
+      "queryDesc": "搜索关键词（search 时必填）",
+      "keyDesc": "设置项 key（通过 search 获取）",
+      "valueDesc": "提议的新值",
+      "searchResult": "找到 {count} 个匹配的设置项：\n\n{results}\n\n使用 action \"apply\" 并指定 key 和 value 来修改设置。",
+      "searchNoResults": "未找到与「{query}」匹配的设置项。试试更宽泛的关键词。",
+      "searchMissingQuery": "search 操作需要提供 query 参数。",
+      "applyMissingParams": "apply 操作需要同时提供 key 和 value 参数。",
+      "frontendOnly": "仅在客户端可见",
+      "sandbox": "沙盒安全",
+      "sandboxDesc": "限制文件系统写入范围",
+      "locale": "语言",
+      "timezone": "时区",
+      "timezoneDesc": "IANA 时区（如 Asia/Shanghai）",
+      "thinkingBudget": "思考深度",
+      "memory": "记忆系统",
+      "memoryDesc": "开启/关闭当前 Agent 的记忆功能",
+      "agentName": "Agent 名称",
+      "userName": "用户名称",
+      "workingDir": "工作目录",
+      "workingDirDesc": "Agent 的文件系统工作目录",
+      "theme": "主题",
+      "chatModel": "对话模型",
+      "fileBackup": "文件备份",
+      "fileBackupDesc": "AI 修改或删除文件前自动备份"
+    },
+    "stopTask": {
+      "label": "终止后台任务",
+      "description": "终止一个正在运行的后台任务。传入 task_id 即可终止。可终止的任务类型包括子代理任务、图片/视频生成任务等。",
+      "taskIdDesc": "要终止的任务 ID"
+    }
+  },
+  "cli": {
+    "disconnected": "连接断开",
+    "wsError": "WebSocket 错误: {msg}",
+    "error": "错误: {msg}",
+    "interrupted": "(已中断)",
+    "goodbye": "再见 ✿",
+    "helpTitle": "命令列表",
+    "helpModel": "查看当前模型",
+    "helpModelSet": "切换模型（交互式）",
+    "helpConfig": "查看配置",
+    "helpSessionNew": "新建会话",
+    "helpSessionList": "列出会话",
+    "helpAgent": "查看当前 agent",
+    "helpAgentList": "列出所有 agent",
+    "helpAgentSwitch": "切换 agent",
+    "helpJian": "查看当前目录的笺",
+    "helpJianSub": "查看子目录的笺",
+    "helpLs": "列出书桌文件",
+    "helpLsSub": "列出子目录文件",
+    "helpCat": "查看文件内容",
+    "helpHelp": "显示此帮助",
+    "helpEsc": "中断生成",
+    "helpCtrlC": "中断生成 / 退出",
+    "noModels": "没有可用模型",
+    "availableModels": "可用模型：",
+    "currentModel": "← 当前",
+    "selectModel": "输入编号选择: ",
+    "modelSwitched": "已切换到 {name}",
+    "cancelled": "取消",
+    "currentModelLabel": "当前模型:",
+    "noModel": "(无)",
+    "currentConfig": "当前配置",
+    "notSet": "(未设置)",
+    "sessionCreated": "新会话已创建",
+    "noSessions": "暂无会话",
+    "sessionList": "会话列表",
+    "untitled": "(无标题)",
+    "sessionUsage": "用法: /session new | /session list",
+    "agentList": "Agent 列表",
+    "agentSwitched": "已切换到 {name}",
+    "currentAgent": "当前 Agent:",
+    "jianTitle": "笺",
+    "jianEmpty": "此目录没有笺",
+    "dirEmpty": "(空)",
+    "catUsage": "用法: /cat <文件路径>",
+    "catFailed": "无法读取: {status}",
+    "unknownCommand": "未知命令: /{cmd}  输入 /help 查看帮助",
+    "inputHelp": "输入 /help 查看命令列表"
+  },
+  "sandbox": {
+    "blocked": "[安全策略] {reason}\n\n此操作被 Hanako 的沙盒安全策略阻止。这不是程序错误，而是安全保护机制在工作。请告知用户操作被安全策略阻止，并说明具体原因。用户可以在设置中调整沙盒策略。",
+    "noSudo": "禁止使用 sudo",
+    "noSu": "禁止使用 su 切换用户",
+    "noChmod": "禁止修改文件权限",
+    "noChown": "禁止修改文件所有者",
+    "noDelRecursive": "禁止递归删除文件 (del /s)",
+    "noRmdirRecursive": "禁止递归删除目录 (rmdir /s)",
+    "noRegEdit": "禁止修改注册表",
+    "noTakeown": "禁止夺取文件所有权",
+    "noIcacls": "禁止修改文件 ACL 权限",
+    "noNetUser": "禁止用户/组管理操作",
+    "noSchtasks": "禁止创建计划任务",
+    "noScService": "禁止操作系统服务",
+    "noPsExecutionBypass": "禁止绕过 PowerShell 执行策略",
+    "noFormat": "禁止格式化磁盘",
+    "noBcdedit": "禁止修改启动配置",
+    "noWmic": "禁止 WMI 命令",
+    "restrictedPath": "命令访问了受限路径：{path}",
+    "writeRestricted": "[安全策略] 文件系统写入被限制在工作空间内。此操作被沙盒安全策略阻止，请告知用户。",
+    "osRequired": "[sandbox] standard 模式要求 OS 级沙盒，但当前平台不支持（{platform}）。请安装 sandbox-exec (macOS) 或 bubblewrap (Linux)，或切换到 full-access 模式。",
+    "opRead": "读取",
+    "opWrite": "写入",
+    "opDelete": "删除",
+    "denied": "{op}被拒绝：{path}（权限级别: {level}）"
+  },
+  "error.llmTimeout": "模型请求超时",
+  "error.llmRateLimited": "模型限流，请稍候",
+  "error.llmEmptyResponse": "模型返回了空响应",
+  "error.llmAuthFailed": "模型认证失败",
+  "error.llmSlowResponse": "模型响应较慢，请耐心等待",
+  "error.fsPermission": "文件权限不足",
+  "error.fsNotFound": "文件未找到",
+  "error.fsCopyFailed": "文件复制失败",
+  "error.wsDisconnected": "连接已断开",
+  "error.fetchTimeout": "请求超时",
+  "error.fetchServerError": "服务器错误",
+  "error.ipcFailed": "内部通信错误",
+  "error.renderCrash": "显示异常",
+  "error.configParse": "配置文件损坏",
+  "error.bridgeSendFailed": "消息发送失败",
+  "error.skillSyncFailed": "技能同步失败",
+  "error.memoryCompileFailed": "记忆编译失败",
+  "error.dbError": "数据库错误",
+  "error.serverAuthFailed": "认证失败",
+  "error.unknown": "发生了未知错误",
+  "error.regionUnavailable": "此区域暂时无法显示",
+  "status.reconnecting": "正在重连...",
+  "status.disconnected": "连接已断开",
+  "status.reconnect": "重新连接",
+  "action.retry": "重试",
+  "subagentAbort": "终止",
+  "subagentAborted": "已终止"
 }

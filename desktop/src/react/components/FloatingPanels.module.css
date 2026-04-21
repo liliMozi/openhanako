@@ -1,0 +1,1000 @@
+/* ========================================
+   浮动面板 — CSS Module
+   ActivityPanel、AutomationPanel、BridgePanel
+   ======================================== */
+
+.floatingPanel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: var(--space-xl) var(--space-lg);
+    pointer-events: none;
+}
+
+.floatingPanelHidden {
+    display: none;
+}
+
+.floatingPanelInner {
+    pointer-events: auto;
+    width: 66%;
+    height: 80%;
+    max-width: 560px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card, var(--bg));
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: 0 8px 32px var(--shadow), 0 2px 8px rgba(0,0,0,0.04);
+    overflow: hidden;
+    animation: floatSlideIn 0.25s var(--ease-out) both;
+}
+
+@keyframes floatSlideIn {
+    from { opacity: 0; transform: translateX(-20px) scale(0.97); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.floatingPanelClosing .floatingPanelInner {
+    animation: floatSlideOut 0.08s ease-in forwards;
+}
+
+@keyframes floatSlideOut {
+    from { opacity: 1; transform: translateX(0) scale(1); }
+    to   { opacity: 0; transform: translateX(-12px) scale(0.97); }
+}
+
+.floatingPanelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--overlay-light);
+    flex-shrink: 0;
+}
+
+.floatingPanelTitle {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+}
+
+.floatingPanelClose {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s, background 0.15s;
+    display: flex;
+    align-items: center;
+}
+
+.floatingPanelClose:hover {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.floatingPanelBody {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-md) var(--space-lg);
+    scroll-behavior: smooth;
+}
+
+/* 列表/详情切换 */
+.listView,
+.detailView {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.listViewHidden,
+.detailViewHidden {
+    display: none;
+}
+
+.floatingPanelBack {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 3px 6px;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s, background 0.15s;
+}
+
+.floatingPanelBack:hover {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.floatingPanelSubtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    flex: 1;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 活动详情标题区：头像 + 名字 + 副标题 */
+.detailHeaderInfo {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 0 8px;
+}
+
+.detailHeaderAvatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.detailHeaderText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.detailHeaderName {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+}
+
+.detailHeaderSubtitle {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 详情视图里的消息 */
+.activityDetailMsg {
+    margin-bottom: var(--space-md);
+}
+
+.activityDetailMsgUser {
+    text-align: right;
+}
+
+.activityDetailBubble {
+    display: inline-block;
+    max-width: 90%;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
+    font-size: 0.78rem;
+    line-height: 1.6;
+}
+
+.activityDetailMsgUser .activityDetailBubble {
+    background: rgba(var(--accent-rgb), 0.08);
+    color: var(--text);
+    white-space: pre-wrap;
+}
+
+.activityDetailMsgAssistant .activityDetailBubble {
+    background: var(--bg);
+    border: 1px solid var(--overlay-light);
+    color: var(--text);
+}
+
+.activityDetailBubble :global(.md-content) {
+    font-size: 0.78rem;
+}
+
+.activityHbToggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    margin-right: var(--space-sm);
+}
+
+.actPromoteBtn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 1px solid var(--overlay-light);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    margin-left: auto;
+    margin-right: var(--space-sm);
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+}
+
+.actPromoteBtn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--overlay-light);
+}
+
+.activityCards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+/* Sidebar 计数 badge */
+.automationCountBadge {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    background: var(--overlay-light);
+    padding: 0 5px;
+    border-radius: 8px;
+    margin-left: auto;
+}
+
+/* ── 任务计划列表 ── */
+
+.automationList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.autoItem {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    transition: border-color 0.15s;
+    font-family: inherit;
+}
+
+.autoItem:hover {
+    border-color: var(--overlay-medium);
+}
+
+.autoItemInfo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.autoItemLabel {
+    font-size: 0.78rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: text;
+}
+
+.autoItemLabel:hover {
+    text-decoration-style: dotted;
+}
+
+.autoItemLabelInput {
+    font-size: 0.78rem;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    border-radius: var(--radius-sm);
+    padding: 1px 4px;
+    outline: none;
+    width: 100%;
+}
+
+.autoItemSchedule {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.autoItemMeta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+}
+
+.autoItemExecutor {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+
+.autoItemExecutorAvatar {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.autoItemExecutorName {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.autoItemModelWrap::before {
+    content: "\b7";
+    margin-right: 8px;
+    color: var(--overlay-medium);
+}
+
+.autoItemModelWrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.autoModelPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.6rem;
+    font-family: inherit;
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 1px 5px;
+    cursor: pointer;
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color var(--duration), border-color var(--duration);
+}
+
+.autoModelPill:hover,
+.autoModelOpen .autoModelPill {
+    color: var(--accent);
+    border-color: rgba(var(--accent-rgb), 0.25);
+}
+
+.autoModelArrow {
+    font-size: 0.5rem;
+    transition: transform var(--duration);
+}
+
+.autoModelOpen .autoModelArrow {
+    transform: rotate(180deg);
+}
+
+.autoModelDropdown {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    min-width: 140px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    z-index: 100;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.autoModelOption {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-size: 0.7rem;
+    font-family: inherit;
+    padding: 5px 8px;
+    border: none;
+    background: none;
+    color: var(--text-light);
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.autoModelOption:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.autoModelOptionActive {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.autoItemActions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.autoItem:hover .autoItemActions {
+    opacity: 1;
+}
+
+.autoItemBtn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 3px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    transition: color 0.15s, background 0.15s;
+}
+
+.autoItemBtn:hover {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.autoItemBtnDanger:hover {
+    color: var(--danger, #d9534f);
+}
+
+.automationEmpty {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: var(--space-xl) 0;
+    line-height: 1.6;
+}
+
+/* ── Activity Card ── */
+
+.actCard {
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background: var(--bg-card, var(--bg));
+}
+
+.actCard:hover {
+    border-color: var(--overlay-medium);
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.actCardHead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-xs);
+}
+
+.actCardAvatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.actCardAgentName {
+    font-size: 0.78rem;
+    color: var(--text);
+    font-weight: 600;
+}
+
+.actCardBadge {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    background: var(--overlay-light);
+    padding: 1px 6px;
+    border-radius: 8px;
+    letter-spacing: 0.02em;
+}
+
+.actCardTime {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.actCardSummary {
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.6;
+    margin-bottom: var(--space-xs);
+}
+
+.actCardMeta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+.actCardDuration {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.actCardError {
+    border-color: rgba(var(--danger-rgb), 0.25);
+}
+
+.actCardError .actCardSummary {
+    color: var(--danger);
+}
+
+.actCardViewHint {
+    margin-left: auto;
+    color: var(--accent);
+    font-size: 0.68rem;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.actCard:hover .actCardViewHint {
+    opacity: 1;
+}
+
+.activityEmpty {
+    text-align: center;
+    padding: var(--space-xl) var(--space-sm);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+/* 只读 session banner */
+.readonlySessionBanner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--overlay-light);
+    border-bottom: 1px solid var(--overlay-medium);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.readonlyBannerInfo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.readonlyBannerTime {
+    font-size: 0.68rem;
+    opacity: 0.7;
+}
+
+.readonlyBackBtn {
+    background: none;
+    border: 1px solid var(--overlay-medium);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.readonlyBackBtn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ── Bridge Panel ── */
+
+.bridgePanelWide .floatingPanelInner {
+    width: 100%;
+    max-width: none;
+    min-width: 420px;
+    height: 85%;
+}
+
+/* ── Bridge Agent Selector (inline header) ── */
+
+.bridgeAgentRow {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.bridgeAgentBtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    max-width: 140px;
+    background: var(--overlay-light);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.78rem;
+    color: var(--text);
+    transition: background 0.15s;
+}
+
+.bridgeAgentBtn:hover {
+    background: var(--overlay-medium, rgba(0, 0, 0, 0.08));
+}
+
+.bridgeAgentAvatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.bridgeAgentName {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.bridgeAgentArrow {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.bridgeAgentMenu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 100;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    min-width: 160px;
+    padding: 4px 0;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.bridgeAgentMenuItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.78rem;
+    color: var(--text);
+    text-align: left;
+    transition: background 0.1s;
+}
+
+.bridgeAgentMenuItem:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.bridgeAgentMenuItemActive {
+    background: rgba(180, 132, 108, 0.08);
+    font-weight: 600;
+}
+
+.bridgeTabs {
+    display: flex;
+    gap: 2px;
+}
+
+.bridgeTab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s, background 0.15s;
+}
+
+.bridgeTab:hover {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.bridgeTabActive {
+    color: var(--text);
+    background: var(--overlay-light);
+    font-weight: 600;
+}
+
+.bridgeTabDot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.bridgeBody {
+    position: relative;
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.bridgeSidebar {
+    width: 180px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--overlay-light);
+    overflow-y: auto;
+}
+
+.bridgeContactList {
+    padding: var(--space-sm) 0;
+}
+
+.bridgeContactEmpty {
+    padding: var(--space-lg) var(--space-md);
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.bridgeContactItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.bridgeContactItem:hover {
+    background: var(--overlay-light);
+}
+
+.bridgeContactItemActive {
+    background: var(--accent-light);
+}
+
+.bridgeContactAvatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--overlay-light);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.bridgeContactAvatarImg {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.bridgeContactInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+.bridgeContactName {
+    font-size: 0.78rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridgeContactTime {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+
+.bridgeChat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.bridgeChatHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px var(--space-md);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.bridgeChatHeaderHidden { display: none; }
+
+.bridgeChatHeaderName {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.bridgeChatReset {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.bridgeChatReset:hover {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.bridgeChatEmpty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.bridgeChatMessages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-lg) var(--space-md) var(--space-md);
+    scroll-behavior: smooth;
+}
+
+.bridgeChatNoMsg {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    padding: var(--space-xl) 0;
+}
+
+.bridgeBubbleRow {
+    display: flex;
+    margin-bottom: var(--space-sm);
+}
+
+.bridgeBubbleWrap {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--space-sm);
+}
+
+.bridgeBubbleIn {
+    align-items: flex-start;
+}
+
+.bridgeBubbleOut {
+    align-items: flex-end;
+}
+
+.bridgeBubble {
+    max-width: 92%;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    line-height: 1.75;
+    word-break: break-word;
+}
+
+.bridgeBubbleIn .bridgeBubble {
+    background: none;
+    color: var(--text);
+}
+
+.bridgeBubbleIn .bridgeBubble :global(.md-content) {
+    font-family: var(--font-serif);
+}
+
+.bridgeBubbleOut .bridgeBubble {
+    background: rgba(0, 0, 0, 0.045);
+    color: var(--text);
+    border-radius: var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-md);
+}
+
+.bridgeBubble p:last-child {
+    margin-bottom: 0;
+}
+
+.bridgeBubbleTime {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    padding: 0 var(--space-xs);
+}
+
+/* 未配置蒙版 */
+.bridgeOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: color-mix(in srgb, var(--bg) 75%, transparent);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bridgeOverlayHidden { display: none; }
+
+.bridgeOverlayContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.bridgeOverlayContent svg {
+    opacity: 0.35;
+}
+
+.bridgeOverlayText {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    max-width: 220px;
+}
+
+.bridgeOverlayBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: none;
+    background: color-mix(in srgb, var(--text-muted) 10%, transparent);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.bridgeOverlayBtn:hover {
+    background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+}

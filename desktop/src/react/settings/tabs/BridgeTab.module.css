@@ -1,0 +1,23 @@
+.wechat-logged-in {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) 0;
+}
+
+.wechat-login-info {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.wechat-btn-row {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.wechat-scan-row {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-sm) 0;
+}

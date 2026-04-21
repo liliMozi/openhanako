@@ -5,7 +5,7 @@ import { useSettingsStore } from './store';
 import { hanaFetch, hanaUrl } from './api';
 import { t } from './helpers';
 
-const platform = (window as any).platform;
+const platform = window.platform;
 
 export async function loadAgents() {
   const store = useSettingsStore.getState();
@@ -34,16 +34,21 @@ export async function loadAgents() {
 export async function loadAvatars() {
   const ts = Date.now();
   const store = useSettingsStore.getState();
-  for (const role of ['agent', 'user']) {
-    try {
-      const res = await hanaFetch(`/api/avatar/${role}`, { method: 'HEAD' });
-      if (res.ok) {
+  try {
+    const res = await hanaFetch('/api/health');
+    const data = await res.json();
+    const avatars = data.avatars || {};
+    for (const role of ['agent', 'user']) {
+      if (avatars[role]) {
         const url = hanaUrl(`/api/avatar/${role}?t=${ts}`);
         if (role === 'agent') store.set({ agentAvatarUrl: url });
         else store.set({ userAvatarUrl: url });
+      } else {
+        if (role === 'agent') store.set({ agentAvatarUrl: null });
+        else store.set({ userAvatarUrl: null });
       }
-    } catch {}
-  }
+    }
+  } catch {}
 }
 
 export async function loadSettingsConfig() {
@@ -77,24 +82,28 @@ export async function loadSettingsConfig() {
     const experienceData = await experienceRes.json();
     config._experience = experienceData.content || '';
 
-    // favorites
-    try {
-      const favRes = await hanaFetch('/api/favorites');
-      const favData = await favRes.json();
-      store.set({ pendingFavorites: new Set(favData.favorites || []) });
-    } catch {
-      store.set({ pendingFavorites: new Set(config.models?.favorites || []) });
-    }
-
     store.set({
       settingsConfig: config,
       globalModelsConfig: globalModels,
       homeFolder: config.desk?.home_folder || null,
       currentPins: pinnedData.pins || [],
-      pendingDefaultModel: config.models?.chat || '',
     });
   } catch (err) {
     console.error('[settings] load failed:', err);
+  }
+}
+
+export async function loadPluginSettings() {
+  const store = useSettingsStore.getState();
+  try {
+    const res = await hanaFetch('/api/plugins/settings');
+    const data = await res.json();
+    store.set({
+      pluginAllowFullAccess: data.allow_full_access ?? false,
+      pluginUserDir: data.plugins_dir || '',
+    });
+  } catch (err) {
+    console.error('[plugins] load settings failed:', err);
   }
 }
 

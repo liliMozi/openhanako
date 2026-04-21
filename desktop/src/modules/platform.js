@@ -52,7 +52,9 @@
 
     // 系统对话框 → Web 降级
     selectFolder: async () => null,
+    selectFiles: async () => [],
     selectSkill: async () => null,
+    selectPlugin: async () => null,
 
     // OS 集成 → 静默降级
     openFolder: () => {},
@@ -100,47 +102,11 @@
   };
 })();
 
-// ── 平台检测 + Windows 窗口控制注入 ──
+// ── 平台检测 ──
 (async function initPlatform() {
   const p = window.platform;
   if (!p?.getPlatform) return;
   const plat = await p.getPlatform();
   document.documentElement.setAttribute("data-platform", plat);
-
-  // Windows/Linux：注入自绘窗口控制按钮
-  if (plat !== "darwin" && plat !== "web") {
-    const titlebar = document.querySelector(".titlebar");
-    if (!titlebar) return;
-
-    const controls = document.createElement("div");
-    controls.className = "window-controls";
-    controls.innerHTML = `
-      <button class="wc-btn wc-minimize" title="最小化">
-        <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1"/></svg>
-      </button>
-      <button class="wc-btn wc-maximize" title="最大化">
-        <svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/></svg>
-      </button>
-      <button class="wc-btn wc-close" title="关闭">
-        <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1"/></svg>
-      </button>
-    `;
-    titlebar.appendChild(controls);
-
-    controls.querySelector(".wc-minimize").addEventListener("click", () => p.windowMinimize());
-    controls.querySelector(".wc-maximize").addEventListener("click", () => p.windowMaximize());
-    controls.querySelector(".wc-close").addEventListener("click", () => p.windowClose());
-
-    // 最大化状态变化时切换图标
-    if (p.onMaximizeChange) {
-      p.onMaximizeChange((maximized) => {
-        const svg = controls.querySelector(".wc-maximize svg");
-        if (maximized) {
-          svg.innerHTML = '<rect x="3" y="1" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1"/><rect x="1" y="3" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1"/>';
-        } else {
-          svg.innerHTML = '<rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>';
-        }
-      });
-    }
-  }
+  // Windows/Linux 窗口控制按钮已迁移到 React (App.tsx WindowControls)
 })();

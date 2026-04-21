@@ -2,11 +2,13 @@
   "channel": {
     "tab": "Channels",
     "chatTab": "Chat",
+    "moreTabs": "More tabs",
     "empty": "No channels yet ✿",
     "dmLabel": "Messages",
     "dmHint": "Primary Agent Only",
     "groupLabel": "Channels",
     "noMessages": "No messages yet",
+    "selectHint": "Select a channel or DM to start",
     "nameExists": "This channel name already exists",
     "membersCount": " members",
     "info": "Channel info",
@@ -32,7 +34,11 @@
     "deleteFailed": "Delete failed",
     "warningTitle": "About Channels",
     "warningBody": "I believe letting assistants with different memories and thinking styles interact can spark more inspiration, so I built a place where agents can talk to each other, even when you're away.\n\nPlease note that channels are experimental and may cause:\n1. Higher token usage\n2. Unexpected responses\n3. Memory confusion\n\nUse with caution",
-    "warningConfirm": "I understand, enable channels"
+    "warningConfirm": "I understand, enable channels",
+    "disabled": "Channels disabled",
+    "toggleLabel": "Channel toggle",
+    "members": "Members",
+    "createIntroOptional": "Description"
   },
   "sidebar": {
     "title": "Chats",
@@ -42,19 +48,53 @@
     "empty": "No chats yet ✿",
     "activity": "Activity",
     "jian": "Desk",
-    "bridge": "Social Platforms"
+    "bridge": "Social Platforms",
+    "toggle": "Sidebar",
+    "bridgeShort": "Bridge"
   },
   "session": {
     "untitled": "New Chat",
     "messageCount": "{n} messages",
     "switchFailed": "Failed to switch session",
     "createFailed": "Failed to create session",
-    "archiveFailed": "Failed to archive session"
+    "archiveFailed": "Failed to archive session",
+    "rename": "Rename"
+  },
+  "common": {
+    "on": "On",
+    "off": "Off",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyText": "Copy text",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "changeRejected": "{label} change cancelled",
+    "changeTimeout": "{label} confirmation timed out",
+    "noChats": "No chats",
+    "noFiles": "No files",
+    "executing": "Executing...",
+    "user": "User",
+    "me": "Me",
+    "more": "More",
+    "empty": "Empty",
+    "edit": "Edit",
+    "screenshot": "Screenshot",
+    "selectMessage": "Select message",
+    "screenshotSaved": "Screenshot saved to the \"截图\" folder in your working directory",
+    "screenshotFailed": "Screenshot save failed",
+    "selectedCount": "{count} selected",
+    "allDone": "All done"
   },
   "chat": {
     "send": "Send",
     "steer": "Steer",
-    "stop": "Stop"
+    "stop": "Stop",
+    "browserScreenshot": "Browser screenshot",
+    "compacting": "Compacting context"
   },
   "time": {
     "justNow": "Just now",
@@ -72,7 +112,9 @@
     "connected": "Connected",
     "disconnected": "Disconnected",
     "serverNotReady": "Server not ready",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "reconnecting": "Reconnecting",
+    "reconnect": "Reconnect"
   },
   "input": {
     "placeholder": "Say something...",
@@ -81,23 +123,33 @@
     "selectWorkspace": "Select workspace",
     "planMode": "Use computer",
     "deskContext": "With desk context",
+    "pastedImage": "Pasted image",
+    "attachFiles": "Add files",
+    "commandMenu": "Command menu",
     "docContext": "With document",
     "thinkingLevel": {
       "off": "off",
       "auto": "auto",
+      "high": "high",
       "xhigh": "max"
     },
     "thinkingDesc": {
       "off": "no reasoning",
       "auto": "model decides depth",
+      "high": "deep reasoning",
       "xhigh": "full reasoning"
-    }
+    },
+    "contextWindow": "Context {windowK}k",
+    "tokensUsed": "Used {tokensK}k ({pct}%)"
   },
   "slash": {
     "diary": "Write today's diary",
     "diaryBusy": "Writing diary...",
-    "diaryDone": "Diary saved",
-    "diaryFailed": "Failed to write diary"
+    "diaryDone": "Diary saved to diary folder",
+    "diaryFailed": "Failed to write diary",
+    "xing": "Create skill from conversation",
+    "compact": "Compact context",
+    "compactBusy": "Compacting..."
   },
   "welcome": {
     "messages": [
@@ -128,17 +180,48 @@
       "reject": "Cancel",
       "created": "✓ Created",
       "rejected": "Cancelled"
-    }
+    },
+    "everyHours": "Every {n} hours",
+    "everyMinutes": "Every {n} minutes",
+    "hourly": "Hourly",
+    "dailyAt": "Daily at {hour}:{min}",
+    "weeklyAt": "{days} {hour}:{min}",
+    "dayNames": [
+      "Sun",
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat"
+    ],
+    "weekPrefix": ""
   },
   "mood": {
     "label": "✿ MOOD"
   },
+  "xing": {
+    "title": "Reflection",
+    "thinking": "{name} is thinking"
+  },
   "yuan": {
     "types": {
-      "hanako": { "label": "Balanced assistant", "avatar": "Hanako.png" },
-      "butter": { "label": "More expressive", "avatar": "Butter.png" },
-      "ming":   { "label": "More dependable", "avatar": "Ming.png" },
-      "kong":   { "label": "Vanilla", "avatar": "Kong.png" }
+      "hanako": {
+        "label": "Balanced assistant",
+        "avatar": "Hanako.png"
+      },
+      "butter": {
+        "label": "More expressive",
+        "avatar": "Butter.png"
+      },
+      "ming": {
+        "label": "More dependable",
+        "avatar": "Ming.png"
+      },
+      "kong": {
+        "label": "Vanilla",
+        "avatar": "Kong.png"
+      }
     },
     "title": "Yuan",
     "splash": {
@@ -225,29 +308,143 @@
       "Verifying",
       "Breaking down the problem",
       "Synthesizing"
-    ]
+    ],
+    "done": "Thinking complete",
+    "active": "Thinking"
   },
   "toolGroup": {
     "success": "✿ {name} all done, piece of cake ~ · {n} steps",
-    "failed": "⚠ Something seems off · {n} steps"
+    "failed": "⚠ Something seems off · {n} steps",
+    "countWithFail": "{total} tools ({fail} failed)",
+    "count": "{n} tools",
+    "running": "{n} tools running"
   },
   "tool": {
-    "web_search":    { "running": "🌐 {name} is surfing the web",          "done": "🌐 {name} is back from surfing",     "failed": "🌐 {name} couldn't catch a wave" },
-    "web_fetch":     { "running": "📄 {name} is reading a webpage",          "done": "📄 {name} finished reading",          "failed": "📄 {name} couldn't fetch the page" },
-    "search_memory": { "running": "💭 {name} is trying to remember",       "done": "💭 {name} recalled something",        "failed": "💭 {name} couldn't recall" },
-    "bash":          { "running": "💻 {name} is tiptoeing through your computer", "done": "💻 {name} is done with the computer", "failed": "💻 {name} command failed" },
-    "read":          { "running": "📖 {name} is reading a file",           "done": "📖 {name} finished reading",          "failed": "📖 {name} couldn't read" },
-    "write":         { "running": "✏️ {name} is putting pen to paper",      "done": "✏️ {name} finished writing",          "failed": "✏️ {name} couldn't write" },
-    "edit":          { "running": "✏️ {name} is putting pen to paper",      "done": "✏️ {name} done editing",              "failed": "✏️ {name} couldn't edit" },
-    "edit-diff":     { "running": "✏️ {name} is putting pen to paper",      "done": "✏️ {name} done editing",              "failed": "✏️ {name} couldn't edit" },
-    "glob":          { "running": "🔍 {name} is looking for files",        "done": "🔍 {name} found them",                "failed": "🔍 {name} couldn't find" },
-    "grep":          { "running": "🔍 {name} is searching through files",  "done": "🔍 {name} search done",               "failed": "🔍 {name} couldn't find" },
-    "find":          { "running": "🔍 {name} is looking for files",        "done": "🔍 {name} found them",                "failed": "🔍 {name} couldn't find" },
-    "ls":            { "running": "📂 {name} is peeking into a folder",    "done": "📂 {name} done peeking",              "failed": "📂 {name} couldn't peek" },
-    "truncate":      { "running": "✂️ {name} is tidying up a file",        "done": "✂️ {name} all tidy",                  "failed": "✂️ {name} couldn't tidy" },
-    "present_files": { "running": "📎 {name} is preparing the file",       "done": "📎 File ready",                       "failed": "📎 Failed to present file" },
-    "browser":       { "running": "🌐 {name} is browsing the web",         "done": "🌐 {name} done browsing",             "failed": "🌐 {name} browser action failed" },
-    "_fallback":     { "running": "🔧 {name} is busy working…",           "done": "🔧 {name} all done",                  "failed": "🔧 {name} something went wrong" }
+    "web_search": {
+      "running": "🌐 {name} is surfing the web",
+      "done": "🌐 {name} is back from surfing",
+      "failed": "🌐 {name} couldn't catch a wave"
+    },
+    "web_fetch": {
+      "running": "📄 {name} is peeking at a webpage",
+      "done": "📄 {name} got it all",
+      "failed": "📄 {name} couldn't reach the page"
+    },
+    "search_memory": {
+      "running": "💭 {name} is trying to remember",
+      "done": "💭 {name} remembered!",
+      "failed": "💭 {name} can't seem to remember"
+    },
+    "bash": {
+      "running": "💻 {name} is tiptoeing through your computer",
+      "done": "💻 {name} is done with the computer",
+      "failed": "💻 {name}'s computer didn't cooperate"
+    },
+    "read": {
+      "running": "📖 {name} is flipping through a file",
+      "done": "📖 {name} done flipping",
+      "failed": "📖 {name} found nothing there"
+    },
+    "write": {
+      "running": "✏️ {name} is putting pen to paper",
+      "done": "✏️ {name} ink's down",
+      "failed": "✏️ {name} ran out of ink"
+    },
+    "edit": {
+      "running": "✏️ {name} is making edits",
+      "done": "✏️ {name} all fixed up",
+      "failed": "✏️ {name} made a bit of a mess"
+    },
+    "edit-diff": {
+      "running": "✏️ {name} is making edits",
+      "done": "✏️ {name} all fixed up",
+      "failed": "✏️ {name} made a bit of a mess"
+    },
+    "glob": {
+      "running": "🔍 {name} is looking for files",
+      "done": "🔍 {name} found them",
+      "failed": "🔍 {name} searched high and low, nothing"
+    },
+    "grep": {
+      "running": "🔍 {name} is rummaging through files",
+      "done": "🔍 {name} found something",
+      "failed": "🔍 {name} rummaged through everything, nope"
+    },
+    "find": {
+      "running": "🔍 {name} is looking for files",
+      "done": "🔍 {name} found them",
+      "failed": "🔍 {name} searched high and low, nothing"
+    },
+    "ls": {
+      "running": "📂 {name} is peeking inside a folder",
+      "done": "📂 {name} all seen",
+      "failed": "📂 {name} couldn't open this folder"
+    },
+    "truncate": {
+      "running": "✂️ {name} is tidying up a file",
+      "done": "✂️ {name} all tidied up",
+      "failed": "✂️ {name} couldn't tidy up"
+    },
+    "stage_files": {
+      "running": "📎 {name} is preparing the file",
+      "done": "📎 Here it is!",
+      "failed": "📎 Couldn't hand it over"
+    },
+    "browser": {
+      "running": "🌐 {name} is browsing the web",
+      "done": "🌐 {name} done with the browser",
+      "failed": "🌐 {name}'s browser wouldn't cooperate"
+    },
+    "subagent": {
+      "running": "🧭 {name} is investigating",
+      "done": "🧭 Clone dispatched",
+      "failed": "🧭 Clone ran into trouble"
+    },
+    "check_pending_tasks": {
+      "running": "📋 {name} is checking unfinished business",
+      "done": "📋 {name} all caught up",
+      "failed": "📋 Couldn't check"
+    },
+    "cron": {
+      "running": "⏰ {name} is setting a scheduled task",
+      "done": "⏰ All set",
+      "failed": "⏰ Couldn't set it up"
+    },
+    "notify": {
+      "running": "🔔 {name} is sending a notification",
+      "done": "🔔 Notification sent",
+      "failed": "🔔 Notification didn't go through"
+    },
+    "artifact": {
+      "running": "🖼️ {name} is doodling away",
+      "done": "🖼️ Masterpiece ready",
+      "failed": "🖼️ Canvas fell apart"
+    },
+    "dm": {
+      "running": "✉️ {name} picked up the phone",
+      "done": "✉️ Message sent",
+      "failed": "✉️ Message didn't go through"
+    },
+    "channel": {
+      "running": "📢 {name} is posting in a channel",
+      "done": "📢 Posted",
+      "failed": "📢 Couldn't post"
+    },
+    "install_skill": {
+      "running": "📥 {name} is installing a skill",
+      "done": "📥 Installed",
+      "failed": "📥 Installation failed"
+    },
+    "update_settings": {
+      "running": "⚙️ {name} is updating settings",
+      "done": "⚙️ Settings updated",
+      "failed": "⚙️ Couldn't update"
+    },
+    "_fallback": {
+      "running": "🔧 {name} is busy working…",
+      "done": "🔧 {name} all done",
+      "failed": "🔧 {name} that didn't go as planned"
+    }
   },
   "file_output": {
     "open": "Open",
@@ -270,7 +467,8 @@
       "They gathered the scattered feelings",
       "{name} smelled oranges from an afternoon",
       "Those conversations still carry warmth"
-    ]
+    ],
+    "installing": "{name} is updating to v{version}, please wait…"
   },
   "settings": {
     "title": "Settings",
@@ -285,12 +483,16 @@
       "agent": "Agent",
       "me": "Me",
       "providers": "Providers",
+      "media": "Media",
       "models": "Models",
       "memory": "Memory",
-      "work": "Work",
+      "work": "Workspace",
       "skills": "Skills",
       "bridge": "Social",
-      "about": "About"
+      "sharing": "Sharing",
+      "plugins": "Plugins",
+      "about": "About",
+      "security": "Security"
     },
     "appearance": {
       "title": "Appearance",
@@ -311,10 +513,16 @@
       "delveMode": "Let's explore",
       "deepThink": "Deep Think",
       "deepThinkMode": "Little Whale",
+      "claudeDesign": "New Warm Paper",
+      "claudeDesignMode": "Experimental",
       "auto": "Auto",
       "autoMode": "System",
       "serifFont": "Serif Font",
-      "serifFontHint": "Use serif font for body text"
+      "serifFontHint": "Use serif font for body text",
+      "paperTexture": "Paper Texture",
+      "paperTextureHint": "Add a rice paper texture to the background",
+      "leavesOverlay": "Sunny Mode",
+      "leavesOverlayHint": "Go touch some grass (and sunlight)"
     },
     "locale": {
       "title": "Language & Region",
@@ -335,8 +543,10 @@
       "ishikiHint": "Defines the assistant's character, tone and behavior. Names are auto-injected",
       "publicIshiki": "Public Ishiki",
       "publicIshikiHint": "For privacy, the assistant cannot access memories, your personal info, or any files and tools on your computer when talking to visitors.\nYou can set the assistant's reply style and guidelines for visitor conversations here.",
-      "chatModel": "Chat Model",
-      "chatModelHint": "The model this agent uses for conversations. Add models on the Models page",
+      "chatModel": "Model",
+      "chatModelHint": "The model used for conversations and tasks",
+      "imageModel": "Image Model",
+      "imageModelHint": "The model used for image generation",
       "addAgent": "New Agent",
       "createTitle": "New Agent",
       "namePlaceholder": "Give them a name",
@@ -360,7 +570,18 @@
       "setActive": "Set as active",
       "lastAgent": "Must keep at least one agent",
       "yuan": "Yuan",
-      "yuanHint": "\"Yuan\" is the agent's innate thinking style. You can choose whether it leans more rational or emotional.\nBuild your unique companion from this foundation."
+      "yuanHint": "\"Yuan\" is the agent's innate thinking style. Build your unique companion from this foundation.",
+      "tools": {
+        "title": "Tools",
+        "description": "Changes apply to new conversations only. Active conversations continue using the tool set they started with.",
+        "items": {
+          "browser": { "label": "Browser", "summary": "Control a headless browser to navigate web pages" },
+          "cron": { "label": "Scheduled Tasks", "summary": "Run tasks automatically at specified times" },
+          "dm": { "label": "Direct Message", "summary": "Send a one-on-one message to another agent" },
+          "install_skill": { "label": "Install Skill", "summary": "Install new skills from GitHub or the skill library" },
+          "update_settings": { "label": "Update Settings", "summary": "Allow the agent to modify application configuration" }
+        }
+      }
     },
     "about": {
       "title": "About Them",
@@ -368,17 +589,38 @@
       "license": "License",
       "copyright": "Copyright",
       "licenseToggle": "License full text",
-      "permissions": "Permissions",
-      "fullAccess": "Full Access Mode",
-      "fullAccessDesc": "Disable sandbox isolation and command restrictions. The agent gets full filesystem and terminal access (takes effect on new sessions)",
-      "fullAccessWarningTitle": "About Full Access Mode",
-      "fullAccessWarningBody1": "Once enabled, the agent will have full system privileges, including:",
-      "fullAccessWarningBody2": "1. Filesystem is not sandboxed — can read/write any path\n2. Terminal commands are unrestricted — can run sudo, chmod, etc.\n3. OS-level isolation (macOS Seatbelt / Linux bubblewrap) will be disabled",
-      "fullAccessWarningBody3": "Only recommended when you fully trust the agent's behavior and need system-level operations.",
-      "fullAccessCancel": "Cancel",
-      "fullAccessConfirm": "I understand the risks, enable",
-      "updateAvailable": "New version available: v{{version}}",
-      "updateDownload": "Download"
+      "updateAvailable": "New version available: v{version}",
+      "updateDownload": "Download",
+      "updateChecking": "Checking for updates…",
+      "updateDownloading": "{agentName} is preparing a new home {percent}%",
+      "updateReadyInstall": "v{version} ready to install",
+      "updateInstall": "Restart to update",
+      "updateProgress": "{percent}%",
+      "updateError": "Update check failed",
+      "updateLatest": "You're up to date",
+      "updateCheckBtn": "Check for updates",
+      "updateNeedInstall": "Please move Hanako to the Applications folder first",
+      "updateDiskSpace": "Not enough disk space to download update",
+      "betaUpdates": "Receive beta updates",
+      "autoCheckUpdates": "Check for updates automatically"
+    },
+    "security": {
+      "sandbox": "Sandbox",
+      "sandboxDesc": "Restrict the AI's filesystem access to the workspace and necessary data folders only",
+      "sandboxWarning": "Disabling the sandbox allows the AI to access any file on the system, which may have unexpected consequences",
+      "fileBackup": "File Backup",
+      "fileBackupDesc": "Automatically save original file content before AI modifications or deletions",
+      "retention": "Retention",
+      "retention1d": "1 day",
+      "retention3d": "3 days",
+      "retention7d": "7 days",
+      "maxFileSize": "Ignore files larger than",
+      "viewBackups": "View Backups",
+      "hideBackups": "Hide",
+      "restoreBtn": "Restore",
+      "noBackups": "No backups yet",
+      "restoreSuccess": "Restored",
+      "restoreFailed": "Restore failed"
     },
     "me": {
       "title": "Me",
@@ -429,6 +671,28 @@
       "noKey": "Not configured",
       "remove": "Remove",
       "deleteConfirm": "Delete provider {name}? Associated models and favorites will be removed."
+    },
+    "media": {
+      "imageGeneration": "Image Generation",
+      "defaultModel": "Default Image Model",
+      "credentialOk": "API Key configured (reuses provider settings)",
+      "credentialMissing": "Not configured, go to Provider settings",
+      "addModel": "Add Image Model",
+      "providerDefaults": "Default Parameters",
+      "size": "Size",
+      "format": "Format",
+      "quality": "Quality",
+      "watermark": "Watermark",
+      "aspectRatio": "Aspect Ratio",
+      "speechRecognition": "Speech Recognition",
+      "speechSynthesis": "Speech Synthesis",
+      "comingSoon": "Coming Soon",
+      "noProvider": "Select a provider to view details",
+      "models": "Image Models",
+      "globalDefault": "Global Default",
+      "followGlobal": "Follow global default",
+      "default": "Default"
+>>>>>>> upstream/main
     },
     "oauth": {
       "title": "Quick Login",
@@ -494,9 +758,16 @@
       "thinkingLevelHint": "Controls reasoning depth, only affects models that support reasoning",
       "thinkingLevels": {
         "off": "Off",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
         "auto": "Auto",
         "xhigh": "Max"
-      }
+      },
+      "addedModels": "Added models",
+      "displayName": "Display name",
+      "vision": "Vision",
+      "reasoning": "Reasoning"
     },
     "memory": {
       "sectionTitle": "Memory",
@@ -547,7 +818,8 @@
         "title": "Memory Waterline",
         "hint": "You decide how many memories are remembered. A little noise is fine — LLMs are good at filtering.",
         "stats": "{remembered} / {total} memories remembered"
-      }
+      },
+      "activeOnly": "Set this agent as active first"
     },
     "pins": {
       "title": "Pinned Memories",
@@ -559,7 +831,9 @@
     "experience": {
       "title": "Experience",
       "hint": "Lessons the agent has learned, organized by category. The agent checks relevant experience before starting work",
-      "empty": "No experience yet"
+      "empty": "No experience yet",
+      "edit": "Edit",
+      "deleteCategory": "Delete category"
     },
     "search": {
       "verify": "Verify",
@@ -571,6 +845,8 @@
     },
     "work": {
       "title": "Patrol",
+      "heartbeatMaster": "Heartbeat Master Switch",
+      "heartbeatMasterDesc": "When off, all agent heartbeats are paused",
       "heartbeatEnabled": "Patrol mode",
       "heartbeatOn": "On",
       "heartbeatOff": "Off",
@@ -593,6 +869,12 @@
     "skills": {
       "title": "Skills",
       "desc": "Enable or disable skills for this agent. When enabled, the agent will automatically recognize and use matching skills in conversations.",
+      "manageTitle": "Installed Skills",
+      "agentConfigTitle": "Agent Skill Configuration",
+      "configureFor": "Configuring:",
+      "userSkillsTitle": "Agent Skill Toggles",
+      "learnedSkillsTitle": "Learned Skills",
+      "learnedEmpty": "This agent hasn't learned any skills yet",
       "user": "User Skills",
       "system": "System Skills",
       "add": "Add Skill",
@@ -619,9 +901,69 @@
       "compatAddPath": "Add directory",
       "compatRemove": "Remove",
       "compatAutoDiscovered": "Auto-discovered",
-      "compatNotInstalled": "Not installed"
+      "compatNotInstalled": "Not installed",
+      "learnCreate": "Create / install skills",
+      "learnCreateDesc": "Allow the Agent to write new skills or install them via tool calls",
+      "fetchRemote": "Fetch skills from GitHub / ClawHub",
+      "fetchRemoteDesc": "When enabled, the Agent will proactively search and install suitable skills for specialized tasks. Use with caution",
+      "safetyReview": "Safety review before install",
+      "safetyReviewDesc": "Use AI to detect prompt injection and other security risks before installing skills",
+      "fetchWarning": {
+        "title": "About fetching remote skills",
+        "body1": "When enabled, the Agent will proactively search, download and install suitable skills from GitHub and ClawHub during specialized tasks.",
+        "body2": "Although automatic safety review and star-count checks are performed before installation, the following risks remain:",
+        "risk1": "Skill content is not manually reviewed and may contain harmful instructions",
+        "risk2": "The Agent may install skills that don't match expectations",
+        "risk3": "Malicious skills may attempt to manipulate Agent behavior",
+        "confirm": "I understand the risks, enable"
+      },
+      "safetyWarning": {
+        "title": "Disable safety review",
+        "body1": "Safety review detects potentially malicious content before installing skills, including:",
+        "risk1": "Prompt injection (unauthorized instructions)",
+        "risk2": "Overly broad trigger conditions",
+        "risk3": "Social engineering and privilege escalation attempts",
+        "body2": "After disabling, all skills will be installed without review.",
+        "confirm": "I understand the risks, disable review"
+      }
+    },
+    "plugins": {
+      "title": "Plugins",
+      "desc": "Manage community plugins.",
+      "empty": "No plugins installed",
+      "reload": "Reload",
+      "statusLoaded": "loaded",
+      "statusFailed": "failed",
+      "statusDisabled": "disabled",
+      "fullAccessToggle": "Allow full-access plugins",
+      "fullAccessDesc": "When enabled, plugins that declare full-access can use system-level APIs (routes, hooks, providers, etc.)",
+      "dropzone": "Drag plugin folder or .zip here to install, or click to select",
+      "statusRestricted": "needs full access",
+      "deleteConfirm": "Remove plugin \"{name}\"? Plugin data will be preserved.",
+      "installSuccess": "Plugin \"{name}\" installed",
+      "installError": "Plugin install failed",
+      "invalidPlugin": "Not a valid plugin directory",
+      "pluginsDir": "Plugin directory: {path}",
+      "needsFullAccess": "Enable \"Allow full-access plugins\" to use this plugin"
+    },
+    "screenshot": {
+      "title": "Screenshot Sharing",
+      "desc": "Choose the style and layout for sharing conversation screenshots",
+      "color": "Color",
+      "width": "Width",
+      "light": "Light",
+      "dark": "Dark",
+      "sakura": "Sakura",
+      "mobile": "Mobile",
+      "desktop": "Desktop",
+      "mobileTitle": "Mobile Layout",
+      "mobileDesc": "Tall image, ideal for phone sharing",
+      "desktopTitle": "Desktop Layout",
+      "desktopDesc": "Wider, for desktop saving & sharing"
+>>>>>>> upstream/main
     },
     "bridge": {
+      "agent": "Agent",
       "telegram": "Telegram",
       "telegramToken": "Bot Token",
       "telegramHint": "Get from @BotFather",
@@ -633,6 +975,20 @@
       "qqAppId": "App ID",
       "qqAppSecret": "App Secret",
       "qqHint": "Get from QQ Bot Open Platform (q.qq.com/qqbot)",
+      "wechat": "WeChat",
+      "wechatHint": "Connect via WeChat iLink protocol",
+      "wechatExclusive": "Each WeChat account can only be bound to one Agent. Binding a new Agent will invalidate the previous one.",
+      "wechatScan": "Scan to Login",
+      "wechatRescan": "Re-login",
+      "wechatLoggedIn": "Logged in",
+      "wechatNeedScan": "Please scan QR code first",
+      "wechatScanning": "Scan the QR code with WeChat",
+      "wechatScanned": "Scanned, please confirm on your phone",
+      "wechatExpired": "QR code expired",
+      "wechatLoginSuccess": "Login successful",
+      "wechatLoginFailed": "Login failed",
+      "wechatUnbind": "Unbind",
+      "wechatUnbound": "WeChat unbound",
       "connected": "Connected",
       "disconnected": "Not connected",
       "error": "Connection failed",
@@ -670,7 +1026,8 @@
         "Click \"Add Event\", add <code>im.message.receive_v1</code> (receive messages)",
         "Important: Go to \"Version Management\", create and publish a version first (long connection config requires a published app)",
         "Paste the App ID and App Secret into the input fields above and turn on the switch"
-      ]
+      ],
+      "whatsappHint": "Coming soon"
     }
   },
   "onboarding": {
@@ -748,13 +1105,14 @@
     "empty": "No activity yet. Patrol runs and scheduled tasks will appear here.",
     "back": "Back",
     "heartbeat": "Routine patrol",
-    "delegate": "Delegated task",
+    "subagent": "Sub-agent task",
     "cron": "Scheduled task",
     "patrolDone": "Patrol completed",
     "cronDone": "Scheduled task completed",
     "error": "Execution error",
     "viewSession": "View session →",
-    "duration": "Took {text}"
+    "duration": "Took {text}",
+    "promote": "Keep as chat"
   },
   "automation": {
     "title": "Scheduled Tasks",
@@ -762,6 +1120,12 @@
     "defaultModel": "Default model",
     "edit": "Edit",
     "delete": "Delete"
+  },
+  "ctx": {
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All"
   },
   "desk": {
     "title": "Desk",
@@ -772,9 +1136,11 @@
     "cwdSkillsDesc": "Skills follow workspace",
     "cwdSkillsDrop": "Drop folder or .zip to install skills",
     "deleteSkill": "Delete Skill",
-    "openInFinder": "Open in Finder",
+    "openInFinder": "Open Folder",
     "jianLabel": "Jian",
     "jianPlaceholder": "Write something to tell the assistant how to handle files in this folder...",
+    "execLogLabel": "Execution Log",
+    "execLogDelete": "Delete this entry",
     "emptyTitle": "Desk is empty",
     "emptyHint": "The desk is the assistant's patrol workspace and the default directory for every chat.\nSet a folder in settings.",
     "goToSettings": "Go to Settings",
@@ -783,7 +1149,7 @@
     "newFolder": "New Folder",
     "ctx": {
       "open": "Open",
-      "openInFinder": "Open in Finder",
+      "openInFinder": "Open Folder",
       "rename": "Rename",
       "copyPath": "Copy Path",
       "delete": "Delete",
@@ -805,9 +1171,21 @@
       "typeShort": "Type"
     }
   },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "close": "Close"
+  },
   "browser": {
     "using": "Using browser",
-    "close": "Close browser"
+    "close": "Close browser",
+    "closeBtn": "Close",
+    "back": "Back",
+    "forward": "Forward",
+    "reload": "Reload",
+    "emergencyStop": "Emergency stop AI control",
+    "backgroundHint": "Background browser running, click to view",
+    "background": "Background browser"
   },
   "bridge": {
     "selectChat": "Select a conversation",
@@ -816,7 +1194,7 @@
     "empty": "No messages",
     "notConfigured": "{platform} not configured",
     "goToSettings": "Go to Settings",
-    "resetContext": "Clear context",
+    "resetContext": "Reset context",
     "resetContextTip": "Next message will start a new conversation"
   },
   "error": {
@@ -826,6 +1204,562 @@
     "missingParam": "Missing {param} parameter",
     "invalidJson": "Request body must be a JSON object",
     "sessionNotFound": "Session file not found",
-    "stillStreaming": "{name} is still responding, please wait"
-  }
+    "stillStreaming": "{name} is still responding, please wait",
+    "agentNameEmpty": "Agent name cannot be empty",
+    "agentIdInvalid": "Agent ID contains invalid characters",
+    "agentAlreadyExists": "Agent \"{id}\" already exists",
+    "agentSwitching": "Agent switch in progress, please wait",
+    "agentNotFound": "Agent \"{id}\" not found or not initialized",
+    "agentModelNotAvailable": "Model \"{model}\" configured for agent \"{id}\" is not available",
+    "agentDeleteActive": "Cannot delete the currently active agent",
+    "agentNotExists": "Agent \"{id}\" does not exist",
+    "modelNoResponse": "Model returned no content. Please check API configuration and network connection.",
+    "noActiveSession": "No active session",
+    "compacting": "Compaction in progress",
+    "waitForReply": "Please wait for the response to finish before compacting",
+    "compactFailed": "Compaction failed: {msg}",
+    "maxImages": "Maximum {max} images allowed",
+    "unsupportedImageFormat": "Unsupported image format: {mime}",
+    "imageTooLarge": "Single image must not exceed 20MB",
+    "viewImage": "(view image)",
+    "modelNoVision": "Current model does not support images. Please switch to a vision-capable model",
+    "searchProviderNotConfigured": "Search provider not configured",
+    "searchProviderMissingKey": "Search provider \"{provider}\" is missing API Key",
+    "searchProviderUnknown": "Unknown search provider: {provider}",
+    "searchFailed": "Search failed: {msg}",
+    "searchEmptyQuery": "Please provide a search query.",
+    "searchNoResults": "No relevant results found. (via {provider})",
+    "searchResults": "Search results (via {provider}):\n\n{results}",
+    "searchError": "Search error: {msg}",
+    "fetchEmptyUrl": "Please provide a URL to fetch.",
+    "fetchHttpOnly": "Only http/https URLs are supported.",
+    "fetchInvalidUrl": "Invalid URL: {url}",
+    "fetchSsrf": "Access to internal network address denied: {host}",
+    "fetchRedirectLimit": "Redirect limit exceeded ({max})",
+    "fetchHttpError": "Fetch failed: HTTP {status} {statusText}",
+    "fetchTruncated": "\n\n[... content truncated, {len} characters total]",
+    "fetchSource": "Source: {host}{path} ({format})\n\n",
+    "fetchTimeout": "Fetch timeout ({sec}s): {url}",
+    "fetchError": "Fetch error: {msg}",
+    "browserError": "Error: {msg}",
+    "browserAlreadyRunning": "Browser is already running",
+    "browserLaunched": "Browser launched",
+    "browserNotRunning": "Browser is not running",
+    "browserClosed": "Browser closed",
+    "browserNavigateNeedUrl": "navigate requires url parameter",
+    "browserNavigated": "Navigated to {title}\nURL: {url}\n\n{snapshot}",
+    "browserClickNeedRef": "click requires ref parameter",
+    "browserClicked": "Clicked [{ref}]\n\n{snapshot}",
+    "browserTypeNeedText": "type requires text parameter",
+    "browserTyped": "Typed text{target}\n\n{snapshot}",
+    "browserScrollNeedDir": "scroll requires direction parameter (up/down)",
+    "browserScrolled": "Scrolled {dir}\n\n{snapshot}",
+    "browserSelectNeedRef": "select requires ref parameter",
+    "browserSelectNeedValue": "select requires value parameter",
+    "browserSelected": "Selected [{ref}] → \"{value}\"\n\n{snapshot}",
+    "browserKeyNeedKey": "key requires key parameter",
+    "browserKeyPressed": "Pressed {key}\n\n{snapshot}",
+    "browserWaitDone": "Wait complete\n\n{snapshot}",
+    "browserEvalNeedExpr": "evaluate requires expression parameter",
+    "browserOutputTruncated": "\n\n[... output truncated]",
+    "browserShown": "Browser window brought to front",
+    "browserUnknownAction": "Unknown action: {action}",
+    "browserActionFailed": "Browser action failed: {msg}",
+    "skillNeedAbsolutePath": "Absolute path required",
+    "skillPathNotExists": "Path does not exist",
+    "skillMissingSkillMd": "SKILL.md not found in folder",
+    "skillUnsupportedFormat": "Only .zip or .skill files are supported",
+    "skillMissingSkillMdInZip": "SKILL.md not found in archive",
+    "skillExtractFailed": "Extraction failed: {msg}",
+    "skillMissingName": "Missing name field in SKILL.md",
+    "skillNameInvalid": "Invalid skill name (\"{name}\"). Only letters, numbers, underscores, and hyphens are allowed.",
+    "skillPathMustBeAbsolute": "Path must be absolute: {path}",
+    "skillCannotAddSelfDir": "Cannot add Hanako's own skills directory",
+    "skillInvalidName": "Invalid skill name",
+    "skillExternalCannotDelete": "External skills cannot be deleted from here",
+    "skillNotExists": "Skill does not exist",
+    "channelReadNeedChannel": "Error: read requires channel parameter",
+    "channelNotExists": "Channel \"{channel}\" does not exist",
+    "agentNotChannelMember": "You are not a member of channel \"{channel}\" and cannot send messages",
+    "channelNoMessages": "(No messages in channel)",
+    "channelPostNeedParams": "Error: post requires channel and content parameters",
+    "channelPosted": "Sent to #{channel}",
+    "channelCreateNeedParams": "Error: create requires name and members parameters",
+    "channelCreated": "Channel #{name} ({id}) created, members: {members}",
+    "channelCreateFailed": "Creation failed: {msg}",
+    "channelNoJoined": "Not joined any channels yet",
+    "unknownAction": "Unknown action: {action}",
+    "cannotSelfDm": "Cannot send DM to yourself",
+    "dmSent": "DM sent to {name}",
+    "cronNoJobs": "No scheduled tasks",
+    "cronAddNeedParams": "Error: add requires scheduleType, schedule, prompt parameters",
+    "cronEveryMustBeNumber": "Error: schedule for every type must be a positive integer (milliseconds)",
+    "cronCreated": "Scheduled task created: {label} ({id})",
+    "cronConfirmed": "User confirmed, scheduled task created: {label} ({id})",
+    "cronRejected": "User cancelled scheduled task \"{label}\"",
+    "cronTimeout": "Scheduled task \"{label}\" confirmation timed out",
+    "cronPendingConfirm": "Ready to create scheduled task: {label}, awaiting confirmation",
+    "cronRemoveNeedId": "Error: remove requires id parameter",
+    "cronJobNotFound": "Task {id} not found",
+    "cronRemoved": "Task {id} removed",
+    "cronToggleNeedId": "Error: toggle requires id parameter",
+    "cronToggled": "Task {id} {state}",
+    "cronEnabled": "enabled",
+    "cronDisabled": "disabled",
+    "notifySent": "Notification sent: {title}",
+    "notifyFailed": "Notification failed: {msg}",
+    "artifactCreated": "Preview created: {title}",
+    "pinnedAlreadyExists": "This is already in pinned memory.",
+    "pinnedAdded": "Remembered: {content}",
+    "pinnedEmpty": "Pinned memory is empty, nothing to remove.",
+    "pinnedNotFound": "No pinned memory containing \"{keyword}\" found.",
+    "pinnedRemoved": "Removed {count} items: {items}",
+    "expEmpty": "Experience library is empty.",
+    "expCategoryNotFound": "No experience found for category \"{category}\".",
+    "expEmptyInput": "Category name and experience content cannot be empty.",
+    "expDuplicate": "This experience has already been recorded.",
+    "expRecorded": "Experience recorded [{category}]: {content}",
+    "outputFileNeedPaths": "filepaths array or filePath is required.",
+    "outputFileNotAbsolute": "Path must be absolute: {path}",
+    "outputFileNotFound": "File not found: {path}",
+    "outputFilePresented": "Files presented: {summary}",
+    "settingsUnknownKey": "Unknown setting \"{key}\". Use search to find the correct key.",
+    "settingsInvalidValue": "\"{value}\" is not a valid option. Available: {options}",
+    "settingsInvalidToggle": "Toggle settings only accept \"true\" or \"false\".",
+    "settingsNotReady": "Settings system not ready",
+    "settingsNoAgent": "No active agent, cannot modify this setting",
+    "settingsApplied": "Changed \"{label}\" to {value}",
+    "settingsApplyFailed": "Settings change failed: {msg}",
+    "settingsCancelled": "User cancelled change of \"{label}\"",
+    "settingsTimeout": "\"{label}\" change confirmation timed out, no changes made",
+    "subagentMaxConcurrent": "{max} sub-agents are already running, please wait before starting new ones.",
+    "subagentFailed": "Sub-agent execution failed: {msg}",
+    "subagentTimeout": "Sub-agent timed out after {minutes} minutes",
+    "subagentAborted": "Sub-agent was aborted",
+    "subagentNoOutput": "(Sub-agent produced no output)",
+    "subagentDispatched": "Sub-task dispatched (task-id: {taskId}). Results will be delivered when ready.",
+    "installSkillDisabled": "Self-learning skills not enabled. Please enable \"Allow Agent to create/install skills\" in settings.",
+    "installSkillGithubDisabled": "GitHub skill fetching not enabled. Please enable \"Allow fetching skills from GitHub\" in settings.",
+    "installSkillInvalidGithubUrl": "Invalid GitHub URL: {url}",
+    "installSkillGithubApiFailed": "Cannot retrieve repo info (HTTP {status}). Please check the URL.",
+    "installSkillGithubApiError": "GitHub API access failed: {msg}",
+    "installSkillStarTooLow": "This repo only has {stars} stars (threshold {min}), installation rejected for safety.",
+    "installSkillNoSkillMd": "SKILL.md not found in {owner}/{repo} (tried paths: {paths}).",
+    "installSkillSafetyFailed": "[Security] Skill safety review failed, installation blocked.\nReason: {reason}\n\nPlease inform the user about the safety review failure and the specific reason. Users can disable safety reviews in settings (not recommended).",
+    "installSkillNameInvalid": "Invalid skill name{name}. Only letters, numbers, underscores, and hyphens are allowed.",
+    "installSkillSuccess": "Skill \"{name}\" installed successfully!\nSource: {source} (⭐ {stars} stars)\nReason: {reason}",
+    "installSkillNeedInput": "Please provide github_url or skill_content (SKILL.md content).",
+    "installSkillNeedName": "skill_name is required when using skill_content mode.",
+    "installSkillSuccessLocal": "Skill \"{name}\" installed successfully!\nReason: {reason}",
+    "installSkillSizeLimit": "Skill content exceeds size limit ({size}KB > {max}KB)",
+    "installSkillNoUtility": "Safety review unavailable: utility model not configured. Please configure it in settings.",
+    "installSkillUtilityIncomplete": "Safety review unavailable: utility model config incomplete (missing API key or base URL). Please complete it in settings.",
+    "installSkillSafetyPassed": "✓ Safety review passed",
+    "installSkillSafetyEmpty": "Safety review returned empty response",
+    "installSkillSafetyUnexpected": "Safety review returned unexpected format: {reply}",
+    "installSkillSafetyTimeout": "Safety review timeout or network error",
+    "activeSessionOnly": "Can only promote sessions of the current agent",
+    "heartbeatTriggered": "Heartbeat triggered",
+    "dirNotAllowed": "Directory not in allowed scope",
+    "noWorkspace": "No workspace configured",
+    "tokenSuccess": "Token obtained successfully",
+    "verifyFailed": "Verification failed",
+    "tokenFetchFailed": "Failed to obtain access_token",
+    "botInfoFailed": "Failed to get bot info",
+    "platformTestUnsupported": "Testing not supported for this platform",
+    "codexNoHealthCheck": "Codex API does not support health check",
+    "modelNotFound": "Model not found: {id}",
+    "noUtilityModel": "Utility model not configured, please add one in settings",
+    "noUtilityLargeModel": "utility_large model not configured, please add one in settings",
+    "modelNoProvider": "{role} model \"{model}\" has no provider association",
+    "providerMissingApi": "Provider \"{provider}\" missing API protocol config",
+    "providerMissingCreds": "Provider \"{provider}\" missing credentials",
+    "utilityApiProviderMismatch": "utility_api.provider must match the provider of model \"{model}\"",
+    "utilityApiMissingCreds": "utility_api missing credentials (provider: {provider})",
+    "noAvailableModel": "No available models. Please configure API key and models in settings first",
+    "noActiveSessionPrompt": "No active session, please call createSession() first",
+    "sessionNotInCache": "Session \"{path}\" not in cache",
+    "agentNotInitialized": "Agent \"{id}\" does not exist or is not initialized",
+    "resolveModelNoChatModel": "resolveModel: models.chat not specified, cannot select model",
+    "resolveModelNotAvailable": "resolveModel: Model \"{id}\" not in available list",
+    "executeIsolatedNoModel": "executeIsolated: Agent \"{name}\" has no available model",
+    "bridgeAgentNoChatModel": "[bridge] Agent \"{name}\" has no models.chat configured",
+    "bridgeAgentModelNotAvailable": "[bridge] Model \"{model}\" configured for agent \"{name}\" is not in available list",
+    "noAgentsFound": "No agents found in agents/ directory, please create one first",
+    "channelNotFoundById": "Channel \"{id}\" does not exist",
+    "channelAlreadyExists": "Channel \"{id}\" already exists",
+    "providerMissingBaseUrl": "Provider \"{provider}\" missing Base URL",
+    "providerMissingApiKey": "Provider \"{provider}\" missing API Key",
+    "modelNameEmpty": "Model name cannot be empty",
+    "modelNotRegistered": "Model \"{model}\" not registered with any provider in models.json",
+    "modelProviderMissingApi": "Provider \"{provider}\" for model \"{model}\" missing API protocol config",
+    "modelProviderIncomplete": "Provider \"{provider}\" for model \"{model}\" has incomplete config",
+    "browserDesktopOnly": "Browser is only available in Electron desktop mode",
+    "browserCmdTimeout": "Browser command timed out: {cmd}",
+    "agentExecNotInit": "Agent \"{id}\" does not exist or is not initialized",
+    "bridgeMgrNotStarted": "Bridge manager not started",
+    "qqTokenFailed": "Failed to get access_token: {detail}",
+    "missingApiProtocol": "Missing API protocol config",
+    "missingApiKey": "Missing API Key",
+    "unsupportedApiProtocol": "Unsupported API protocol: {api}",
+    "missingModelId": "Missing model ID",
+    "missingBaseUrl": "Missing Base URL",
+    "llmInvalidJson": "LLM returned unparseable JSON ({status})",
+    "llmEmptyResponse": "LLM returned empty content",
+    "xlsxParseFailed": "Cannot parse {ext} file: {msg}",
+    "docxParseFailed": "Cannot parse {ext} file: {msg}",
+    "compatDirCreated": "Created {count} missing directories",
+    "compatConfigEmpty": "File is empty",
+    "compatConfigInvalid": "Does not appear to be YAML format",
+    "compatConfigCorrupted": "config.yaml corrupted ({msg}), rebuilt from template",
+    "compatConfigBackedUp": "config.yaml corrupted ({msg}), backed up as {backup}",
+    "compatFactsCorrupted": "facts.db corrupted and backed up, will rebuild empty database",
+    "defaultChannelName": "Crew",
+    "defaultChannelDesc": "Work coordination channel for daily tasks.",
+    "memorySearchLabel": "Search Memory",
+    "memorySearchDesc": "Search the memory bank. Use when you are unsure about something, think you discussed it before but cannot recall details, or need more context. Input natural language queries and optional tag filters. Results include matching meta-facts and timestamps.",
+    "memorySearchQueryDesc": "Search query in natural language",
+    "memorySearchTagsDesc": "Tag filter, 2-5 keyword tags for precise matching, e.g. [\"chocolate\", \"food preference\"]",
+    "memorySearchDateFromDesc": "Start date, format YYYY-MM-DD",
+    "memorySearchDateToDesc": "End date, format YYYY-MM-DD",
+    "memorySearchEmpty": "No relevant content found in memory.",
+    "memorySearchError": "Memory search error: {msg}",
+    "fallbackUserName": "User",
+    "uploadFailed": "Failed to import files",
+    "uploadPartialFail": "Some files could not be imported: {files}",
+    "stopTaskNotFound": "Task {taskId} not found — it may have already completed",
+    "stopTaskAlready": "Task {taskId} has already been stopped",
+    "stopTaskNoHandler": "Task {taskId} does not support stopping",
+    "stopTaskDone": "Task {taskId} has been stopped"
+  },
+  "main": {
+    "tray": {
+      "show": "Show Hanako",
+      "settings": "Settings",
+      "quit": "Quit"
+    },
+    "dialog": {
+      "selectFolder": "Select Working Folder",
+      "selectSkill": "Select Skill",
+      "selectPlugin": "Select Plugin",
+      "launchFailedTitle": "Hanako Launch Failed",
+      "launchFailedBody": "Hanako v{version}\n\n{detail}\n\nDetailed log saved to:\n{logPath}\n\nPlease send this screenshot or log file to the developer.",
+      "serverRestartFailed": "Hanako v{version}\n\nServer crashed and failed to restart.\n{error}\n\nPlease restart the application.",
+      "serverMultipleCrash": "Hanako v{version}\n\nServer crashed multiple times ({reason}).\n\nPlease restart the application.",
+      "serverStartTimeout": "Server start timed out (60s)",
+      "serverKilledBySignal": "Server killed by signal ({signal})",
+      "serverExitedWithCode": "Server exited with code {code}",
+      "installFailedTitle": "Hanako Update",
+      "installFailedBody": "Update installation failed:\n{error}\n\nPlease restart Hanako and try again, or check for updates manually in Settings."
+    },
+    "notification": {
+      "ready": "Notifications enabled"
+    }
+  },
+  "devtools": {
+    "heartbeat": "Heartbeat",
+    "memoryExport": "Memory Export",
+    "onboarding": "Onboarding",
+    "previewGuide": "Preview Guide",
+    "reloadFrontend": "Reload Frontend",
+    "tabLogs": "Activity Logs",
+    "tabSessions": "Session List",
+    "tabPrompt": "System Prompt",
+    "waitingConnection": "Waiting for connection...",
+    "waitingServer": "Waiting for Server...",
+    "loading": "Loading...",
+    "loadFailed": "Load failed",
+    "refreshBtn": "Refresh",
+    "clickRefresh": "Click Refresh above to load",
+    "noActivities": "No activities yet",
+    "heartbeatLabel": "Auto heartbeat",
+    "cronLabel": "Scheduled task",
+    "heartbeatRunning": "Heartbeat running...",
+    "heartbeatGenerating": "Generating summary...",
+    "heartbeatDone": "Heartbeat completed",
+    "heartbeatNoSummary": "Heartbeat completed (no summary)",
+    "memoryExported": "Memory exported",
+    "exportFailed": "Export failed",
+    "onboardingOpened": "Onboarding window opened",
+    "previewOpened": "Preview mode opened",
+    "openFailed": "Open failed",
+    "frontendReloaded": "Frontend reloaded",
+    "refreshFailed": "Refresh failed",
+    "triggerFailed": "Trigger failed",
+    "requestFailed": "Request failed",
+    "justNow": "Just now",
+    "minutesAgo": "{n} min ago",
+    "hoursAgo": "{n} hr ago",
+    "chars": " chars",
+    "empty": "empty",
+    "serverConnected": "Server connected (port {port})"
+  },
+  "skillViewer": {
+    "cantRead": "Cannot read file",
+    "copied": "Copied to skill list",
+    "installFailed": "Install failed: "
+  },
+  "toolDef": {
+    "webSearch": {
+      "label": "Web Search",
+      "description": "Search the internet for real-time information. Use when you need the latest news, technical docs, current events, or any external knowledge not in memory.",
+      "queryDesc": "Search keywords",
+      "maxResultsDesc": "Number of results to return, default 5"
+    },
+    "webFetch": {
+      "label": "Fetch Web Page",
+      "description": "Fetch the content of a given URL and extract text. Useful for reading articles, docs, API responses, etc. Pair with web_search: first search to find a URL, then use web_fetch to read the full content.",
+      "urlDesc": "Full URL to fetch (including https://)",
+      "maxLenDesc": "Maximum characters to return, default {max}"
+    },
+    "browser": {
+      "label": "Browser",
+      "description": "Control a headless browser (navigate, click, type, scroll, screenshot, evaluate JS). Use the action parameter to pick an operation; see its description for per-action parameters. Element [ref] ids from snapshot become stale after any navigate/click/type — those operations auto-return a fresh snapshot, always use refs from the latest one.",
+      "actionDesc": "Which operation to run. Required params per action: navigate→url; click→ref; type→text (optional ref, pressEnter); scroll→direction (optional amount); select→ref+value; key→key; wait→(optional timeout, state); evaluate→expression. start, stop, snapshot, screenshot, show take no extra params.",
+      "urlDesc": "URL (required for navigate)",
+      "refDesc": "Element ref number (used for click/type/select)",
+      "textDesc": "Input text (required for type)",
+      "directionDesc": "Scroll direction (required for scroll)",
+      "amountDesc": "Scroll amount (optional for scroll, default 3)",
+      "valueDesc": "Option value (required for select)",
+      "keyDesc": "Key name (required for key), e.g. Enter, Escape, Tab, Control+a",
+      "expressionDesc": "JavaScript expression (required for evaluate)",
+      "timeoutDesc": "Timeout in milliseconds (optional for wait, default 5000)",
+      "stateDesc": "Wait state (optional for wait): domcontentloaded / idle",
+      "pressEnterDesc": "Press Enter after typing (optional for type)"
+    },
+    "channel": {
+      "label": "Channel",
+      "description": "Manage channel messages (for broadcasts and group discussions).\nActions:\n- read(channel, count?): View recent messages in a channel\n- post(channel, content): Send a message to a channel\n- create(name, members, intro?): Create a new channel\n- list: View channels you have joined\nNote: For one-on-one messaging with an agent, use the dm tool instead of simulating a private chat via channels.",
+      "actionDesc": "Action type",
+      "channelDesc": "Channel name (required for read/post)",
+      "contentDesc": "Message content (required for post)",
+      "nameDesc": "New channel name (required for create)",
+      "membersDesc": "Member list (required for create), e.g. [\"hana\", \"butter\"]",
+      "introDesc": "Channel description (optional for create)",
+      "countDesc": "Number of messages to read (optional for read, default 20)"
+    },
+    "artifact": {
+      "label": "Create Preview",
+      "description": "Call this tool when you need to show the user an HTML page, code snippet, or long-form Markdown content.\nContent is rendered in a standalone preview panel where the user can view results in real time.\nGood for: runnable HTML/CSS/JS pages, interactive visualizations, SVG charts, complete code files, long formatted documents.\nNot for: short text replies, conversational answers, one-line code snippets (just show those inline).",
+      "typeDesc": "Content type: html (rendered page), code (syntax highlighted), markdown (document)",
+      "titleDesc": "Display title, a short description of the content",
+      "contentDesc": "Full content (HTML source / code / Markdown text)",
+      "languageDesc": "Programming language (only for type=code), e.g. javascript, python, css"
+    },
+    "dm": {
+      "label": "Direct Message",
+      "description": "Send a single direct message to another agent to inform them of something.\nDo not use this tool to assign tasks or get results; that is subagent's job.",
+      "toDesc": "Target agent's ID",
+      "messageDesc": "Message content"
+    },
+    "cron": {
+      "label": "Scheduled Tasks",
+      "description": "Create and manage scheduled tasks. Scheduled tasks run automatically in the background, spawning an independent session to execute the specified prompt when triggered.\nActions:\n- list: View all tasks\n- add(scheduleType, schedule, prompt, label?, model?): Create a task\n  - scheduleType \"at\": One-time, schedule is an ISO time string\n  - scheduleType \"every\": Interval, schedule is minutes (e.g. 60 = hourly)\n  - scheduleType \"cron\": Cron expression (e.g. \"0 7 * * *\" = every day at 7 AM)\n  - model: Optional, specify the model for task execution (defaults to the chat model)\n- remove(id): Delete a task\n- toggle(id): Enable/disable a task",
+      "actionDesc": "Action type",
+      "scheduleTypeDesc": "Schedule type (required for add)",
+      "scheduleDesc": "Schedule: ISO time (at), minutes (every, e.g. 60=hourly), cron expression (cron)",
+      "promptDesc": "Prompt to execute when triggered (required for add)",
+      "labelDesc": "Task display label (optional)",
+      "modelDesc": "Specify execution model (optional, defaults to the chat model)",
+      "idDesc": "Task ID (required for remove/toggle)"
+    },
+    "notify": {
+      "label": "Notification",
+      "description": "Send a system notification (desktop popup) to the user.\nUse cases:\n- The user says 'remind me about xxx', 'notify me when...', 'don't let me forget xxx'\n- A scheduled task prompt explicitly includes notification intent\n- A monitoring/scheduled task discovers something requiring user attention\nIf everything is normal with no issues, do not call this tool.",
+      "titleDesc": "Notification title (brief)",
+      "bodyDesc": "Notification content"
+    },
+    "todoWrite": {
+      "label": "Todo",
+      "description": "Manage the todo list for the current session. Pass the complete todos array each call to replace the current state (replacement style).\nEach todo needs:\n- content: static description (e.g. 'Read spec')\n- activeForm: in-progress description (e.g. 'Reading spec')\n- status: pending | in_progress | completed\nConvention: at most one in_progress at a time.",
+      "contentDesc": "Static description of the todo",
+      "activeFormDesc": "In-progress form description (shown in UI while in_progress)",
+      "statusDesc": "One of: pending / in_progress / completed",
+      "todosDesc": "Complete todo list; each call replaces the previous list",
+      "summaryEmpty": "Cleared todos",
+      "summaryStats": "{total} todos: {completed} completed, {in_progress} in progress, {pending} pending"
+    },
+    "pinnedMemory": {
+      "pinLabel": "Pin Memory",
+      "pinDescription": "Save an item to pinned memory. Use when the user says 'remember this', 'note this down', 'don't forget this later'. Pinned memories are always kept in context.",
+      "pinContentDesc": "Content to remember",
+      "unpinLabel": "Unpin Memory",
+      "unpinDescription": "Remove an item from pinned memory. Use when the user says 'forget xxx' or 'delete this memory'. Supports fuzzy matching: any line containing the keyword you provide will be removed.",
+      "unpinKeywordDesc": "Keyword of the memory to remove, matched fuzzily"
+    },
+    "experience": {
+      "recallLabel": "Recall Experience",
+      "recallDescription": "Browse the experience library. Without parameters, returns an overview of all categories. With a category name, returns specific experiences in that category. When the user asks you to do a concrete task (write code, research, create documents, analyze problems, etc.), check this tool first for relevant experience before starting. Not needed for casual chat, Q&A, or everyday conversation.",
+      "recallCategoryDesc": "Category name. Omit to get an overview of all categories",
+      "recordLabel": "Record Experience",
+      "recordDescription": "Record a lesson learned to the experience library. Use when: the user points out a mistake and explains the correct approach, you discover an effective method after trying multiple approaches, or the user explicitly says 'from now on do/don't do this'. Each entry should be concise and direct, one sentence.",
+      "recordCategoryDesc": "Category for the experience, a 2-4 word phrase, e.g. 'tool usage', 'search tips', 'response style'",
+      "recordContentDesc": "The specific experience content, concise and direct, one sentence"
+    },
+    "outputFile": {
+      "label": "Stage Files",
+      "description": "After successfully creating files for anyone (users, agents), or when asked to provide a file, call this tool to present them in the conversation so the user can click to open. Only call when the file exists; do not call if the file is missing or creation failed. Don't just mention file paths in text — call this tool.",
+      "filepathsDesc": "Array of absolute file paths to stage",
+      "filePathDesc": "(Compat) Single file absolute path",
+      "labelDesc": "(Compat) File name shown to the user"
+    },
+    "wait": {
+      "label": "Wait",
+      "description": "Wait for a specified number of seconds. Used to keep the turn active while waiting for background tasks to complete.",
+      "secondsDesc": "Seconds to wait (1-300)"
+    },
+    "subagent": {
+      "label": "Launch Sub-agent",
+      "description": "Delegate a task to a sub-agent. Optionally specify another agent (pass agent param), or omit to self-clone. Pass agent=\"?\" to list available agents.\n\nBehavior after dispatch:\n1. The sub-agent starts executing in the background immediately\n2. Continue with your current work — do not stop to wait\n3. Once your other work is done, use check_pending_tasks to check status\n4. If not yet complete, estimate a reasonable wait time based on task complexity, use wait then check again. Check at most 2 times, then stop polling\n5. The system will automatically notify you when tasks complete (<hana-background-result> messages) — process results at that point\n\nGood for:\n- Research tasks that require extensive searching and reading, summarized into a brief conclusion\n- Independent sub-problems that can run in parallel with your current work\n- Tasks that need simultaneous exploration in multiple directions (you can fire multiple subagent calls at once)\n- Having another agent handle a task from their specialized perspective\n\nImportant:\n- The task parameter must contain complete instructions and necessary background, as the sub-agent cannot see the current conversation history\n- Clearly state whether the sub-agent should only research (read-only) or is allowed to modify files. When not specified, the sub-agent defaults to research only — no file modifications",
+      "taskDesc": "Full instructions for the sub-agent. Format: first line writes \"Task: xxx\" as the task title, then a blank line, then detailed requirements and necessary background. The sub-agent cannot see the current conversation history, so all needed context must be written here.",
+      "agentDesc": "Target agent ID. Omit to self-execute, pass \"?\" to list available agents.",
+      "modelDesc": "Specify model (optional, defaults to utility model)"
+    },
+    "installSkill": {
+      "label": "Install Skill",
+      "description": "Install a new skill for yourself. Mode A: Provide a GitHub repo URL (containing SKILL.md) to auto-fetch and install. Mode B: Directly provide skill_content + skill_name, for self-authored skills. The skill takes effect immediately after installation.",
+      "githubUrlDesc": "GitHub repo URL (Mode A)",
+      "skillContentDesc": "Full content of SKILL.md (Mode B)",
+      "skillNameDesc": "Skill name (required for Mode B)",
+      "reasonDesc": "Explain why this skill is needed (for audit, required)",
+      "userRequestedDesc": "Whether the user explicitly requested installation (true = user skill, false = learned skill)"
+    },
+    "updateSettings": {
+      "label": "Settings",
+      "description": "Modify Hanako's settings. Two actions available:\n- search + query: Search settings by keyword, see current values and options\n- apply + key + value: Change a setting (requires user confirmation)\n\nIf you already know the exact key, you can apply directly.",
+      "actionDesc": "Action: search to find settings / apply to change a setting",
+      "queryDesc": "Search keyword (required for search)",
+      "keyDesc": "Setting key (found via search)",
+      "valueDesc": "Proposed new value",
+      "searchResult": "Found {count} matching setting(s):\n\n{results}\n\nUse action \"apply\" with key and value to change a setting.",
+      "searchNoResults": "No settings matching \"{query}\". Try a broader keyword.",
+      "searchMissingQuery": "The search action requires a query parameter.",
+      "applyMissingParams": "The apply action requires both key and value parameters.",
+      "frontendOnly": "client-side only",
+      "sandbox": "Sandbox Security",
+      "sandboxDesc": "Restrict file system write scope",
+      "locale": "Language",
+      "timezone": "Timezone",
+      "timezoneDesc": "IANA timezone (e.g. Asia/Shanghai)",
+      "thinkingBudget": "Thinking Depth",
+      "memory": "Memory System",
+      "memoryDesc": "Enable/disable memory for current Agent",
+      "agentName": "Agent Name",
+      "userName": "User Name",
+      "workingDir": "Working Directory",
+      "workingDirDesc": "Agent file system working directory",
+      "theme": "Theme",
+      "chatModel": "Chat Model",
+      "fileBackup": "File Backup",
+      "fileBackupDesc": "Auto-backup files before AI modifications"
+    },
+    "stopTask": {
+      "label": "Stop background task",
+      "description": "Stop a running background task. Pass the task_id to terminate it. Supported task types include sub-agent tasks, image/video generation tasks, etc.",
+      "taskIdDesc": "The task ID to stop"
+    }
+  },
+  "cli": {
+    "disconnected": "Disconnected",
+    "wsError": "WebSocket error: {msg}",
+    "error": "Error: {msg}",
+    "interrupted": "(interrupted)",
+    "goodbye": "Goodbye ✿",
+    "helpTitle": "Command List",
+    "helpModel": "View current model",
+    "helpModelSet": "Switch model (interactive)",
+    "helpConfig": "View config",
+    "helpSessionNew": "New session",
+    "helpSessionList": "List sessions",
+    "helpAgent": "View current agent",
+    "helpAgentList": "List all agents",
+    "helpAgentSwitch": "Switch agent",
+    "helpJian": "View notes in current directory",
+    "helpJianSub": "View notes in subdirectory",
+    "helpLs": "List desk files",
+    "helpLsSub": "List subdirectory files",
+    "helpCat": "View file content",
+    "helpHelp": "Show this help",
+    "helpEsc": "Interrupt generation",
+    "helpCtrlC": "Interrupt / Exit",
+    "noModels": "No available models",
+    "availableModels": "Available models:",
+    "currentModel": "← current",
+    "selectModel": "Enter number to select: ",
+    "modelSwitched": "Switched to {name}",
+    "cancelled": "Cancelled",
+    "currentModelLabel": "Current model:",
+    "noModel": "(none)",
+    "currentConfig": "Current Config",
+    "notSet": "(not set)",
+    "sessionCreated": "New session created",
+    "noSessions": "No sessions",
+    "sessionList": "Session List",
+    "untitled": "(untitled)",
+    "sessionUsage": "Usage: /session new | /session list",
+    "agentList": "Agent List",
+    "agentSwitched": "Switched to {name}",
+    "currentAgent": "Current Agent:",
+    "jianTitle": "Notes",
+    "jianEmpty": "No notes in this directory",
+    "dirEmpty": "(empty)",
+    "catUsage": "Usage: /cat <file path>",
+    "catFailed": "Cannot read: {status}",
+    "unknownCommand": "Unknown command: /{cmd}  Type /help for help",
+    "inputHelp": "Type /help to see commands"
+  },
+  "sandbox": {
+    "blocked": "[Security] {reason}\n\nThis operation was blocked by Hanako's sandbox security policy. This is not a bug, but a security protection mechanism at work. Please inform the user that the operation was blocked and explain the reason. Users can adjust sandbox policy in settings.",
+    "noSudo": "sudo is not allowed",
+    "noSu": "su user switching is not allowed",
+    "noChmod": "Changing file permissions is not allowed",
+    "noChown": "Changing file ownership is not allowed",
+    "noDelRecursive": "Recursive file deletion (del /s) is not allowed",
+    "noRmdirRecursive": "Recursive directory deletion (rmdir /s) is not allowed",
+    "noRegEdit": "Registry modification is not allowed",
+    "noTakeown": "Taking file ownership is not allowed",
+    "noIcacls": "Modifying file ACL permissions is not allowed",
+    "noNetUser": "User/group management is not allowed",
+    "noSchtasks": "Creating scheduled tasks is not allowed",
+    "noScService": "Operating system services is not allowed",
+    "noPsExecutionBypass": "Bypassing PowerShell execution policy is not allowed",
+    "noFormat": "Formatting disks is not allowed",
+    "noBcdedit": "Modifying boot configuration is not allowed",
+    "noWmic": "WMI commands are not allowed",
+    "restrictedPath": "Command accessed a restricted path: {path}",
+    "writeRestricted": "[Security] File system writes are restricted to the workspace. This operation was blocked by sandbox security policy. Please inform the user.",
+    "osRequired": "[sandbox] Standard mode requires OS-level sandbox, but current platform does not support it ({platform}). Please install sandbox-exec (macOS) or bubblewrap (Linux), or switch to full-access mode.",
+    "opRead": "Read",
+    "opWrite": "Write",
+    "opDelete": "Delete",
+    "denied": "{op} denied: {path} (access level: {level})"
+  },
+  "error.llmTimeout": "Model request timed out",
+  "error.llmRateLimited": "Model rate limited, please wait",
+  "error.llmEmptyResponse": "Model returned empty response",
+  "error.llmAuthFailed": "Model authentication failed",
+  "error.llmSlowResponse": "Model is responding slowly, please wait",
+  "error.fsPermission": "File permission denied",
+  "error.fsNotFound": "File not found",
+  "error.fsCopyFailed": "File copy failed",
+  "error.wsDisconnected": "Connection lost",
+  "error.fetchTimeout": "Request timed out",
+  "error.fetchServerError": "Server error",
+  "error.ipcFailed": "Internal communication error",
+  "error.renderCrash": "Display error",
+  "error.configParse": "Configuration file corrupted",
+  "error.bridgeSendFailed": "Failed to send message to platform",
+  "error.skillSyncFailed": "Skill sync failed",
+  "error.memoryCompileFailed": "Memory compilation failed",
+  "error.dbError": "Database error",
+  "error.serverAuthFailed": "Authentication failed",
+  "error.unknown": "An unexpected error occurred",
+  "error.regionUnavailable": "This area is temporarily unavailable",
+  "status.reconnecting": "Reconnecting...",
+  "status.disconnected": "Connection lost",
+  "status.reconnect": "Reconnect",
+  "action.retry": "Retry",
+  "subagentAbort": "Stop",
+  "subagentAborted": "Stopped"
 }

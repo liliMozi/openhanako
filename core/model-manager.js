@@ -1,22 +1,21 @@
 /**
- * ModelManager — 模型发现、切换、凭证解析
+ * ModelManager -- 模型发现、切换、凭证解析
  *
  * 管理 Pi SDK AuthStorage / ModelRegistry 基础设施，
  * 以及模型选择、provider 凭证查找、utility 配置解析。
  * 从 Engine 提取，Engine 通过 manager 访问模型状态。
+ *
+ * _availableModels 是唯一的模型真理源。所有模型解析、enrichment
+ * 都在这个数组上完成，不再经过中间层。
  */
 import path from "path";
-import {
-  AuthStorage,
-  ModelRegistry,
-} from "@mariozechner/pi-coding-agent";
-import { registerOAuthProvider } from "@mariozechner/pi-ai/oauth";
-import { minimaxOAuthProvider } from "../lib/oauth/minimax-portal.js";
-import { clearConfigCache, loadGlobalProviders, resolveApiKeyFromAuth } from "../lib/memory/config-loader.js";
-
-function isLocalBaseUrl(url) {
-  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(String(url || ""));
-}
+import { AuthStorage, createModelRegistry } from "../lib/pi-sdk/index.js";
+import { t } from "../server/i18n.js";
+import { ProviderRegistry } from "./provider-registry.js";
+import { ExecutionRouter } from "./execution-router.js";
+import { findModel, parseModelRef } from "../shared/model-ref.js";
+import { isLocalBaseUrl } from "../shared/net-utils.js";
+import { syncModels } from "./model-sync.js";
 
 export class ModelManager {
   /**
@@ -28,17 +27,25 @@ export class ModelManager {
     this._authStorage = null;
     this._modelRegistry = null;
     this._defaultModel = null;   // 设置页面选的，持久化，bridge 用这个
-    this._sessionModel = null;   // 聊天页面临时切的，只影响桌面端
     this._availableModels = [];
+
+    // 新架构模块（init() 后可用）
+    this.providerRegistry = new ProviderRegistry(hanakoHome);
+    this.executionRouter = null;
   }
 
-  /** 初始化 AuthStorage + ModelRegistry */
+  /** 初始化 AuthStorage + ModelRegistry + 新架构模块 */
   init() {
     this._authStorage = AuthStorage.create(path.join(this._hanakoHome, "auth.json"));
-    registerOAuthProvider(minimaxOAuthProvider);
-    this._modelRegistry = new ModelRegistry(
+    this._modelRegistry = createModelRegistry(
       this._authStorage,
       path.join(this._hanakoHome, "models.json"),
+    );
+
+    this.providerRegistry.reload();
+    this.executionRouter = new ExecutionRouter(
+      (ref) => this._resolveFromAvailable(ref),
+      this.providerRegistry,
     );
   }
 
@@ -48,218 +55,225 @@ export class ModelManager {
   get modelRegistry() { return this._modelRegistry; }
   get defaultModel() { return this._defaultModel; }
   set defaultModel(m) { this._defaultModel = m; }
-  get currentModel() { return this._sessionModel || this._defaultModel; }
-  set currentModel(m) { this._sessionModel = m; }
+  get currentModel() { return this._defaultModel; }
   get availableModels() { return this._availableModels; }
   get modelsJsonPath() { return path.join(this._hanakoHome, "models.json"); }
   get authJsonPath() { return path.join(this._hanakoHome, "auth.json"); }
 
-  /** 注入 PreferencesManager 引用（engine init 时调用） */
-  setPreferences(prefs) { this._prefs = prefs; }
+  // ── 模型解析：_availableModels 唯一真理源 ──
 
-  /** 刷新可用模型列表 */
+  /**
+   * 从 _availableModels 解析模型引用。
+   *
+   * 合法输入（通过 parseModelRef 规整后必须带 provider）：
+   *   - {id, provider} 对象
+   *   - "provider/id" 字符串
+   *
+   * 裸 id 字符串**不合法**——历史数据走 migrations #5，运行期调用方必须显式带 provider。
+   * ref 无法解析出 provider 时返 null（不按 id 降级猜）。
+   *
+   * @param {string|object} ref - 模型引用
+   * @returns {object|null} SDK 模型对象
+   */
+  _resolveFromAvailable(ref) {
+    const parsed = parseModelRef(ref);
+    if (!parsed?.id || !parsed.provider) return null;
+    return findModel(this._availableModels, parsed.id, parsed.provider) || null;
+  }
+
+  // ── 刷新 ──
+
+  /** 刷新可用模型列表，用 added-models.yaml 过滤 */
   async refreshAvailable() {
-    this._availableModels = await this._modelRegistry.getAvailable();
-    this._injectOAuthCustomModels();
+    const allModels = await this._modelRegistry.getAvailable();
+    // Pi SDK 返回所有有 auth 的模型（包括 OAuth 内置模型），
+    // 但用户只想看自己配置的模型。用 added-models.yaml 的模型列表过滤。
+    const rawProviders = this.providerRegistry.getAllProvidersRaw();
+    const userModelSets = new Map();
+    for (const [name, raw] of Object.entries(rawProviders)) {
+      if (!raw.models?.length) continue;
+      const ids = new Set(raw.models.map(m => typeof m === "object" ? m.id : m));
+      userModelSets.set(name, ids);
+      // OAuth provider 的 authJsonKey 可能不同于 provider ID
+      const authKey = this.providerRegistry.getAuthJsonKey(name);
+      if (authKey !== name) userModelSets.set(authKey, ids);
+    }
+    this._availableModels = allModels.filter(m => {
+      const allowed = userModelSets.get(m.provider);
+      // 没有在 added-models.yaml 里的 provider → 全部放行（兼容未知来源）
+      if (!allowed) return true;
+      return allowed.has(m.id);
+    });
     return this._availableModels;
   }
 
   /**
-   * 将用户为 OAuth provider 添加的自定义模型注入到 availableModels
-   * 从同 provider 的已有模型克隆 baseUrl / api / cost 等属性
+   * 同步 added-models.yaml → models.json，然后刷新 ModelRegistry。
+   *
+   * ⚠ 刷新后 _availableModels 是全新数组，旧的 model 对象引用（含烤在字段里的
+   * 过期 baseUrl）会失效。本方法负责把 _defaultModel 指针也重新定位到新数组里
+   * 的对应对象——否则新建 session 会继续用旧 baseUrl 发请求（provider 改端点后
+   * 出现 429 的根因）。
+   *
+   * @returns {boolean} 是否有变化
    */
-  _injectOAuthCustomModels() {
-    const custom = this._prefs?.getOAuthCustomModels?.() || {};
-    for (const [provider, modelIds] of Object.entries(custom)) {
-      if (!Array.isArray(modelIds) || modelIds.length === 0) continue;
-      // 找同 provider 的模板模型（继承 baseUrl、api、cost 等）
-      const template = this._availableModels.find(m => m.provider === provider);
-      if (!template) continue;
-      const existing = new Set(this._availableModels.filter(m => m.provider === provider).map(m => m.id));
-      for (const id of modelIds) {
-        if (existing.has(id)) continue;
-        this._availableModels.push({
-          ...template,
-          id,
-          name: id,
-        });
-      }
+  async syncAndRefresh() {
+    const rawProviders = this.providerRegistry.getAllProvidersRaw();
+    // 合并 plugin 默认值（base_url/api），YAML 里可能只存了 api_key + models
+    const providers = {};
+    for (const [name, raw] of Object.entries(rawProviders)) {
+      const entry = this.providerRegistry.get(name);
+      providers[name] = {
+        ...raw,
+        base_url: raw.base_url || entry?.baseUrl || "",
+        api: raw.api || entry?.api || "openai-completions",
+      };
     }
-  }
-
-  /**
-   * 同步 favorites → models.json，然后刷新 ModelRegistry
-   * @param {string} configPath - agent config.yaml 路径
-   * @param {object} opts
-   * @returns {boolean}
-   */
-  async syncModelsAndRefresh(configPath, { favorites, sharedModels, authJsonPath }) {
-    const { syncFavoritesToModelsJson } = await import("./sync-favorites.js");
-    const synced = syncFavoritesToModelsJson(configPath, {
+    const changed = syncModels(providers, {
       modelsJsonPath: this.modelsJsonPath,
-      favorites,
-      sharedModels,
-      authJsonPath: authJsonPath || this.authJsonPath,
+      authJsonPath: this.authJsonPath,
+      oauthKeyMap: this._buildOAuthKeyMap(),
     });
-    if (synced) {
-      clearConfigCache();
+    if (changed) {
       this._modelRegistry.refresh();
-      // refresh() 内部调 resetOAuthProviders()，需要重新注册
-      registerOAuthProvider(minimaxOAuthProvider);
-      this._availableModels = await this._modelRegistry.getAvailable();
-      this._injectOAuthCustomModels();
+      await this.refreshAvailable();
+      this._rebindDefaultModel();
     }
-    return synced;
+    return changed;
   }
 
   /**
-   * 切换当前模型（只改状态，不推到 session）
+   * _availableModels 重建后，把 _defaultModel 重新绑到新数组里的对应对象。
+   * 找不到则置 null（provider 被删、模型消失等）。
+   * @private
+   */
+  _rebindDefaultModel() {
+    if (!this._defaultModel) return;
+    const { id, provider } = this._defaultModel;
+    if (!id || !provider) {
+      this._defaultModel = null;
+      return;
+    }
+    this._defaultModel = findModel(this._availableModels, id, provider) || null;
+  }
+
+  /**
+   * 构建 OAuth providerId → auth.json key 映射
+   * @private
+   */
+  _buildOAuthKeyMap() {
+    const map = {};
+    for (const id of this.providerRegistry.getOAuthProviderIds()) {
+      const authKey = this.providerRegistry.getAuthJsonKey(id);
+      if (authKey !== id) map[id] = authKey;
+    }
+    return map;
+  }
+
+  /**
+   * 设置 agent 默认模型
    * @returns {object} 新模型对象
    */
-  setModel(modelId) {
-    const model = this._availableModels.find(m => m.id === modelId);
-    if (!model) throw new Error(`找不到模型: ${modelId}`);
-    this._sessionModel = model;
+  setDefaultModel(modelId, provider) {
+    const model = findModel(this._availableModels, modelId, provider);
+    if (!model) throw new Error(t("error.modelNotFound", { id: modelId }));
+    this._defaultModel = model;
     return model;
   }
 
-  /** auto → medium，其余原样 */
+  /** auto -> medium，其余原样 */
   resolveThinkingLevel(level) {
     return level === "auto" ? "medium" : level;
   }
 
   /**
    * 将模型引用（id/name/object）解析成 SDK 可用的模型对象
+   * 只查 _availableModels（唯一真理源）
    */
   resolveExecutionModel(modelRef) {
     if (!modelRef) return this.currentModel;
-    if (typeof modelRef !== "string") return modelRef;
+    if (typeof modelRef !== "string") return modelRef; // 对象直通（session-coordinator 路径）
     const ref = modelRef.trim();
     if (!ref) return this.currentModel;
-    const model = this._availableModels.find(m => m.id === ref || m.name === ref);
-    if (!model) throw new Error(`找不到模型: ${ref}`);
-    return model;
-  }
 
-  /** 根据模型 ID 推断其所属 provider */
-  inferModelProvider(modelId) {
-    return modelId ? this._availableModels.find(m => m.id === modelId)?.provider : null;
+    const model = this._resolveFromAvailable(ref);
+    if (model) return model;
+
+    throw new Error(t("error.modelNotFound", { id: ref }));
   }
 
   /**
    * 根据 provider 名称查找凭证
-   * 查找顺序：全局 providers.yaml → config.yaml providers 块
+   * 委托 ProviderRegistry，返回 snake_case 格式（兼容 callProviderText 消费方）
    * @param {string} provider
-   * @param {object} [agentConfig] - agent 的 config 对象
+   * @returns {{ api_key: string, base_url: string, api: string }}
    */
-  resolveProviderCredentials(provider, agentConfig) {
+  resolveProviderCredentials(provider) {
     if (!provider) return { api_key: "", base_url: "", api: "" };
-    let api_key = "", base_url = "", api = "";
-
-    const globalProviders = loadGlobalProviders();
-    const gp = globalProviders.providers?.[provider];
-    if (gp?.api_key) api_key = gp.api_key;
-    if (gp?.base_url) base_url = gp.base_url;
-    if (gp?.api) api = gp.api;
-
-    if ((!api_key || !base_url || !api) && agentConfig) {
-      const provBlock = agentConfig.providers?.[provider];
-      if (!api_key && provBlock?.api_key) api_key = provBlock.api_key;
-      if (!base_url && provBlock?.base_url) base_url = provBlock.base_url;
-      if (!api && provBlock?.api) api = provBlock.api;
+    const cred = this.providerRegistry.getCredentials(provider);
+    if (cred) {
+      return { api_key: cred.apiKey || "", base_url: cred.baseUrl || "", api: cred.api || "" };
     }
+    return { api_key: "", base_url: "", api: "" };
+  }
 
-    if (!api_key) {
-      api_key = resolveApiKeyFromAuth(provider);
+  /**
+   * Provider 配置变更后 reload registry + 重新同步模型。
+   * 由 engine.onProviderChanged() 调用，不要直接用。
+   */
+  async reloadAndSync() {
+    this.providerRegistry.reload();
+    await this.syncAndRefresh();
+  }
+
+  /**
+   * 统一解析：模型引用 -> { model, provider, api, api_key, base_url }
+   * 返回 snake_case 格式（兼容 callProviderText / diary-writer / compile 等消费方）
+   * @param {string|object} modelRef
+   * @returns {{ model: string, provider: string, api: string, api_key: string, base_url: string }}
+   */
+  resolveModelWithCredentials(modelRef) {
+    const entry = this.resolveExecutionModel(modelRef);
+    const provider = entry?.provider;
+    if (!provider) {
+      throw new Error(t("error.modelNoProvider", { role: "resolve", model: String(modelRef) }));
     }
-
-    return { api_key, base_url, api };
+    const creds = this.resolveProviderCredentials(provider);
+    if (!creds.api) {
+      throw new Error(t("error.providerMissingApi", { provider }));
+    }
+    if (!creds.base_url || (!creds.api_key && !isLocalBaseUrl(creds.base_url))) {
+      throw new Error(t("error.providerMissingCreds", { provider }));
+    }
+    return {
+      model: entry.id,
+      provider,
+      api: creds.api,
+      api_key: creds.api_key,
+      base_url: creds.base_url,
+    };
   }
 
   /**
    * 解析 utility 模型 + API 凭证完整配置
-   * @param {object} agentConfig - agent config
-   * @param {object} sharedModels - getSharedModels() 结果
-   * @param {object} utilApi - getUtilityApi() 结果
+   * 委托 ExecutionRouter
    */
   resolveUtilityConfig(agentConfig, sharedModels, utilApi) {
-    const cfg = agentConfig || {};
-
-    const utilityModel = sharedModels?.utility || cfg.models?.utility;
-    if (!utilityModel) {
-      throw new Error("未配置 utility 模型，请在设置中添加");
+    if (!this.executionRouter) {
+      throw new Error(t("error.noUtilityModel"));
     }
-    const largeModel = sharedModels?.utility_large || cfg.models?.utility_large;
-    if (!largeModel) {
-      throw new Error("未配置 utility_large 模型，请在设置中添加");
-    }
+    return this.executionRouter.resolveUtilityConfig(agentConfig, sharedModels, utilApi);
+  }
 
-    const utilityEntry = this.resolveExecutionModel(utilityModel);
-    const largeEntry = this.resolveExecutionModel(largeModel);
-    const utilProvider = utilityEntry?.provider || "";
-    const largeProvider = largeEntry?.provider || "";
-
-    if (!utilProvider) {
-      throw new Error(`utility 模型 "${utilityModel}" 没有 provider 归属`);
-    }
-    if (!largeProvider) {
-      throw new Error(`utility_large 模型 "${largeModel}" 没有 provider 归属`);
-    }
-
-    let api_key = "";
-    let base_url = "";
-    let api = "";
-    if (utilApi?.provider || utilApi?.api_key || utilApi?.base_url) {
-      if (utilApi.provider !== utilProvider) {
-        throw new Error(`utility_api.provider 必须与模型 "${utilityModel}" 的 provider 一致`);
-      }
-      const providerConfig = this.resolveProviderCredentials(utilProvider, cfg);
-      api = providerConfig.api || "";
-      api_key = utilApi.api_key || "";
-      base_url = utilApi.base_url || "";
-      if (!api) {
-        throw new Error(`provider "${utilProvider}" 缺少 API 协议配置`);
-      }
-      if (!base_url || (!api_key && !isLocalBaseUrl(base_url))) {
-        throw new Error(`utility_api 缺少完整凭证（provider: ${utilProvider}）`);
-      }
-    } else {
-      const creds = this.resolveProviderCredentials(utilProvider, cfg);
-      api_key = creds.api_key;
-      base_url = creds.base_url;
-      api = creds.api;
-      if (!api) {
-        throw new Error(`provider "${utilProvider}" 缺少 API 协议配置`);
-      }
-      if (!base_url || (!api_key && !isLocalBaseUrl(base_url))) {
-        throw new Error(`provider "${utilProvider}" 缺少完整凭证`);
-      }
-    }
-
-    // utility_large 凭证：provider 相同则复用，不同则独立解析
-    let large_api_key = api_key, large_base_url = base_url, large_api = api;
-    if (largeProvider && largeProvider !== utilProvider) {
-      const creds = this.resolveProviderCredentials(largeProvider, cfg);
-      large_api_key = creds.api_key;
-      large_base_url = creds.base_url;
-      large_api = creds.api;
-      if (!large_api) {
-        throw new Error(`provider "${largeProvider}" 缺少 API 协议配置`);
-      }
-      if (!large_base_url || (!large_api_key && !isLocalBaseUrl(large_base_url))) {
-        throw new Error(`provider "${largeProvider}" 缺少完整凭证`);
-      }
-    }
-
-    return {
-      utility: utilityModel,
-      utility_large: largeModel,
-      api_key,
-      base_url,
-      api,
-      large_api_key,
-      large_base_url,
-      large_api,
-    };
+  /**
+   * 从 Pi SDK registry 获取某 provider 的所有模型（不经过 added-models.yaml 过滤）
+   * 用于模型发现（fetch-models），不影响主应用的 availableModels
+   * @param {string} name - provider ID
+   * @returns {object[]}
+   */
+  getRegistryModelsForProvider(name) {
+    const authKey = this.providerRegistry.getAuthJsonKey(name);
+    const all = this._modelRegistry.getAll();
+    return all.filter(m => m.provider === name || m.provider === authKey);
   }
 }

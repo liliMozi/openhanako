@@ -1,0 +1,45 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: middle;
+  user-select: none;
+  margin-right: 0.3rem;
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+.name {
+  /* inherits color from .badge */
+}
+
+.remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 0.1rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.remove:hover {
+  opacity: 1;
+}

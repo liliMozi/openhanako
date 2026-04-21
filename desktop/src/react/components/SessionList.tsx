@@ -5,25 +5,21 @@
  * 通过 portal 渲染到 #sessionList，从 Zustand sessions 状态驱动。
  */
 
-import { Fragment, useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '../stores';
 import { hanaFetch, hanaUrl } from '../hooks/use-hana-fetch';
 import { useI18n } from '../hooks/use-i18n';
 import { formatSessionDate } from '../utils/format';
+import { switchSession, archiveSession, renameSession } from '../stores/session-actions';
 import type { Session, Agent } from '../types';
+import { yuanFallbackAvatar } from '../utils/agent-helpers';
+import styles from './SessionList.module.css';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // ── 主组件 ──
 
 export function SessionList() {
-  const portalTarget = document.getElementById('sessionList');
-  if (!portalTarget) {
-    console.warn('[SessionList] portal target #sessionList not found');
-    return null;
-  }
-  return createPortal(<SessionListInner />, portalTarget);
+  return <SessionListInner />;
 }
 
 // ── 日期分组 ──
@@ -62,18 +58,6 @@ function groupSessionsByDate(sessions: Session[]): GroupedSessions[] {
     .map(key => ({ key, items: groups[key] }));
 }
 
-// ── Yuan fallback ──
-
-function yuanFallbackAvatar(yuan?: string): string {
-  const t = window.t ?? ((p: string) => p);
-  const types = t('yuan.types') as unknown;
-  if (types && typeof types === 'object') {
-    const entry = (types as Record<string, { avatar?: string }>)[yuan || 'hanako'];
-    return `assets/${entry?.avatar || 'Hanako.png'}`;
-  }
-  return 'assets/Hanako.png';
-}
-
 // ── 内部组件 ──
 
 function SessionListInner() {
@@ -82,20 +66,22 @@ function SessionListInner() {
   const currentSessionPath = useStore(s => s.currentSessionPath);
   const pendingNewSession = useStore(s => s.pendingNewSession);
   const agents = useStore(s => s.agents);
+  const streamingSessions = useStore(s => s.streamingSessions);
+  const browserBySession = useStore(s => s.browserBySession);
 
   const [browserSessions, setBrowserSessions] = useState<Record<string, string>>({});
 
-  // Fetch browser sessions
+  // Fetch browser sessions (re-fetch when browser state changes)
   useEffect(() => {
     if (sessions.length === 0) return;
     hanaFetch('/api/browser/sessions')
       .then(r => r.json())
       .then(data => setBrowserSessions(data || {}))
-      .catch(() => {});
-  }, [sessions]);
+      .catch(err => console.warn('[sessions] fetch browser sessions failed:', err));
+  }, [sessions, browserBySession]);
 
   if (sessions.length === 0) {
-    return <div className="session-empty">{t('sidebar.empty')}</div>;
+    return <div className={styles.sessionEmpty}>{t('sidebar.empty')}</div>;
   }
 
   const grouped = groupSessionsByDate(sessions);
@@ -104,12 +90,13 @@ function SessionListInner() {
     <>
       {grouped.map(({ key, items }) => (
         <Fragment key={key}>
-          <div className="session-date-label">{t(`time.${key}`)}</div>
+          <div className={styles.sessionDateLabel}>{t(`time.${key}`)}</div>
           {items.map(s => (
             <SessionItem
               key={s.path}
               session={s}
               isActive={!pendingNewSession && s.path === currentSessionPath}
+              isStreaming={streamingSessions.includes(s.path)}
               agents={agents}
               browserUrl={browserSessions[s.path] || null}
             />
@@ -122,24 +109,59 @@ function SessionListInner() {
 
 // ── Session Item ──
 
-function SessionItem({ session: s, isActive, agents, browserUrl }: {
+const SessionItem = memo(function SessionItem({ session: s, isActive, isStreaming, agents, browserUrl }: {
   session: Session;
   isActive: boolean;
+  isStreaming: boolean;
   agents: Agent[];
   browserUrl: string | null;
 }) {
   const { t } = useI18n();
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = useCallback(() => {
-    const sidebar = (window as any).HanaModules?.sidebar;
-    sidebar?.switchSession(s.path);
-  }, [s.path]);
+    if (editing) return;
+    switchSession(s.path);
+  }, [s.path, editing]);
 
   const handleArchive = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    const sidebar = (window as any).HanaModules?.sidebar;
-    sidebar?.archiveSession(s.path);
+    archiveSession(s.path);
   }, [s.path]);
+
+  const startRename = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditValue(s.title || s.firstMessage || '');
+    setEditing(true);
+  }, [s.title, s.firstMessage]);
+
+  const commitRename = useCallback(() => {
+    const trimmed = editValue.trim();
+    setEditing(false);
+    if (trimmed && trimmed !== (s.title || s.firstMessage || '')) {
+      renameSession(s.path, trimmed);
+    }
+  }, [editValue, s.path, s.title, s.firstMessage]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitRename();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditing(false);
+    }
+  }, [commitRename]);
+
+  // Auto-focus input when editing starts
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
 
   // Meta line
   const parts: string[] = [];
@@ -148,25 +170,45 @@ function SessionItem({ session: s, isActive, agents, browserUrl }: {
     const dirName = s.cwd.split('/').filter(Boolean).pop();
     if (dirName) parts.push(dirName);
   }
-  if (s.messageCount) parts.push(t('session.messageCount', { n: s.messageCount }));
   if (s.modified) parts.push(formatSessionDate(s.modified));
 
   return (
     <button
-      className={'session-item' + (isActive ? ' active' : '')}
+      className={`${styles.sessionItem}${isActive ? ` ${styles.sessionItemActive}` : ''}`}
       data-session-path={s.path}
       onClick={handleClick}
     >
-      <div className="session-item-header">
+      <div className={styles.sessionItemHeader}>
         {s.agentId && (
           <AgentBadge agentId={s.agentId} agentName={s.agentName} agents={agents} />
         )}
-        <div className="session-item-title">
-          {s.title || s.firstMessage || t('session.untitled')}
-        </div>
+        {isStreaming && <span className={styles.sessionStreamingDot} />}
+        {editing ? (
+          <input
+            ref={inputRef}
+            className={styles.sessionRenameInput}
+            value={editValue}
+            onChange={e => setEditValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={commitRename}
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          <div className={styles.sessionItemTitle}>
+            {s.title || s.firstMessage || t('session.untitled')}
+          </div>
+        )}
       </div>
 
-      <div className="session-archive-btn" title="Archive" onClick={handleArchive}>
+      {!editing && (
+        <div className={styles.sessionRenameBtn} title={t('session.rename')} onClick={startRename}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+          </svg>
+        </div>
+      )}
+
+      <div className={styles.sessionArchiveBtn} title="Archive" onClick={handleArchive}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="21 8 21 21 3 21 3 8" />
           <rect x="1" y="3" width="22" height="5" />
@@ -174,12 +216,12 @@ function SessionItem({ session: s, isActive, agents, browserUrl }: {
         </svg>
       </div>
 
-      <div className="session-item-meta">
+      <div className={styles.sessionItemMeta}>
         {parts.join(' · ')}
       </div>
 
       {browserUrl && (
-        <span className="session-browser-badge" title={browserUrl}>
+        <span className={styles.sessionBrowserBadge} title={browserUrl}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
             <line x1="2" y1="12" x2="22" y2="12" />
@@ -189,31 +231,30 @@ function SessionItem({ session: s, isActive, agents, browserUrl }: {
       )}
     </button>
   );
-}
+});
 
 // ── Agent Avatar Badge ──
 
-function AgentBadge({ agentId, agentName, agents }: {
+const AgentBadge = memo(function AgentBadge({ agentId, agentName, agents }: {
   agentId: string;
   agentName: string | null;
   agents: Agent[];
 }) {
-  const [src, setSrc] = useState(() =>
-    hanaUrl(`/api/agents/${agentId}/avatar?t=${Date.now()}`),
+  const agent = agents.find(a => a.id === agentId);
+  const [apiUrl] = useState(() =>
+    agent?.hasAvatar ? hanaUrl(`/api/agents/${agentId}/avatar?t=${Date.now()}`) : null,
   );
+  const [errored, setErrored] = useState(false);
 
-  const handleError = useCallback(() => {
-    const agent = agents.find(a => a.id === agentId);
-    setSrc(yuanFallbackAvatar(agent?.yuan));
-  }, [agentId, agents]);
+  const src = (!apiUrl || errored) ? yuanFallbackAvatar(agent?.yuan) : apiUrl;
 
   return (
     <img
-      className="session-agent-badge"
+      className={styles.sessionAgentBadge}
       src={src}
       title={agentName || agentId}
       draggable={false}
-      onError={handleError}
+      onError={() => setErrored(true)}
     />
   );
-}
+});

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/banner.png" width="100%" alt="OpenHanako Banner">
+  <img src=".github/assets/banner.jpg" width="100%" alt="OpenHanako Banner">
 </p>
 
 <p align="center">
@@ -38,25 +38,31 @@ As a tool, it is powerful: it remembers everything you've said, operates your co
 
 **Desk** — Each agent has a desk for files and notes (Jian). Supports drag-and-drop, file preview, and serves as an async collaboration space between you and your agent.
 
+**Full-Screen Media Viewer** — Click any image, SVG, or video from chat or the desk to open a dark-overlay viewer with wheel-zoom, drag-to-pan, `+` / `−` / `0` shortcuts, and left/right navigation between sibling media in the same session or folder.
+
 **Cron & Heartbeat** — Agents can run scheduled tasks and periodically check for file changes on the desk. They work autonomously even when you're away.
 
 **Sandbox** — Two-layer isolation: application-level PathGuard with four access tiers + OS-level sandboxing (macOS Seatbelt / Linux Bubblewrap).
 
-**Multi-Platform Bridge** — A single agent can connect to Telegram, Feishu, QQ bots simultaneously. Chat from any platform and remotely operate your computer.
+**Plugins** — Extensible plugin system with a convention-first architecture. Install community plugins by drag-and-drop. Plugins can contribute tools, skills, commands, agent templates, HTTP routes, event hooks, and LLM providers. Routes have direct access to core services (PluginContext injection) and can interact with agent sessions via the Session Bus (send messages, get history, list sessions). Two-level permission model (restricted / full-access) keeps things safe.
+
+**Multi-Platform Bridge** — A single agent can connect to Telegram, Feishu, QQ, and WeChat bots simultaneously. Chat from any platform and remotely operate your computer.
+
+**i18n** — Interface available in 5 languages: Chinese, English, Japanese, Korean, and Traditional Chinese.
 
 ## Screenshots
 
 <p align="center">
-  <img src=".github/assets/screenshot-main.png" width="100%" alt="Hanako Main Interface">
+  <img src=".github/assets/screenshot-main.jpg" width="100%" alt="Hanako Main Interface">
 </p>
 
 ## Quick Start
 
 ### Download
 
-**macOS (Apple Silicon):** download the latest `.dmg` from [Releases](https://github.com/liliMozi/openhanako/releases).
+**macOS (Apple Silicon / Intel):** download the latest `.dmg` from [Releases](https://github.com/liliMozi/openhanako/releases).
 
-> **macOS Gatekeeper notice:** The app is not yet signed with an Apple Developer ID. On first launch, macOS may block it. Right-click the app → select **Open** → click **Open** in the dialog. You only need to do this once.
+The app is signed and notarized with an Apple Developer ID. macOS should allow it to launch directly.
 
 **Windows:** download the latest `.exe` installer from [Releases](https://github.com/liliMozi/openhanako/releases).
 
@@ -71,37 +77,63 @@ On first launch, an onboarding wizard will guide you through setup: choose a lan
 ## Architecture
 
 ```
-core/           Engine orchestration + Managers
+core/           Engine orchestration + Managers (including PluginManager)
 lib/            Core libraries (memory, tools, sandbox, bridge adapters)
-server/         Fastify HTTP + WebSocket server
+server/         Hono HTTP + WebSocket server (standalone Node.js process)
 hub/            Scheduler, ChannelRouter, EventBus
 desktop/        Electron app + React frontend
-tests/          Vitest test suite
+shared/         Cross-layer utilities (config schema, error bus, model refs)
+plugins/        Built-in system plugins (bundled into app)
 skills2set/     Built-in skill definitions
+scripts/        Build tools (server bundler, launcher, signing)
+tests/          Vitest test suite
 ```
 
-The engine layer coordinates five managers (Agent, Session, Model, Preferences, Skill) and exposes them through a unified facade. The Hub handles background tasks (heartbeat, cron, channel routing) independently of the active chat session. Communication between the Electron main process and the server runs over a child process stdio bridge.
+The engine layer coordinates multiple managers (Agent, Session, Model, Preferences, Skill, Channel, BridgeSession, Plugin, etc.) and exposes them through a unified facade. The Hub handles background tasks (heartbeat, cron, channel routing, agent messaging, DM routing) independently of the active chat session.
+
+The server runs as a standalone Node.js process (spawned by Electron or independently), bundled via Vite with @vercel/nft for dependency tracing. It communicates with the Electron renderer through WebSocket.
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Desktop | Electron 38 |
-| Frontend | React 19 + Vite 7 (migrating from vanilla JS) |
-| Server | Fastify 5 |
+| Frontend | React 19 + Zustand 5 + CSS Modules |
+| Build | Vite 7 |
+| Server | Hono + @hono/node-server |
 | Agent Runtime | [Pi SDK](https://github.com/nicepkg/pi) |
 | Database | better-sqlite3 (WAL mode) |
 | Testing | Vitest |
+| i18n | 5 languages (zh / en / ja / ko / zh-TW) |
 
 ## Platform Support
 
 | Platform | Status |
 |----------|--------|
-| macOS (Apple Silicon) | Supported |
-| macOS (Intel) | Untested, should work |
+| macOS (Apple Silicon) | Supported (signed & notarized) |
+| macOS (Intel) | Supported |
 | Windows | Beta |
 | Linux | Planned |
-| Mobile | Planned |
+| Mobile (PWA) | Planned |
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start with Electron (builds renderer first)
+npm start
+
+# Start with Vite HMR (run npm run dev:renderer first)
+npm run start:vite
+
+# Run tests
+npm test
+
+# Type check
+npm run typecheck
+```
 
 ## License
 
@@ -113,4 +145,5 @@ The engine layer coordinates five managers (Agent, Session, Model, Preferences, 
 - [Report an Issue](https://github.com/liliMozi/openhanako/issues)
 - [Security](https://github.com/liliMozi/openhanako/security)
 - [Security Policy](SECURITY.md)
+- [Plugin Development](PLUGINS.md)
 - [Contributing](CONTRIBUTING.md)

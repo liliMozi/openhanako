@@ -1,8 +1,8 @@
 如果打开 Hanako 时提示「已损坏，无法打开」或「无法验证开发者」，
 请打开终端（Terminal），粘贴以下命令并回车：
 
-  sudo xattr -rd com.apple.quarantine /Applications/Hanako.app
+  xattr -rd com.apple.quarantine /Applications/Hanako.app
 
-输入你的开机密码（输入时不会显示），回车后即可正常打开。
+回车后即可正常打开。
 
 原因：macOS 会对未签名的应用添加隔离标记，上面的命令移除该标记。

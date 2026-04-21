@@ -1,0 +1,1295 @@
+/* ========================================
+   Chat — CSS Module
+   消息气泡、MOOD、Cron 确认、Compaction、工具调用、
+   文件输出卡片、浏览器截图、Xing 反省卡片
+   ======================================== */
+
+/* ── 消息组 ── */
+
+.messageGroup {
+    display: flex;
+    flex-direction: column;
+    animation: msgIn 0.3s var(--ease-out);
+}
+
+.messageGroup:first-child .avatarRow {
+    margin-top: 0;
+}
+
+.messageGroupUser {
+    align-items: flex-end;
+    position: relative;
+}
+
+.messageGroupAssistant {
+    align-items: flex-start;
+    padding-left: var(--space-sm);
+    margin-left: 2px;
+    position: relative;
+}
+
+/* 头像行 */
+.avatarRow {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: var(--space-lg);
+    margin-bottom: 0.2rem;
+}
+
+.avatarRowUser {
+    flex-direction: row-reverse;
+}
+
+.avatar {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+.hanaAvatar {
+    object-fit: cover;
+    pointer-events: none;
+    user-select: none;
+}
+
+.userAvatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-light);
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.avatarName {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+
+/* 单条消息 */
+.message {
+    max-width: 92%;
+    min-width: 0;
+}
+
+.message + .message {
+    margin-top: var(--space-xs);
+}
+
+@keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 用户消息 */
+.messageUser {
+    background: rgba(0, 0, 0, 0.045);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-md);
+    color: var(--text);
+    font-size: 0.95rem;
+    word-break: break-word;
+}
+
+.messageUser .userText p:last-child {
+    margin-bottom: 0;
+}
+
+/* 用户附件 */
+.userAttachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.3rem;
+}
+
+.userAttachments:last-child {
+    margin-bottom: 0;
+}
+
+.attachCard {
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.attachCard:hover {
+    filter: brightness(0.96);
+}
+
+.attachImage {
+    max-width: 200px;
+    max-height: 150px;
+    background: var(--attach-bg, rgba(0, 0, 0, 0.04));
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    object-fit: contain;
+}
+
+.attachImageImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+
+/* 助手消息 */
+.messageAssistant {
+    color: var(--hana-text);
+    font-size: 0.95rem;
+    line-height: 1.75;
+    word-break: break-word;
+    position: relative;
+}
+
+/* 助手回答正文用宋体 */
+.messageAssistant :global(.md-content) {
+    font-family: var(--font-serif);
+}
+
+/* ── Message action buttons (shared by user & assistant) ── */
+
+.msgActions {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 2px;
+    background: var(--hana-bg);
+    border: 1px solid var(--hana-border);
+    border-radius: 4px;
+    padding: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 2;
+}
+
+.msgActionsLeft {
+    left: 4px;
+    right: auto;
+}
+
+.msgActionsVisible { opacity: 1 !important; }
+
+.messageGroupAssistant:hover .msgActions,
+.messageGroupUser:hover .msgActions { opacity: 0.6; }
+.msgActions:hover { opacity: 1 !important; }
+
+.msgActionBtn {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    position: relative;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    padding: 3px;
+    cursor: pointer;
+    color: var(--hana-text-muted);
+    line-height: 1;
+    transition: color 0.12s, background 0.12s;
+}
+
+.msgActionBtn:hover {
+    color: var(--hana-text);
+    background: var(--hana-border);
+}
+
+.msgActionBtn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.msgActionBtnActive {
+    color: var(--hana-accent, #4a9) !important;
+    opacity: 1;
+}
+
+.msgActionBtnCopied {
+    color: var(--hana-accent, #4a9) !important;
+}
+
+.msgActionBadge {
+    font-size: 0.6rem;
+    min-width: 14px;
+    height: 14px;
+    line-height: 14px;
+    text-align: center;
+    background: var(--hana-accent, #4a9);
+    color: #fff;
+    border-radius: 7px;
+    padding: 0 3px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* 选中消息的视觉提示 */
+.messageGroupSelected {
+    background: rgba(68, 170, 153, 0.05);
+    border-radius: 4px;
+}
+
+/* ── MOOD / PULSE / REFLECT ── */
+
+.moodWrapper {
+    --mood-accent: var(--accent);
+    margin: var(--space-xs) 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.8rem;
+}
+
+.moodWrapper[data-yuan="hanako"] { --mood-accent: var(--accent); }
+.moodWrapper[data-yuan="butter"]  { --mood-accent: #5BA88C; }
+.moodWrapper[data-yuan="ming"]    { --mood-accent: #8BA4B4; }
+
+.moodSummary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    cursor: pointer;
+    color: var(--mood-accent);
+    opacity: 0.6;
+    font-style: italic;
+    user-select: none;
+    list-style: none;
+}
+
+.moodSummary::-webkit-details-marker {
+    display: none;
+}
+
+.moodArrow {
+    display: inline-block;
+    font-style: normal;
+    font-size: 0.75rem;
+    transition: transform 0.15s ease;
+}
+
+.moodArrowOpen {
+    transform: rotate(90deg);
+}
+
+.moodBlock {
+    margin-top: var(--space-xs);
+    padding: var(--space-sm) var(--space-md);
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    border-left: 2px solid var(--mood-accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    opacity: 0.7;
+}
+
+/* ── Cron 确认卡片 ── */
+
+.cronConfirmCard {
+    margin: var(--space-sm) 0;
+    padding: var(--space-md);
+    background: var(--bg-card, #fff);
+    border-radius: var(--radius-md);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    font-size: 0.82rem;
+    width: fit-content;
+    max-width: 360px;
+}
+
+.cronConfirmTitle {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+}
+
+.cronConfirmMeta {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.cronConfirmPrompt {
+    margin-top: var(--space-xs);
+    color: var(--text-light);
+    font-size: 0.75rem;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.cronConfirmActions {
+    margin-top: var(--space-sm);
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.cronConfirmBtn {
+    padding: 3px 12px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.cronConfirmBtn:hover { opacity: 0.85; }
+.cronConfirmBtn:disabled { opacity: 0.5; cursor: default; }
+
+.cronConfirmBtnApprove {
+    background: var(--accent);
+    color: #fff;
+}
+
+.cronConfirmBtnReject {
+    background: var(--overlay-medium);
+    color: var(--text-light);
+}
+
+.cronConfirmStatus {
+    margin-top: var(--space-xs);
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+.cronConfirmStatusApproved { color: var(--green); }
+.cronConfirmStatusRejected { color: var(--text-muted); }
+
+/* ── 设置确认卡片 ── */
+
+.settingsConfirmCard {
+    margin: var(--space-md) 0;
+    padding: var(--space-lg) var(--space-lg) var(--space-md);
+    background: var(--bg-card, #fff);
+    border-radius: var(--radius-md);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    font-size: 0.88rem;
+    min-width: 320px;
+    max-width: 420px;
+}
+
+.settingsConfirmCardDone {
+    padding: var(--space-md);
+}
+
+.settingsConfirmHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.settingsConfirmLabel {
+    font-weight: 600;
+    font-size: 1.35rem;
+    color: var(--text);
+}
+
+.settingsConfirmDesc {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+.settingsConfirmNote {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: var(--space-sm);
+}
+
+.settingsConfirmControl {
+    margin: var(--space-md) 0;
+}
+
+.settingsConfirmOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--overlay-light, rgba(0,0,0,0.03));
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.settingsConfirmOption {
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: var(--hana-text);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--overlay-light, rgba(0,0,0,0.06));
+    text-align: left;
+    transition: background 0.1s;
+}
+
+.settingsConfirmOption:last-child {
+    border-bottom: none;
+}
+
+.settingsConfirmOption:hover {
+    background: var(--overlay-light, rgba(0,0,0,0.04));
+}
+
+.settingsConfirmOptionSelected {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 500;
+    border-bottom-color: transparent;
+}
+
+.settingsConfirmInput {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--hana-border);
+    border-radius: var(--radius-sm);
+    background: var(--hana-bg);
+    color: var(--hana-text);
+    font-size: 0.85rem;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.settingsConfirmInput:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.settingsConfirmActions {
+    margin-top: var(--space-md);
+    display: flex;
+    justify-content: center;
+    gap: var(--space-sm);
+}
+
+.settingsConfirmBtn {
+    padding: 7px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.15s, box-shadow 0.15s;
+}
+
+.settingsConfirmBtn:hover { opacity: 0.9; }
+
+.settingsConfirmBtnConfirm {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.settingsConfirmBtnConfirm:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.settingsConfirmBtnReject {
+    background: var(--overlay-medium);
+    color: var(--text-light);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.settingsConfirmStatus {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.92rem;
+    padding: var(--space-xs) 0;
+    color: var(--text-muted);
+}
+
+.settingsConfirmStatusConfirmed { color: var(--accent); }
+
+/* ── Xing 反省卡片 ── */
+
+.xingCard {
+    margin: var(--space-sm) auto;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-card, #fff);
+    border-radius: var(--radius-md);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    width: 600px;
+    max-width: 100%;
+    font-family: var(--font-serif);
+}
+
+.xingCardTitle {
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: var(--space-sm);
+}
+
+.xingCardDivider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: var(--space-sm) 0;
+}
+
+.xingCardStatus {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-style: italic;
+    padding: var(--space-md) 0;
+}
+
+.xingCardStatus .thinkingDots {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 2px;
+    vertical-align: middle;
+}
+
+.xingCardStatus .thinkingDots span {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: dotPulse 1.2s infinite;
+}
+
+.xingCardStatus .thinkingDots span:nth-child(2) { animation-delay: 0.2s; }
+.xingCardStatus .thinkingDots span:nth-child(3) { animation-delay: 0.4s; }
+
+.xingCardBody {
+    font-size: 0.85rem;
+    line-height: 1.65;
+}
+
+.xingCardCopy {
+    display: block;
+    margin: var(--space-sm) auto 0;
+    padding: 4px 16px;
+    font-size: 0.75rem;
+    font-family: inherit;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.xingCardCopy:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.xingCardLoading .xingCardCopy { display: none; }
+
+
+/* ── 工具调用折叠组 ── */
+
+.toolGroup {
+    margin: var(--space-xs) 0;
+    border-left: 2px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--tool-bg);
+    overflow: hidden;
+    width: fit-content;
+    max-width: 100%;
+}
+
+.toolGroupSummary {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.82rem;
+    color: var(--tool-text);
+    line-height: 1.5;
+    user-select: none;
+}
+
+.toolGroupSummaryClickable {
+    cursor: pointer;
+}
+
+.toolGroupSummaryClickable:hover {
+    background: var(--overlay-subtle);
+}
+
+.toolGroupTitle {
+    flex: 1;
+}
+
+.toolGroupArrow {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    width: 0.8em;
+    flex-shrink: 0;
+}
+
+.toolGroupContent {
+    padding: 0 0.75rem 0.3rem;
+}
+
+.toolGroupContentCollapsed {
+    display: none;
+}
+
+/* 单条工具时隐藏标题行 */
+.toolGroupSingle .toolGroupSummary {
+    display: none;
+}
+
+.toolGroupSingle .toolGroupContent {
+    padding: 0;
+}
+
+/* ── 工具调用指示器 ── */
+
+.toolIndicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--tool-text);
+    padding: 0.2rem 0;
+    line-height: 1.5;
+    max-width: 400px;
+}
+
+.toolGroupSingle .toolIndicator {
+    font-size: 0.82rem;
+    padding: 0.4rem 0.75rem;
+}
+
+.toolDesc {
+    flex-shrink: 0;
+}
+
+.toolDetail {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.toolDetailLink {
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.toolDetailLink:hover {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.toolTag {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    background: var(--overlay-subtle);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+}
+
+.toolDots {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: auto;
+}
+
+.toolDots span {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: dotPulse 1.2s infinite;
+}
+
+.toolDots span:nth-child(2) { animation-delay: 0.2s; }
+.toolDots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+    0%, 60%, 100% { opacity: 0.3; }
+    30% { opacity: 1; }
+}
+
+.toolStatus {
+    margin-left: auto;
+    font-size: 0.82rem;
+}
+
+.toolStatusDone {
+    color: var(--green);
+}
+
+.toolStatusFailed {
+    color: var(--coral);
+}
+
+/* ── 思考折叠块 ── */
+
+.thinkingBlock {
+    margin: var(--space-xs) 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.8rem;
+}
+
+.thinkingBlockSummary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-style: italic;
+    user-select: none;
+    list-style: none;
+}
+
+.thinkingBlockSummary::-webkit-details-marker {
+    display: none;
+}
+
+.thinkingBlockSummary .thinkingDots {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 2px;
+}
+
+.thinkingBlockSummary .thinkingDots span {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: dotPulse 1.2s infinite;
+}
+
+.thinkingBlockSummary .thinkingDots span:nth-child(2) { animation-delay: 0.2s; }
+.thinkingBlockSummary .thinkingDots span:nth-child(3) { animation-delay: 0.4s; }
+
+.thinkingBlockArrow {
+    display: inline-block;
+    font-style: normal;
+    font-size: 0.75rem;
+    transition: transform 0.15s ease;
+}
+
+.thinkingBlockArrowOpen {
+    transform: rotate(90deg);
+}
+
+.thinkingBlockBody {
+    margin-top: var(--space-xs);
+    padding: var(--space-sm) var(--space-md);
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    border-left: 2px solid var(--border);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* ── 文件输出卡片 ── */
+
+.fileOutputCard {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-md);
+    min-width: 300px;
+    max-width: 420px;
+    margin: var(--space-sm) 0;
+    padding: 0.7rem 0.9rem;
+    background: var(--bg-card, var(--bg));
+    border: 1px solid var(--border, rgba(0,0,0,0.1));
+    border-radius: var(--radius-lg);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.fileOutputPreviewable:hover {
+    border-color: var(--text-muted, rgba(0,0,0,0.2));
+}
+
+.fileOutputIcon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--overlay-subtle, rgba(0,0,0,0.03));
+    border-radius: var(--radius-sm);
+}
+
+.fileOutputInfo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.fileOutputName {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fileOutputType {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.fileOutputOpen {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-left: auto;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border, rgba(0,0,0,0.1));
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.fileOutputOpen:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+    background: var(--overlay-light, rgba(0,0,0,0.04));
+}
+
+/* ── 图片输出卡片 ── */
+
+.imageOutputCard {
+    display: inline-flex;
+    flex-direction: column;
+    max-width: 100%;
+    margin: var(--space-sm) 0;
+    padding: 0.3rem;
+    background: var(--bg-card, var(--bg));
+    border: 0.5px solid var(--border, rgba(0,0,0,0.08));
+    border-radius: var(--radius-lg);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    transition: border-color 0.15s;
+}
+
+.imageOutputCard:hover {
+    border-color: var(--text-muted, rgba(0,0,0,0.2));
+}
+
+.imageOutputPreview {
+    display: block;
+    max-width: 100%;
+    max-height: 450px;
+    object-fit: contain;
+    border-radius: calc(var(--radius-lg) - 0.35rem);
+}
+
+.imageOutputName {
+    padding: 0.35rem 0.2rem 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── 聊天气泡中的 Artifact 卡片 ── */
+
+.artifactCard {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: var(--space-xs) 0;
+    padding: 0.55rem 0.85rem;
+    background: var(--tool-bg);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    max-width: 100%;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+.artifactCard:hover {
+    background: var(--accent-light);
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.artifactCardIcon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.artifactCardIcon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.artifactCardInfo {
+    overflow: hidden;
+}
+
+.artifactCardTitle {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.artifactCardType {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+/* ── 浏览器截图 ── */
+
+.browserScreenshot {
+    margin: 8px 0;
+    max-width: 600px;
+}
+
+.browserScreenshot img {
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.browserScreenshot img:hover {
+    opacity: 0.9;
+}
+
+/* ── Skill 卡片（复用 artifact 样式） ── */
+
+.skillCard {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: var(--space-xs) 0;
+    padding: 0.55rem 0.85rem;
+    background: var(--tool-bg);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    max-width: 100%;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+.skillCard:hover {
+    background: var(--accent-light);
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+/* ── Session Panel ── */
+
+.sessionPanel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto;
+    padding: 76px var(--space-lg) 0;
+}
+
+.sessionMessages {
+    max-width: 640px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.loadMoreHint {
+    text-align: center;
+    padding: 0.5rem 0;
+    font-size: 0.75rem;
+    color: var(--text-tertiary, #999);
+    min-height: 1.5rem;
+}
+
+.sessionFooter {
+    /* 输入区本身负责遮挡，footer 只负责提供透明滚动缓冲。 */
+    height: max(12rem, calc(var(--input-area-h, 0px) + 2rem));
+    flex-shrink: 0;
+}
+
+/* ── Typing indicator (streaming 等待) ── */
+
+.typingIndicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.6rem 0;
+    padding-left: calc(var(--space-sm) + 2px);
+    animation: msgIn 0.3s var(--ease-out);
+}
+
+.typingIndicator span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: dotPulse 1.2s infinite;
+}
+
+.typingIndicator span:nth-child(2) { animation-delay: 0.2s; }
+.typingIndicator span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Scroll to bottom FAB ── */
+
+.scrollToBottomFab {
+    position: absolute;
+    bottom: 140px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border-light, rgba(0,0,0,0.08));
+    background: var(--bg-card, #fff);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.04);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: opacity 0.2s, box-shadow 0.2s;
+    opacity: 0.85;
+}
+
+.scrollToBottomFab:hover {
+    opacity: 1;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06);
+}
+
+.scrollToBottomFab svg {
+    display: block;
+}
+
+/* ── Subagent 实时卡片（对齐 cronConfirmCard 风格） ── */
+
+.subagentCard {
+    --subagent-preview-height: 260px;
+    margin: var(--space-sm) 0;
+    background: var(--bg-card, #fff);
+    border-radius: var(--radius-md);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    width: 420px;
+    max-width: 90%;
+    font-size: 0.82rem;
+    overflow: hidden;
+}
+
+.subagentCardHeader {
+    display: flex;
+    align-items: stretch;
+    transition: background 0.15s ease;
+}
+
+.subagentCardHeader:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.subagentCardButton {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.subagentCardButton:focus-visible {
+    outline: 1px solid rgba(0, 0, 0, 0.18);
+    outline-offset: -1px;
+}
+
+.subagent-running .subagentAvatar {
+    animation: subagentPulse 2s ease-in-out infinite;
+}
+
+.subagentStatus {
+    font-weight: normal;
+    font-size: 0.75rem;
+    margin-left: 6px;
+    color: var(--text-muted);
+}
+
+.subagent-done .subagentStatus {
+    color: #7a9e7a;
+}
+
+.subagent-failed .subagentStatus {
+    color: #a67272;
+}
+
+.subagentAbortBtn {
+    align-self: center;
+    margin-right: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.subagentCardHeader:hover .subagentAbortBtn {
+    opacity: 1;
+}
+
+.subagentAbortBtn:hover {
+    color: #a67272;
+    background: transparent;
+}
+
+.subagent-aborted .subagentStatus {
+    color: var(--text-muted);
+}
+
+@keyframes subagentPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.subagentAvatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.subagentBody {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.subagentName {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+}
+
+.subagentDisplay {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.3;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.subagentPreviewWrap {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 200ms cubic-bezier(0.33, 1, 0.68, 1);
+    border-top: 1px solid transparent;
+}
+
+.subagentPreviewWrapOpen {
+    max-height: calc(var(--subagent-preview-height) + 22px);
+    border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.subagentPreviewWrapClosing {
+    border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.subagentPreviewScroll {
+    height: var(--subagent-preview-height);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 12px 0;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: padding 200ms cubic-bezier(0.33, 1, 0.68, 1), opacity 140ms ease, transform 200ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.subagentPreviewWrapOpen .subagentPreviewScroll,
+.subagentPreviewWrapClosing .subagentPreviewScroll {
+    padding: 10px 12px 12px;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.subagentPreviewTranscript {
+    font-size: 0.82rem;
+}
+
+.subagentPreviewTranscript .messageGroup {
+    animation: none;
+}
+
+.subagentPreviewTranscript .messageGroupAssistant {
+    padding-left: 0;
+    margin-left: 0;
+}
+
+.subagentPreviewTranscript .avatarRow {
+    margin-top: var(--space-md);
+    margin-bottom: 0.1rem;
+    gap: 0.35rem;
+}
+
+.subagentPreviewTranscript .avatar {
+    width: 26px;
+    height: 26px;
+}
+
+.subagentPreviewTranscript .avatarName {
+    font-size: 0.68rem;
+}
+
+.subagentPreviewTranscript .message {
+    max-width: 100%;
+}
+
+.subagentPreviewTranscript .messageUser,
+.subagentPreviewTranscript .messageAssistant {
+    font-size: 0.82rem;
+}
+
+.subagentPreviewTranscript .messageAssistant {
+    line-height: 1.62;
+}
+
+.subagentIcon {
+    margin-right: 4px;
+}

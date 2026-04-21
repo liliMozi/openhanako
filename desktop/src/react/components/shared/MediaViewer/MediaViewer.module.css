@@ -1,0 +1,99 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  user-select: none;
+  touch-action: none;
+}
+.stageImg {
+  display: block;
+  pointer-events: none;
+}
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: -12px 0 0 -12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.videoWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.videoEl {
+  max-width: 90%;
+  max-height: 90%;
+  background: #000;
+}
+
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  transition: opacity 180ms ease-out;
+  z-index: 2;
+}
+.name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.index { opacity: 0.7; }
+.closeBtn {
+  background: transparent; border: 0; color: inherit;
+  font-size: 22px; cursor: pointer; padding: 4px 10px;
+  border-radius: 2px;
+}
+.closeBtn:hover { background: rgba(255,255,255,0.1); }
+
+.navBtn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px; height: 48px;
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.85);
+  border: 0;
+  font-size: 28px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: opacity 180ms ease-out, background 120ms ease-out;
+  z-index: 2;
+}
+.navBtn:hover { background: rgba(0, 0, 0, 0.6); }
+.navPrev { left: 24px; }
+.navNext { right: 24px; }
+.navBtn:disabled { opacity: 0.3; cursor: default; }
+
+.hidden { opacity: 0; pointer-events: none; }
+
+.stageWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

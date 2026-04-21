@@ -1,0 +1,304 @@
+/* Sakura Light Theme for Markdown Rendering */
+/* Design Philosophy: Sky blue serenity, cherry blossom warmth, soft white-pink text */
+
+:root {
+  --sakura-bg:     #8ABDCE;
+  --sakura-text:   #FFF5F5;
+  --sakura-heading: #FFF5F5;
+  --sakura-muted:  rgba(255, 245, 245, 0.65);
+  --sakura-border: rgba(255, 255, 255, 0.25);
+  --sakura-quote:  rgba(255, 255, 255, 0.12);
+  --sakura-code-bg: rgba(0, 40, 60, 0.35);
+  --sakura-code-text: #E8F4F8;
+  --sakura-link:   #FFF0F2;
+  --sakura-strong: #FFF5F5;
+  --sakura-brown:  #5C3317;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+/* body 全宽，不做限宽，让 ::after 能贴到画面边缘 */
+body {
+  font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "Lora", "Georgia", serif;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--sakura-text);
+  background-color: var(--sakura-bg);
+  margin: 0;
+  padding: 0 0 8rem 0;
+  position: relative;
+  min-height: 100vh;
+}
+
+/* article 做居中限宽，承担原来 body 的排版职责 */
+article {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 5rem 0.85rem 0.67rem 0.85rem;
+}
+
+/* 顶部 header：文件名紧贴花，整体靠右 */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 1.5rem 0.85rem 0.5rem 0.85rem;
+}
+
+.page-title {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.05em;
+  margin-right: 0.4rem;
+}
+
+.page-flower {
+  display: block;
+  width: 25px;
+  height: 25px;
+  background-image: var(--sakura-flower-url);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+/* 页尾樱花枝装饰 — absolute 贴 body 右下角（body 全宽所以直接贴边） */
+body::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 1rem;
+  width: 100%;
+  aspect-ratio: 920 / 394;
+  background-image: var(--sakura-branch-url);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: bottom right;
+  pointer-events: none;
+}
+
+/* Typography Scale */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--sakura-text);
+  margin-top: 2em;
+  margin-bottom: 0.8em;
+  line-height: 1.4;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: normal;
+  color: var(--sakura-heading);
+  border-bottom: 1px solid var(--sakura-border);
+  padding-bottom: 0.5em;
+  margin-top: 0;
+  text-align: center;
+}
+
+h2 {
+  font-size: 1.5rem;
+}
+
+h3 {
+  font-size: 1.25rem;
+}
+
+h4 {
+  font-size: 1.1rem;
+}
+
+p {
+  margin-bottom: 1.2em;
+  text-align: justify;
+}
+
+/* Links */
+a {
+  color: var(--sakura-link);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 240, 242, 0.4);
+  transition: border-color 0.2s;
+}
+
+a:hover {
+  border-bottom-color: var(--sakura-link);
+}
+
+/* Lists */
+ul, ol {
+  margin-bottom: 1.2em;
+  padding-left: 2em;
+}
+
+li {
+  margin-bottom: 0.4em;
+}
+
+li > ul, li > ol {
+  margin-top: 0.4em;
+  margin-bottom: 0;
+}
+
+/* Blockquote */
+blockquote {
+  border-left: 3px solid rgba(255, 255, 255, 0.5);
+  margin: 1.5em 0;
+  padding: 0.8em 1.5em;
+  background-color: var(--sakura-quote);
+  color: var(--sakura-text);
+  font-style: italic;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Code */
+code {
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", "Consolas", monospace;
+  font-size: 0.9em;
+  background-color: rgba(255, 255, 255, 0.15);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  color: var(--sakura-heading);
+}
+
+pre {
+  background-color: var(--sakura-code-bg);
+  color: var(--sakura-code-text);
+  padding: 1.2em 1.5em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1.5em 0;
+  line-height: 1.5;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: 0.8em;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: 0.95em;
+}
+
+th, td {
+  border: 1px solid var(--sakura-border);
+  padding: 0.6em 1em;
+  text-align: left;
+}
+
+th {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: var(--sakura-heading);
+  font-weight: 600;
+}
+
+tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Horizontal Rule */
+hr {
+  border: none;
+  border-top: 1px solid var(--sakura-border);
+  margin: 2em 0;
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+/* Strong & Emphasis */
+strong {
+  font-weight: 600;
+  color: var(--sakura-strong);
+}
+
+em {
+  font-style: italic;
+}
+
+/* Task Lists */
+input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+
+/* Definition Lists */
+dl {
+  margin-bottom: 1.2em;
+}
+
+dt {
+  font-weight: 600;
+  color: var(--sakura-heading);
+}
+
+dd {
+  margin-left: 2em;
+  margin-bottom: 0.5em;
+}
+
+/* Footnotes */
+.footnote {
+  font-size: 0.85em;
+  color: var(--sakura-muted);
+}
+
+/* Conversation Mode */
+.chat-user {
+  color: #FFE4C9;
+}
+
+.chat-user p,
+.chat-user li,
+.chat-user blockquote {
+  color: #FFE4C9;
+}
+
+.chat-label {
+  font-weight: 600;
+  margin: 1.8em 0 0.4em 0;
+  font-size: 0.92em;
+}
+
+.chat-label-user {
+  color: #FFE4C9;
+}
+
+.chat-label-assistant {
+  color: var(--sakura-heading);
+}
+
+.chat-divider {
+  border: none;
+  border-top: 1px dashed var(--sakura-border);
+  margin: 1.8em 0;
+}
+
+/* Selection */
+::selection {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: var(--sakura-heading);
+}

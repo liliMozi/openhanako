@@ -1,0 +1,33 @@
+name: Close Pull Requests
+
+on:
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            // 不关闭仓库 owner 自己的 PR
+            const repo = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            if (pr.user.login === repo.data.owner.login) return;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: '感谢你的关注！项目目前处于早期阶段，暂不接受 Pull Request。如果你有想法或发现了问题，欢迎开 issue 讨论。',
+            });
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              state: 'closed',
+            });

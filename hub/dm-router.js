@@ -21,6 +21,7 @@ import {
 } from "../lib/channels/channel-store.js";
 import { runAgentSession } from "./agent-executor.js";
 import { debugLog } from "../lib/debug-log.js";
+import { getLocale } from "../server/i18n.js";
 
 const MAX_ROUNDS = 3;
 const COOLDOWN_MS = 10_000;
@@ -29,7 +30,7 @@ export class DmRouter {
   constructor({ hub }) {
     this._hub = hub;
     this._cooldowns = new Map();
-    this._processing = new Set();
+    this._processing = new Map(); // key → startTimestamp
   }
 
   get _engine() { return this._hub.engine; }
@@ -42,11 +43,17 @@ export class DmRouter {
   async handleNewDm(fromId, toId) {
     const key = `${fromId}→${toId}`;
 
+    // 清理卡住的 entry（超过 5 分钟视为异常）
+    const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000;
+    const now = Date.now();
+    for (const [k, ts] of this._processing) {
+      if (now - ts > PROCESSING_TIMEOUT_MS) this._processing.delete(k);
+    }
+
     // 防重入
     if (this._processing.has(key)) return;
 
     // 冷却期
-    const now = Date.now();
     for (const [k, t] of this._cooldowns) {
       if (now - t >= COOLDOWN_MS) this._cooldowns.delete(k);
     }
@@ -55,7 +62,7 @@ export class DmRouter {
       return;
     }
 
-    this._processing.add(key);
+    this._processing.set(key, Date.now());
     this._cooldowns.set(key, now);
 
     try {
@@ -97,16 +104,24 @@ export class DmRouter {
       debugLog()?.log("dm-router", `${toId} replying to ${fromId} (round ${round + 1}/${MAX_ROUNDS})`);
 
       // 用频道模式 prompt 让 toId 回复
+      const isZh = getLocale().startsWith("zh");
       const replyText = await runAgentSession(
         toId,
         [
           {
-            text: `你的手机收到了来自「${fromName}」的私信。\n\n`
-              + `以下是你们最近的聊天记录：\n\n${msgText}\n\n`
-              + `---\n\n`
-              + `请给出你的回复（第 ${round + 1}/${MAX_ROUNDS} 轮）。直接输出内容，不要加前缀。\n`
-              + `如果你觉得对话可以结束了，在末尾加 <done/>。\n`
-              + `如果你不想回复，输出 [NO_REPLY]。`,
+            text: isZh
+              ? `你的手机收到了来自「${fromName}」的私信。\n\n`
+                + `以下是你们最近的聊天记录：\n\n${msgText}\n\n`
+                + `---\n\n`
+                + `请给出你的回复（第 ${round + 1}/${MAX_ROUNDS} 轮）。直接输出内容，不要加前缀。\n`
+                + `如果你觉得对话可以结束了，在末尾加 <done/>。\n`
+                + `如果你不想回复，输出 [NO_REPLY]。`
+              : `You received a DM from "${fromName}".\n\n`
+                + `Here is your recent chat history:\n\n${msgText}\n\n`
+                + `---\n\n`
+                + `Give your reply (round ${round + 1}/${MAX_ROUNDS}). Output directly, no prefix.\n`
+                + `If you think the conversation can end, append <done/>.\n`
+                + `If you don't want to reply, output [NO_REPLY].`,
             capture: true,
           },
         ],

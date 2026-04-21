@@ -1,7 +1,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SkillManager } from "../core/skill-manager.js";
 import { parseSkillMetadata } from "../lib/skills/skill-metadata.js";
 
@@ -113,4 +113,121 @@ describe("SkillManager metadata scanning", () => {
     expect(learnedSkills[0].description).toBe("Learned skill description.");
     expect(learnedSkills[0].disableModelInvocation).toBe(false);
   });
+
+
+  it("workspace skills 参与 runtime skill 集，但不污染 agent 全局技能列表", () => {
+    const root = makeTmpRoot();
+    const globalExternalDir = path.join(root, "external");
+    const workspaceSkillsDir = path.join(root, "workspace", ".agents", "skills");
+    const globalSkillDir = path.join(globalExternalDir, "external-skill");
+    const workspaceSkillDir = path.join(workspaceSkillsDir, "workspace-skill");
+    const agentDir = path.join(root, "agents", "hana");
+
+    fs.mkdirSync(globalSkillDir, { recursive: true });
+    fs.mkdirSync(workspaceSkillDir, { recursive: true });
+    fs.mkdirSync(agentDir, { recursive: true });
+
+    fs.writeFileSync(path.join(globalSkillDir, "SKILL.md"), [
+      "---",
+      "name: external-skill",
+      "description: External skill description.",
+      "---",
+      "",
+    ].join("\n"), "utf-8");
+
+    fs.writeFileSync(path.join(workspaceSkillDir, "SKILL.md"), [
+      "---",
+      "name: workspace-skill",
+      "description: Workspace skill description.",
+      "---",
+      "",
+    ].join("\n"), "utf-8");
+
+    const manager = new SkillManager({
+      skillsDir: path.join(root, "skills"),
+      externalPaths: [
+        { dirPath: globalExternalDir, label: "Claude Code", scope: "global" },
+        { dirPath: workspaceSkillsDir, label: "Agents", scope: "workspace" },
+      ],
+    });
+    manager.init(
+      { getSkills: () => ({ skills: [], diagnostics: [] }) },
+      new Map(),
+      new Set(),
+    );
+
+    const agent = {
+      agentDir,
+      config: { skills: { enabled: ["external-skill"] } },
+      setEnabledSkills: vi.fn(),
+    };
+
+    expect(manager.getAllSkills(agent).map(s => s.name)).toEqual(["external-skill"]);
+
+    const runtimeInfo = manager.getRuntimeSkillInfos(agent);
+    expect(runtimeInfo.map(s => s.name)).toEqual(["external-skill", "workspace-skill"]);
+    expect(runtimeInfo.find(s => s.name === "workspace-skill")).toMatchObject({
+      enabled: true,
+      managedBy: "workspace",
+    });
+
+    const runtimeSkills = manager.getSkillsForAgent(agent);
+    expect(runtimeSkills.skills.map(s => s.name)).toEqual(["external-skill", "workspace-skill"]);
+
+    manager.syncAgentSkills(agent);
+    expect(agent.setEnabledSkills).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "external-skill" }),
+        expect.objectContaining({ name: "workspace-skill" }),
+      ]),
+    );
+  });
+
+  it("workspace scope 的外部 watcher 会 pick up 隐藏目录下的 skill 变化", async () => {
+    const root = makeTmpRoot();
+    const workspaceSkillsDir = path.join(root, ".agents", "skills");
+    const globalSkillsDir = path.join(root, "_global_skills");
+    fs.mkdirSync(workspaceSkillsDir, { recursive: true });
+    fs.mkdirSync(globalSkillsDir, { recursive: true });
+
+    const manager = new SkillManager({
+      skillsDir: globalSkillsDir,
+      externalPaths: [
+        { dirPath: workspaceSkillsDir, label: "Agents", scope: "workspace" },
+      ],
+    });
+
+    // SkillManager.reload 会先 `delete resourceLoader.getSkills`，再 await reload()；
+    // 真实 loader 会在 reload 中重新挂 getSkills。mock 这里也要同步模拟这一行为。
+    const getSkillsFn = () => ({ skills: [], diagnostics: [] });
+    const resourceLoader = {
+      getSkills: getSkillsFn,
+      reload: vi.fn().mockImplementation(async function () {
+        this.getSkills = getSkillsFn;
+      }),
+    };
+    const onReloaded = vi.fn();
+
+    manager.init(resourceLoader, new Map(), new Set());
+    manager.watch(resourceLoader, new Map(), onReloaded);
+
+    // 给 chokidar 启动 ready 一点时间，然后写入 skill 文件
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const skillDir = path.join(workspaceSkillsDir, "late-skill");
+    fs.mkdirSync(skillDir);
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), [
+      "---",
+      "name: late-skill",
+      "description: Added after watcher start.",
+      "---",
+    ].join("\n"), "utf-8");
+
+    // 等 chokidar 事件 + 1s debounce + autoReload
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    manager.unwatch();
+
+    // 旧的 dot ignore 规则会让这个期望失败；新 per-path 规则允许 workspace 下的 skill 触发 reload
+    expect(onReloaded).toHaveBeenCalled();
+  }, 10000);
 });

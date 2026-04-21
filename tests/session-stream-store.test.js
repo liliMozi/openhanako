@@ -65,6 +65,31 @@ describe("session-stream-store", () => {
     expect(ss.isStreaming).toBe(true);
   });
 
+  it("finishSessionStream 会清空 events 释放内存", () => {
+    const ss = createSessionStreamState();
+    beginSessionStream(ss, "stream_a");
+    appendSessionStreamEvent(ss, { type: "text_delta", delta: "1" });
+    appendSessionStreamEvent(ss, { type: "text_delta", delta: "2" });
+    expect(ss.events.length).toBe(2);
+
+    finishSessionStream(ss);
+    expect(ss.events).toEqual([]);
+    expect(ss.isStreaming).toBe(false);
+    expect(ss.endedAt).toBeGreaterThan(0);
+  });
+
+  it("DEFAULT_MAX_EVENTS 对正常 turn 不会触发 truncated", () => {
+    const ss = createSessionStreamState();
+    beginSessionStream(ss, "stream_a");
+    // 正常 turn 的量级：~1~2k 事件；5000 的默认上限应留有足够 headroom
+    for (let i = 0; i < 2500; i++) {
+      appendSessionStreamEvent(ss, { type: "text_delta", delta: String(i) });
+    }
+    const resumed = resumeSessionStream(ss, { streamId: "stream_a", sinceSeq: 0 });
+    expect(resumed.truncated).toBe(false);
+    expect(resumed.events.length).toBe(2500);
+  });
+
   it("无活跃流时返回空恢复结果", () => {
     const ss = createSessionStreamState();
     const resumed = resumeSessionStream(ss, { sinceSeq: 12 });

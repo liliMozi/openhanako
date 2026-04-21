@@ -27,8 +27,6 @@ function trailingPrefixLen(buffer, target) {
   return 0;
 }
 
-const XING_OPEN_RE = /<xing\s+title=["\u201C\u201D]([^"\u201C\u201D]*)["\u201C\u201D]>/;
-
 export class MoodParser {
   constructor() {
     this.inMood = false;
@@ -165,17 +163,22 @@ export class MoodParser {
 }
 
 /**
- * ThinkTagParser — 拦截 <think>...</think> 标签（DeepSeek / Qwen 等模型的文本内思考格式）
+ * ThinkTagParser — 拦截 <think>/<thinking> 标签（DeepSeek / Qwen / Kimi 等模型的文本内思考格式）
  *
  * 链在 MoodParser 之前（最外层），输出事件流：
  *   think_start / think_text { data } / think_end
  *   text { data } — 非 think 内容透传
+ *
+ * 支持标签变体：<think>...</think> 和 <thinking>...</thinking>
  */
+const THINK_TAGS = ["think", "thinking"];
+
 export class ThinkTagParser {
   constructor() {
     this.inThink = false;
     this.buffer = "";
     this._justEnded = false;
+    this._currentTag = null;
   }
 
   feed(delta, emit) {
@@ -191,6 +194,7 @@ export class ThinkTagParser {
     if (this.inThink) {
       emit({ type: "think_end" });
       this.inThink = false;
+      this._currentTag = null;
     }
   }
 
@@ -198,6 +202,28 @@ export class ThinkTagParser {
     this.inThink = false;
     this.buffer = "";
     this._justEnded = false;
+    this._currentTag = null;
+  }
+
+  _findOpenTag() {
+    let best = null;
+    for (const tag of THINK_TAGS) {
+      const openTag = `<${tag}>`;
+      const idx = this.buffer.indexOf(openTag);
+      if (idx !== -1 && (best === null || idx < best.idx)) {
+        best = { tag, idx, openTag };
+      }
+    }
+    return best;
+  }
+
+  _maxTrailingPrefix() {
+    let max = 0;
+    for (const tag of THINK_TAGS) {
+      const len = trailingPrefixLen(this.buffer, `<${tag}>`);
+      if (len > max) max = len;
+    }
+    return max;
   }
 
   _drain(emit) {
@@ -210,18 +236,18 @@ export class ThinkTagParser {
       }
 
       if (!this.inThink) {
-        const openTag = "<think>";
-        const idx = this.buffer.indexOf(openTag);
-        if (idx !== -1) {
-          const before = this.buffer.slice(0, idx);
+        const found = this._findOpenTag();
+        if (found) {
+          const before = this.buffer.slice(0, found.idx);
           if (before) emit({ type: "text", data: before });
           emit({ type: "think_start" });
           this.inThink = true;
-          this.buffer = this.buffer.slice(idx + openTag.length);
+          this._currentTag = found.tag;
+          this.buffer = this.buffer.slice(found.idx + found.openTag.length);
           continue;
         }
-        // buffer 末尾可能是 <think> 的前缀
-        const holdLen = trailingPrefixLen(this.buffer, openTag);
+        // buffer 末尾可能是某个开始标签的前缀
+        const holdLen = this._maxTrailingPrefix();
         if (holdLen > 0) {
           const safe = this.buffer.slice(0, -holdLen);
           if (safe) emit({ type: "text", data: safe });
@@ -231,7 +257,7 @@ export class ThinkTagParser {
         emit({ type: "text", data: this.buffer });
         this.buffer = "";
       } else {
-        const closeTag = "</think>";
+        const closeTag = `</${this._currentTag}>`;
         const idx = this.buffer.indexOf(closeTag);
         if (idx !== -1) {
           const content = this.buffer.slice(0, idx);
@@ -239,6 +265,7 @@ export class ThinkTagParser {
           emit({ type: "think_end" });
           this.inThink = false;
           this._justEnded = true;
+          this._currentTag = null;
           this.buffer = this.buffer.slice(idx + closeTag.length);
           continue;
         }
@@ -257,17 +284,21 @@ export class ThinkTagParser {
 }
 
 /**
- * XingParser — 从 streaming text 中解析 <xing title="...">...</xing> 标签
+ * CardParser — 从 streaming text 中解析 <card ...>...</card> 标签
  *
- * 链在 MoodParser 的 text 输出之后，输出统一的事件流：
- *   xing_start { title } / xing_text { data } / xing_end
- *   text { data } — 非 xing 内容透传
+ * 链在 MoodParser 的 text 输出之后，输出事件流：
+ *   card_start { attrs: { type?, plugin, route, title? } }
+ *   card_text { data }
+ *   card_end
+ *   text { data } — 非 card 内容透传
  */
-export class XingParser {
+const CARD_ATTR_RE = /(\w+)="([^"]*)"/g;
+
+export class CardParser {
   constructor() {
-    this.inXing = false;
+    this.inCard = false;
     this.buffer = "";
-    this._title = null;
+    this._attrs = null;
   }
 
   feed(delta, emit) {
@@ -277,50 +308,75 @@ export class XingParser {
 
   flush(emit) {
     if (this.buffer) {
-      if (this.inXing) {
-        emit({ type: "xing_text", data: this.buffer });
+      if (this.inCard) {
+        emit({ type: "card_text", data: this.buffer });
       } else {
         emit({ type: "text", data: this.buffer });
       }
       this.buffer = "";
     }
-    if (this.inXing) {
-      emit({ type: "xing_end" });
-      this.inXing = false;
-      this._title = null;
+    if (this.inCard) {
+      emit({ type: "card_end" });
+      this.inCard = false;
+      this._attrs = null;
     }
   }
 
   reset() {
-    this.inXing = false;
+    this.inCard = false;
     this.buffer = "";
-    this._title = null;
+    this._attrs = null;
+  }
+
+  _parseAttrs(tag) {
+    const attrs = {};
+    let m;
+    CARD_ATTR_RE.lastIndex = 0;
+    while ((m = CARD_ATTR_RE.exec(tag)) !== null) {
+      attrs[m[1]] = m[2];
+    }
+    return attrs;
+  }
+
+  _findCardOpen() {
+    // Find <card followed by space or > (word boundary — excludes <cardiac etc.)
+    let searchFrom = 0;
+    while (searchFrom < this.buffer.length) {
+      const idx = this.buffer.indexOf("<card", searchFrom);
+      if (idx === -1) return -1;
+      const after = this.buffer[idx + 5];
+      if (after === undefined || after === " " || after === ">" || after === "\n" || after === "\t") return idx;
+      searchFrom = idx + 1;
+    }
+    return -1;
   }
 
   _drain(emit) {
     while (this.buffer.length > 0) {
-      if (!this.inXing) {
-        // 尝试匹配完整的开标签 <xing title="...">
-        const match = this.buffer.match(XING_OPEN_RE);
-        if (match) {
-          const before = this.buffer.slice(0, match.index);
+      if (!this.inCard) {
+        // Look for complete opening tag <card ... > (with word boundary)
+        const openIdx = this._findCardOpen();
+        if (openIdx !== -1) {
+          // Check if the full opening tag is present (find closing >)
+          const closeAngle = this.buffer.indexOf(">", openIdx);
+          if (closeAngle !== -1) {
+            const before = this.buffer.slice(0, openIdx);
+            if (before) emit({ type: "text", data: before });
+            const openTag = this.buffer.slice(openIdx, closeAngle + 1);
+            this._attrs = this._parseAttrs(openTag);
+            emit({ type: "card_start", attrs: this._attrs });
+            this.inCard = true;
+            this.buffer = this.buffer.slice(closeAngle + 1);
+            continue;
+          }
+          // Have <card but no > yet — hold from <card onward
+          const before = this.buffer.slice(0, openIdx);
           if (before) emit({ type: "text", data: before });
-          this._title = match[1];
-          emit({ type: "xing_start", title: this._title });
-          this.inXing = true;
-          this.buffer = this.buffer.slice(match.index + match[0].length);
-          continue;
-        }
-        // buffer 里有 <xing 但标签还没闭合 → 持住等更多数据
-        const partialIdx = this.buffer.indexOf("<xing");
-        if (partialIdx !== -1) {
-          const before = this.buffer.slice(0, partialIdx);
-          if (before) emit({ type: "text", data: before });
-          this.buffer = this.buffer.slice(partialIdx);
+          this.buffer = this.buffer.slice(openIdx);
           break;
         }
-        // buffer 末尾可能是 <, <x, <xi, <xin 的前缀
-        const holdLen = trailingPrefixLen(this.buffer, "<xing");
+        // Check trailing prefix for partial <card
+        const holdLen = trailingPrefixLen(this.buffer, "<card");
         if (holdLen > 0) {
           const safe = this.buffer.slice(0, -holdLen);
           if (safe) emit({ type: "text", data: safe });
@@ -330,25 +386,26 @@ export class XingParser {
         emit({ type: "text", data: this.buffer });
         this.buffer = "";
       } else {
-        const closeTag = "</xing>";
+        // Inside card — look for </card>
+        const closeTag = "</card>";
         const idx = this.buffer.indexOf(closeTag);
         if (idx !== -1) {
           const content = this.buffer.slice(0, idx);
-          if (content) emit({ type: "xing_text", data: content });
-          emit({ type: "xing_end" });
-          this.inXing = false;
-          this._title = null;
+          if (content) emit({ type: "card_text", data: content });
+          emit({ type: "card_end" });
+          this.inCard = false;
+          this._attrs = null;
           this.buffer = this.buffer.slice(idx + closeTag.length);
           continue;
         }
         const holdLen = trailingPrefixLen(this.buffer, closeTag);
         if (holdLen > 0) {
           const safe = this.buffer.slice(0, -holdLen);
-          if (safe) emit({ type: "xing_text", data: safe });
+          if (safe) emit({ type: "card_text", data: safe });
           this.buffer = this.buffer.slice(-holdLen);
           break;
         }
-        emit({ type: "xing_text", data: this.buffer });
+        emit({ type: "card_text", data: this.buffer });
         this.buffer = "";
       }
     }

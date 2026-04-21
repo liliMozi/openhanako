@@ -5,13 +5,14 @@ import { useSettingsStore } from './store';
 import { hanaFetch } from './api';
 import knownModels from '../../../../lib/known-models.json';
 
-const platform = (window as any).platform;
+const platform = window.platform;
 
 export function t(key: string, params?: Record<string, any>): any {
-  return (window as any).t?.(key, params) ?? key;
+  return window.t?.(key, params) ?? key;
 }
 
 export function escapeHtml(str: string): string {
+  // eslint-disable-next-line no-restricted-syntax -- escapeHtml utility, not React rendering
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
@@ -28,43 +29,66 @@ export function formatContext(n: number): string {
   return Math.round(n / 1000) + 'K';
 }
 
-export function resolveProviderForModel(modelId: string): string | null {
-  const config = useSettingsStore.getState().settingsConfig;
-  if (!modelId || !config) return null;
-  const providers = config.providers || {};
-  for (const [name, p] of Object.entries(providers) as [string, any][]) {
-    if ((p.models || []).includes(modelId)) return name;
+/**
+ * 从 known-models 词典查模型参考元数据（contextWindow / vision 等）。
+ * provider 提供时严格在该 provider 下查；缺省时回退到遍历（仅用于展示降级，
+ * 多 provider 同 id 时结果不确定）。
+ */
+function lookupReferenceModelMeta(modelId: string, provider?: string): any {
+  if (!modelId) return null;
+  const dict = knownModels as Record<string, any>;
+
+  if (provider && dict[provider]?.[modelId]) {
+    return { ...dict[provider][modelId], _source: 'reference' };
+  }
+
+  // provider 缺省时的展示降级：扫描所有 provider，返第一个命中
+  for (const [key, val] of Object.entries(dict)) {
+    if (key === '_comment' || typeof val !== 'object' || val === null) continue;
+    if (val[modelId]) return { ...val[modelId], _source: 'reference' };
   }
   return null;
 }
 
-function lookupReferenceModelMeta(modelId: string): any {
+/**
+ * 查模型元数据（合并 known-models / user-yaml / legacy overrides）。
+ *
+ * 契约：调用方尽可能传 provider，消除多 provider 同名歧义。
+ * UI 展示场景仅有 id 可不传，接受展示层降级（取第一个命中）。
+ * 运行时查找/比较**必须**用 shared/model-ref.js 的 findModel。
+ */
+export function lookupModelMeta(modelId: string, provider?: string): any {
   if (!modelId) return null;
-  const dict = knownModels as Record<string, any>;
+  const reference = lookupReferenceModelMeta(modelId, provider);
 
-  if (dict[modelId]) {
-    return { ...dict[modelId], _source: 'reference' };
+  // 从 provider summaries 提取用户在 added-models.yaml 中设置的模型元数据
+  const { providersSummary, settingsConfig } = useSettingsStore.getState();
+  let userEntry: Record<string, any> | null = null;
+  if (providersSummary) {
+    if (provider && providersSummary[provider]) {
+      const found = (providersSummary[provider].models || []).find(
+        (m: any) => typeof m === 'object' && m?.id === modelId,
+      );
+      if (found) userEntry = found as unknown as Record<string, any>;
+    } else {
+      // 展示降级
+      for (const summary of Object.values(providersSummary)) {
+        const found = (summary.models || []).find(
+          (m: any) => typeof m === 'object' && m?.id === modelId,
+        );
+        if (found) { userEntry = found as unknown as Record<string, any>; break; }
+      }
+    }
   }
 
-  const lowerId = modelId.toLowerCase();
-  const candidates = Object.entries(dict)
-    .filter(([key]) => key !== '_comment' && lowerId.startsWith(key.toLowerCase()))
-    .sort((a, b) => b[0].length - a[0].length);
+  // 兼容旧数据：仍然读 config.models.overrides 的 displayName
+  const legacyOverride = settingsConfig?.models?.overrides?.[modelId];
 
-  if (candidates.length === 0) return null;
-  return { ...candidates[0][1], _source: 'reference' };
-}
-
-export function lookupModelMeta(modelId: string): any {
-  const { settingsConfig } = useSettingsStore.getState();
-  if (!modelId) return null;
-  const reference = lookupReferenceModelMeta(modelId);
-  const override = settingsConfig?.models?.overrides?.[modelId];
-  if (!reference && !override) return null;
+  if (!reference && !userEntry && !legacyOverride) return null;
   return {
     ...(reference || {}),
-    ...(override || {}),
-    _source: override ? 'override' : reference?._source || null,
+    ...(userEntry || {}),
+    ...(legacyOverride?.displayName ? { displayName: legacyOverride.displayName } : {}),
   };
 }
 
@@ -121,25 +145,6 @@ export async function autoSaveGlobalModels(
   }
 }
 
-let _saveFavTimer: ReturnType<typeof setTimeout> | null = null;
-export function autoSaveModels() {
-  if (_saveFavTimer) clearTimeout(_saveFavTimer);
-  _saveFavTimer = setTimeout(async () => {
-    const store = useSettingsStore.getState();
-    try {
-      await hanaFetch('/api/favorites', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ favorites: [...store.pendingFavorites] }),
-      });
-      store.showToast(t('settings.autoSaved'), 'success');
-      platform?.settingsChanged?.('models-changed');
-    } catch (err: any) {
-      store.showToast(t('settings.saveFailed') + ': ' + err.message, 'error');
-    }
-  }, 300);
-}
-
 let _savePinsTimer: ReturnType<typeof setTimeout> | null = null;
 export function savePins() {
   if (_savePinsTimer) clearTimeout(_savePinsTimer);
@@ -166,8 +171,9 @@ export const PROVIDER_PRESETS = [
   { value: 'dashscope', label: 'DashScope (Qwen)', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', api: 'openai-completions' },
   { value: 'openai', label: 'OpenAI', url: 'https://api.openai.com/v1', api: 'openai-completions' },
   { value: 'deepseek', label: 'DeepSeek', url: 'https://api.deepseek.com/v1', api: 'openai-completions' },
-  { value: 'volcengine', label: 'Volcengine (豆包)', url: 'https://ark.cn-beijing.volces.com/api/v3', api: 'openai-completions' },
+  { value: 'volcengine', label: (window.i18n?.locale?.startsWith?.('zh') ? 'Volcengine (豆包)' : 'Volcengine (Doubao)'), url: 'https://ark.cn-beijing.volces.com/api/v3', api: 'openai-completions' },
   { value: 'moonshot', label: 'Moonshot (Kimi)', url: 'https://api.moonshot.cn/v1', api: 'openai-completions' },
+  { value: 'kimi-coding', label: 'Kimi Coding Plan', url: 'https://api.kimi.com/coding/', api: 'anthropic-messages' },
   { value: 'zhipu', label: 'Zhipu (GLM)', url: 'https://open.bigmodel.cn/api/paas/v4', api: 'openai-completions' },
   { value: 'siliconflow', label: 'SiliconFlow', url: 'https://api.siliconflow.cn/v1', api: 'openai-completions' },
   { value: 'groq', label: 'Groq', url: 'https://api.groq.com/openai/v1', api: 'openai-completions' },
@@ -180,7 +186,8 @@ export const PROVIDER_PRESETS = [
 export const API_FORMAT_OPTIONS = [
   { value: 'openai-completions', label: 'OpenAI Compatible' },
   { value: 'anthropic-messages', label: 'Anthropic Messages' },
-  { value: 'openai-codex-responses', label: 'OpenAI Codex Responses' },
+  { value: 'openai-responses', label: 'OpenAI Responses' },
+  { value: 'openai-codex-responses', label: 'ChatGPT Codex (Plus/Pro)' },
 ];
 
 export const CONTEXT_PRESETS = [
@@ -198,4 +205,4 @@ export const OUTPUT_PRESETS = [
   { label: '64K', value: 65536 },
 ];
 
-export const VALID_THEMES = ['warm-paper', 'midnight', 'auto', 'high-contrast', 'grass-aroma', 'contemplation', 'absolutely', 'delve', 'deep-think'];
+export const VALID_THEMES = ['warm-paper', 'midnight', 'auto', 'high-contrast', 'grass-aroma', 'contemplation', 'absolutely', 'delve', 'deep-think', 'claude-design'];

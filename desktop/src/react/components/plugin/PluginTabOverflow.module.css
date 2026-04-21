@@ -1,0 +1,121 @@
+/* ── Plugin tab overflow dropdown ── */
+.overflowWrap {
+    position: relative;
+}
+
+.overflowBtn {
+    position: relative;
+    z-index: 1;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s var(--ease-out), background 0.15s;
+    flex-shrink: 0;
+}
+
+.overflowBtn:hover {
+    color: var(--text-light);
+    background: var(--overlay-light);
+}
+
+.overflowBtnActive {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 140px;
+    max-width: 200px;
+    background: var(--bg-card);
+    border: 1px solid var(--overlay-medium);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 16px var(--shadow);
+    z-index: 100;
+    padding: 4px;
+    animation: dropdown-in 0.15s var(--ease-out);
+}
+
+.dropdownItem {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text-light);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.1s, color 0.1s;
+}
+
+.dropdownItem:hover {
+    background: var(--overlay-light);
+    color: var(--text);
+}
+
+.dropdownItemActive {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.dropdownItemHidden {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.dropdownRow {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.dropdownRow .dropdownItem {
+    flex: 1;
+    min-width: 0;
+}
+
+.pinBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s, color 0.1s, background 0.1s;
+}
+
+.dropdownRow:hover .pinBtn {
+    opacity: 1;
+}
+
+.pinBtn:hover {
+    color: var(--text);
+    background: var(--overlay-light);
+}
+
+.divider {
+    height: 1px;
+    background: var(--overlay-light);
+    margin: 4px 6px;
+}

@@ -9,12 +9,26 @@ import {
 // ── parseSessionKey ──
 
 describe("parseSessionKey", () => {
-  it("parses all known prefixes", () => {
+  it("parses all known prefixes (legacy format without agentId)", () => {
     const cases = [
-      ["tg_dm_123",       { platform: "telegram",  chatType: "dm",    chatId: "123" }],
-      ["tg_group_abc",    { platform: "telegram",  chatType: "group", chatId: "abc" }],
-      ["fs_dm_u001",      { platform: "feishu",    chatType: "dm",    chatId: "u001" }],
-      ["fs_group_g99",    { platform: "feishu",    chatType: "group", chatId: "g99" }],
+      ["tg_dm_123",       { platform: "telegram",  chatType: "dm",    chatId: "123",  agentId: null }],
+      ["tg_group_abc",    { platform: "telegram",  chatType: "group", chatId: "abc",  agentId: null }],
+      ["fs_dm_u001",      { platform: "feishu",    chatType: "dm",    chatId: "u001", agentId: null }],
+      ["fs_group_g99",    { platform: "feishu",    chatType: "group", chatId: "g99",  agentId: null }],
+    ];
+
+    for (const [key, expected] of cases) {
+      expect(parseSessionKey(key)).toEqual(expected);
+    }
+  });
+
+  it("parses new format with @agentId suffix", () => {
+    const cases = [
+      ["tg_dm_123@hana",       { platform: "telegram",  chatType: "dm",    chatId: "123",  agentId: "hana" }],
+      ["tg_group_abc@kuro",    { platform: "telegram",  chatType: "group", chatId: "abc",  agentId: "kuro" }],
+      ["fs_dm_u001@hana",      { platform: "feishu",    chatType: "dm",    chatId: "u001", agentId: "hana" }],
+      ["qq_dm_x99@agent-1",    { platform: "qq",        chatType: "dm",    chatId: "x99",  agentId: "agent-1" }],
+      ["wx_dm_wxid@hana",      { platform: "wechat",    chatType: "dm",    chatId: "wxid", agentId: "hana" }],
     ];
 
     for (const [key, expected] of cases) {
@@ -27,6 +41,7 @@ describe("parseSessionKey", () => {
       platform: "unknown",
       chatType: "dm",
       chatId: "slack_dm_xyz",
+      agentId: null,
     });
   });
 
@@ -35,6 +50,7 @@ describe("parseSessionKey", () => {
       platform: "telegram",
       chatType: "dm",
       chatId: "",
+      agentId: null,
     });
   });
 
@@ -52,7 +68,8 @@ describe("KNOWN_PLATFORMS", () => {
     expect(KNOWN_PLATFORMS).toContain("telegram");
     expect(KNOWN_PLATFORMS).toContain("feishu");
     expect(KNOWN_PLATFORMS).toContain("qq");
-    expect(KNOWN_PLATFORMS.length).toBe(3);
+    expect(KNOWN_PLATFORMS).toContain("wechat");
+    expect(KNOWN_PLATFORMS.length).toBe(4);
   });
 
   it("is consistent with SESSION_PREFIX_MAP", () => {

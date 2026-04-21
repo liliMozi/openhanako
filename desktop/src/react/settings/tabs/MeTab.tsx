@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../store';
 import { hanaFetch } from '../api';
+import { invalidateConfigCache } from '../../hooks/use-config';
 import { t } from '../helpers';
 import { loadSettingsConfig } from '../actions';
-
-const platform = (window as any).platform;
+import { SettingsSection } from '../components/SettingsSection';
+import { SettingsRow } from '../components/SettingsRow';
+import styles from '../Settings.module.css';
 
 export function MeTab() {
   const { settingsConfig, userAvatarUrl, showToast } = useSettingsStore();
@@ -56,6 +58,7 @@ export function MeTab() {
 
       showToast(t('settings.saved'), 'success');
       if (partial?.user?.name) store.set({ userName: partial.user.name });
+      if (Object.keys(partial).length) invalidateConfigCache();
 
       await loadSettingsConfig();
     } catch (err: any) {
@@ -64,6 +67,7 @@ export function MeTab() {
   };
 
   const handleAvatarClick = () => {
+    // eslint-disable-next-line no-restricted-syntax -- ephemeral file picker, not part of React tree
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/png,image/jpeg,image/webp';
@@ -79,51 +83,59 @@ export function MeTab() {
   };
 
   return (
-    <div className="settings-tab-content active" data-tab="me">
-      <section className="settings-section">
-        <h2 className="settings-section-title">{t('settings.me.title')}</h2>
-
-        <div className="settings-avatar-center">
-          <div className="avatar-upload" onClick={handleAvatarClick} title="">
+    <div className={`${styles['settings-tab-content']} ${styles['active']}`} data-tab="me">
+      {/* 整页 flush：无 section 白卡，input/textarea 自己就是视觉卡片
+       * avatar + 两个字段并列，字段间靠白空间分隔 */}
+      <SettingsSection variant="flush">
+        <div className={styles['settings-avatar-center']}>
+          <div className={styles['avatar-upload']} onClick={handleAvatarClick}>
             {userAvatarUrl ? (
-              <img className="avatar-preview" src={userAvatarUrl} draggable={false} />
+              <img className={styles['avatar-preview']} src={userAvatarUrl} draggable={false} />
             ) : (
-              <div className="avatar-preview avatar-preview-emoji">
+              <div className={`${styles['avatar-preview']} ${styles['avatar-preview-emoji']}`}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </div>
             )}
-            <div className="avatar-upload-overlay">{t('settings.me.changeAvatar')}</div>
+            <div className={styles['avatar-upload-overlay']}>{t('settings.me.changeAvatar')}</div>
           </div>
         </div>
 
-        <div className="settings-field settings-field-center">
-          <span className="settings-field-hint">{t('settings.me.userNameHint')}</span>
-          <input
-            className="settings-input"
-            type="text"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-          />
-        </div>
+        <SettingsRow
+          label="名字"
+          hint={t('settings.me.userNameHint')}
+          layout="stacked"
+          control={
+            <input
+              className={styles['settings-input']}
+              type="text"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+            />
+          }
+        />
 
-        <div className="settings-field">
-          <label className="settings-field-label">{t('settings.me.userProfile')}</label>
-          <textarea
-            className="settings-textarea"
-            rows={8}
-            spellCheck={false}
-            value={userProfile}
-            onChange={(e) => setUserProfile(e.target.value)}
-          />
-          <span className="settings-field-hint">{t('settings.me.userProfileHint')}</span>
-        </div>
-      </section>
+        <SettingsRow
+          label={t('settings.me.userProfile')}
+          hint={t('settings.me.userProfileHint')}
+          layout="stacked"
+          control={
+            <textarea
+              className={styles['settings-textarea']}
+              rows={8}
+              spellCheck={false}
+              value={userProfile}
+              onChange={(e) => setUserProfile(e.target.value)}
+            />
+          }
+        />
+      </SettingsSection>
 
-      <div className="settings-section-footer">
-        <button className="settings-save-btn-sm" onClick={save}>
+      {/* 保存按钮：tab 底部独立居中，用实心 accent 样式（页面级主动作） */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'var(--space-md)' }}>
+        <button className={styles['settings-save-btn-sm']} onClick={save}>
           {t('settings.save')}
         </button>
       </div>

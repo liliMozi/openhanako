@@ -23,9 +23,15 @@ export async function hanaFetch(
     headers['Authorization'] = `Bearer ${serverToken}`;
   }
 
-  const { timeout = DEFAULT_TIMEOUT, ...fetchOpts } = opts;
+  const { timeout = DEFAULT_TIMEOUT, signal: callerSignal, ...fetchOpts } = opts;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
+
+  // If caller provided a signal, forward its abort to our controller
+  if (callerSignal) {
+    if (callerSignal.aborted) { controller.abort(); }
+    else { callerSignal.addEventListener('abort', () => controller.abort(), { once: true }); }
+  }
 
   try {
     const res = await fetch(`http://127.0.0.1:${serverPort}${path}`, {
@@ -43,9 +49,9 @@ export async function hanaFetch(
 }
 
 /** 根据 yuan 类型返回 fallback 头像路径 */
-export function yuanFallbackAvatar(yuan: string): string {
-  const t = (window as any).t || ((k: string) => k);
-  const types = t('yuan.types') || {};
+export function yuanFallbackAvatar(yuan?: string): string {
+  const t = window.t || ((k: string) => k);
+  const types = (t('yuan.types') || {}) as Record<string, { avatar?: string }>;
   const entry = types[yuan || 'hanako'];
   return `assets/${entry?.avatar || 'Hanako.png'}`;
 }

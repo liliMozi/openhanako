@@ -1,0 +1,256 @@
+/* ========================================
+   Welcome — CSS Module
+   ======================================== */
+
+.welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: var(--space-sm);
+}
+
+.welcomeAvatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    user-select: none;
+    box-shadow: 0 4px 16px var(--shadow);
+    margin-bottom: var(--space-xs);
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+}
+
+.welcomeAvatar:hover {
+    box-shadow: 0 4px 20px var(--shadow), 0 0 0 2px rgba(var(--accent-rgb), 0.25);
+}
+
+.welcomeText {
+    font-size: 1.05rem;
+    color: var(--text-light);
+    letter-spacing: 0.06em;
+    font-family: var(--font-serif);
+}
+
+/* 文件夹选择按钮 */
+.folderSelectBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: var(--space-sm);
+    padding: 0.3rem 0.65rem;
+    font-family: inherit;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s var(--ease-out);
+    -webkit-app-region: no-drag;
+    opacity: 0.8;
+}
+
+.folderSelectBtn:hover {
+    color: var(--accent);
+    opacity: 1;
+}
+
+.folderSelectBtnHasFolder {
+    color: var(--accent);
+    opacity: 0.85;
+}
+
+.folderSwapIcon {
+    display: none;
+    opacity: 0.45;
+    margin-left: 2px;
+    flex-shrink: 0;
+}
+
+.folderSelectBtnHasFolder .folderSwapIcon {
+    display: block;
+}
+
+/* 文件夹选择区域容器 */
+.folderSelectWrap {
+    position: relative;
+    display: inline-block;
+    margin-top: var(--space-sm);
+}
+
+.folderSelectWrap .folderSelectBtn {
+    margin-top: 0;
+}
+
+/* 历史文件夹下拉 */
+.folderHistory {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 220px;
+    max-width: 320px;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.07);
+    padding: 4px 0;
+    z-index: 60;
+}
+
+.folderSelectWrapShowHistory .folderHistory {
+    display: block;
+    animation: folderHistoryIn 0.15s var(--ease-out);
+}
+
+@keyframes folderHistoryIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0);   }
+}
+
+.folderHistoryItem {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.1s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.folderHistoryItem:hover {
+    background: var(--overlay-subtle);
+}
+
+.folderHistoryItemActive {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.folderHistoryItemIcon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.folderHistoryItemName {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.folderHistoryDivider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+}
+
+.folderHistoryBrowse {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.folderHistoryBrowse:hover {
+    background: var(--overlay-subtle);
+    color: var(--accent);
+}
+
+/* 记忆开关按钮 */
+.memoryToggleBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: var(--space-xs);
+    padding: 0.3rem 0.65rem;
+    font-family: inherit;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s var(--ease-out);
+    -webkit-app-region: no-drag;
+    opacity: 0.8;
+}
+
+.memoryToggleBtn:hover {
+    color: var(--accent);
+    opacity: 1;
+}
+
+.memoryToggleBtnActive {
+    color: var(--accent);
+    opacity: 0.85;
+}
+
+.memoryToggleIcon {
+    display: inline-flex;
+    align-items: center;
+}
+
+.welcomeHidden {
+    display: none;
+}
+
+/* Agent 选择器 */
+.welcomeAgentSelector {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: var(--space-sm);
+}
+
+.welcomeAgentSelector:empty {
+    display: none;
+}
+
+.welcomeAgentChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    transition: all 0.2s var(--ease-out);
+    -webkit-app-region: no-drag;
+}
+
+.welcomeAgentChip:hover {
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.welcomeAgentChipSelected {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.welcomeAgentChipAvatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+}

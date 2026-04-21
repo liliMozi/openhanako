@@ -9,54 +9,113 @@
 
 import fs from "fs";
 import path from "path";
+import { Hono } from "hono";
+import { safeReadFile } from "../../shared/safe-fs.js";
+import { resolveAgent } from "../utils/resolve-agent.js";
 
-/** 安全路径校验：resolved 必须在 allowedRoots 之一内部 */
-function isSafePath(filePath, allowedRoots) {
-  const resolved = path.resolve(filePath);
-  return allowedRoots.some(
-    (root) => resolved === root || resolved.startsWith(root + path.sep)
-  );
+function isInsideRoot(candidatePath, rootPath) {
+  return candidatePath === rootPath || candidatePath.startsWith(rootPath + path.sep);
 }
 
-export default async function fsRoute(app, { engine }) {
+/**
+ * 解析并校验文件路径。
+ * - 现有文件：拒绝 symlink，且 realpath 后必须仍在 allowedRoots 内
+ * - 不存在文件：保留原有 404 语义，只要其父目录 realpath 在 allowedRoots 内即可
+ * @returns {string|null}
+ */
+function resolveAllowedPath(filePath, allowedRoots) {
+  const resolved = path.resolve(filePath);
+
+  for (const root of allowedRoots) {
+    const resolvedRoot = path.resolve(root);
+    if (!isInsideRoot(resolved, resolvedRoot)) continue;
+
+    let realRoot = null;
+    try { realRoot = fs.realpathSync(resolvedRoot); }
+    catch { continue; }
+
+    try {
+      const stat = fs.lstatSync(resolved);
+      if (stat.isSymbolicLink()) return null;
+      const realPath = fs.realpathSync(resolved);
+      if (isInsideRoot(realPath, realRoot)) return realPath;
+      return null;
+    } catch (err) {
+      if (err?.code !== "ENOENT") return null;
+      try {
+        const realParent = fs.realpathSync(path.dirname(resolved));
+        if (isInsideRoot(realParent, realRoot)) return resolved;
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return null;
+}
+
+export function createFsRoute(engine) {
+  const route = new Hono();
   const hanakoHome = path.resolve(engine.hanakoHome);
 
   // 收集允许的根目录
-  function getAllowedRoots() {
+  function getAllowedRoots(c) {
     const roots = [hanakoHome];
     // desk 工作空间目录（用户可能配在 ~/.hanako 外面）
-    const deskHome = engine.agent?.deskManager?.homePath;
+    const deskHome = resolveAgent(engine, c)?.deskManager?.homePath;
     if (deskHome) roots.push(path.resolve(deskHome));
     return roots;
   }
 
-  // GET /api/fs/read?path=... → UTF-8 文本
-  app.get("/api/fs/read", async (req, reply) => {
-    const filePath = req.query.path;
-    if (!filePath) return reply.code(400).send({ error: "missing path" });
-    if (!isSafePath(filePath, getAllowedRoots())) {
-      return reply.code(403).send({ error: "path not allowed" });
+  // GET /fs/read?path=... → UTF-8 文本
+  route.get("/fs/read", async (c) => {
+    const filePath = c.req.query("path");
+    if (!filePath) return c.json({ error: "missing path" }, 400);
+    const allowedPath = resolveAllowedPath(filePath, getAllowedRoots(c));
+    if (!allowedPath) {
+      return c.json({ error: "path not allowed" }, 403);
+    }
+    const content = safeReadFile(allowedPath, null);
+    if (content === null) return c.json({ error: "file not found" }, 404);
+    return c.text(content);
+  });
+
+  // GET /fs/read-base64?path=... → base64 编码
+  route.get("/fs/read-base64", async (c) => {
+    const filePath = c.req.query("path");
+    if (!filePath) return c.json({ error: "missing path" }, 400);
+    const allowedPath = resolveAllowedPath(filePath, getAllowedRoots(c));
+    if (!allowedPath) {
+      return c.json({ error: "path not allowed" }, 403);
     }
     try {
-      const content = fs.readFileSync(filePath, "utf-8");
-      reply.type("text/plain").send(content);
+      const buf = fs.readFileSync(allowedPath);
+      return c.text(buf.toString("base64"));
     } catch {
-      reply.code(404).send({ error: "file not found" });
+      return c.json({ error: "file not found" }, 404);
     }
   });
 
-  // GET /api/fs/read-base64?path=... → base64 编码
-  app.get("/api/fs/read-base64", async (req, reply) => {
-    const filePath = req.query.path;
-    if (!filePath) return reply.code(400).send({ error: "missing path" });
-    if (!isSafePath(filePath, getAllowedRoots())) {
-      return reply.code(403).send({ error: "path not allowed" });
+  // GET /fs/docx-html?path=... → mammoth 转 HTML
+  route.get("/fs/docx-html", async (c) => {
+    const filePath = c.req.query("path");
+    if (!filePath) return c.json({ error: "missing path" }, 400);
+    const allowedPath = resolveAllowedPath(filePath, getAllowedRoots(c));
+    if (!allowedPath) {
+      return c.json({ error: "path not allowed" }, 403);
     }
     try {
-      const buf = fs.readFileSync(filePath);
-      reply.type("text/plain").send(buf.toString("base64"));
-    } catch {
-      reply.code(404).send({ error: "file not found" });
+      const stat = fs.statSync(allowedPath);
+      if (!stat.isFile()) return c.json({ error: "not a file" }, 400);
+      if (stat.size > 20 * 1024 * 1024) return c.json({ error: "file too large" }, 413);
+      const mammoth = (await import("mammoth")).default;
+      const result = await mammoth.convertToHtml({ path: allowedPath });
+      return c.text(result.value);
+    } catch (err) {
+      if (err?.code === "ENOENT") return c.json({ error: "file not found" }, 404);
+      return c.json({ error: "docx parse failed" }, 500);
     }
   });
+
+  return route;
 }

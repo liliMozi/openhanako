@@ -9,6 +9,7 @@
 import fs from "fs";
 import path from "path";
 import { createModuleLogger } from "../lib/debug-log.js";
+import { t, getLocale } from "../server/i18n.js";
 import {
   createChannel as createChannelFile,
   generateChannelId,
@@ -81,7 +82,7 @@ export class ChannelManager {
   deleteChannelByName(channelId) {
     const filePath = path.join(this._channelsDir, `${channelId}.md`);
     if (!fs.existsSync(filePath)) {
-      throw new Error(`频道 "${channelId}" 不存在`);
+      throw new Error(t("error.channelNotFoundById", { id: channelId }));
     }
 
     deleteChannel(filePath);
@@ -120,12 +121,14 @@ export class ChannelManager {
     // 确保 ch_crew 频道存在
     const crewFile = path.join(this._channelsDir, "ch_crew.md");
     if (!fs.existsSync(crewFile)) {
+      const chName = t("error.defaultChannelName");
+      const chDesc = t("error.defaultChannelDesc");
       createChannelFile(this._channelsDir, {
         id: "ch_crew",
-        name: "工作群",
-        description: "工作协调频道，所有成员在这里沟通日常事务。",
+        name: chName,
+        description: chDesc,
         members: [agentId],
-        intro: "工作协调频道，所有成员在这里沟通日常事务。",
+        intro: chDesc,
       });
     } else {
       addChannelMember(crewFile, agentId);

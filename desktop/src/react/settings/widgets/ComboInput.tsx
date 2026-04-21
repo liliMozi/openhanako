@@ -3,6 +3,7 @@
  * 用于模型编辑面板（context length / max output）
  */
 import React, { useState, useRef, useEffect } from 'react';
+import styles from '../Settings.module.css';
 
 interface Preset {
   label: string;
@@ -30,27 +31,27 @@ export function ComboInput({ presets, value, onChange, placeholder }: ComboInput
   }, [open]);
 
   return (
-    <div className="cml-combo" ref={ref}>
+    <div className={styles['cml-combo']} ref={ref}>
       <input
         type="number"
-        className="cml-edit-panel-input"
+        className={styles['cml-edit-panel-input']}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
       />
       <button
         type="button"
-        className="cml-combo-toggle"
+        className={styles['cml-combo-toggle']}
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
       >
         ▾
       </button>
-      <div className={`cml-combo-dropdown${open ? ' open' : ''}`}>
+      <div className={`${styles['cml-combo-dropdown']}${open  ? ' ' + styles['open'] : ''}`}>
         {presets.map(p => (
           <button
             key={p.value}
             type="button"
-            className="cml-combo-option"
+            className={styles['cml-combo-option']}
             onClick={(e) => {
               e.stopPropagation();
               onChange(String(p.value));
@@ -58,7 +59,7 @@ export function ComboInput({ presets, value, onChange, placeholder }: ComboInput
             }}
           >
             <span>{p.label}</span>
-            <span className="cml-combo-value">{p.value.toLocaleString()}</span>
+            <span className={styles['cml-combo-value']}>{p.value.toLocaleString()}</span>
           </button>
         ))}
       </div>

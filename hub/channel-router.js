@@ -18,9 +18,10 @@ import path from "path";
 import { createChannelTicker } from "../lib/channels/channel-ticker.js";
 import { appendMessage, formatMessagesForLLM } from "../lib/channels/channel-store.js";
 import { loadConfig } from "../lib/memory/config-loader.js";
-import { callProviderText } from "../lib/llm/provider-client.js";
+import { callText } from "../core/llm-client.js";
 import { runAgentSession } from "./agent-executor.js";
 import { debugLog } from "../lib/debug-log.js";
+import { getLocale } from "../server/i18n.js";
 
 export class ChannelRouter {
   /**
@@ -84,12 +85,14 @@ export class ChannelRouter {
    * agent 用 channel tool 发消息后，触发其他 agent 的 triage
    */
   setupPostHandler() {
-    this._engine.agent._channelPostHandler = (channelName, senderId) => {
-      debugLog()?.log("channel", `agent ${senderId} posted to #${channelName}, triggering triage`);
-      this.triggerImmediate(channelName)?.catch(err =>
-        console.error(`[channel] agent post triage 失败: ${err.message}`)
-      );
-    };
+    for (const [, agent] of this._engine.agents || []) {
+      agent.setChannelPostHandler((channelName, senderId) => {
+        debugLog()?.log("channel", `agent ${senderId} posted to #${channelName}, triggering triage`);
+        this.triggerImmediate(channelName)?.catch(err =>
+          console.error(`[channel] agent post triage 失败: ${err.message}`)
+        );
+      });
+    }
   }
 
   // ──────────── 频道 Agent 顺序 ────────────
@@ -143,8 +146,13 @@ export class ChannelRouter {
     // memory.md 和 user.md 内容会变，仍需从磁盘读取
     const memoryMd = readFile(path.join(agentDir, "memory", "memory.md"));
     const userMd = readFile(path.join(engine.userDir, "user.md"));
-    const memoryContext = memoryMd?.trim() ? `\n\n你的记忆：\n${memoryMd}` : "";
-    const userContext = userMd?.trim() ? `\n\n用户档案：\n${userMd}` : "";
+    const isZh = getLocale().startsWith("zh");
+    const memoryContext = memoryMd?.trim()
+      ? (isZh ? `\n\n你的记忆：\n${memoryMd}` : `\n\nYour memory:\n${memoryMd}`)
+      : "";
+    const userContext = userMd?.trim()
+      ? (isZh ? `\n\n用户档案：\n${userMd}` : `\n\nUser profile:\n${userMd}`)
+      : "";
 
     // ── 检测 @ ──
     const isMentioned = msgText.includes(`@${agentName}`) || msgText.includes(`@${agentId}`);
@@ -154,28 +162,33 @@ export class ChannelRouter {
 
     if (!shouldReply) {
       try {
-        const { utility_large: model, large_api_key: api_key, large_base_url: base_url, large_api: api } = engine.resolveUtilityConfig();
+        const utilCfg = engine.resolveUtilityConfig() || {};
+        const { utility_large: model, large_api_key: api_key, large_base_url: base_url, large_api: api } = utilCfg;
         if (api_key && base_url && api) {
           const triageSystem = agentContext + memoryContext + userContext
             + "\n\n---\n\n"
-            + "你在一个群聊频道里。阅读以下最近的消息，判断你是否要回复。\n"
-            + "回答 YES 的情况：有人跟你说话、@你、问了你能回答的问题、或者你有想说的话。\n"
-            + "回答 NO 的情况：别人已经充分回答了问题（你没有新的补充）、话题跟你无关、你插不上话、或者你刚回复过且没人追问你。\n"
-            + "只回答 YES 或 NO。";
+            + (isZh
+              ? "你在一个群聊频道里。阅读以下最近的消息，判断你是否要回复。\n"
+                + "回答 YES 的情况：有人跟你说话、@你、问了你能回答的问题、或者你有想说的话。\n"
+                + "回答 NO 的情况：别人已经充分回答了问题（你没有新的补充）、话题跟你无关、你插不上话、或者你刚回复过且没人追问你。\n"
+                + "只回答 YES 或 NO。"
+              : "You are in a group chat channel. Read the recent messages below and decide whether you should reply.\n"
+                + "Answer YES if: someone is talking to you, @-mentions you, asks a question you can answer, or you have something to say.\n"
+                + "Answer NO if: the question has already been adequately answered (you have nothing new to add), the topic is irrelevant to you, you can't contribute, or you just replied and no one followed up.\n"
+                + "Answer only YES or NO.");
 
           const triageTimeout = AbortSignal.timeout(10_000);
           const triageSignal = signal
             ? AbortSignal.any([signal, triageTimeout])
             : triageTimeout;
-          const answer = await callProviderText({
-            api,
-            model,
-            api_key,
-            base_url,
+          const answer = await callText({
+            api, model,
+            apiKey: api_key,
+            baseUrl: base_url,
             systemPrompt: triageSystem,
-            messages: [{ role: "user", content: `#${channelName} 频道最近消息：\n${msgText}` }],
+            messages: [{ role: "user", content: isZh ? `#${channelName} 频道最近消息：\n${msgText}` : `#${channelName} recent messages:\n${msgText}` }],
             temperature: 0,
-            max_tokens: 10,
+            maxTokens: 10,
             timeoutMs: 10_000,
             signal: triageSignal,
           });
@@ -229,24 +242,38 @@ export class ChannelRouter {
    * 两轮 Agent Session 生成频道回复
    */
   async _executeReply(agentId, channelName, msgText, { signal } = {}) {
+    const isZh = getLocale().startsWith("zh");
     const text = await runAgentSession(
       agentId,
       [
         {
-          text: `#${channelName} 频道的最近消息：\n\n${msgText}\n\n`
-            + `请阅读这些消息，用 search_memory 查阅记忆来了解上下文和真实发生过的事。\n`
-            + `注意：你现在的回复用户看不到，这是你的内部思考环节，仅用于查阅资料和理解上下文。下一轮才是你真正发到群聊的内容。`,
+          text: isZh
+            ? `#${channelName} 频道的最近消息：\n\n${msgText}\n\n`
+              + `请阅读这些消息，用 search_memory 查阅记忆来了解上下文和真实发生过的事。\n`
+              + `注意：你现在的回复用户看不到，这是你的内部思考环节，仅用于查阅资料和理解上下文。下一轮才是你真正发到群聊的内容。`
+            : `Recent messages in #${channelName}:\n\n${msgText}\n\n`
+              + `Read these messages and use search_memory to look up memories for context and real events.\n`
+              + `Note: your reply right now is invisible to users — this is your internal thinking phase, for research and understanding context only. The next round is what actually gets posted to the chat.`,
           capture: false,
         },
         {
-          text: `现在请给出你想在 #${channelName} 群聊中发送的回复。这条回复会直接发送到群聊，所有人都能看到。\n\n`
-            + `回复规定：\n`
-            + `- 默认30字以内，像在群里说话，简短自然\n`
-            + `- 如果话题确实需要展开（比如讲故事、分析问题、详细解释），可以写到1000字\n`
-            + `- 直接输出回复内容，不要加任何前缀、解释、MOOD 或代码块\n`
-            + `- 不要重复别人已经说过的内容\n`
-            + `- 只说真实发生过的事，不要编造你没做过的活动或经历\n`
-            + `- 如果你觉得没什么好说的，回复 [NO_REPLY]`,
+          text: isZh
+            ? `现在请给出你想在 #${channelName} 群聊中发送的回复。这条回复会直接发送到群聊，所有人都能看到。\n\n`
+              + `回复规定：\n`
+              + `- 默认30字以内，像在群里说话，简短自然\n`
+              + `- 如果话题确实需要展开（比如讲故事、分析问题、详细解释），可以写到1000字\n`
+              + `- 直接输出回复内容，不要加任何前缀、解释、MOOD 或代码块\n`
+              + `- 不要重复别人已经说过的内容\n`
+              + `- 只说真实发生过的事，不要编造你没做过的活动或经历\n`
+              + `- 如果你觉得没什么好说的，回复 [NO_REPLY]`
+            : `Now give the reply you want to post in #${channelName}. This reply will be sent directly to the group chat — everyone can see it.\n\n`
+              + `Reply rules:\n`
+              + `- Keep it under 30 words by default — short and natural, like chatting in a group\n`
+              + `- If the topic truly requires elaboration (storytelling, analysis, detailed explanation), you may write up to 1000 words\n`
+              + `- Output the reply directly — no prefixes, explanations, MOOD blocks, or code fences\n`
+              + `- Don't repeat what others have already said\n`
+              + `- Only mention things that actually happened — don't fabricate activities or experiences\n`
+              + `- If you have nothing to say, reply [NO_REPLY]`,
           capture: true,
         },
       ],
@@ -268,30 +295,33 @@ export class ChannelRouter {
   async _memorySummarize(agentId, channelName, contextText) {
     const engine = this._engine;
     try {
-      const { utility: model, api_key, base_url, api } = engine.resolveUtilityConfig();
+      const utilCfg = engine.resolveUtilityConfig() || {};
+      const { utility: model, api_key, base_url, api } = utilCfg;
       if (!api_key || !base_url || !api) {
         console.log(`\x1b[90m[channel] ${agentId} 无 API 配置，跳过记忆摘要\x1b[0m`);
         return;
       }
 
-      const summaryText = await callProviderText({
-        api,
-        model,
-        api_key,
-        base_url,
-        systemPrompt: "将频道对话摘要为一条简短的记忆（一两句话），记录关键信息和结论。直接输出摘要，不要前缀。",
-        messages: [{ role: "user", content: `频道 #${channelName}：\n${contextText.slice(0, 2000)}` }],
+      const isZhMem = getLocale().startsWith("zh");
+      const summaryText = await callText({
+        api, model,
+        apiKey: api_key,
+        baseUrl: base_url,
+        systemPrompt: isZhMem
+          ? "将频道对话摘要为一条简短的记忆（一两句话），记录关键信息和结论。直接输出摘要，不要前缀。"
+          : "Summarize the channel conversation into a brief memory (one or two sentences), capturing key information and conclusions. Output the summary directly, no prefix.",
+        messages: [{ role: "user", content: isZhMem ? `频道 #${channelName}：\n${contextText.slice(0, 2000)}` : `Channel #${channelName}:\n${contextText.slice(0, 2000)}` }],
         temperature: 0.3,
-        max_tokens: 200,
+        maxTokens: 200,
       });
 
       // 写入 agent 的 fact store
-      const isCurrentAgent = (agentId === engine.currentAgentId);
+      const agentInstance = engine.getAgent(agentId);
       let factStore = null;
       let needClose = false;
 
-      if (isCurrentAgent && engine.agent?.factStore) {
-        factStore = engine.agent.factStore;
+      if (agentInstance?.factStore) {
+        factStore = agentInstance.factStore;
       } else {
         const { FactStore } = await import("../lib/memory/fact-store.js");
         const dbPath = path.join(engine.agentsDir, agentId, "memory", "facts.db");
@@ -303,7 +333,7 @@ export class ChannelRouter {
       try {
         factStore.add({
           fact: `[#${channelName}] ${summaryText}`,
-          tags: ["频道", channelName],
+          tags: [isZhMem ? "频道" : "channel", channelName],
           time: now.toISOString().slice(0, 16),
           session_id: `channel-${channelName}`,
         });

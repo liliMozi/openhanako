@@ -80,7 +80,7 @@ describe("ChannelManager", () => {
     });
 
     it("throws on non-existent channel", () => {
-      expect(() => manager.deleteChannelByName("nope")).toThrow('频道 "nope" 不存在');
+      expect(() => manager.deleteChannelByName("nope")).toThrow('error.channelNotFoundById');
     });
 
     it("cleans up agent bookmark references", () => {
