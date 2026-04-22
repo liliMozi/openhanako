@@ -484,5 +484,43 @@ export function createSessionsRoute(engine) {
     }
   });
 
+  // 恢复归档 session → 移回 sessions/
+  route.post("/sessions/restore", async (c) => {
+    try {
+      const body = await safeJson(c);
+      const { path: sessionPath } = body;
+      if (!sessionPath) {
+        return c.json({ error: t("error.missingParam", { param: "path" }) }, 400);
+      }
+      if (!isValidSessionPath(sessionPath, engine.agentsDir)) {
+        return c.json({ error: "Invalid session path" }, 403);
+      }
+      // 必须位于 /archived/ 目录下，防止把活跃 session 当归档路径调用
+      const archDir = path.dirname(sessionPath);
+      if (path.basename(archDir) !== "archived") {
+        return c.json({ error: "Not an archived session path" }, 403);
+      }
+      try {
+        await fs.access(sessionPath);
+      } catch {
+        return c.json({ error: t("error.sessionNotFound") }, 404);
+      }
+
+      const activeDir = path.dirname(archDir);
+      const destPath = path.join(activeDir, path.basename(sessionPath));
+
+      // 冲突检测：目标位置已存在，不自动改名（违背"禁止非用户预期的 fallback"）
+      try {
+        await fs.access(destPath);
+        return c.json({ error: "Active path already exists" }, 409);
+      } catch { /* 目标不存在，可以恢复 */ }
+
+      await fs.rename(sessionPath, destPath);
+      return c.json({ ok: true, restoredPath: destPath });
+    } catch (err) {
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
   return route;
 }

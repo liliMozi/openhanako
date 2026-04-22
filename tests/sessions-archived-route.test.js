@@ -107,3 +107,55 @@ describe("GET /api/sessions/archived", () => {
     expect(engine.listArchivedSessions).toHaveBeenCalled();
   });
 });
+
+describe("POST /api/sessions/restore", () => {
+  let tmpDir, engine, app, archSrc, activeDest;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-restore-"));
+    const archDir = path.join(tmpDir, "agents", "a", "sessions", "archived");
+    fs.mkdirSync(archDir, { recursive: true });
+    archSrc = path.join(archDir, "r1.jsonl");
+    activeDest = path.join(tmpDir, "agents", "a", "sessions", "r1.jsonl");
+    fs.writeFileSync(archSrc, "{}\n");
+    engine = makeEngine(tmpDir);
+    const { createSessionsRoute } = await import("../server/routes/sessions.js");
+    app = new Hono();
+    app.route("/api", createSessionsRoute(engine));
+  });
+
+  it("moves archived file back to sessions/", async () => {
+    const res = await app.request("/api/sessions/restore", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: archSrc }),
+    });
+    expect(res.status).toBe(200);
+    expect(fs.existsSync(archSrc)).toBe(false);
+    expect(fs.existsSync(activeDest)).toBe(true);
+  });
+
+  it("returns 409 when active destination exists", async () => {
+    fs.writeFileSync(activeDest, "conflict\n");
+    const res = await app.request("/api/sessions/restore", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: archSrc }),
+    });
+    expect(res.status).toBe(409);
+    expect(fs.existsSync(archSrc)).toBe(true);
+    expect(fs.readFileSync(activeDest, "utf-8")).toBe("conflict\n");
+  });
+
+  it("rejects path not under /archived/", async () => {
+    const bogus = path.join(tmpDir, "agents", "a", "sessions", "notarchived.jsonl");
+    fs.writeFileSync(bogus, "{}\n");
+    const res = await app.request("/api/sessions/restore", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: bogus }),
+    });
+    expect(res.status).toBe(403);
+  });
+});
