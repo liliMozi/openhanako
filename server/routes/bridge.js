@@ -278,6 +278,31 @@ export function createBridgeRoute(engine, bridgeManager) {
         });
       }
 
+      // 合并内存中的消息（bridgeManager._messageLog 里有尚未写入 JSONL 的消息，
+      // 比如刚收到的用户消息，要等 LLM 回复后才持久化。这里补齐，让前端立即看到。）
+      try {
+        const memMessages = bridgeManager.getMessages(200);
+        for (const mem of memMessages) {
+          if (mem.sessionKey !== sessionKey) continue;
+          // 去重：如果 ts 和 content 都匹配已有消息，跳过
+          const already = messages.find(m => m.ts === mem.ts && m.content === mem.text);
+          if (already) continue;
+          messages.push({
+            role: mem.direction === 'out' ? 'assistant' : 'user',
+            content: mem.text || '',
+            hasMedia: false,
+            mediaCount: 0,
+            ts: mem.ts || null,
+            senderName: mem.direction === 'out' ? null : (mem.sender || null),
+            userId: null,
+          });
+        }
+        // 按 ts 排序
+        messages.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      } catch (e) {
+        console.warn('[bridge] merge in-memory messages failed:', e.message);
+      }
+
       return c.json({ messages });
     } catch (err) {
       return c.json({ error: err.message, messages: [] });

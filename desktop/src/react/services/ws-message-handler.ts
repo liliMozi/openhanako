@@ -253,6 +253,26 @@ export function handleServerMessage(msg: any): void {
     case 'bridge_message':
       if (msg.message) {
         useStore.getState().addBridgeMessage(msg.message);
+
+        // 立即通知 BridgePanel 追加消息（避免等待 loadMessages 的 API 往返延迟）
+        (window as any).__hanaBridgeOnMessage?.(msg.message);
+
+        // 刷新 session 列表（新 bridge session 可能刚创建）
+        loadSessionsAction().catch(() => {});
+
+        // 如果当前正在查看该 bridge session，且是 agent 回复（direction: "out"），
+        // 重新加载消息以刷新列表（用户消息已由 __hanaBridgeOnMessage 追加，无需 reload）
+        if (msg.message.direction === 'out') {
+          const state = useStore.getState();
+          if (state.currentSessionPath && state.currentSessionPath.startsWith('bridge:')) {
+            const sessionKey = state.currentSessionPath.slice('bridge:'.length);
+            if (msg.message.sessionKey === sessionKey) {
+              // 清除该 session 的缓存，让下次 loadMessages 重新拉取
+              delete state.chatSessions[state.currentSessionPath];
+              import('../stores/session-actions').then(m => m.loadMessages(state.currentSessionPath!));
+            }
+          }
+        }
       }
       break;
 
