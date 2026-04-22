@@ -3,7 +3,7 @@ import { useStore } from '../../stores';
 import { usePluginIframe } from '../../hooks/use-plugin-iframe';
 import { hanaUrl } from '../../hooks/use-hana-fetch';
 import s from './PluginPageView.module.css';
-import { DEFAULT_THEME } from '../../shared/theme-registry.cjs';
+import { DEFAULT_THEME } from '../../../shared/theme-registry.cjs';
 
 interface Props {
   pluginId: string;
