@@ -73,3 +73,37 @@ describe("archive route: mtime semantics", () => {
     expect(ageMs).toBeLessThan(5000);
   });
 });
+
+describe("GET /api/sessions/archived", () => {
+  let tmpDir, engine, app;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-archived-list-"));
+    engine = makeEngine(tmpDir);
+    engine.listArchivedSessions = vi.fn(async () => [
+      {
+        path: "/x/a1.jsonl",
+        title: "Hi",
+        archivedAt: "2026-04-22T00:00:00.000Z",
+        sizeBytes: 1024,
+        agentId: "a",
+        agentName: "AgentA",
+      },
+    ]);
+    const { createSessionsRoute } = await import("../server/routes/sessions.js");
+    app = new Hono();
+    app.route("/api", createSessionsRoute(engine));
+  });
+
+  it("returns the engine-provided list", async () => {
+    const res = await app.request("/api/sessions/archived");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBe(1);
+    expect(body[0].title).toBe("Hi");
+    expect(body[0].sizeBytes).toBe(1024);
+    expect(engine.listArchivedSessions).toHaveBeenCalled();
+  });
+});

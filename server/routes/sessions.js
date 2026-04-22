@@ -432,6 +432,16 @@ export function createSessionsRoute(engine) {
     }
   });
 
+  // 列出所有已归档 session（聚合各 agent 的 archived/ 目录）
+  route.get("/sessions/archived", async (c) => {
+    try {
+      const list = await engine.listArchivedSessions();
+      return c.json(list);
+    } catch (err) {
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
   // 归档 session（支持跨 agent）
   route.post("/sessions/archive", async (c) => {
     try {
