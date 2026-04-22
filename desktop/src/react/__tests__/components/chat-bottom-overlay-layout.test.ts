@@ -9,11 +9,11 @@ function read(relPath: string) {
 }
 
 describe('chat bottom overlay layout', () => {
-  it('session panel cuts off at input card midline so floating context rows do not push messages upward', () => {
+  it('session panel cuts off at input card midline while preserving the input area bottom inset', () => {
     const styleSource = read('components/chat/Chat.module.css');
 
     expect(styleSource).toMatch(
-      /\.sessionPanel\s*\{[\s\S]*bottom:\s*calc\(var\(--input-card-h,\s*0px\)\s*\/\s*2\);/,
+      /\.sessionPanel\s*\{[\s\S]*bottom:\s*calc\(var\(--input-card-h,\s*0px\)\s*\/\s*2\s*\+\s*var\(--space-lg\)\);/,
     );
   });
 
@@ -21,7 +21,7 @@ describe('chat bottom overlay layout', () => {
     const styleSource = read('components/chat/Chat.module.css');
 
     expect(styleSource).toMatch(
-      /\.sessionFooter\s*\{[\s\S]*height:\s*calc\(var\(--input-card-h,\s*0px\)\s*\/\s*2\s*\+\s*3\.5rem\);/,
+      /\.sessionFooter\s*\{[\s\S]*height:\s*calc\(var\(--input-card-h,\s*0px\)\s*\/\s*2\s*\+\s*var\(--space-lg\)\s*\+\s*8rem\);/,
     );
   });
 

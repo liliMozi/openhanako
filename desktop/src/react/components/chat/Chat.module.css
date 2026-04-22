@@ -994,7 +994,7 @@
     top: 0;
     left: 0;
     right: 0;
-    bottom: calc(var(--input-card-h, 0px) / 2);
+    bottom: calc(var(--input-card-h, 0px) / 2 + var(--space-lg));
     overflow-y: auto;
     padding: 76px var(--space-lg) 0;
 }
@@ -1028,8 +1028,8 @@
 }
 
 .sessionFooter {
-    /* 和 sessionPanel 的 /2 切点对齐：滚到底时最后一条消息底边 ≈ 输入框上沿上方 3.5rem（一行文字 + 2rem 呼吸）。 */
-    height: calc(var(--input-card-h, 0px) / 2 + 3.5rem);
+    /* 和 sessionPanel 的切点对齐：遮挡发生在输入卡片中部，同时在滚到底时额外多留约三行呼吸空间。 */
+    height: calc(var(--input-card-h, 0px) / 2 + var(--space-lg) + 8rem);
     flex-shrink: 0;
 }
 
