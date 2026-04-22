@@ -9,6 +9,7 @@ import { memo, useState, useCallback, useMemo } from 'react';
 import styles from './Chat.module.css';
 import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { useI18n } from '../../hooks/use-i18n';
+import registry from '../../../shared/theme-registry.cjs';
 
 interface Props {
   confirmId?: string;
@@ -23,17 +24,10 @@ interface Props {
   status: 'pending' | 'confirmed' | 'rejected' | 'timeout';
 }
 
-const THEME_I18N: Record<string, string> = {
-  'warm-paper': 'settings.appearance.warmPaper',
-  'midnight': 'settings.appearance.midnight',
-  'high-contrast': 'settings.appearance.highContrast',
-  'grass-aroma': 'settings.appearance.grassAroma',
-  'contemplation': 'settings.appearance.contemplation',
-  'absolutely': 'settings.appearance.absolutely',
-  'delve': 'settings.appearance.delve',
-  'deep-think': 'settings.appearance.deepThink',
-  'auto': 'settings.appearance.auto',
-};
+const THEME_I18N: Record<string, string> = Object.fromEntries(
+  Object.entries(registry.THEMES).map(([id, t]) => [id, t.i18nName])
+);
+THEME_I18N[registry.AUTO_OPTION.id] = registry.AUTO_OPTION.i18nName;
 
 const THINKING_I18N: Record<string, string> = {
   'auto': 'settings.agent.thinkingLevels.auto',
