@@ -715,6 +715,16 @@ html[data-platform="linux"] .tb-toggle-right {
     -webkit-app-region: no-drag;
 }
 
+/* 侧边栏底部固定区：归档入口等小按钮 */
+.sidebar-footer {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 6px var(--space-sm);
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+}
+
 /* Sidebar toast */
 .sidebar-toast {
     position: fixed;

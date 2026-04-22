@@ -224,24 +224,3 @@
     font-size: 0.78rem;
 }
 
-/* 已归档的聊天入口（侧栏底部） */
-.archivedLink {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px var(--space-sm);
-    margin-top: var(--space-sm);
-    font-size: 0.75rem;
-    cursor: pointer;
-    color: var(--text-muted);
-    border-top: 1px solid var(--border);
-    user-select: none;
-}
-.archivedLink:hover {
-    color: var(--text);
-    background: var(--overlay-light);
-}
-.archivedLink svg {
-    opacity: 0.7;
-    flex-shrink: 0;
-}

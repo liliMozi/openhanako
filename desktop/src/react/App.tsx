@@ -21,6 +21,7 @@ import { PluginPageView } from './components/plugin/PluginPageView';
 import { PluginWidgetView } from './components/plugin/PluginWidgetView';
 import { InputArea } from './components/InputArea';
 import { SessionList } from './components/SessionList';
+import { ArchivedChatsButton } from './components/ArchivedChatsButton';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ChatArea } from './components/chat/ChatArea';
 import { ChannelsPanel, ChannelMessages, ChannelMembers, ChannelInput, ChannelReadonly } from './components/ChannelsPanel';
@@ -310,6 +311,9 @@ function App() {
                 <RegionalErrorBoundary region="sidebar" resetKeys={[currentAgentId]}>
                   <SessionList />
                 </RegionalErrorBoundary>
+              </div>
+              <div className="sidebar-footer">
+                <ArchivedChatsButton />
               </div>
             </div>
 

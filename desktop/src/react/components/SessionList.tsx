@@ -13,7 +13,6 @@ import { formatSessionDate } from '../utils/format';
 import { switchSession, archiveSession, renameSession } from '../stores/session-actions';
 import type { Session, Agent } from '../types';
 import { yuanFallbackAvatar } from '../utils/agent-helpers';
-import { ArchivedSessionsModal } from './ArchivedSessionsModal';
 import styles from './SessionList.module.css';
 
 
@@ -71,7 +70,6 @@ function SessionListInner() {
   const browserBySession = useStore(s => s.browserBySession);
 
   const [browserSessions, setBrowserSessions] = useState<Record<string, string>>({});
-  const [archivedOpen, setArchivedOpen] = useState(false);
 
   // Fetch browser sessions (re-fetch when browser state changes)
   useEffect(() => {
@@ -82,25 +80,8 @@ function SessionListInner() {
       .catch(err => console.warn('[sessions] fetch browser sessions failed:', err));
   }, [sessions, browserBySession]);
 
-  const archivedLink = (
-    <div className={styles.archivedLink} onClick={() => setArchivedOpen(true)}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="21 8 21 21 3 21 3 8" />
-        <rect x="1" y="3" width="22" height="5" />
-        <line x1="10" y1="12" x2="14" y2="12" />
-      </svg>
-      <span>{t('session.archived.entry')}</span>
-    </div>
-  );
-
   if (sessions.length === 0) {
-    return (
-      <>
-        <div className={styles.sessionEmpty}>{t('sidebar.empty')}</div>
-        {archivedLink}
-        <ArchivedSessionsModal open={archivedOpen} onClose={() => setArchivedOpen(false)} />
-      </>
-    );
+    return <div className={styles.sessionEmpty}>{t('sidebar.empty')}</div>;
   }
 
   const grouped = groupSessionsByDate(sessions);
@@ -122,8 +103,6 @@ function SessionListInner() {
           ))}
         </Fragment>
       ))}
-      {archivedLink}
-      <ArchivedSessionsModal open={archivedOpen} onClose={() => setArchivedOpen(false)} />
     </>
   );
 }
