@@ -28,6 +28,14 @@ import crypto from "crypto";
 /** tool_start 事件只广播这些 arg 字段，避免传输完整文件内容（同步维护：chat-render-shim.ts extractToolDetail） */
 const TOOL_ARG_SUMMARY_KEYS = ["file_path", "path", "command", "pattern", "url", "query", "key", "value", "action", "type", "schedule", "prompt", "label"];
 
+/** Bridge session streaming event types — 带 sessionKey 的事件走此路径 */
+const BRIDGE_STREAM_EVENTS = new Set([
+  "text_delta", "thinking_start", "thinking_delta", "thinking_end",
+  "mood_start", "mood_text", "mood_end",
+  "tool_start", "tool_end", "turn_end",
+  "status",
+]);
+
 /**
  * 从 Pi SDK 的 content 块中提取纯文本
  */
@@ -369,6 +377,9 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       broadcast({ type: "activity_update", activity: event.activity });
     } else if (event.type === "bridge_message") {
       broadcast({ type: "bridge_message", message: event.message });
+    } else if (event.sessionKey && BRIDGE_STREAM_EVENTS.has(event.type)) {
+      // Bridge session streaming events — relay to all WS clients with sessionKey
+      broadcast({ ...event, sessionKey: event.sessionKey });
     } else if (event.type === "bridge_status") {
       broadcast({ type: "bridge_status", platform: event.platform, status: event.status, error: event.error, agentId: event.agentId || null });
     } else if (event.type === "plan_mode") {
@@ -678,6 +689,27 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
               debugLog()?.log("ws", `user message (${promptText.length} chars, ${msg.images?.length || 0} images)`);
               // Phase 2: 客户端可指定 sessionPath，否则用焦点 session
               const promptSessionPath = requireSessionPath(msg, ws); if (!promptSessionPath) return;
+
+              // Bridge session：走 bridge-manager 的 owner 接管流，
+              // 绕过 session-coordinator（bridge session 不在 _sessions 缓存中）
+              if (promptSessionPath.startsWith("bridge:")) {
+                const sessionKey = promptSessionPath.slice("bridge:".length);
+                const bm = hub.bridgeManager;
+                if (!bm) {
+                  wsSend(ws, { type: "error", message: "bridge manager unavailable", sessionPath: promptSessionPath });
+                  return;
+                }
+                try {
+                  const result = await bm.sendToSession(sessionKey, promptText);
+                  if (!result?.ok) {
+                    wsSend(ws, { type: "error", message: result?.error || "bridge send failed", sessionPath: promptSessionPath });
+                  }
+                } catch (err) {
+                  wsSend(ws, { type: "error", message: err.message, sessionPath: promptSessionPath });
+                }
+                return;
+              }
+
               if (engine.isSessionStreaming(promptSessionPath)) {
                 wsSend(ws, { type: "error", message: t("error.stillStreaming", { name: engine.agentName }), sessionPath: promptSessionPath });
                 return;

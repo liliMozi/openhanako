@@ -33,6 +33,8 @@ const migrations = {
   // models.* 字段全量迁移到 {id, provider} 复合键对象；
   // 裸 id / "provider/id" 字符串统一归一化
   5: migrateModelRefsToCompositeKey,
+  // bridge 配置从 per-agent config.yaml 迁回全局 preferences.json
+  6: migrateBridgeToPreferences,
 };
 
 // ── Runner ──────────────────────────────────────────────────────────────────
@@ -649,4 +651,99 @@ function migrateWorkspaceToPerAgent(ctx) {
   } catch (err) {
     log(`[migrations] #3: warning — failed to disable non-primary heartbeats: ${err.message}`);
   }
+}
+
+/**
+ * #6 — bridge 配置从 per-agent config.yaml 迁回全局 preferences.json
+ *
+ * 逆向迁移 #2。收集所有 agent config.yaml 中的 bridge 配置，
+ * 合并写入 preferences.bridge，然后从 agent config.yaml 删除 bridge 字段。
+ */
+function migrateBridgeToPreferences(ctx) {
+  const { agentsDir, prefs, log } = ctx;
+  const preferences = prefs.getPreferences();
+
+  // 收集所有 agent 的 bridge 配置
+  let agentDirs;
+  try {
+    agentDirs = fs.readdirSync(agentsDir, { withFileTypes: true }).filter(d => d.isDirectory());
+  } catch {
+    return;
+  }
+
+  const primaryAgentId = preferences.primaryAgent || null;
+  const collected = []; // { agentId, bridge, isPrimary }
+
+  for (const dir of agentDirs) {
+    const cfgPath = path.join(agentsDir, dir.name, "config.yaml");
+    const config = safeReadYAMLSync(cfgPath, null, YAML);
+    if (!config?.bridge) continue;
+    collected.push({
+      agentId: dir.name,
+      bridge: config.bridge,
+      isPrimary: dir.name === primaryAgentId,
+    });
+    log(`[migrations] #6: found bridge config in agent ${dir.name}`);
+  }
+
+  if (collected.length === 0) {
+    log("[migrations] #6: no bridge config found in any agent, nothing to migrate");
+    return;
+  }
+
+  // 合并：primary agent 优先，否则第一个
+  collected.sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+  const main = collected[0];
+
+  // 构建 preferences.bridge
+  const newBridge = preferences.bridge || {};
+
+  // 合并主 agent 的 bridge 配置
+  for (const [key, val] of Object.entries(main.bridge)) {
+    if (key === "owner") {
+      newBridge.owner = { ...newBridge.owner, ...val };
+    } else if (key === "readOnly") {
+      newBridge.readOnly = val;
+    } else {
+      newBridge[key] = { ...newBridge[key], ...val };
+    }
+  }
+
+  // 其他 agent 的 bridge 配置（警告 + 合并非冲突项）
+  for (let i = 1; i < collected.length; i++) {
+    const { agentId, bridge } = collected[i];
+    log(`[migrations] #6: warning — agent ${agentId} also has bridge config, merging non-conflicting keys`);
+    for (const [key, val] of Object.entries(bridge)) {
+      if (key === "owner") {
+        newBridge.owner = { ...newBridge.owner, ...val };
+      } else if (key === "readOnly") {
+        if (newBridge.readOnly === undefined) newBridge.readOnly = val;
+      } else {
+        if (!newBridge[key]) {
+          newBridge[key] = { ...val };
+          log(`[migrations] #6: used ${agentId}'s ${key} config (no primary config found)`);
+        }
+      }
+    }
+  }
+
+  // 写入 preferences
+  preferences.bridge = newBridge;
+  prefs.savePreferences(preferences);
+  log("[migrations] #6: wrote bridge config to preferences.json");
+
+  // 从所有 agent config.yaml 删除 bridge
+  for (const { agentId } of collected) {
+    const cfgPath = path.join(agentsDir, agentId, "config.yaml");
+    const config = safeReadYAMLSync(cfgPath, null, YAML);
+    if (config?.bridge) {
+      delete config.bridge;
+      const tmp = cfgPath + ".tmp";
+      fs.writeFileSync(tmp, YAML.dump(config, { indent: 2, lineWidth: -1, sortKeys: false, quotingType: '"' }), "utf-8");
+      fs.renameSync(tmp, cfgPath);
+      log(`[migrations] #6: removed bridge from agent ${agentId} config.yaml`);
+    }
+  }
+
+  log("[migrations] #6: done");
 }

@@ -113,12 +113,16 @@ const PLATFORM_LABELS: Record<string, string> = {
   feishu: '飞书',
   telegram: 'TG',
   qq: 'QQ',
+  wechat: '微信',
+  workwechat: '企微',
 };
 
 const PLATFORM_COLORS: Record<string, string> = {
   feishu: '#3370ff',
   telegram: '#2AABEE',
   qq: '#12B7F5',
+  wechat: '#07C160',
+  workwechat: '#4B5563',
 };
 
 function PlatformBadge({ platform, chatType }: { platform: string; chatType?: string }) {

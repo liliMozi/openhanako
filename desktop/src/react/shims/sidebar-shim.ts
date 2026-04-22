@@ -50,8 +50,22 @@ function renderSessionList(): void {
 
 async function switchSession(path: string): Promise<void> {
   if (path === state().currentSessionPath) return;
-  // bridge session 不走普通切换流程（由 SessionList React 组件的 handleClick 处理）
-  if (path.startsWith('bridge:')) return;
+
+  // bridge session: 触发 takeover 事件，在主聊天区域展示 bridge 消息
+  if (path.startsWith('bridge:')) {
+    const sessionKey = path.slice('bridge:'.length);
+    // 从 session 列表中查找对应条目获取额外信息
+    const bridgeEntry = state().sessions.find((s: any) => s.path === path);
+    window.dispatchEvent(new CustomEvent('hana-bridge-takeover', {
+      detail: {
+        sessionKey,
+        displayName: bridgeEntry?.bridgeDisplayName || sessionKey,
+        platform: bridgeEntry?.bridgePlatform || null,
+        chatType: bridgeEntry?.bridgeChatType || null,
+      },
+    }));
+    return;
+  }
 
   // 切换到普通 session 时，清除 bridge 接管状态
   useStore.getState().setBridgeSession(null);

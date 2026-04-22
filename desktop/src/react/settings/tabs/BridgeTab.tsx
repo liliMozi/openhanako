@@ -4,6 +4,7 @@ import { hanaFetch } from '../api';
 import { t } from '../helpers';
 import { KeyInput } from '../widgets/KeyInput';
 import { Toggle } from '../widgets/Toggle';
+import styles from '../Settings.module.css';
 
 const platform = (window as any).platform;
 
@@ -110,6 +111,10 @@ export function BridgeTab() {
       });
 
       if (data.qq?.appID && !qqAppId) setQqAppId(data.qq.appID);
+      // 初始化企业微信 botId / secret
+      console.log('[bridge] workwechat status:', data.workwechat);
+      if (data.workwechat?.botId) setWcBotId(data.workwechat.botId);
+      if (data.workwechat?.secretMasked) setWcSecret(''); // secret 不回显
       // 初始化企业微信用户映射
       if (data.workwechat?.userMap) setWcUserMap(data.workwechat.userMap);
     } catch (err) {
@@ -128,8 +133,10 @@ export function BridgeTab() {
 
   const removeFeishuInstance = async (instanceId: string) => {
     if (!instanceId.includes(':')) return; // 不能删除默认实例
+    const agentId = store.getSettingsAgentId();
+    if (!agentId) return;
     try {
-      await hanaFetch('/api/bridge/delete-instance', {
+      await hanaFetch(`/api/bridge/delete-instance?agentId=${encodeURIComponent(agentId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instanceId }),
@@ -151,8 +158,10 @@ export function BridgeTab() {
   useEffect(() => { loadStatus(); }, []);
 
   const saveBridgeConfig = async (platform_: string, credentials: any, enabled?: boolean, label?: string, role?: string, userMap?: Record<string, string>) => {
+    const agentId = store.getSettingsAgentId();
+    if (!agentId) return;
     try {
-      await hanaFetch('/api/bridge/config', {
+      await hanaFetch(`/api/bridge/config?agentId=${encodeURIComponent(agentId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform: platform_, credentials, enabled, label, role, userMap }),
@@ -169,7 +178,9 @@ export function BridgeTab() {
     btn.textContent = '...';
     try {
       console.log(`[bridge test] testing ${platform_}...`);
-      const res = await hanaFetch('/api/bridge/test', {
+      const agentId = store.getSettingsAgentId();
+      if (!agentId) return;
+      const res = await hanaFetch(`/api/bridge/test?agentId=${encodeURIComponent(agentId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform: platform_, credentials }),
@@ -193,8 +204,10 @@ export function BridgeTab() {
   };
 
   const setOwner = async (platform_: string, userId: string) => {
+    const agentId = store.getSettingsAgentId();
+    if (!agentId) return;
     try {
-      await hanaFetch('/api/bridge/owner', {
+      await hanaFetch(`/api/bridge/owner?agentId=${encodeURIComponent(agentId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform: platform_, userId: userId || null }),
@@ -262,20 +275,20 @@ export function BridgeTab() {
   };
 
   return (
-    <div className="settings-tab-content active" data-tab="bridge">
+    <div className={`${styles['settings-tab-content']} ${styles['active']}`} data-tab="bridge">
       {/* 对外意识 */}
-      <section className="settings-section">
-        <h2 className="settings-section-title">{t('settings.agent.publicIshiki')}</h2>
-        <div className="settings-field">
+      <section className={styles['settings-section']}>
+        <h2 className="bridge-platform-title">{t('settings.agent.publicIshiki')}</h2>
+        <div className={styles['settings-field']}>
           <textarea
-            className="settings-textarea"
+            className={styles['settings-textarea']}
             rows={6}
             spellCheck={false}
             value={publicIshiki}
             onChange={(e) => setPublicIshiki(e.target.value)}
             onBlur={savePublicIshiki}
           />
-          <span className="settings-field-hint">{t('settings.agent.publicIshikiHint')}</span>
+          <span className={styles['settings-field-hint']}>{t('settings.agent.publicIshikiHint')}</span>
         </div>
       </section>
 
@@ -290,8 +303,8 @@ export function BridgeTab() {
       </div>
 
       {/* Telegram */}
-      <section className="settings-section">
-        <h2 className="settings-section-title">{t('settings.bridge.telegram')}</h2>
+      <section className={styles['settings-section']}>
+        <h2 className="bridge-platform-title">{t('settings.bridge.telegram')}</h2>
         <div className="bridge-platform-header">
           <BridgeStatusDot status={tgInfo.status} />
           <BridgeStatusText status={tgInfo.status} error={tgInfo.error} />
@@ -308,8 +321,8 @@ export function BridgeTab() {
             }}
           />
         </div>
-        <div className="settings-field">
-          <label className="settings-field-label">{t('settings.bridge.telegramToken')}</label>
+        <div className={styles['settings-field']}>
+          <label className={styles['settings-field-label']}>{t('settings.bridge.telegramToken')}</label>
           <div className="bridge-input-row">
             <KeyInput
               value={tgToken}
@@ -329,7 +342,7 @@ export function BridgeTab() {
               {t('settings.bridge.test')}
             </button>
           </div>
-          <span className="settings-field-hint">{t('settings.bridge.telegramHint')}</span>
+          <span className={styles['settings-field-hint']}>{t('settings.bridge.telegramHint')}</span>
         </div>
         <OwnerSelect
           platform_="telegram"
@@ -340,8 +353,8 @@ export function BridgeTab() {
       </section>
 
       {/* 飞书（支持多实例） */}
-      <section className="settings-section">
-        <h2 className="settings-section-title">
+      <section className={styles['settings-section']}>
+        <h2 className="bridge-platform-title">
           {t('settings.bridge.feishu')}
           <button
             className="bridge-add-instance-btn"
@@ -359,7 +372,7 @@ export function BridgeTab() {
               <div className="bridge-instance-header">
                 {!isDefault && (
                   <input
-                    className="settings-input bridge-instance-label-input"
+                    className={`${styles['settings-input']} bridge-instance-label-input`}
                     type="text"
                     placeholder={`实例标签（如"Owner 飞书"）`}
                     value={inst.label}
@@ -372,7 +385,7 @@ export function BridgeTab() {
                   />
                 )}
                 <select
-                  className="settings-input bridge-role-select"
+                  className={`${styles['settings-input']} bridge-role-select`}
                   value={currentRole}
                   onChange={async (e) => {
                     const newRole = e.target.value;
@@ -408,10 +421,10 @@ export function BridgeTab() {
                   }}
                 />
               </div>
-              <div className="settings-field">
-                <label className="settings-field-label">{t('settings.bridge.feishuAppId')}</label>
+              <div className={styles['settings-field']}>
+                <label className={styles['settings-field-label']}>{t('settings.bridge.feishuAppId')}</label>
                 <input
-                  className="settings-input"
+                  className={styles['settings-input']}
                   type="text"
                   value={inst.appId}
                   onChange={(e) => updateFeishuField(inst.id, 'appId', e.target.value)}
@@ -422,8 +435,8 @@ export function BridgeTab() {
                   }}
                 />
               </div>
-              <div className="settings-field">
-                <label className="settings-field-label">{t('settings.bridge.feishuAppSecret')}</label>
+              <div className={styles['settings-field']}>
+                <label className={styles['settings-field-label']}>{t('settings.bridge.feishuAppSecret')}</label>
                 <div className="bridge-input-row">
                   <KeyInput
                     value={inst.appSecret}
@@ -445,7 +458,7 @@ export function BridgeTab() {
                     {t('settings.bridge.test')}
                   </button>
                 </div>
-                <span className="settings-field-hint">{t('settings.bridge.feishuHint')}</span>
+                <span className={styles['settings-field-hint']}>{t('settings.bridge.feishuHint')}</span>
               </div>
               {isDefault && (
                 <OwnerSelect
@@ -461,8 +474,8 @@ export function BridgeTab() {
       </section>
 
       {/* QQ */}
-      <section className="settings-section">
-        <h2 className="settings-section-title">QQ</h2>
+      <section className={styles['settings-section']}>
+        <h2 className="bridge-platform-title">QQ</h2>
         <div className="bridge-platform-header">
           <BridgeStatusDot status={qqInfo.status} />
           <BridgeStatusText status={qqInfo.status} error={qqInfo.error} />
@@ -479,10 +492,10 @@ export function BridgeTab() {
             }}
           />
         </div>
-        <div className="settings-field">
-          <label className="settings-field-label">{t('settings.bridge.qqAppId')}</label>
+        <div className={styles['settings-field']}>
+          <label className={styles['settings-field-label']}>{t('settings.bridge.qqAppId')}</label>
           <input
-            className="settings-input"
+            className={styles['settings-input']}
             type="text"
             value={qqAppId}
             onChange={(e) => setQqAppId(e.target.value)}
@@ -493,8 +506,8 @@ export function BridgeTab() {
             }}
           />
         </div>
-        <div className="settings-field">
-          <label className="settings-field-label">{t('settings.bridge.qqAppSecret')}</label>
+        <div className={styles['settings-field']}>
+          <label className={styles['settings-field-label']}>{t('settings.bridge.qqAppSecret')}</label>
           <div className="bridge-input-row">
             <KeyInput
               value={qqAppSecret}
@@ -516,7 +529,7 @@ export function BridgeTab() {
               {t('settings.bridge.test')}
             </button>
           </div>
-          <span className="settings-field-hint">{t('settings.bridge.qqHint')}</span>
+          <span className={styles['settings-field-hint']}>{t('settings.bridge.qqHint')}</span>
         </div>
         <OwnerSelect
           platform_="qq"
@@ -527,8 +540,8 @@ export function BridgeTab() {
       </section>
 
       {/* 微信 ClawBot */}
-      <section className="settings-section">
-        <h2 className="settings-section-title">微信 ClawBot</h2>
+      <section className={styles['settings-section']}>
+        <h2 className="bridge-platform-title">微信 ClawBot</h2>
         <div className="bridge-platform-header">
           <BridgeStatusDot status={wxInfo.status} />
           <BridgeStatusText status={wxInfo.status} error={wxInfo.error} />
@@ -544,11 +557,11 @@ export function BridgeTab() {
 
         {/* 未配置：显示登录按钮 */}
         {!wxInfo.configured && wxLoginState === 'idle' && (
-          <div className="settings-field">
+          <div className={styles['settings-field']}>
             <button className="bridge-wechat-login-btn" onClick={startWxLogin}>
-              🔗 扫码连接微信
+              {t('settings.bridge.wechatLogin') || '扫码连接微信'}
             </button>
-            <span className="settings-field-hint">
+            <span className={styles['settings-field-hint']}>
               通过微信 ClawBot 插件连接，扫码后即可在微信中与 Hanako 对话
             </span>
           </div>
@@ -556,8 +569,8 @@ export function BridgeTab() {
 
         {/* 已配置：显示状态信息 */}
         {wxInfo.configured && (
-          <div className="settings-field">
-            <span className="settings-field-hint">
+          <div className={styles['settings-field']}>
+            <span className={styles['settings-field-hint']}>
               已连接微信 ClawBot{wxInfo.tokenMasked ? `（Token: ${wxInfo.tokenMasked}）` : ''}
             </span>
             <button
@@ -578,9 +591,9 @@ export function BridgeTab() {
               </div>
             )}
             <p className="bridge-wechat-login-msg">
-              {wxLoginState === 'polling' && '⏳ '}
-              {wxLoginState === 'success' && '✅ '}
-              {wxLoginState === 'error' && '❌ '}
+              {wxLoginState === 'polling' ? '⏳ ' :
+               wxLoginState === 'success' ? '✅ ' :
+               wxLoginState === 'error' ? '❌ ' : ''}
               {wxLoginMsg}
             </p>
             {(wxLoginState === 'error' || wxLoginState === 'success') && (
@@ -603,8 +616,8 @@ export function BridgeTab() {
       </section>
 
       {/* 企业微信智能机器人 */}
-      <section className="settings-section">
-        <h2 className="settings-section-title">{t('settings.bridge.workwechat') || '企业微信智能机器人'}</h2>
+      <section className={styles['settings-section']}>
+        <h2 className="bridge-platform-title">{t('settings.bridge.workwechat') || '企业微信智能机器人'}</h2>
         <div className="bridge-platform-header">
           <BridgeStatusDot status={wcInfo.status} />
           <BridgeStatusText status={wcInfo.status} error={wcInfo.error} />
@@ -622,10 +635,10 @@ export function BridgeTab() {
             }}
           />
         </div>
-        <div className="settings-field">
-          <label className="settings-field-label">Bot ID</label>
+        <div className={styles['settings-field']}>
+          <label className={styles['settings-field-label']}>Bot ID</label>
           <input
-            className="settings-input"
+            className={styles['settings-input']}
             type="text"
             value={wcBotId}
             onChange={(e) => setWcBotId(e.target.value)}
@@ -636,8 +649,8 @@ export function BridgeTab() {
             }}
           />
         </div>
-        <div className="settings-field">
-          <label className="settings-field-label">Secret</label>
+        <div className={styles['settings-field']}>
+          <label className={styles['settings-field-label']}>Secret</label>
           <div className="bridge-input-row">
             <KeyInput
               value={wcSecret}
@@ -661,12 +674,12 @@ export function BridgeTab() {
               {t('settings.bridge.test')}
             </button>
           </div>
-          <span className="settings-field-hint">{t('settings.bridge.workwechatHint') || '在企业微信管理后台创建智能机器人，获取 Bot ID 和 Secret'}</span>
+          <span className={styles['settings-field-hint']}>{t('settings.bridge.workwechatHint') || '在企业微信管理后台创建智能机器人，获取 Bot ID 和 Secret'}</span>
         </div>
         {/* 用户昵称映射 */}
-        <div className="settings-field">
-          <label className="settings-field-label">{t('settings.bridge.userMap') || '用户昵称映射'}</label>
-          <span className="settings-field-hint">{t('settings.bridge.userMapHint') || '配置企业微信用户的 userid 对应的显示昵称'}</span>
+        <div className={styles['settings-field']}>
+          <label className={styles['settings-field-label']}>{t('settings.bridge.userMap') || '用户昵称映射'}</label>
+          <span className={styles['settings-field-hint']}>{t('settings.bridge.userMapHint') || '配置企业微信用户的 userid 对应的显示昵称'}</span>
           {/* 已有映射列表 */}
           {Object.keys(wcUserMap).length > 0 && (
             <div className="bridge-usermap-list">
@@ -692,14 +705,14 @@ export function BridgeTab() {
           {/* 添加新映射 */}
           <div className="bridge-usermap-add-row">
             <input
-              className="settings-input bridge-usermap-input"
+              className={`${styles['settings-input']} bridge-usermap-input`}
               type="text"
               placeholder="User ID"
               value={wcNewUserId}
               onChange={(e) => setWcNewUserId(e.target.value)}
             />
             <input
-              className="settings-input bridge-usermap-input"
+              className={`${styles['settings-input']} bridge-usermap-input`}
               type="text"
               placeholder="昵称"
               value={wcNewUserName}
@@ -733,8 +746,8 @@ export function BridgeTab() {
       </section>
 
       {/* WhatsApp */}
-      <section className="settings-section">
-        <h2 className="settings-section-title">WhatsApp</h2>
+      <section className={styles['settings-section']}>
+        <h2 className="bridge-platform-title">WhatsApp</h2>
         <div className="bridge-platform-header">
           <BridgeStatusDot status={waInfo.status} />
           <BridgeStatusText status={waInfo.status} error={waInfo.error} />
@@ -745,8 +758,8 @@ export function BridgeTab() {
             }}
           />
         </div>
-        <div className="settings-field">
-          <span className="settings-field-hint">{t('settings.bridge.whatsappHint')}</span>
+        <div className={styles['settings-field']}>
+          <span className={styles['settings-field-hint']}>{t('settings.bridge.whatsappHint')}</span>
         </div>
         <OwnerSelect
           platform_="whatsapp"
@@ -757,15 +770,17 @@ export function BridgeTab() {
       </section>
 
       {/* 只读模式 */}
-      <section className="settings-section">
-        <h2 className="settings-section-title">{t('settings.bridge.readOnly')}</h2>
+      <section className={styles['settings-section']}>
+        <h2 className="bridge-platform-title">{t('settings.bridge.readOnly')}</h2>
         <div className="bridge-platform-header">
           <span className="bridge-readonly-desc">{t('settings.bridge.readOnlyDesc')}</span>
           <Toggle
             on={readOnly}
             onChange={async (on) => {
+              const agentId = store.getSettingsAgentId();
+              if (!agentId) return;
               try {
-                await hanaFetch('/api/bridge/settings', {
+                await hanaFetch(`/api/bridge/settings?agentId=${encodeURIComponent(agentId)}`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ readOnly: on }),
@@ -821,11 +836,11 @@ function OwnerSelect({ platform_, users, currentOwner, onChange }: {
   const cancel = () => setPendingUserId(null);
 
   return (
-    <div className="settings-field bridge-owner-field">
-      <label className="settings-field-label bridge-owner-label">{t('settings.bridge.ownerSelect')}</label>
+    <div className={`${styles['settings-field']} bridge-owner-field`}>
+      <label className={`${styles['settings-field-label']} bridge-owner-label`}>{t('settings.bridge.ownerSelect')}</label>
       <p className="bridge-owner-warning">{t('settings.bridge.ownerWarning')}</p>
       <select
-        className="settings-input bridge-owner-select"
+        className={`${styles['settings-input']} bridge-owner-select`}
         value={currentOwner || ''}
         onChange={(e) => handleChange(e.target.value)}
         disabled={users.length === 0}
@@ -837,16 +852,16 @@ function OwnerSelect({ platform_, users, currentOwner, onChange }: {
       </select>
 
       {pendingUserId !== null && (
-        <div className="memory-confirm-overlay visible" onClick={(e) => { if (e.target === e.currentTarget) cancel(); }}>
-          <div className="memory-confirm-card">
-            <p className="memory-confirm-text">
+        <div className={`${styles['memory-confirm-overlay']} visible`} onClick={(e) => { if (e.target === e.currentTarget) cancel(); }}>
+          <div className={styles['memory-confirm-card']}>
+            <p className={styles['memory-confirm-text']}>
               {t('settings.bridge.ownerConfirmText')}
             </p>
-            <div className="memory-confirm-actions">
-              <button className="memory-confirm-cancel" onClick={cancel}>
+            <div className={styles['memory-confirm-actions']}>
+              <button className={styles['memory-confirm-cancel']} onClick={cancel}>
                 {t('settings.bridge.ownerConfirmCancel')}
               </button>
-              <button className="memory-confirm-primary" onClick={confirm}>
+              <button className={styles['memory-confirm-primary']} onClick={confirm}>
                 {t('settings.bridge.ownerConfirmSave')}
               </button>
             </div>

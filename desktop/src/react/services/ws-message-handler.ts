@@ -110,6 +110,12 @@ export function handleServerMessage(msg: any): void {
     return;
   }
 
+  // ── Bridge session streaming events: has sessionKey but no sessionPath ──
+  if (msg.sessionKey && !msg.sessionPath && REACT_CHAT_EVENTS.has(msg.type)) {
+    window.dispatchEvent(new CustomEvent('hana-bridge-stream', { detail: msg }));
+    return;
+  }
+
   // ── React 聊天渲染路径：聊天相关事件走 StreamBufferManager ──
   if (REACT_CHAT_EVENTS.has(msg.type)) {
     streamBufferManager.handle(msg);

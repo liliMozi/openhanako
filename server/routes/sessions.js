@@ -19,6 +19,7 @@ import {
   isValidSessionPath,
 } from "../../core/message-utils.js";
 import { loadLatestTodosFromSessionFile } from "../../lib/tools/todo-compat.js";
+import { parseSessionKey } from "../../lib/bridge/session-key.js";
 
 export function createSessionsRoute(engine) {
   const route = new Hono();
@@ -93,11 +94,11 @@ export function createSessionsRoute(engine) {
     }
   }
 
-  // 列出所有 agent 的历史 session
+  // 列出所有 agent 的历史 session（包含 bridge 会话）
   route.get("/sessions", async (c) => {
     try {
       const sessions = await engine.listSessions();
-      return c.json(sessions.map(s => ({
+      const result = sessions.map(s => ({
         path: s.path,
         title: s.title || null,
         firstMessage: (s.firstMessage || "").slice(0, 100),
@@ -108,7 +109,78 @@ export function createSessionsRoute(engine) {
         agentName: s.agentName || null,
         modelId: s.modelId || null,
         modelProvider: s.modelProvider || null,
-      })));
+      }));
+
+      // 合并 bridge sessions（直接读取每个 agent 的索引文件）
+      const bridgeSessions = [];
+      const seenKeys = new Set();
+      const agents = engine.listAgents();
+      const agentsDir = engine.agentsDir;
+      for (const ag of agents) {
+        const agentDir = path.join(agentsDir, ag.id);
+        const agentSessionDir = path.join(agentDir, "sessions");
+        const bridgeIndexFile = path.join(agentSessionDir, "bridge", "bridge-sessions.json");
+        let index;
+        try {
+          index = JSON.parse(fsSync.readFileSync(bridgeIndexFile, "utf-8"));
+        } catch { continue; }
+
+        // 从 agent config 读取 owner 设置
+        const agent = engine.getAgent(ag.id);
+        const agentBridge = agent?.config?.bridge || {};
+        const owner = {};
+        for (const plat of ["telegram", "feishu", "qq", "wechat", "workwechat"]) {
+          const o = agentBridge[plat]?.owner;
+          if (o) owner[plat] = o;
+        }
+
+        for (const [sessionKey, raw] of Object.entries(index)) {
+          if (seenKeys.has(sessionKey)) continue;
+          seenKeys.add(sessionKey);
+
+          const entry = typeof raw === "string" ? { file: raw } : raw;
+          if (!entry.file) continue;
+
+          const { platform: plat, chatType } = parseSessionKey(sessionKey);
+          const ownerUserId = owner[plat] || null;
+          const isOwner = !!(entry.userId && ownerUserId && entry.userId === ownerUserId);
+
+          let lastActive = null;
+          try {
+            const bridgeDir = path.join(agentSessionDir, "bridge");
+            const fp = path.join(bridgeDir, entry.file);
+            const stat = fsSync.statSync(fp);
+            lastActive = stat.mtimeMs;
+          } catch {}
+
+          bridgeSessions.push({
+            path: `bridge:${sessionKey}`,
+            title: entry.name || null,
+            firstMessage: "",
+            modified: lastActive ? new Date(lastActive).toISOString() : null,
+            messageCount: 0,
+            cwd: null,
+            agentId: ag.id || null,
+            agentName: ag.name || null,
+            modelId: null,
+            modelProvider: null,
+            bridge: true,
+            bridgePlatform: plat,
+            bridgeChatType: chatType,
+            bridgeSessionKey: sessionKey,
+            bridgeDisplayName: entry.name || null,
+            bridgeAvatarUrl: entry.avatarUrl || null,
+            bridgeIsOwner: isOwner,
+          });
+        }
+      }
+
+      // bridge sessions 按 modified 降序插入到普通 session 列表中
+      bridgeSessions.sort((a, b) => (b.modified || "").localeCompare(a.modified || ""));
+      result.push(...bridgeSessions);
+      result.sort((a, b) => (b.modified || "").localeCompare(a.modified || ""));
+
+      return c.json(result);
     } catch (err) {
       return c.json({ error: err.message }, 500);
     }

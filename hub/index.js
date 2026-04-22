@@ -25,6 +25,7 @@ import {
   loadSessionHistoryMessages,
   isValidSessionPath,
 } from "../core/message-utils.js";
+import { MoodParser, ThinkTagParser } from "../core/events.js";
 
 export class Hub {
   /**
@@ -154,11 +155,82 @@ export class Hub {
       },
       { // Bridge guest
         match: o => o.sessionKey && o.role === "guest",
-        handle: () => this._guestHandler.handle(text, o.sessionKey, o.meta, { isGroup: o.isGroup, agentId: o.agentId, onDelta: o.onDelta, images: o.images }),
+        handle: () => {
+          if (o.onDelta) {
+            const originalOnDelta = o.onDelta;
+            const moodParser = new MoodParser();
+            const thinkParser = new ThinkTagParser();
+            const emitEvent = (evt) => {
+              if (evt.type === "text") {
+                this._eventBus.emit({ type: "text_delta", delta: evt.data, sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "mood_start") {
+                this._eventBus.emit({ type: "mood_start", sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "mood_text") {
+                this._eventBus.emit({ type: "mood_text", delta: evt.data, sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "mood_end") {
+                this._eventBus.emit({ type: "mood_end", sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "think_start") {
+                this._eventBus.emit({ type: "thinking_start", sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "think_text") {
+                this._eventBus.emit({ type: "thinking_delta", delta: evt.data, sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "think_end") {
+                this._eventBus.emit({ type: "thinking_end", sessionKey: o.sessionKey }, null);
+              }
+            };
+            const wrappedOnDelta = (delta) => {
+              originalOnDelta(delta);
+              thinkParser.feed(delta, (thinkEvt) => {
+                moodParser.feed(thinkEvt.type === "text" ? thinkEvt.data : "", emitEvent);
+                if (thinkEvt.type !== "text") emitEvent(thinkEvt);
+              });
+            };
+            return this._guestHandler.handle(text, o.sessionKey, o.meta, { isGroup: o.isGroup, agentId: o.agentId, onDelta: wrappedOnDelta, images: o.images });
+          }
+          return this._guestHandler.handle(text, o.sessionKey, o.meta, { isGroup: o.isGroup, agentId: o.agentId, onDelta: o.onDelta, images: o.images });
+        },
       },
       { // Bridge owner
         match: o => o.sessionKey && !o.ephemeral,
-        handle: () => this._engine.executeExternalMessage(text, o.sessionKey, o.meta, { guest: false, agentId: o.agentId, onDelta: o.onDelta, images: o.images }),
+        handle: () => {
+          // Wrap onDelta to emit structured streaming events (text_delta, mood_*, think_*)
+          // so the frontend can show progressive output for bridge sessions.
+          if (o.onDelta) {
+            const originalOnDelta = o.onDelta;
+            const moodParser = new MoodParser();
+            const thinkParser = new ThinkTagParser();
+            const emitEvent = (evt) => {
+              if (evt.type === "text") {
+                this._eventBus.emit({ type: "text_delta", delta: evt.data, sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "mood_start") {
+                this._eventBus.emit({ type: "mood_start", sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "mood_text") {
+                this._eventBus.emit({ type: "mood_text", delta: evt.data, sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "mood_end") {
+                this._eventBus.emit({ type: "mood_end", sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "think_start") {
+                this._eventBus.emit({ type: "thinking_start", sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "think_text") {
+                this._eventBus.emit({ type: "thinking_delta", delta: evt.data, sessionKey: o.sessionKey }, null);
+              } else if (evt.type === "think_end") {
+                this._eventBus.emit({ type: "thinking_end", sessionKey: o.sessionKey }, null);
+              }
+            };
+            const wrappedOnDelta = (delta) => {
+              originalOnDelta(delta);
+              thinkParser.feed(delta, (thinkEvt) => {
+                moodParser.feed(thinkEvt.type === "text" ? thinkEvt.data : "", emitEvent);
+                if (thinkEvt.type !== "text") emitEvent(thinkEvt);
+              });
+            };
+            return this._engine.executeExternalMessage(text, o.sessionKey, o.meta, {
+              guest: false,
+              agentId: o.agentId,
+              onDelta: wrappedOnDelta,
+              images: o.images,
+            });
+          }
+          return this._engine.executeExternalMessage(text, o.sessionKey, o.meta, { guest: false, agentId: o.agentId, onDelta: o.onDelta, images: o.images });
+        },
       },
       { // 隔离执行（cron/heartbeat/channel）
         match: o => o.ephemeral,

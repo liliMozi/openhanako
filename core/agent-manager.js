@@ -560,16 +560,12 @@ export class AgentManager {
     } catch { return []; }
   }
 
-  /** 构造 per-agent getOwnerIds 闭包：从 agent 自身的 config.bridge 读取 */
+  /** 构造 per-agent getOwnerIds 闭包：从 global preferences.bridge.owner 读取 */
   _makeOwnerIdsFn(ag) {
     return () => {
-      const bridgeCfg = ag.config?.bridge || {};
-      const ids = {};
-      for (const [plat, cfg] of Object.entries(bridgeCfg)) {
-        if (plat === 'readOnly') continue;
-        if (typeof cfg === 'object' && cfg?.owner) ids[plat] = cfg.owner;
-      }
-      return ids;
+      const prefs = this._d.getPrefs().getPreferences();
+      const owner = prefs.bridge?.owner || {};
+      return { ...owner };
     };
   }
 

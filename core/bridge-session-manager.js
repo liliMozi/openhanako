@@ -142,7 +142,8 @@ export class BridgeSessionManager {
         tempResourceLoader.getSkills = () => ({ skills: [], diagnostics: [] });
 
         // 使用 agent 配置的模型，而非 defaultModel
-        const chatModelId = agent.config?.models?.chat;
+        const chatRef = agent.config?.models?.chat;
+        const chatModelId = typeof chatRef === "object" ? chatRef?.id : chatRef;
         if (!chatModelId) {
           throw new Error(`[bridge] agent "${agent.agentName}" 未配置 models.chat`);
         }
@@ -173,7 +174,8 @@ export class BridgeSessionManager {
           : baseCustomTools;
 
         // 使用 agent 配置的模型
-        const ownerModelId = agent.config?.models?.chat;
+        const ownerRef = agent.config?.models?.chat;
+        const ownerModelId = typeof ownerRef === "object" ? ownerRef?.id : ownerRef;
         if (!ownerModelId) {
           throw new Error(`[bridge] agent "${agent.agentName}" 未配置 models.chat`);
         }

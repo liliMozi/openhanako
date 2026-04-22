@@ -69,7 +69,8 @@ describe("KNOWN_PLATFORMS", () => {
     expect(KNOWN_PLATFORMS).toContain("feishu");
     expect(KNOWN_PLATFORMS).toContain("qq");
     expect(KNOWN_PLATFORMS).toContain("wechat");
-    expect(KNOWN_PLATFORMS.length).toBe(4);
+    expect(KNOWN_PLATFORMS).toContain("workwechat");
+    expect(KNOWN_PLATFORMS.length).toBe(5);
   });
 
   it("is consistent with SESSION_PREFIX_MAP", () => {

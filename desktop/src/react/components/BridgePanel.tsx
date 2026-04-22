@@ -39,11 +39,18 @@ export function BridgePanel() {
   const [showOverlay, setShowOverlay] = useState(false);
   const [statusData, setStatusData] = useState<StatusData>({});
 
+  // Streaming state for assistant reply
+  const [streamingContent, setStreamingContent] = useState('');
+  const [streamingMood, setStreamingMood] = useState<{ yuan: string; text: string } | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+
   const containerRef = useRef<Element | null>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentKeyRef = useRef(currentKey);
   currentKeyRef.current = currentKey;
+  const streamingContentRef = useRef(streamingContent);
+  streamingContentRef.current = streamingContent;
 
   useEffect(() => {
     containerRef.current = document.querySelector('.main-content');
@@ -87,6 +94,9 @@ export function BridgePanel() {
   const openSession = useCallback(async (sessionKey: string, displayName: string) => {
     setCurrentKey(sessionKey);
     setCurrentName(displayName);
+    setStreamingContent('');
+    setStreamingMood(null);
+    setIsStreaming(false);
     try {
       const res = await hanaFetch(`/api/bridge/sessions/${encodeURIComponent(sessionKey)}/messages`);
       const data = await res.json();
@@ -138,7 +148,7 @@ export function BridgePanel() {
     return () => window.removeEventListener('hana-bridge-open-session', handler);
   }, [platform, loadPlatformData, openSession]);
 
-  // 注册 WS 回调
+  // 注册 WS 回调 + streaming 事件监听
   useEffect(() => {
     window.__hanaBridgeLoadStatus = loadStatus;
     window.__hanaBridgeOnMessage = (msg) => {
@@ -154,6 +164,12 @@ export function BridgePanel() {
       if (msg.sessionKey === currentKeyRef.current) {
         const role = msg.direction === 'out' ? 'assistant' : 'user';
         setMessages(prev => [...prev, { role, content: msg.text }]);
+        // 完成消息到达，清除 streaming 状态
+        if (msg.direction === 'out') {
+          setStreamingContent('');
+          setStreamingMood(null);
+          setIsStreaming(false);
+        }
         // 自动滚到底
         setTimeout(() => {
           const el = messagesRef.current;
@@ -164,10 +180,52 @@ export function BridgePanel() {
         }, 0);
       }
     };
+
+    // Bridge streaming events from hana-bridge-stream
+    const streamHandler = (e: Event) => {
+      if (activePanel !== 'bridge') return;
+      const detail = (e as CustomEvent).detail;
+      if (!detail?.sessionKey || detail.sessionKey !== currentKeyRef.current) return;
+
+      switch (detail.type) {
+        case 'text_delta':
+          setIsStreaming(true);
+          setStreamingContent(prev => prev + (detail.delta || ''));
+          break;
+        case 'thinking_start':
+          setIsStreaming(true);
+          break;
+        case 'thinking_delta':
+          break; // thinking not shown in bridge panel
+        case 'thinking_end':
+          break;
+        case 'mood_start':
+          setStreamingMood({ yuan: '', text: '' });
+          break;
+        case 'mood_text':
+          setStreamingMood(prev => prev ? { ...prev, text: prev.text + (detail.delta || '') } : null);
+          break;
+        case 'mood_end':
+          setStreamingMood(prev => prev ? { ...prev, yuan: prev.yuan || 'hanako' } : null);
+          break;
+      }
+
+      // 自动滚到底
+      setTimeout(() => {
+        const el = messagesRef.current;
+        if (el) {
+          const wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+          if (wasAtBottom) el.scrollTop = el.scrollHeight;
+        }
+      }, 0);
+    };
+    window.addEventListener('hana-bridge-stream', streamHandler);
+
     return () => {
       delete window.__hanaBridgeLoadStatus;
       delete window.__hanaBridgeOnMessage;
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      window.removeEventListener('hana-bridge-stream', streamHandler);
     };
   }, [activePanel, platform, loadStatus, loadPlatformData]);
 
@@ -300,10 +358,13 @@ export function BridgePanel() {
                   </button>
                 </div>
                 <div className="bridge-chat-messages" ref={messagesRef} id="bridgeChatMessages">
-                  {messages.length === 0 ? (
+                  {messages.length === 0 && !isStreaming ? (
                     <div className="bridge-chat-no-msg">{t('bridge.noMessages') || '暂无消息'}</div>
                   ) : (
-                    messages.map((m, i) => <ChatBubble key={i} message={m} />)
+                    <>
+                      {messages.map((m, i) => <ChatBubble key={i} message={m} />)}
+                      {isStreaming && <StreamingBubble content={streamingContent} mood={streamingMood} />}
+                    </>
                   )}
                 </div>
               </>
@@ -355,6 +416,24 @@ function ContactAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string }
   );
 }
 
+function StreamingBubble({ content, mood }: { content: string; mood: { yuan: string; text: string } | null }) {
+  let cleaned = content.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
+  // Strip complete mood/pulse/reflect tags (already rendered via MoodWidget)
+  cleaned = cleaned.replace(/<(mood|pulse|reflect)>[\s\S]*?<\/\1>\s*/gi, '');
+  // Strip partial open tags that haven't closed yet during streaming
+  cleaned = cleaned.replace(/<(mood|pulse|reflect)>[\s\S]*$/gi, '');
+  // Strip orphan close tags
+  cleaned = cleaned.replace(/<\/(mood|pulse|reflect)>\s*/gi, '');
+  return (
+    <div className="bridge-bubble-row bridge-bubble-in">
+      {mood?.text && (
+        <MoodWidget yuan={mood.yuan || 'hanako'} text={mood.text} />
+      )}
+      <div className="bridge-bubble bridge-bubble-streaming" dangerouslySetInnerHTML={{ __html: renderMarkdown(cleaned || '\u00a0') }} />
+    </div>
+  );
+}
+
 function MoodWidget({ yuan, text }: { yuan: string; text: string }) {
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen(v => !v), []);
@@ -372,7 +451,12 @@ function MoodWidget({ yuan, text }: { yuan: string; text: string }) {
 function ChatBubble({ message: m }: { message: BridgeMessage }) {
   if (m.role === 'assistant') {
     const { mood, yuan, text } = parseMoodFromContent(m.content);
-    const cleaned = text.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
+    let cleaned = text.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
+    // 安全网：如果 parseMoodFromContent 没完全清理，再剥一次
+    cleaned = cleaned.replace(/<(mood|pulse|reflect)>[\s\S]*?<\/\1>\s*/gi, '');
+    if (!mood || !yuan) {
+      console.warn('[bridge] mood parse failed', { content: m.content.slice(0, 200) });
+    }
     return (
       <div className="bridge-bubble-row bridge-bubble-in">
         {mood && yuan && <MoodWidget yuan={yuan} text={mood} />}
@@ -380,13 +464,10 @@ function ChatBubble({ message: m }: { message: BridgeMessage }) {
       </div>
     );
   }
-  // user: 去掉 [platform 私聊] xxx: 前缀
-  let displayText = m.content;
-  const prefixMatch = displayText.match(/^\[.+?\]\s*.+?:\s*/);
-  if (prefixMatch) displayText = displayText.slice(prefixMatch[0].length);
+  // user: 直接显示原始内容
   return (
     <div className="bridge-bubble-row bridge-bubble-out">
-      <div className="bridge-bubble">{displayText}</div>
+      <div className="bridge-bubble">{m.content}</div>
     </div>
   );
 }

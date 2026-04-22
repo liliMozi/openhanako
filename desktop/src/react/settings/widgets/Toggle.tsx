@@ -7,11 +7,12 @@ interface ToggleProps {
   on: boolean;
   onChange: (on: boolean) => void;
   label?: string;
+  className?: string;
 }
 
-export function Toggle({ on, onChange, label }: ToggleProps) {
+export function Toggle({ on, onChange, label, className }: ToggleProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div className={`hana-toggle-row${className ? ` ${className}` : ''}`}>
       <button
         className={`hana-toggle${on ? ' on' : ''}`}
         type="button"

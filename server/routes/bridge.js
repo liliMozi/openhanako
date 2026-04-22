@@ -10,7 +10,7 @@ import { Hono } from "hono";
 import { safeJson } from "../hono-helpers.js";
 import { getWechatQrcode, pollWechatQrcodeStatus } from "../../lib/bridge/wechat-login.js";
 import { debugLog } from "../../lib/debug-log.js";
-import { parseSessionKey, collectKnownUsers, KNOWN_PLATFORMS } from "../../lib/bridge/session-key.js";
+import { parseSessionKey, collectKnownUsers, KNOWN_PLATFORMS, getBasePlatform } from "../../lib/bridge/session-key.js";
 import { t } from "../i18n.js";
 import { resolveAgent, resolveAgentStrict } from "../utils/resolve-agent.js";
 
@@ -20,19 +20,31 @@ import WebSocket from "ws";
 export function createBridgeRoute(engine, bridgeManager) {
   const route = new Hono();
 
-  /** 获取所有平台连接状态（从 agent.config.bridge 读取） */
+  /** 获取所有平台连接状态（从 preferences.bridge 读取） */
   route.get("/bridge/status", async (c) => {
     const agent = resolveAgent(engine, c);
-    const live = bridgeManager.getStatus(agent.id);
-    const bridge = agent.config?.bridge || {};
+    const prefs = engine.getPreferences();
+    const bridge = prefs.bridge || {};
+    const live = bridgeManager.getStatus();
+
+    // 将 instance 级状态映射到 platform 级（取最佳实例）
+    const platformLive = {};
+    for (const [instanceId, entry] of Object.entries(live)) {
+      const base = getBasePlatform(instanceId);
+      const cur = platformLive[base];
+      if (!cur || (cur.status !== "connected" && entry.status === "connected") ||
+          (cur.status === "error" && entry.status === "connected")) {
+        platformLive[base] = entry;
+      }
+    }
 
     const platformStatus = (plat, cfg, extraFields) => {
+      const liveEntry = platformLive[plat] || {};
       return {
         ...extraFields,
         enabled: !!cfg?.enabled,
-        status: live[plat]?.status || "disconnected",
-        error: live[plat]?.error || null,
-        agentId: agent.id,
+        status: liveEntry.status || "disconnected",
+        error: liveEntry.error || null,
       };
     };
 
@@ -40,12 +52,8 @@ export function createBridgeRoute(engine, bridgeManager) {
     const fsAppId = bridge.feishu?.appId || "";
     const fsAppSecret = bridge.feishu?.appSecret || "";
 
-    // Build per-platform owner dict from agent config
-    const ownerDict = {};
-    for (const plat of KNOWN_PLATFORMS) {
-      const o = bridge[plat]?.owner;
-      if (o) ownerDict[plat] = o;
-    }
+    // Build per-platform owner dict from preferences.bridge.owner
+    const ownerDict = bridge.owner || {};
 
     return c.json({
       telegram: platformStatus("telegram", bridge.telegram, {
@@ -71,10 +79,11 @@ export function createBridgeRoute(engine, bridgeManager) {
       readOnly: !!bridge.readOnly,
       knownUsers: collectKnownUsers(engine.getBridgeIndex(agent.id)),
       owner: ownerDict,
+      instances: live,
     });
   });
 
-  /** 设置 owner（哪个账号是你）— 写入 agent.config.bridge */
+  /** 设置 owner（哪个账号是你）— 写入 preferences.bridge.owner */
   route.post("/bridge/owner", async (c) => {
     const body = await safeJson(c);
     const { platform, userId } = body;
@@ -82,48 +91,66 @@ export function createBridgeRoute(engine, bridgeManager) {
       return c.json({ ok: false, error: "invalid platform" });
     }
     const agent = resolveAgentStrict(engine, c);
-    agent.updateConfig({ bridge: { [platform]: { owner: userId || null } } });
+    const prefs = engine.getPreferences();
+    const bridge = prefs.bridge || {};
+    const owner = bridge.owner || {};
+    owner[platform] = userId || null;
+    bridge.owner = owner;
+    prefs.bridge = bridge;
+    engine.savePreferences(prefs);
     debugLog()?.log("api", `POST /api/bridge/owner agent=${agent.id} platform=${platform} owner=${userId ? "[set]" : "[cleared]"}`);
     return c.json({ ok: true });
   });
 
-  /** 保存凭证 + 启停平台（写入 agent.config.bridge） */
+  /** 保存凭证 + 启停平台（写入 preferences.bridge） */
   route.post("/bridge/config", async (c) => {
     const body = await safeJson(c);
-    const { platform, credentials, enabled } = body;
+    const { platform, credentials, enabled, userMap, label, role } = body;
     if (!platform || !KNOWN_PLATFORMS.includes(platform)) {
       return c.json({ error: "invalid platform" }, 400);
     }
 
-    const agent = resolveAgentStrict(engine, c);
-    const agentId = agent.id;
+    const agent = resolveAgent(engine, c);
 
-    const bridgeCfg = agent.config?.bridge?.[platform] || {};
+    const prefs = engine.getPreferences();
+    const bridge = prefs.bridge || {};
+    const bridgeCfg = bridge[platform] || {};
     const patch = { ...bridgeCfg };
 
     if (credentials) Object.assign(patch, credentials);
     if (typeof enabled === "boolean") patch.enabled = enabled;
+    if (userMap && typeof userMap === "object") patch.userMap = userMap;
+    if (typeof label === "string") patch.label = label;
+    if (typeof role === "string") patch.role = role;
 
-    agent.updateConfig({ bridge: { [platform]: patch } });
+    bridge[platform] = patch;
+    prefs.bridge = bridge;
+    engine.savePreferences(prefs);
 
-    // Start/stop
-    if (patch.enabled) {
-      bridgeManager.startPlatformFromConfig(platform, patch, agentId);
-    } else {
-      bridgeManager.stopPlatform(platform, agentId);
+    // Start/stop only if enabled was explicitly provided
+    if (typeof enabled === "boolean") {
+      if (patch.enabled) {
+        bridgeManager.startPlatformFromConfig(platform, patch);
+      } else {
+        bridgeManager.stopPlatform(platform);
+      }
     }
 
-    debugLog()?.log("api", `POST /api/bridge/config agent=${agentId} platform=${platform} enabled=${!!patch.enabled}`);
+    debugLog()?.log("api", `POST /api/bridge/config agent=${agent.id} platform=${platform} enabled=${!!patch.enabled}`);
     return c.json({ ok: true });
   });
 
-  /** 更新 bridge 设置（readOnly 等）— per-agent */
+  /** 更新 bridge 设置（readOnly 等）— 全局 */
   route.post("/bridge/settings", async (c) => {
     const body = await safeJson(c);
     const { readOnly } = body;
     const agent = resolveAgentStrict(engine, c);
+    const prefs = engine.getPreferences();
     if (typeof readOnly === "boolean") {
-      agent.updateConfig({ bridge: { readOnly } });
+      const bridge = prefs.bridge || {};
+      bridge.readOnly = readOnly;
+      prefs.bridge = bridge;
+      engine.savePreferences(prefs);
     }
     debugLog()?.log("api", `POST /api/bridge/settings agent=${agent.id} readOnly=${readOnly}`);
     return c.json({ ok: true });
@@ -138,8 +165,12 @@ export function createBridgeRoute(engine, bridgeManager) {
     }
 
     const agent = resolveAgentStrict(engine, c);
-    bridgeManager.stopPlatform(platform, agent.id);
-    agent.updateConfig({ bridge: { [platform]: { enabled: false } } });
+    bridgeManager.stopPlatform(platform);
+    const prefs = engine.getPreferences();
+    const bridge = prefs.bridge || {};
+    if (bridge[platform]) bridge[platform].enabled = false;
+    prefs.bridge = bridge;
+    engine.savePreferences(prefs);
 
     debugLog()?.log("api", `POST /api/bridge/stop agent=${agent.id} platform=${platform}`);
     return c.json({ ok: true });
@@ -158,16 +189,13 @@ export function createBridgeRoute(engine, bridgeManager) {
     const sessions = [];
     const seenKeys = new Set();
     const agents = engine.listAgents();
+    const prefs = engine.getPreferences();
+    const bridge = prefs.bridge || {};
+    const ownerDict = bridge.owner || {};
 
     for (const ag of agents) {
       const index = engine.getBridgeIndex(ag.id);
       const bridgeDir = path.join(ag.sessionDir, "bridge");
-      const agentBridge = ag.config?.bridge || {};
-      const owner = {};
-      for (const plat of KNOWN_PLATFORMS) {
-        const o = agentBridge[plat]?.owner;
-        if (o) owner[plat] = o;
-      }
 
       for (const [sessionKey, raw] of Object.entries(index)) {
         if (seenKeys.has(sessionKey)) continue;
@@ -187,12 +215,17 @@ export function createBridgeRoute(engine, bridgeManager) {
           lastActive = stat.mtimeMs;
         } catch {}
 
-        const ownerUserId = owner[plat] || null;
+        const ownerUserId = ownerDict[plat] || null;
         const isOwner = !!(entry.userId && ownerUserId && entry.userId === ownerUserId);
+
+        // userMap 昵称映射：用 preferences.bridge 里的昵称替换 displayName
+        const userMap = bridge[plat]?.userMap || {};
+        const mappedName = chatId && userMap[chatId];
+        const displayName = mappedName || entry.name || null;
 
         sessions.push({
           sessionKey, platform: plat, chatType, chatId, file, lastActive,
-          displayName: entry.name || null,
+          displayName,
           avatarUrl: entry.avatarUrl || null,
           isOwner,
         });
@@ -211,15 +244,17 @@ export function createBridgeRoute(engine, bridgeManager) {
     let file = null;
     let bridgeDir = null;
     let agentPlatform = null;
+    let sessionAgent = null;
     const agents = engine.listAgents();
+    const prefs = engine.getPreferences();
     for (const ag of agents) {
-      const agBridgeDir = path.join(ag.sessionDir, "bridge");
+      const agBridgeDir = path.join(engine.agentsDir, ag.id, "sessions", "bridge");
       const indexPath = path.join(agBridgeDir, "bridge-sessions.json");
       try {
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         const raw = index[sessionKey];
         const f = typeof raw === "string" ? raw : raw?.file;
-        if (f) { file = f; bridgeDir = agBridgeDir; agentPlatform = parseSessionKey(sessionKey).platform; break; }
+        if (f) { file = f; bridgeDir = agBridgeDir; agentPlatform = parseSessionKey(sessionKey).platform; sessionAgent = ag; break; }
       } catch { continue; }
     }
 
@@ -258,11 +293,23 @@ export function createBridgeRoute(engine, bridgeManager) {
         const hasMedia = mediaCount > 0;
         if (!textContent && !hasMedia) continue;
 
+        // Strip redundant prefixes from user messages (accumulated from
+        // bridge-manager timeTag, guest-handler "[来自...]", senderName prefix)
+        if (msg.role === "user") {
+          let prev = "";
+          while (textContent !== prev) {
+            prev = textContent;
+            textContent = textContent
+              .replace(/^\[\d{2}-\d{2} \d{2}:\d{2}\]\s*/, "")       // [04-21 16:59]
+              .replace(/^\[来自 [^\]]+\]\s*/, "")                    // [来自 blankguan]
+              .replace(/^\[[^\]]+\]\s*/, "");                        // [any tag]
+          }
+        }
+
         // 从 JSONL 的 userId 字段 + userMap 提取 senderName
         let senderName = null;
         const msgUserId = msg.userId || null;
         if (msgUserId) {
-          const prefs = engine.getPreferences();
           const userMap = prefs.bridge?.[agentPlatform]?.userMap || {};
           senderName = userMap[msgUserId] || null;
         }

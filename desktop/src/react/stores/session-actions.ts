@@ -18,7 +18,35 @@ import { loadModels } from '../utils/ui-helpers';
 import { updateKeyed } from './create-keyed-slice';
 import { snapshotStreamBuffer, type StreamBufferSnapshot } from './stream-invalidator';
 import { renderMarkdown } from '../utils/markdown';
+import { parseMoodFromContent } from '../utils/message-parser';
 import type { ChatMessage, ContentBlock } from './chat-types';
+
+/** 将 bridge API 返回的消息格式转换为 ChatListItem[] */
+function buildBridgeItems(messages: Array<{
+  role: string; content: string; hasMedia?: boolean; mediaCount?: number;
+  ts?: number | string | null; senderName?: string | null; userId?: string | null;
+}>): import('./chat-types').ChatListItem[] {
+  const items: import('./chat-types').ChatListItem[] = [];
+  for (const m of messages) {
+    const id = `bridge-${m.ts ?? Date.now()}-${items.length}`;
+    if (m.role === 'user') {
+      // 群聊消息 content 里已经有 senderName: 前缀（bridge-manager.js 写入），单聊没有
+      // 不再额外加 [senderName] 避免重复
+      items.push({ type: 'message', data: { id, role: 'user', text: m.content || '', textHtml: renderMarkdown(m.content || '') } });
+    } else if (m.role === 'assistant') {
+      const raw = m.content || '';
+      const cleaned = raw.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
+      const { mood, yuan, text } = parseMoodFromContent(cleaned);
+      const blocks: ContentBlock[] = [];
+      if (mood && yuan) {
+        blocks.push({ type: 'mood', yuan, text: mood });
+      }
+      blocks.push({ type: 'text', html: renderMarkdown(text) });
+      items.push({ type: 'message', data: { id, role: 'assistant', blocks } });
+    }
+  }
+  return items;
+}
 
 // ── 防竞争计数器 ──
 
@@ -31,17 +59,35 @@ let _switchVersion = 0;
 export async function loadMessages(forPath?: string): Promise<void> {
   const targetPath = forPath || useStore.getState().currentSessionPath;
   if (!targetPath) return;
-  // 捕获 hydrate 前的 live 版本：若 fetch 期间有 tool_end 更新 todos，
-  // 后面就跳过 hydrate 写入，避免旧快照覆盖刚收到的实时状态。
   const liveVersionBefore =
     useStore.getState().todosLiveVersionBySession[targetPath] ?? 0;
-  // messages 维度的竞态护栏：rapid switch 或并发 load 时，只有最新一次调用
-  // 的响应允许 apply initSession，stale 响应直接丢弃。
   const myVersion = useStore.getState().bumpLoadMessagesVersion(targetPath);
+
+  // Bridge session：走 bridge API
+  if (targetPath.startsWith('bridge:')) {
+    const sessionKey = targetPath.slice('bridge:'.length);
+    try {
+      const res = await hanaFetch(`/api/bridge/sessions/${encodeURIComponent(sessionKey)}/messages`);
+      const data = await res.json();
+      const latestVersion = useStore.getState()._loadMessagesVersion[targetPath] ?? 0;
+      if (latestVersion !== myVersion) return;
+
+      if (data.messages && data.messages.length > 0) {
+        const items = buildBridgeItems(data.messages);
+        useStore.getState().initSession(targetPath, items, false);
+        if (targetPath === useStore.getState().currentSessionPath) {
+          useStore.setState({ welcomeVisible: false });
+        }
+      } else {
+        useStore.getState().initSession(targetPath, [], false);
+      }
+    } catch (err) { console.error('[loadMessages] bridge error:', err); }
+    return;
+  }
+
   try {
     const res = await hanaFetch(`/api/sessions/messages?path=${encodeURIComponent(targetPath)}`);
     const data = await res.json();
-    // per-session todos（防御性兼容层：即使后端漏转或缓存残留，这里兜底再转一次）
     const rawTodos = data.todos || [];
     const migratedTodos = migrateLegacyTodos({ todos: rawTodos });
     const liveVersionNow =
@@ -57,7 +103,6 @@ export async function loadMessages(forPath?: string): Promise<void> {
     const latestVersion =
       useStore.getState()._loadMessagesVersion[targetPath] ?? 0;
     if (latestVersion !== myVersion) {
-      // 已经有更新的 loadMessages 在途，stale 响应不应覆盖新状态
       return;
     }
     const items = buildItemsFromHistory(data);
@@ -69,10 +114,6 @@ export async function loadMessages(forPath?: string): Promise<void> {
     } else {
       useStore.getState().initSession(targetPath, [], false);
     }
-    // In-flight guard: jsonl 仅在 turn_end 落盘。若 session 在 stream 进行中
-    // 被 reload（switchSession 冷启动 / stream-resume truncated），合并 buffer
-    // 当前快照作为末尾 assistant，避免 UI 上"正在写的消息消失"。
-    // 同步执行，不 await，保证中途不会有 text_delta 事件插入。
     const snapshot = snapshotStreamBuffer(targetPath);
     if (snapshot?.hasContent) {
       useStore.getState().appendItem(targetPath, {
@@ -151,6 +192,25 @@ export async function loadSessions(): Promise<void> {
 export async function switchSession(path: string): Promise<void> {
   const s = useStore.getState();
   if (path === s.currentSessionPath) return;
+
+  // Bridge session：不走普通切换，直接设置状态 + 加载消息
+  if (path.startsWith('bridge:')) {
+    const sessionKey = path.slice('bridge:'.length);
+    const bridgeEntry = s.sessions.find(se => se.path === path);
+    useStore.setState({
+      currentSessionPath: path,
+      pendingNewSession: false,
+      selectedFolder: null,
+      selectedAgentId: null,
+      welcomeVisible: false,
+      activePanel: null,
+    });
+    const hasData = !!useStore.getState().chatSessions?.[path];
+    if (!hasData) {
+      await loadMessages(path);
+    }
+    return;
+  }
 
   // 关闭浮动面板
   const activePanel = useStore.getState().activePanel;

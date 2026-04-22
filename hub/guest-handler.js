@@ -28,8 +28,9 @@ export class GuestHandler {
     const userId = meta?.userId || null;
     const isGroup = opts.isGroup || false;
 
-    // A: 消息前缀 — 标注发送者身份
-    const prefixed = `[来自 ${senderName}] ${text}`;
+    // A: 不再加 [来自 ${senderName}] 前缀 — 该前缀会导致 JSONL 中前缀冗余，
+    //     且 LLM 已通过 contextTag 知道对话来源；群聊中 bridge-manager 会加 senderName: 前缀。
+    const prefixed = text;
 
     // B: 上下文标签（注入到 system prompt 末尾）
     const contextTag = isGroup
