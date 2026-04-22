@@ -4,6 +4,18 @@ import { createSessionOps } from "./session-ops.js";
 import { bridgeCommands } from "./bridge-commands.js";
 import { RcStateStore } from "./rc-state.js";
 
+// 注：此前这里曾有 exposeSkillsAsCommands 把 agent 的 runtime skills 暴露成
+// /<skillName> 斜杠命令。但实际链路是：
+//   - 桌面端：前端 InputArea 通过 useSkillSlashItems hook 拿 skill 列表，
+//     走 editor SkillBadge 插入，**不经过 slash registry / dispatcher**
+//   - bridge 端：dispatcher 能匹配到 /<skillName>，但 handler 返回 silent 占位
+//     不做任何 prompt 注入——对用户表现为"斜杠被吞掉无反应"
+// 因此 registry 里的 skill 条目对桌面是噪声、对 bridge 是糟糕 UX。
+// 按用户决策删除，让 bridge 的 /diary /xing 等走"未知斜杠"路径：
+// dispatcher handled=false → 消息进 _flushPending → LLM 正常处理 "/diary" 文本。
+// 真要给 bridge 做 skill 执行时再专门写一条 "bridge 调 skill" 的路径，
+// 不在 registry 里留 silent 空壳。
+
 export function createSlashSystem({ engine, hub }) {
   const registry = new SlashCommandRegistry();
   const sessionOps = createSessionOps({ engine });
@@ -12,47 +24,4 @@ export function createSlashSystem({ engine, hub }) {
   const dispatcher = new SlashCommandDispatcher({ registry, engine, hub, sessionOps });
   for (const def of bridgeCommands) registry.registerCommand(def);
   return { registry, dispatcher, sessionOps, rcState };
-}
-
-/**
- * 把 agent 的 runtime skills 映射为 slash 命令注册进 registry。
- * 幂等：同一 agentId 再次调用会先 unregister 旧的再注册新的，保证 skill 增/减同步到菜单。
- *
- * 一期语义：
- *   - desktop 场景：handler 通过 engine.promptSession 注入一段"调用 skill：<name>\n<args>"的 prompt
- *   - bridge 场景：handler 返回 silent 占位；实际 prompt 注入需要 bridge-manager 额外支持 __injectAsPrompt，
- *     留 Phase 5+ 接入。bridge 用户当前打 /<skillName> 会被静默拒绝——不是理想 UX 但不伤系统
- *
- * @param {{ registry: SlashCommandRegistry, engine: object, agentId: string }} opts
- */
-export function exposeSkillsAsCommands({ registry, engine, agentId }) {
-  if (!agentId) return;
-  registry.unregisterBySource("skill", agentId);
-  const list = (engine.getRuntimeSkills?.(agentId)) || [];
-  for (const skill of list) {
-    if (!skill || !skill.name) continue;
-    if (skill.hidden || skill.enabled === false) continue;
-    const skillName = skill.name;
-    registry.registerCommand(
-      {
-        name: skillName,
-        description: skill.description || `Run skill: ${skillName}`,
-        scope: "session",
-        permission: "owner",
-        handler: async (ctx) => {
-          const injectedPrompt = `调用 skill：${skillName}${ctx.args ? "\n" + ctx.args : ""}`;
-          if (ctx.sessionRef.kind === "desktop" && typeof engine.promptSession === "function") {
-            engine.promptSession(ctx.sessionRef.sessionPath, injectedPrompt);
-            return { silent: true };
-          }
-          // bridge kind 或无 promptSession：一期占位，不做跨平台注入
-          // TODO(phase 5+)：__injectAsPrompt 字段当前无 consumer；bridge-manager 需要新增逻辑消费——
-          //   handled=true 且带 __injectAsPrompt 时，把它当 prompt 喂进当前 bridge session
-          //   现阶段 bridge 用户打 /<skillName> 被静默吞掉（不伤系统，但 UX 不完美）
-          return { silent: true, __injectAsPrompt: injectedPrompt };
-        },
-      },
-      { source: "skill", sourceId: agentId },
-    );
-  }
 }

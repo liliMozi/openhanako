@@ -338,23 +338,30 @@ describe("BridgeManager._handleMessage", () => {
       expect(hub.send).not.toHaveBeenCalled();
     });
 
-    it("non-owner /stop is silently rejected by dispatcher (owner-only command)", async () => {
-      const { bm, engine, hub } = createMocks();
+    it("non-owner /slash-like text flows to LLM as plain text (Phase 2-F: guest slash not eaten by dispatcher)", async () => {
+      // 新 spec：guest 发的 /stop 不再被 dispatcher 静默吞掉——直接当文本进 LLM，
+      // agent 可以正常回应。这样群里的其他人发 /xxx 不会像消息消失一样。
+      const { bm, engine, hub, adapter } = createMocks();
       engine.isBridgeSessionStreaming.mockReturnValue(false);
 
       await bm._handleMessage("telegram", {
         sessionKey: "tg_dm_stranger@hana",
         text: "/stop",
         senderName: "Stranger",
-        userId: "stranger",
+        userId: "stranger",  // 非 owner（config.bridge.telegram.owner === "owner123"）
         chatId: "stranger",
         agentId: "hana",
       });
 
-      // 新 spec discipline：owner-only 命令从 non-owner 收到时静默丢弃（不 abort、不进 LLM、不 reply）
+      // abort 不应被调用（不是真正的斜杠命令路径）
       expect(engine.abortBridgeSession).not.toHaveBeenCalled();
+      // 2s debounce 后，消息进 LLM
       await vi.advanceTimersByTimeAsync(2100);
-      expect(hub.send).not.toHaveBeenCalled();
+      expect(hub.send).toHaveBeenCalledOnce();
+      // hub.send 的 text 参数包含 "/stop" 原文（会带 timeTag 前缀和 sender prefix）
+      expect(hub.send.mock.calls[0][0]).toContain("/stop");
+      // agent 的回复送回 adapter
+      await vi.waitFor(() => expect(adapter.sendReply).toHaveBeenCalled());
     });
   });
 
