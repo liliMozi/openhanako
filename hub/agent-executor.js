@@ -14,6 +14,7 @@ import { debugLog } from "../lib/debug-log.js";
 import { t } from "../server/i18n.js";
 import { createDefaultSettings } from "../core/session-defaults.js";
 import { READ_ONLY_BUILTIN_TOOLS } from "../core/config-coordinator.js";
+import { teardownSessionResources } from "../core/session-teardown.js";
 
 /**
  * 以指定 agentId 的身份跑一次临时会话。
@@ -114,7 +115,12 @@ export async function runAgentSession(agentId, rounds, { engine, signal, session
     }
   } finally {
     if (signal && onAbort) signal.removeEventListener("abort", onAbort);
-    unsub?.();
+    await teardownSessionResources({
+      session,
+      unsub,
+      label: `hub.runAgentSession[${agentId}]`,
+      warn: (msg) => debugLog()?.warn("agent-executor", msg),
+    });
   }
 
   // 6. 清理临时 session 文件（keepSession=true 时保留，供 DM 等场景存档）

@@ -28,10 +28,13 @@ function makeMockPrefs(initial = {}) {
 
 function makeMockEngine(overrides = {}) {
   const prefs = makeMockPrefs(overrides.prefsData || {});
+  const focusAgentId = overrides.currentAgentId || "focus";
   return {
     preferences: prefs,
     _prefs: prefs,
+    currentAgentId: focusAgentId,
     agent: overrides.agent !== undefined ? overrides.agent : {
+      id: overrides.agentId || "agent-test",
       memoryMasterEnabled: true,
       agentName: "TestAgent",
       userName: "TestUser",
@@ -39,7 +42,12 @@ function makeMockEngine(overrides = {}) {
       updateConfig: vi.fn(),
     },
     availableModels: overrides.availableModels || [],
-    getHomeFolder: () => overrides.homeFolder || "/home/test",
+    getAgent: vi.fn((agentId) => {
+      if (overrides.getAgent) return overrides.getAgent(agentId);
+      if (agentId === focusAgentId) return { id: focusAgentId };
+      return null;
+    }),
+    getHomeFolder: vi.fn(() => overrides.homeFolder || "/home/test"),
     setHomeFolder: vi.fn(),
     setSandbox: vi.fn(function (v) { prefs.setSandbox(v); }),
     setFileBackup: vi.fn(function (v) { prefs.setFileBackup(v); }),
@@ -58,6 +66,22 @@ function makeMockConfirmStore(action = "confirmed", value = undefined) {
       confirmId: "test-confirm-id",
       promise: Promise.resolve({ action, value }),
     })),
+  };
+}
+
+function makeDeferredConfirmStore() {
+  let resolve;
+  const promise = new Promise((res) => { resolve = res; });
+  return {
+    store: {
+      create: vi.fn(() => ({
+        confirmId: "test-confirm-id",
+        promise,
+      })),
+    },
+    resolve(result) {
+      resolve(result);
+    },
   };
 }
 
@@ -126,6 +150,8 @@ describe("update-settings-tool", () => {
   describe("models.chat — 复合键写路径", () => {
     it("apply models.chat 使用 provider/id 调 engine.setDefaultModel", async () => {
       const { tool, engine } = buildTool({
+        agentId: "owner",
+        getAgent: (agentId) => (agentId === "owner" ? { id: "owner" } : null),
         availableModels: [
           { id: "gpt-4o", provider: "openai", name: "GPT-4o" },
         ],
@@ -133,8 +159,80 @@ describe("update-settings-tool", () => {
 
       await tool.execute("c-model", { action: "apply", key: "models.chat", value: "openai/gpt-4o" });
 
-      expect(engine.setDefaultModel).toHaveBeenCalledWith("gpt-4o", "openai");
+      expect(engine.setDefaultModel).toHaveBeenCalledWith("gpt-4o", "openai", { agentId: "owner" });
       expect(engine.agent.updateConfig).not.toHaveBeenCalled();
+    });
+
+    it("确认期间切焦点后，models.chat 仍写回工具所属 agent", async () => {
+      const deferred = makeDeferredConfirmStore();
+      const ownerAgent = {
+        id: "owner",
+        memoryMasterEnabled: true,
+        agentName: "Owner",
+        userName: "User",
+        config: { models: { chat: "openai/gpt-4o" } },
+        updateConfig: vi.fn(),
+      };
+      const engine = makeMockEngine({
+        agent: ownerAgent,
+        currentAgentId: "focus",
+        getAgent: (agentId) => (agentId === "owner" ? ownerAgent : { id: agentId }),
+        availableModels: [{ id: "gpt-4o", provider: "openai", name: "GPT-4o" }],
+      });
+      const tool = createUpdateSettingsTool({
+        getEngine: () => engine,
+        getAgent: () => ownerAgent,
+        getConfirmStore: () => deferred.store,
+        getSessionPath: () => "/sessions/test",
+        emitEvent: vi.fn(),
+      });
+
+      const run = tool.execute("c-model-switch", { action: "apply", key: "models.chat", value: "openai/gpt-4o" });
+      engine.currentAgentId = "other";
+      deferred.resolve({ action: "confirmed" });
+      await run;
+
+      expect(engine.setDefaultModel).toHaveBeenCalledWith("gpt-4o", "openai", { agentId: "owner" });
+    });
+  });
+
+  describe("agent-scoped routing", () => {
+    it("home_folder apply 使用工具所属 agent，而不是当前 focus agent", async () => {
+      const deferred = makeDeferredConfirmStore();
+      const ownerAgent = {
+        id: "owner",
+        memoryMasterEnabled: true,
+        agentName: "Owner",
+        userName: "User",
+        config: { models: { chat: "openai/gpt-4o" } },
+        updateConfig: vi.fn(),
+      };
+      const engine = makeMockEngine({
+        agent: ownerAgent,
+        currentAgentId: "focus",
+        getAgent: (agentId) => (agentId === "owner" ? ownerAgent : { id: agentId }),
+      });
+      const tool = createUpdateSettingsTool({
+        getEngine: () => engine,
+        getAgent: () => ownerAgent,
+        getConfirmStore: () => deferred.store,
+        getSessionPath: () => "/sessions/test",
+        emitEvent: vi.fn(),
+      });
+
+      const run = tool.execute("c-home-folder", { action: "apply", key: "home_folder", value: "/tmp/owner-home" });
+      engine.currentAgentId = "other";
+      deferred.resolve({ action: "confirmed" });
+      await run;
+
+      expect(engine.setHomeFolder).toHaveBeenCalledWith("owner", "/tmp/owner-home");
+    });
+
+    it("home_folder 在 agent=null 时返回错误", async () => {
+      const { tool } = buildTool({ agent: null });
+      const result = await tool.execute("c-home-null", { action: "apply", key: "home_folder", value: "/tmp/x" });
+      const text = result.content[0].text;
+      expect(text).not.toContain("已将");
     });
   });
 

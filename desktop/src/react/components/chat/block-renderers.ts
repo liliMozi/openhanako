@@ -6,8 +6,10 @@
  */
 import type { FC } from 'react';
 
-export const BLOCK_RENDERERS: Record<string, FC<{ block: any }>> = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
+type BlockRendererProps = { block: any; agentId?: string | null }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export function registerBlockRenderer(type: string, component: FC<{ block: any }>) { // eslint-disable-line @typescript-eslint/no-explicit-any
+export const BLOCK_RENDERERS: Record<string, FC<BlockRendererProps>> = {};
+
+export function registerBlockRenderer(type: string, component: FC<BlockRendererProps>) {
   BLOCK_RENDERERS[type] = component;
 }

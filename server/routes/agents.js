@@ -27,7 +27,11 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { safeJson } from "../hono-helpers.js";
 import { saveConfig, clearConfigCache } from "../../lib/memory/config-loader.js";
-import { rebuildIndex } from "../../lib/tools/experience.js";
+import {
+  listExperienceDocuments,
+  normalizeExperienceCategory,
+  syncExperienceCategories,
+} from "../../lib/tools/experience.js";
 import { splitByScope, injectGlobalFields } from '../../shared/config-scope.js';
 import { validateId, agentExists } from "../utils/validation.js";
 import { OPTIONAL_TOOL_NAMES } from "../../shared/tool-categories.js";
@@ -553,16 +557,12 @@ export function createAgentsRoute(engine) {
     }
     try {
       const expDir = path.join(agentDir(engine, id), "experience");
-      if (!fsSync.existsSync(expDir)) return c.json({ content: "" });
-
-      const files = (await fs.readdir(expDir)).filter((f) => f.endsWith(".md")).sort();
-      if (files.length === 0) return c.json({ content: "" });
+      const docs = listExperienceDocuments(expDir).sort((a, b) => a.title.localeCompare(b.title));
+      if (docs.length === 0) return c.json({ content: "" });
 
       const blocks = [];
-      for (const file of files) {
-        const category = file.replace(/\.md$/, "");
-        const body = await fs.readFile(path.join(expDir, file), "utf-8");
-        blocks.push(`# ${category}\n${body.trimEnd()}`);
+      for (const doc of docs) {
+        blocks.push(`# ${doc.title}\n${doc.body.trimEnd()}`);
       }
       return c.json({ content: blocks.join("\n\n") + "\n" });
     } catch (err) {
@@ -595,42 +595,21 @@ export function createAgentsRoute(engine) {
       for (const line of lines) {
         const headingMatch = line.match(/^#\s+(.+)/);
         if (headingMatch) {
-          currentCat = headingMatch[1].trim();
+          currentCat = normalizeExperienceCategory(headingMatch[1].trim());
           if (!categories.has(currentCat)) categories.set(currentCat, []);
         } else if (currentCat !== null) {
           categories.get(currentCat).push(line);
         }
       }
 
-      // 确保目录存在
-      await fs.mkdir(expDir, { recursive: true });
-
-      // 写入各分类文件
-      const newFiles = new Set();
-      for (const [cat, catLines] of categories) {
-        const catBody = catLines.join("\n").trim();
-        if (!catBody) continue;
-        const filename = `${cat}.md`;
-        newFiles.add(filename);
-        await fs.writeFile(path.join(expDir, filename), catBody + "\n", "utf-8");
-      }
-
-      // 清除不再存在的旧文件
-      try {
-        const existing = await fs.readdir(expDir);
-        for (const f of existing) {
-          if (f.endsWith(".md") && !newFiles.has(f)) {
-            await fs.unlink(path.join(expDir, f));
-          }
-        }
-      } catch {}
-
-      // 重建索引
-      rebuildIndex(expDir, indexPath);
+      syncExperienceCategories(expDir, indexPath, categories);
 
       await engine.updateConfig({}, { agentId: id });
       return c.json({ ok: true });
     } catch (err) {
+      if (err.message === "invalid experience category") {
+        return c.json({ error: err.message }, 400);
+      }
       return c.json({ error: err.message }, 500);
     }
   });

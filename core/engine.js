@@ -429,7 +429,7 @@ export class HanaEngine {
     if (!model) throw new Error(t("error.modelNotFound", { id: `${provider}/${modelId}` }));
     return this._sessionCoord.switchSessionModel(sessionPath, model);
   }
-  setDefaultModel(id, provider) { return this._configCoord.setDefaultModel(id, provider); }
+  async setDefaultModel(id, provider, opts) { return this._configCoord.setDefaultModel(id, provider, opts); }
   getThinkingLevel() { return this._configCoord.getThinkingLevel(); }
   setThinkingLevel(l) { return this._configCoord.setThinkingLevel(l); }
   getSandbox() { return this._prefs.getSandbox(); }
@@ -466,7 +466,7 @@ export class HanaEngine {
   //  Channel 代理（→ ChannelManager）
   // ════════════════════════════
 
-  deleteChannelByName(n) { return this._channels.deleteChannelByName(n); }
+  async deleteChannelByName(n) { return this._channels.deleteChannelByName(n); }
   async triggerChannelTriage(n, o) { return this._channels.triggerChannelTriage(n, o); }
 
   // ════════════════════════════
@@ -696,7 +696,7 @@ export class HanaEngine {
     for (const [id] of this._agentMgr.agents) {
       const channelsMd = path.join(this.agentsDir, id, 'channels.md');
       if (!fs.existsSync(channelsMd)) {
-        this._channels.setupChannelsForNewAgent(id);
+        await this._channels.setupChannelsForNewAgent(id);
       }
     }
 

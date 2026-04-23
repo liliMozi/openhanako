@@ -4,9 +4,8 @@
  * 聚焦 "MOOD 后中断" bug 的三条防线：
  *   1) snapshot 能反映 in-flight 内容（供 loadMessages 合并）
  *   2) invalidate 桥接能清掉 buf（数据归属方主动清）
- *   3) ensureMessage 自愈：session 被 initSession 覆盖后 last msg 变成 user
- *      时，新 text_delta 要重新 append 新 assistant，而不是卡在
- *      messageAppended=true 把正文写到 user 消息上
+ *   3) ensureMessage 自愈：session 被 initSession 覆盖后，后续 live 事件仍能
+ *      绑定回同一条 assistant message，而不是靠"最后一条消息"猜目标
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -46,6 +45,20 @@ describe('streamBufferManager.snapshot', () => {
   });
 
   it('累积 mood + text 后，snapshot 反映当前内容', () => {
+    useStore.setState({
+      sessions: [{
+        path: PATH,
+        agentId: 'owner',
+        title: null,
+        firstMessage: '',
+        modified: '',
+        messageCount: 0,
+      }],
+      agents: [{ id: 'owner', yuan: 'butter' }],
+      currentAgentId: 'focus',
+      agentYuan: 'hanako',
+    } as never);
+
     streamBufferManager.handle({ type: 'mood_start', sessionPath: PATH });
     streamBufferManager.handle({ type: 'mood_text', sessionPath: PATH, delta: 'Vibe: 好\n' });
     streamBufferManager.handle({ type: 'mood_text', sessionPath: PATH, delta: 'Will: 继续' });
@@ -53,9 +66,13 @@ describe('streamBufferManager.snapshot', () => {
     streamBufferManager.handle({ type: 'text_delta', sessionPath: PATH, delta: '正文开始' });
 
     const snap = snapshotStreamBuffer(PATH);
+    const streamed = getItems()[1];
+    expect(streamed?.type).toBe('message');
     expect(snap).not.toBeNull();
     expect(snap!.hasContent).toBe(true);
+    expect(snap!.messageId).toBe(streamed && streamed.type === 'message' ? streamed.data.id : null);
     expect(snap!.mood).toBe('Vibe: 好\nWill: 继续');
+    expect(snap!.moodYuan).toBe('butter');
     expect(snap!.text).toBe('正文开始');
     expect(snap!.inMood).toBe(false);
   });
@@ -82,23 +99,27 @@ describe('streamBufferManager.ensureMessage 自愈', () => {
     expect(lastRole()).toBe('assistant');
   });
 
-  it('initSession 覆盖同 path 让 last msg 变回 user 时，新 text_delta 自愈', () => {
-    // 首次 delta：ensureMessage append 新 assistant，buf.messageAppended=true
+  it('initSession 覆盖同 path 后，后续 tool 事件仍绑定回原 assistant 消息', () => {
     streamBufferManager.handle({ type: 'text_delta', sessionPath: PATH, delta: 'first' });
     expect(getItems().length).toBe(2);
     expect(lastRole()).toBe('assistant');
+    const firstAssistant = getItems()[1];
+    const assistantId = firstAssistant?.type === 'message' ? firstAssistant.data.id : null;
+    expect(assistantId).toBeTruthy();
 
-    // 模拟 loadMessages 的路径：initSession 覆盖同一 path（不触发 invalidate，
-    // 因为 LRU 只淘汰别的 session）。此时 buf.messageAppended 还是 true，
-    // 但 store 里 last msg 又回到 user——正是 bug 的核心场景。
+    // 模拟 loadMessages 覆盖同 path：store 里暂时只剩 user。
     useStore.getState().initSession(PATH, [userItem('u1', 'hi')], false);
     expect(getItems().length).toBe(1);
     expect(lastRole()).toBe('user');
 
-    // 下一个 delta：ensureMessage 的自愈分支应重新 append 新 assistant，
-    // 避免后续 flush 把正文 html 塞进 user 消息。
-    streamBufferManager.handle({ type: 'text_delta', sessionPath: PATH, delta: 'second' });
+    // 后续不一定还有 text_delta；tool_start 也必须能把同一条 assistant 重新接回来。
+    streamBufferManager.handle({ type: 'tool_start', sessionPath: PATH, name: 'web.search', args: { q: 'mi mo' } });
     expect(getItems().length).toBe(2);
     expect(lastRole()).toBe('assistant');
+    const last = getItems()[1];
+    expect(last.type).toBe('message');
+    if (last.type !== 'message') throw new Error('expected assistant message');
+    expect(last.data.id).toBe(assistantId);
+    expect(last.data.blocks?.some((block: { type: string }) => block.type === 'tool_group')).toBe(true);
   });
 });

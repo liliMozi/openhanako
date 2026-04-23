@@ -17,6 +17,7 @@ import {
   registerStreamBufferSnapshot,
   type StreamBufferSnapshot,
 } from '../stores/stream-invalidator';
+import { bumpMessageLiveVersion } from '../stores/message-live-version';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- 流式消息 handle(msg) 接收动态 JSON */
 
@@ -35,8 +36,8 @@ interface Buffer {
   cardDescAcc: string;
   lastFlushTime: number;
   flushTimer: ReturnType<typeof setTimeout> | null;
-  /** 当前 turn 是否已追加了空 assistant message */
-  messageAppended: boolean;
+  /** 当前 turn 绑定的 assistant message id */
+  messageId: string | null;
 }
 
 function createBuffer(sessionPath: string): Buffer {
@@ -53,8 +54,15 @@ function createBuffer(sessionPath: string): Buffer {
     cardDescAcc: '',
     lastFlushTime: 0,
     flushTimer: null,
-    messageAppended: false,
+    messageId: null,
   };
+}
+
+function resolveSessionYuan(sessionPath: string): string {
+  const state = useStore.getState();
+  const sessionAgentId = state.sessions.find((session: any) => session.path === sessionPath)?.agentId ?? null;
+  if (!sessionAgentId) return 'hanako';
+  return state.agents.find((agent: any) => agent.id === sessionAgentId)?.yuan || 'hanako';
 }
 
 class StreamBufferManager {
@@ -70,24 +78,38 @@ class StreamBufferManager {
     return buf;
   }
 
-  /** 确保 store 中已为该 session 追加了一条空 assistant message */
+  /** 确保 store 中已存在当前 turn 绑定的 assistant message */
   private ensureMessage(buf: Buffer): void {
     const store = useStore.getState();
     const session = store.chatSessions[buf.sessionPath];
     if (!session) return; // session 未初始化（loadMessages 尚未完成）
 
-    // 自愈：messageAppended=true 不够，还要看 store 里 last item 是不是
-    // assistant。否则 clearSession + loadMessages 把末尾恢复成 user message
-    // 之后，后续 text_delta 的 flush 会写到 user 消息上（历史 bug）。
-    const items = session.items;
-    const last = items[items.length - 1];
-    const lastIsAssistant = last?.type === 'message' && last.data.role === 'assistant';
-    if (buf.messageAppended && lastIsAssistant) return;
+    const existingId = buf.messageId;
+    const existing = existingId
+      ? session.items.find((item) =>
+        item.type === 'message' &&
+        item.data.id === existingId &&
+        item.data.role === 'assistant',
+      )
+      : null;
+    if (existing) return;
 
-    const id = `stream-${Date.now()}`;
+    const id = existingId || `stream-${Date.now()}`;
     const msg: ChatMessage = { id, role: 'assistant', blocks: [] };
     store.appendItem(buf.sessionPath, { type: 'message', data: msg });
-    buf.messageAppended = true;
+    bumpMessageLiveVersion(buf.sessionPath);
+    buf.messageId = id;
+  }
+
+  private updateTargetMessage(buf: Buffer, updater: (msg: ChatMessage) => ChatMessage): void {
+    this.ensureMessage(buf);
+    if (!buf.messageId) return;
+    const updated = useStore.getState().updateMessageById(buf.sessionPath, buf.messageId, updater);
+    if (!updated) {
+      console.warn('[stream] target assistant message missing after ensureMessage:', buf.sessionPath, buf.messageId);
+      return;
+    }
+    bumpMessageLiveVersion(buf.sessionPath);
   }
 
   /** 调度节流 flush */
@@ -111,8 +133,7 @@ class StreamBufferManager {
       buf.flushTimer = null;
     }
 
-    const store = useStore.getState();
-    store.updateLastMessage(buf.sessionPath, (msg) => {
+    this.updateTargetMessage(buf, (msg) => {
       const blocks = [...(msg.blocks || [])];
 
       // ── Thinking ──
@@ -138,7 +159,7 @@ class StreamBufferManager {
         if (idx >= 0) blocks[idx] = moodBlock;
         else {
           // mood 在 thinking 后面
-          const insertAt = blocks.findIndex(b => b.type !== 'thinking') ;
+          const insertAt = blocks.findIndex(b => b.type !== 'thinking');
           blocks.splice(insertAt >= 0 ? insertAt : blocks.length, 0, moodBlock);
         }
       }
@@ -197,7 +218,7 @@ class StreamBufferManager {
         this.ensureMessage(buf);
         buf.inMood = true;
         buf.moodAcc = '';
-        buf.moodYuan = useStore.getState().agentYuan || 'hanako';
+        buf.moodYuan = resolveSessionYuan(sessionPath);
         this.flush(buf);
         break;
 
@@ -233,7 +254,7 @@ class StreamBufferManager {
             title: buf.cardAttrs.title,
             description: buf.cardDescAcc,
           };
-          useStore.getState().updateLastMessage(sessionPath, (m) => ({
+          this.updateTargetMessage(buf, (m) => ({
             ...m,
             blocks: [...(m.blocks || []), { type: 'plugin_card' as const, card }],
           }));
@@ -247,7 +268,7 @@ class StreamBufferManager {
         this.ensureMessage(buf);
         // 工具事件频率低，直接写 store
         this.flush(buf); // 先 flush 文本
-        useStore.getState().updateLastMessage(sessionPath, (m) => {
+        this.updateTargetMessage(buf, (m) => {
           const blocks = [...(m.blocks || [])];
           // 找最后一个 tool_group 或创建新的
           let lastTg = blocks.length - 1;
@@ -274,7 +295,7 @@ class StreamBufferManager {
         break;
 
       case 'tool_end':
-        useStore.getState().updateLastMessage(sessionPath, (m) => {
+        this.updateTargetMessage(buf, (m) => {
           const blocks = [...(m.blocks || [])];
           // 从后往前找含该 tool 名且未 done 的
           for (let i = blocks.length - 1; i >= 0; i--) {
@@ -306,7 +327,7 @@ class StreamBufferManager {
             delete pending[block.taskId];
           }
         }
-        useStore.getState().updateLastMessage(sessionPath, (m) => ({
+        this.updateTargetMessage(buf, (m) => ({
           ...m,
           blocks: [...(m.blocks || []), block],
         }));
@@ -330,7 +351,7 @@ class StreamBufferManager {
         buf.inCard = false;
         buf.cardAttrs = null;
         buf.cardDescAcc = '';
-        buf.messageAppended = false;
+        buf.messageId = null;
         break;
 
     }
@@ -363,6 +384,7 @@ class StreamBufferManager {
     if (!hasContent) return null;
     return {
       hasContent: true,
+      messageId: buf.messageId,
       text: buf.textAcc,
       thinking: buf.thinkingAcc,
       mood: buf.inMood ? buf.moodAcc : cleanMoodText(buf.moodAcc),

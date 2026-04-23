@@ -512,8 +512,14 @@ export class Agent {
   }
   get summaryManager() { return this._summaryManager; }
   get memoryTicker() { return this._memoryTicker; }
-  get tools() {
-    const memTools = this.memoryEnabled ? [
+  getToolsSnapshot(options = {}) {
+    const forceMemoryEnabled = Object.prototype.hasOwnProperty.call(options, "forceMemoryEnabled")
+      ? options.forceMemoryEnabled
+      : null;
+    const memoryEnabled = typeof forceMemoryEnabled === "boolean"
+      ? forceMemoryEnabled
+      : this.memoryEnabled;
+    const memTools = memoryEnabled ? [
       this._memorySearchTool,
       ...this._pinnedMemoryTools,
       ...this._experienceTools,
@@ -537,6 +543,9 @@ export class Agent {
       this._checkDeferredTool,
       createWaitTool(),
     ].filter(Boolean);
+  }
+  get tools() {
+    return this.getToolsSnapshot();
   }
 
   // Desk 系统访问
@@ -680,6 +689,12 @@ export class Agent {
    */
   buildSystemPrompt(options = {}) {
     const forSubagent = !!options.forSubagent;
+    const forceMemoryEnabled = Object.prototype.hasOwnProperty.call(options, "forceMemoryEnabled")
+      ? options.forceMemoryEnabled
+      : null;
+    const memoryEnabled = typeof forceMemoryEnabled === "boolean"
+      ? forceMemoryEnabled
+      : this.memoryEnabled;
     const isZh = String(this._config.locale || "").startsWith("zh");
 
     const readFile = (filePath) => safeReadFile(filePath, "");
@@ -718,7 +733,7 @@ export class Agent {
     }
     // 记忆整体开关：master && session 都开启才注入记忆相关 prompt
     // Subagent 场景下整块跳过（无记忆工具 = 规则和 pinned 也是孤儿噪音）
-    if (this.memoryEnabled && !forSubagent) {
+    if (memoryEnabled && !forSubagent) {
       const memoryRule = isZh ? [
         "",
         "## 记忆使用规则",

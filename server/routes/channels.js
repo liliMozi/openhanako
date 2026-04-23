@@ -117,7 +117,7 @@ export function createChannelsRoute(engine, hub) {
       const channelsDir = engine.channelsDir;
       fs.mkdirSync(channelsDir, { recursive: true });
 
-      const { id: channelId } = createChannel(channelsDir, {
+      const { id: channelId } = await createChannel(channelsDir, {
         name,
         description: description || undefined,
         members,
@@ -130,12 +130,12 @@ export function createChannelsRoute(engine, hub) {
         const memberDir = path.join(agentsDir, memberId);
         if (fs.existsSync(memberDir)) {
           const memberChannelsMd = path.join(memberDir, "channels.md");
-          addBookmarkEntry(memberChannelsMd, channelId);
+          await addBookmarkEntry(memberChannelsMd, channelId);
         }
       }
 
       // 也给用户添加 bookmark
-      addBookmarkEntry(userBookmarkPath(), channelId);
+      await addBookmarkEntry(userBookmarkPath(), channelId);
 
       debugLog()?.log("api", `POST /channels — created "${channelId}" (${name}) members=[${members}]`);
       return c.json({ ok: true, id: channelId, name, members });
@@ -196,7 +196,7 @@ export function createChannelsRoute(engine, hub) {
       }
 
       const senderName = engine.userName || "user";
-      const result = appendMessage(filePath, senderName, body);
+      const result = await appendMessage(filePath, senderName, body);
 
       debugLog()?.log("api", `POST /channels/${name}/messages`);
 
@@ -242,7 +242,7 @@ export function createChannelsRoute(engine, hub) {
         return c.json({ error: "timestamp is required" }, 400);
       }
 
-      updateBookmark(userBookmarkPath(), name, timestamp);
+      await updateBookmark(userBookmarkPath(), name, timestamp);
       return c.json({ ok: true });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -256,7 +256,7 @@ export function createChannelsRoute(engine, hub) {
       const filePath = safeChannelPath(name);
       if (!filePath) return c.json({ error: "Invalid channel id" }, 400);
 
-      engine.deleteChannelByName(name);
+      await engine.deleteChannelByName(name);
       debugLog()?.log("api", `DELETE /channels/${name}`);
       return c.json({ ok: true });
     } catch (err) {

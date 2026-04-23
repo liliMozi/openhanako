@@ -5,6 +5,7 @@
 import type { ChatListItem, ChatMessage, SessionMessages, SessionModel } from './chat-types';
 import { invalidateSessionCache } from './selectors/file-refs';
 import { invalidateStreamBuffer } from './stream-invalidator';
+import { clearMessageLiveVersion } from './message-live-version';
 
 export interface ChatSlice {
   chatSessions: Record<string, SessionMessages>;
@@ -24,6 +25,7 @@ export interface ChatSlice {
   prependItems: (path: string, items: ChatListItem[], hasMore: boolean) => void;
   appendItem: (path: string, item: ChatListItem) => void;
   updateLastMessage: (path: string, updater: (msg: ChatMessage) => ChatMessage) => void;
+  updateMessageById: (path: string, messageId: string, updater: (msg: ChatMessage) => ChatMessage) => boolean;
   patchBlockByTaskId: (sessionPath: string, taskId: string, patch: Record<string, any>) => void;
   _pendingBlockPatches: Record<string, Record<string, any>>;
 
@@ -115,6 +117,39 @@ export const createChatSlice = (
     };
   }),
 
+  updateMessageById: (path, messageId, updater) => {
+    const session = get().chatSessions[path];
+    if (!session) return false;
+    const targetIdx = session.items.findIndex((item) =>
+      item.type === 'message' &&
+      item.data.id === messageId &&
+      item.data.role === 'assistant',
+    );
+    if (targetIdx < 0) return false;
+
+    set((s) => {
+      const latest = s.chatSessions[path];
+      if (!latest) return {};
+      const latestIdx = latest.items.findIndex((item) =>
+        item.type === 'message' &&
+        item.data.id === messageId &&
+        item.data.role === 'assistant',
+      );
+      if (latestIdx < 0) return {};
+      const items = [...latest.items];
+      const current = items[latestIdx];
+      if (current.type !== 'message' || current.data.role !== 'assistant') return {};
+      items[latestIdx] = { type: 'message', data: updater(current.data) };
+      return {
+        chatSessions: {
+          ...s.chatSessions,
+          [path]: { ...latest, items },
+        },
+      };
+    });
+    return true;
+  },
+
   // 缓存：block_update 到达时 block 可能还没添加到 store（时序竞争）
   _pendingBlockPatches: {} as Record<string, Record<string, any>>,
 
@@ -201,6 +236,7 @@ export const createChatSlice = (
     // FileRef 缓存和 streamBuffer 都绑定 session 生命周期，归属方主动清
     invalidateSessionCache(path);
     invalidateStreamBuffer(path);
+    clearMessageLiveVersion(path);
     return {
       chatSessions: sessions,
       sessionModelsByPath: models,

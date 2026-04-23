@@ -89,4 +89,82 @@ describe("updateConfig with agentId", () => {
     // defaultModel 不应被设置（非焦点 agent 不做模型切换）
     expect(models.defaultModel).toBeNull();
   });
+
+  it("setDefaultModel 传入非焦点 agentId 时，只更新目标 agent 配置", async () => {
+    const models = {
+      availableModels: [{ id: "gpt-4", provider: "openai", name: "GPT-4" }],
+      defaultModel: null,
+    };
+    const { focusAgent, targetAgent, deps } = makeDeps({
+      getModels: () => models,
+    });
+    const coord = new ConfigCoordinator(deps);
+
+    const result = await coord.setDefaultModel("gpt-4", "openai", { agentId: "target" });
+
+    expect(result).toEqual({ id: "gpt-4", provider: "openai", name: "GPT-4" });
+    expect(targetAgent.updateConfig).toHaveBeenCalledWith({
+      models: { chat: { id: "gpt-4", provider: "openai" } },
+    });
+    expect(focusAgent.updateConfig).not.toHaveBeenCalled();
+    expect(models.defaultModel).toBeNull();
+  });
+
+  it("setDefaultModel 不传 agentId 时，保持焦点 agent 语义", async () => {
+    const models = {
+      availableModels: [{ id: "gpt-4", provider: "openai", name: "GPT-4" }],
+      defaultModel: null,
+    };
+    const { focusAgent, targetAgent, deps } = makeDeps({
+      getModels: () => models,
+      getActiveAgentId: () => "focus",
+    });
+    const coord = new ConfigCoordinator(deps);
+
+    const result = await coord.setDefaultModel("gpt-4", "openai");
+
+    expect(result).toEqual({ id: "gpt-4", provider: "openai", name: "GPT-4" });
+    expect(focusAgent.updateConfig).toHaveBeenCalledWith({
+      models: { chat: { id: "gpt-4", provider: "openai" } },
+    });
+    expect(targetAgent.updateConfig).not.toHaveBeenCalled();
+    expect(models.defaultModel).toEqual({ id: "gpt-4", provider: "openai", name: "GPT-4" });
+  });
+
+  it("persistSessionMeta 写入 sessionMemoryEnabled，而不是 master&&session 组合态", async () => {
+    const focusAgent = {
+      id: "focus",
+      memoryEnabled: false,
+      sessionMemoryEnabled: true,
+    };
+    const writeSessionMeta = vi.fn();
+    const coord = new ConfigCoordinator({
+      hanakoHome: "/tmp/test",
+      agentsDir: "/tmp/test/agents",
+      getAgent: () => focusAgent,
+      getAgentById: () => null,
+      getActiveAgentId: () => "focus",
+      getAgents: () => new Map([["focus", focusAgent]]),
+      getModels: () => ({ availableModels: [], defaultModel: null }),
+      getPrefs: () => ({ getPreferences: () => ({}), savePreferences: vi.fn() }),
+      getSkills: () => ({ syncAgentSkills: vi.fn() }),
+      getSession: () => ({
+        sessionManager: {
+          getSessionFile: () => "/tmp/test/agents/focus/sessions/frozen.jsonl",
+        },
+      }),
+      getSessionCoordinator: () => ({ writeSessionMeta }),
+      getHub: () => null,
+      emitEvent: vi.fn(),
+      emitDevLog: vi.fn(),
+      getCurrentModel: () => null,
+    });
+
+    await coord.persistSessionMeta();
+
+    expect(writeSessionMeta).toHaveBeenCalledWith(
+      "/tmp/test/agents/focus/sessions/frozen.jsonl",
+      { memoryEnabled: true },
+    );
+  });
 });

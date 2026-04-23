@@ -6,6 +6,12 @@ import { hanaFetch, hanaUrl } from './api';
 import { t } from './helpers';
 
 const platform = window.platform;
+let _settingsConfigLoadVersion = 0;
+let _settingsConfigAbortController: AbortController | null = null;
+
+function isAbortError(err: unknown): boolean {
+  return !!err && typeof err === 'object' && (err as { name?: string }).name === 'AbortError';
+}
 
 export async function loadAgents() {
   const store = useSettingsStore.getState();
@@ -53,19 +59,25 @@ export async function loadAvatars() {
 
 export async function loadSettingsConfig() {
   const store = useSettingsStore.getState();
+  const myVersion = ++_settingsConfigLoadVersion;
+  if (_settingsConfigAbortController) {
+    _settingsConfigAbortController.abort();
+  }
+  const controller = new AbortController();
+  _settingsConfigAbortController = controller;
   try {
     const agentId = store.getSettingsAgentId();
     const agentBase = `/api/agents/${agentId}`;
     const [configRes, identityRes, ishikiRes, publicIshikiRes, userProfileRes, pinnedRes, globalModelsRes, experienceRes] =
       await Promise.all([
-        hanaFetch(`${agentBase}/config`),
-        hanaFetch(`${agentBase}/identity`),
-        hanaFetch(`${agentBase}/ishiki`),
-        hanaFetch(`${agentBase}/public-ishiki`),
-        hanaFetch('/api/user-profile'),
-        hanaFetch(`${agentBase}/pinned`),
-        hanaFetch('/api/preferences/models'),
-        hanaFetch(`${agentBase}/experience`),
+        hanaFetch(`${agentBase}/config`, { signal: controller.signal }),
+        hanaFetch(`${agentBase}/identity`, { signal: controller.signal }),
+        hanaFetch(`${agentBase}/ishiki`, { signal: controller.signal }),
+        hanaFetch(`${agentBase}/public-ishiki`, { signal: controller.signal }),
+        hanaFetch('/api/user-profile', { signal: controller.signal }),
+        hanaFetch(`${agentBase}/pinned`, { signal: controller.signal }),
+        hanaFetch('/api/preferences/models', { signal: controller.signal }),
+        hanaFetch(`${agentBase}/experience`, { signal: controller.signal }),
       ]);
 
     const config = await configRes.json();
@@ -81,6 +93,8 @@ export async function loadSettingsConfig() {
     const pinnedData = await pinnedRes.json();
     const experienceData = await experienceRes.json();
     config._experience = experienceData.content || '';
+    if (myVersion !== _settingsConfigLoadVersion) return;
+    if (_settingsConfigAbortController !== controller) return;
 
     store.set({
       settingsConfig: config,
@@ -89,7 +103,12 @@ export async function loadSettingsConfig() {
       currentPins: pinnedData.pins || [],
     });
   } catch (err) {
+    if (isAbortError(err)) return;
     console.error('[settings] load failed:', err);
+  } finally {
+    if (_settingsConfigAbortController === controller) {
+      _settingsConfigAbortController = null;
+    }
   }
 }
 

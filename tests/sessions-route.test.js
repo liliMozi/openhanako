@@ -29,6 +29,7 @@ vi.mock("../lib/browser/browser-manager.js", () => ({
 vi.mock("../core/message-utils.js", () => ({
   extractTextContent: vi.fn(() => ({ text: "", images: [], thinking: "", toolUses: [] })),
   loadSessionHistoryMessages: vi.fn(async () => []),
+  loadLatestAssistantSummaryFromSessionFile: vi.fn(async () => null),
   isValidSessionPath: vi.fn(() => true),
 }));
 
@@ -253,6 +254,53 @@ describe("sessions route", () => {
       agentId: "deleted-butter",
       agentName: "butter",
       streamKey: childSessionPath,
+    });
+  });
+
+  it("marks running subagent block done when child-session tail summary is available", async () => {
+    const { createSessionsRoute } = await import("../server/routes/sessions.js");
+    const msgUtils = await import("../core/message-utils.js");
+    const app = new Hono();
+
+    vi.mocked(msgUtils.extractTextContent)
+      .mockReturnValueOnce({ text: "parent says hi", images: [], thinking: "", toolUses: [] });
+    vi.mocked(msgUtils.loadSessionHistoryMessages).mockResolvedValueOnce([
+      { role: "assistant", content: "parent says hi" },
+      {
+        role: "toolResult",
+        toolName: "subagent",
+        details: {
+          taskId: "subagent-1",
+          task: "do work",
+          sessionPath: "/tmp/agents/hanako/subagent-sessions/child.jsonl",
+          streamStatus: "running",
+        },
+      },
+    ]);
+    vi.mocked(msgUtils.loadLatestAssistantSummaryFromSessionFile)
+      .mockResolvedValueOnce("child finished");
+
+    const engine = {
+      agentsDir: "/tmp/agents",
+      deferredResults: null,
+      agentIdFromSessionPath: vi.fn((sp) => {
+        const rel = path.relative("/tmp/agents", sp);
+        return rel.split(path.sep)[0] || null;
+      }),
+      getAgent: vi.fn((id) => (id === "hanako" ? { agentName: "Hanako" } : null)),
+    };
+
+    app.route("/api", createSessionsRoute(engine));
+
+    const res = await app.request("/api/sessions/messages");
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(msgUtils.loadLatestAssistantSummaryFromSessionFile).toHaveBeenCalledWith("/tmp/agents/hanako/subagent-sessions/child.jsonl");
+    expect(data.blocks[0]).toMatchObject({
+      type: "subagent",
+      streamStatus: "done",
+      summary: "child finished",
     });
   });
 });

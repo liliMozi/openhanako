@@ -1,11 +1,14 @@
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { hanaUrl } from '../../hooks/use-hana-fetch';
-import { useStore } from '../../stores';
 import type { PluginCardDetails } from '../../types';
 import s from './PluginCardBlock.module.css';
 import { DEFAULT_THEME } from '../../../shared/theme-registry.cjs';
+import { getPluginIframeOrigin, isTrustedPluginIframeMessage } from '../../utils/plugin-iframe-security';
 
-interface Props { card: PluginCardDetails; }
+interface Props {
+  card: PluginCardDetails;
+  agentId?: string | null;
+}
 
 const MAX_W = 400;
 const MAX_H = 600;
@@ -16,11 +19,10 @@ function parseRatio(raw?: string): number {
   return (w && h) ? w / h : 0;
 }
 
-export function PluginCardBlock({ card }: Props) {
+export function PluginCardBlock({ card, agentId }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
-  const agentId = useStore(st => st.currentAgentId);
 
   // Compute initial size from aspectRatio hint; 0 means unknown
   const ratio = parseRatio(card.aspectRatio);
@@ -41,11 +43,14 @@ export function PluginCardBlock({ card }: Props) {
     const sep = base.includes('?') ? '&' : '?';
     return `${base}${sep}agentId=${encodeURIComponent(agentId || '')}&hana-theme=${encodeURIComponent(theme)}&hana-css=${encodeURIComponent(cssUrl)}`;
   }, [card.pluginId, card.route, isIframe, agentId]);
+  const expectedOrigin = useMemo(() => getPluginIframeOrigin(src), [src]);
 
   useEffect(() => {
     if (!isIframe) return;
+    setReady(false);
+    setError(false);
     const onMessage = (e: MessageEvent) => {
-      if (e.source !== iframeRef.current?.contentWindow) return;
+      if (!isTrustedPluginIframeMessage(e, iframeRef.current?.contentWindow, expectedOrigin)) return;
       if (e.data?.type === 'ready') setReady(true);
       if (e.data?.type === 'resize-request') {
         const { width, height } = e.data.payload || {};
@@ -58,7 +63,7 @@ export function PluginCardBlock({ card }: Props) {
     window.addEventListener('message', onMessage);
     const timeout = setTimeout(() => setReady(true), 5000);
     return () => { window.removeEventListener('message', onMessage); clearTimeout(timeout); };
-  }, [isIframe]);
+  }, [isIframe, expectedOrigin, src]);
 
   if (!isIframe || error) {
     if (!card.description) return null;

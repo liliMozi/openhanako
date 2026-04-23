@@ -8,9 +8,10 @@
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
-import { createAgentSession, SessionManager, estimateTokens, findCutPoint, generateSummary, emitSessionShutdown, refreshSessionModelFromRegistry } from "../lib/pi-sdk/index.js";
+import { createAgentSession, SessionManager, estimateTokens, findCutPoint, generateSummary, refreshSessionModelFromRegistry } from "../lib/pi-sdk/index.js";
 import { createDefaultSettings } from "./session-defaults.js";
 import { computeHardTruncation } from "./compaction-utils.js";
+import { teardownSessionResources } from "./session-teardown.js";
 import { createModuleLogger } from "../lib/debug-log.js";
 import { BrowserManager } from "../lib/browser/browser-manager.js";
 import { t, getLocale } from "../server/i18n.js";
@@ -79,9 +80,20 @@ export class SessionCoordinator {
 
   // ── Session 创建 / 切换 ──
 
-  async createSession(sessionMgr, cwd, memoryEnabled = true, model = null, { restore = false } = {}) {
+  async createSession(sessionMgr, cwd, memoryEnabled = true, model = null, {
+    restore = false,
+    agent: explicitAgent = null,
+    agentId: explicitAgentId = null,
+    preserveAgentMemoryState = false,
+  } = {}) {
     const t0 = Date.now();
-    const agent = this._d.getAgent();
+    const agent = explicitAgent
+      || (explicitAgentId ? this._d.getAgentById?.(explicitAgentId) : null)
+      || this._d.getAgent();
+    if (!agent) {
+      throw new Error("createSession: target agent unavailable");
+    }
+    const ownerAgentId = explicitAgentId || agent.id || this._d.getActiveAgentId();
     const effectiveCwd = cwd || this._d.getHomeCwd(agent.id) || process.cwd();
     const models = this._d.getModels();
     // restore 模式：不指定 model，让 PI SDK 从 JSONL 恢复（session model 单一数据源）
@@ -99,9 +111,20 @@ export class SessionCoordinator {
       sessionMgr = SessionManager.create(effectiveCwd, agent.sessionDir);
     }
 
+    // 冻结当前 session 的有效记忆参与态。
+    // fresh create: 以"创建当下实际会进入 prompt 前缀的状态"为准（master && session）
+    // restore: 以 session-meta 里冻结下来的 memoryEnabled 为准。
+    // 这样已有 session 的 prefix 身份不会被后续 master 开关漂移打穿。
+    const frozenMemoryEnabled = restore
+      ? !!memoryEnabled
+      : (agent.memoryMasterEnabled !== false && !!memoryEnabled);
+
     // 切换 session 级记忆状态后立即快照 prompt（下方 promptSnapshot）。
+    // /rc 冷恢复这类"附着到旧 session"的路径不应污染当前 agent 的运行态，
+    // 因此允许在生成快照后把 agent 的 session-memory 状态回滚。
     const creatingAgent = agent;
-    creatingAgent.setMemoryEnabled(memoryEnabled);
+    const prevSessionMemoryEnabled = creatingAgent.sessionMemoryEnabled;
+    creatingAgent.setMemoryEnabled(frozenMemoryEnabled);
 
     const baseResourceLoader = this._d.getResourceLoader();
     const initialPlanMode = this._pendingPlanMode;
@@ -110,7 +133,10 @@ export class SessionCoordinator {
 
     // 快照当前 system prompt，per-session 隔离。
     // 后续记忆编译、技能变更只影响新对话，已有对话的 prompt 不变（保护 prefix cache）。
-    const promptSnapshot = agent.buildSystemPrompt();
+    const promptSnapshot = agent.buildSystemPrompt({ forceMemoryEnabled: frozenMemoryEnabled });
+    if (preserveAgentMemoryState) {
+      creatingAgent.setMemoryEnabled(prevSessionMemoryEnabled);
+    }
 
     // UI context 注入扩展：在每次 LLM 调用前把用户视野拼成 <user-context>…</user-context>
     // 前置到 last user message，只影响这一次请求（Pi SDK deep copy messages），
@@ -149,7 +175,7 @@ export class SessionCoordinator {
     };
 
     // Wrap resourceLoader: per-session prompt snapshot + plan mode injection + ui context extension
-    const resourceLoader = Object.create(baseResourceLoader, {
+    const resourceLoaderProps = {
       getSystemPrompt: {
         value: () => promptSnapshot,
       },
@@ -169,16 +195,16 @@ export class SessionCoordinator {
 
           // Plan mode prompt (existing logic, preserved verbatim)
           if (sessionEntry.planMode) {
-            const isZh = String(this._d.getAgent().config?.locale || "").startsWith("zh");
-            const planModePrompt = isZh
-              ? "【系统通知】当前处于「只读模式」，用户在设置中关闭了「操作电脑」权限。你只能使用只读工具（read、grep、find、ls）和自定义工具。不能执行写入、编辑、删除等操作。如果用户要求你做这些操作，请告知当前处于只读模式，需要先在输入框旁的按钮开启「操作电脑」权限。"
-              : "[System Notice] Currently in READ-ONLY MODE. The user has disabled 'Computer Access' in settings. You can only use read-only tools (read, grep, find, ls) and custom tools. You cannot write, edit, or delete. If the user asks for these operations, inform them that read-only mode is active and they need to enable 'Computer Access' via the button next to the input area.";
+              const isZh = String(agent.config?.locale || "").startsWith("zh");
+              const planModePrompt = isZh
+                ? "【系统通知】当前处于「只读模式」，用户在设置中关闭了「操作电脑」权限。你只能使用只读工具（read、grep、find、ls）和自定义工具。不能执行写入、编辑、删除等操作。如果用户要求你做这些操作，请告知当前处于只读模式，需要先在输入框旁的按钮开启「操作电脑」权限。"
+                : "[System Notice] Currently in READ-ONLY MODE. The user has disabled 'Computer Access' in settings. You can only use read-only tools (read, grep, find, ls) and custom tools. You cannot write, edit, or delete. If the user asks for these operations, inform them that read-only mode is active and they need to enable 'Computer Access' via the button next to the input area.";
             parts.push(planModePrompt);
           }
 
           // 后台任务行为引导
           if (this._d.getDeferredResultStore?.()) {
-            const isZh = String(this._d.getAgent()?.config?.locale || "").startsWith("zh");
+            const isZh = String(agent.config?.locale || "").startsWith("zh");
             parts.push(isZh
               ? `## 后台任务
 
@@ -202,9 +228,23 @@ After dispatching subagent or other background tasks:
           return parts;
         },
       },
-    });
+    };
+    const skills = this._d.getSkills?.();
+    if (skills?.getSkillsForAgent) {
+      resourceLoaderProps.getSkills = {
+        value: () => skills.getSkillsForAgent(agent),
+      };
+    }
+    const resourceLoader = Object.create(baseResourceLoader, resourceLoaderProps);
 
-    const { tools: sessionTools, customTools: sessionCustomTools } = this._d.buildTools(effectiveCwd, agent.tools, { workspace: this._d.getHomeCwd(agent.id), agentDir: agent.agentDir });
+    const agentToolsSnapshot = typeof agent.getToolsSnapshot === "function"
+      ? agent.getToolsSnapshot({ forceMemoryEnabled: frozenMemoryEnabled })
+      : agent.tools;
+    const { tools: sessionTools, customTools: sessionCustomTools } = this._d.buildTools(
+      effectiveCwd,
+      agentToolsSnapshot,
+      { workspace: this._d.getHomeCwd(agent.id), agentDir: agent.agentDir },
+    );
     const sessionOpts = {
       cwd: effectiveCwd,
       sessionManager: sessionMgr,
@@ -230,7 +270,7 @@ After dispatching subagent or other background tasks:
 
     // 事件转发（附带 agentId，供订阅者按 agent 过滤）
     const sessionPath = session.sessionManager?.getSessionFile?.();
-    const creatingAgentId = this._d.getActiveAgentId();
+    const creatingAgentId = ownerAgentId;
     const unsub = session.subscribe((event) => {
       this._d.emitEvent(
         event.agentId ? event : { ...event, agentId: creatingAgentId },
@@ -299,8 +339,8 @@ After dispatching subagent or other background tasks:
 
     Object.assign(sessionEntry, {
       session,
-      agentId: this._d.getActiveAgentId(),
-      memoryEnabled,
+      agentId: creatingAgentId,
+      memoryEnabled: frozenMemoryEnabled,
       modelId: resolvedModel?.id || effectiveModel?.id || null,
       modelProvider: resolvedModel?.provider || effectiveModel?.provider || null,
       toolNames: snapshotToolNames,  // null for legacy sessions (Case B), array otherwise
@@ -334,8 +374,10 @@ After dispatching subagent or other background tasks:
     // session's meta would lock it into the current tool list, breaking
     // "upgrade is zero-noise"). writeSessionMeta is serialized and never
     // rejects; awaiting gives createSession a clean post-return state.
-    if (!restore && snapshotToolNames !== null && sessionPath) {
-      await this.writeSessionMeta(sessionPath, { toolNames: snapshotToolNames });
+    if (!restore && sessionPath) {
+      const metaPatch = { memoryEnabled: frozenMemoryEnabled };
+      if (snapshotToolNames !== null) metaPatch.toolNames = snapshotToolNames;
+      await this.writeSessionMeta(sessionPath, metaPatch);
     }
 
     // LRU 淘汰：按 lastTouchedAt 排序，跳过 streaming 和焦点 session
@@ -418,7 +460,11 @@ After dispatching subagent or other background tasks:
     // 冷启动恢复：model 由 PI SDK 从 session JSONL 恢复（单一数据源），不从 session-meta.json 读
     const sessionMgr = SessionManager.open(sessionPath, this._d.getAgent().sessionDir);
     const cwd = sessionMgr.getCwd?.() || undefined;
-    const result = await this.createSession(sessionMgr, cwd, memoryEnabled, null, { restore: true });
+    const result = await this.createSession(sessionMgr, cwd, memoryEnabled, null, {
+      restore: true,
+      agent: this._d.getAgent(),
+      agentId: targetAgentId || this._d.getActiveAgentId(),
+    });
     return result.session;
   }
 
@@ -794,29 +840,12 @@ After dispatching subagent or other background tasks:
   async _teardownSessionEntry(entry, sessionPath, reason) {
     if (!entry) return;
     const spShort = sessionPath ? path.basename(sessionPath) : "(anon)";
-
-    // 1. emit session_shutdown
-    try {
-      if (entry.session) {
-        await emitSessionShutdown(entry.session);
-      }
-    } catch (err) {
-      log.warn(`teardown[${reason}] ${spShort}: emitSessionShutdown failed: ${err.message}`);
-    }
-
-    // 2. unsub
-    try {
-      entry.unsub?.();
-    } catch (err) {
-      log.warn(`teardown[${reason}] ${spShort}: unsub failed: ${err.message}`);
-    }
-
-    // 3. session.dispose
-    try {
-      entry.session?.dispose?.();
-    } catch (err) {
-      log.warn(`teardown[${reason}] ${spShort}: session.dispose failed: ${err.message}`);
-    }
+    await teardownSessionResources({
+      session: entry.session,
+      unsub: entry.unsub,
+      label: `teardown[${reason}] ${spShort}`,
+      warn: (msg) => log.warn(msg),
+    });
   }
 
   // ── Session 关闭 ──
@@ -933,18 +962,29 @@ After dispatching subagent or other background tasks:
       }
     }
 
-    // 保存焦点：createSession 副作用会设 this._session，执行完手动回滚
+    // 保存焦点：createSession 副作用会设 this._session / _sessionStarted，
+    // /rc 这类纯 attach 路径结束后必须完整回滚，避免污染桌面 UI 的当前会话态。
     const prevFocus = this._session;
+    const prevSessionStarted = this._sessionStarted;
     try {
       const sessionMgr = SessionManager.open(sessionPath, agent.sessionDir);
       const cwd = sessionMgr.getCwd?.() || undefined;
-      await this.createSession(sessionMgr, cwd, memoryEnabled, null, { restore: true });
+      await this.createSession(sessionMgr, cwd, memoryEnabled, null, {
+        restore: true,
+        agent,
+        agentId: targetAgentId,
+        preserveAgentMemoryState: true,
+      });
     } finally {
       this._session = prevFocus;
+      this._sessionStarted = prevSessionStarted;
     }
 
     const entry = this._sessions.get(sessionPath);
     if (!entry) throw new Error(`ensureSessionLoaded: session not in cache after createSession`);
+    if (entry.agentId !== targetAgentId) {
+      throw new Error(`ensureSessionLoaded: restored agentId mismatch (${entry.agentId} !== ${targetAgentId})`);
+    }
     return entry.session;
   }
 
@@ -1412,12 +1452,12 @@ After dispatching subagent or other background tasks:
       // 但仍需 emit shutdown + dispose 以避免扩展资源泄漏。幂等:
       // AgentSession.dispose() 基于 _unsubscribeAgent 做重复调用保护。
       const teardownIsolatedSession = async (label) => {
-        try { await emitSessionShutdown(session); }
-        catch (err) { log.warn(`executeIsolated[${label}]: emitSessionShutdown failed: ${err.message}`); }
-        try { unsub?.(); }
-        catch (err) { log.warn(`executeIsolated[${label}]: unsub failed: ${err.message}`); }
-        try { session?.dispose?.(); }
-        catch (err) { log.warn(`executeIsolated[${label}]: session.dispose failed: ${err.message}`); }
+        await teardownSessionResources({
+          session,
+          unsub,
+          label: `executeIsolated[${label}]`,
+          warn: (msg) => log.warn(msg),
+        });
       };
 
       const abortHandler = () => session.abort();

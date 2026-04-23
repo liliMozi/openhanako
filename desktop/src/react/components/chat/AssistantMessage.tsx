@@ -146,6 +146,7 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
             key={`block-${i}`}
             block={block}
             agentName={displayName}
+            agentId={agentId}
             yuan={displayYuan}
             sessionPath={sessionPath}
             messageId={message.id}
@@ -169,9 +170,10 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
 
 // ── ContentBlock 分发 ──
 
-const ContentBlockView = memo(function ContentBlockView({ block, agentName, yuan: _yuan, sessionPath, messageId, blockIdx }: {
+const ContentBlockView = memo(function ContentBlockView({ block, agentName, agentId, yuan: _yuan, sessionPath, messageId, blockIdx }: {
   block: ContentBlock;
   agentName: string;
+  agentId?: string | null;
   yuan: string;
   sessionPath: string;
   messageId: string;
@@ -206,7 +208,7 @@ const ContentBlockView = memo(function ContentBlockView({ block, agentName, yuan
       );
     default: {
       const Renderer = BLOCK_RENDERERS[block.type];
-      return Renderer ? <Renderer block={block} /> : null;
+      return Renderer ? <Renderer block={block} agentId={agentId} /> : null;
     }
   }
 });
@@ -336,8 +338,8 @@ const ArtifactBlock = memo(function ArtifactBlock({ block }: { block: any }) {
 
 // plugin_card block
 
-const PluginCardWrapper = memo(function PluginCardWrapper({ block }: { block: any }) {
-  return <PluginCardBlock card={block.card} />;
+const PluginCardWrapper = memo(function PluginCardWrapper({ block, agentId }: { block: any; agentId?: string | null }) {
+  return <PluginCardBlock card={block.card} agentId={agentId} />;
 });
 
 // screenshot block

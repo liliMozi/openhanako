@@ -46,6 +46,20 @@ export interface InputSlice {
   clearQuotedSelection: () => void;
 }
 
+function syncCurrentSessionAttachments(state: InputSlice & { currentSessionPath?: string | null }, files: AttachedFile[]) {
+  const patch: Partial<InputSlice> & { attachedFilesBySession?: Record<string, AttachedFile[]> } = {
+    attachedFiles: files,
+  };
+  const currentSessionPath = state.currentSessionPath;
+  if (currentSessionPath) {
+    patch.attachedFilesBySession = {
+      ...state.attachedFilesBySession,
+      [currentSessionPath]: files,
+    };
+  }
+  return patch;
+}
+
 export const createInputSlice = (
   set: (partial: Partial<InputSlice> | ((s: InputSlice) => Partial<InputSlice>)) => void
 ): InputSlice => ({
@@ -57,11 +71,16 @@ export const createInputSlice = (
   inputFocusTrigger: 0,
   quotedSelection: null,
   addAttachedFile: (file) =>
-    set((s) => ({ attachedFiles: [...s.attachedFiles, file] })),
+    set((s) => syncCurrentSessionAttachments(s as InputSlice & { currentSessionPath?: string | null }, [...s.attachedFiles, file])),
   removeAttachedFile: (index) =>
-    set((s) => ({ attachedFiles: s.attachedFiles.filter((_, i) => i !== index) })),
-  setAttachedFiles: (files) => set({ attachedFiles: files }),
-  clearAttachedFiles: () => set({ attachedFiles: [] }),
+    set((s) => syncCurrentSessionAttachments(
+      s as InputSlice & { currentSessionPath?: string | null },
+      s.attachedFiles.filter((_, i) => i !== index),
+    )),
+  setAttachedFiles: (files) =>
+    set((s) => syncCurrentSessionAttachments(s as InputSlice & { currentSessionPath?: string | null }, files)),
+  clearAttachedFiles: () =>
+    set((s) => syncCurrentSessionAttachments(s as InputSlice & { currentSessionPath?: string | null }, [])),
   setDraft: (sessionPath, text) =>
     set((s) => ({ drafts: { ...s.drafts, [sessionPath]: text } })),
   clearDraft: (sessionPath) =>

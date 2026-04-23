@@ -13,6 +13,7 @@ import { READ_ONLY_BUILTIN_TOOLS } from "./config-coordinator.js";
 import { t, getLocale } from "../server/i18n.js";
 import { safeReadJSON } from "../shared/safe-fs.js";
 import { findModel } from "../shared/model-ref.js";
+import { teardownSessionResources } from "./session-teardown.js";
 
 function getSteerPrefix() {
   const isZh = getLocale().startsWith("zh");
@@ -116,6 +117,36 @@ export class BridgeSessionManager {
     fs.writeFileSync(this._indexPath(agent), JSON.stringify(index, null, 2) + "\n", "utf-8");
   }
 
+  _normalizeIndexEntry(raw) {
+    if (!raw) return {};
+    return typeof raw === "string" ? { file: raw } : { ...raw };
+  }
+
+  _serializeIndexEntry(previousRaw, entry) {
+    if (typeof previousRaw === "string" && Object.keys(entry).length === 1 && typeof entry.file === "string") {
+      return entry.file;
+    }
+    return entry;
+  }
+
+  _relativeBridgeFile(bridgeDir, sessionPath) {
+    const relative = path.relative(bridgeDir, sessionPath);
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+      throw new Error(`bridge session path escapes bridge dir: ${sessionPath}`);
+    }
+    return relative.split(path.sep).join("/");
+  }
+
+  _syncIndexEntry(index, sessionKey, previousRaw, { bridgeDir, sessionPath, meta }) {
+    const entry = this._normalizeIndexEntry(previousRaw);
+    entry.file = this._relativeBridgeFile(bridgeDir, sessionPath);
+    if (meta) Object.assign(entry, meta);
+    const nextValue = this._serializeIndexEntry(previousRaw, entry);
+    if (JSON.stringify(previousRaw ?? null) === JSON.stringify(nextValue)) return { changed: false, file: entry.file };
+    index[sessionKey] = nextValue;
+    return { changed: true, file: entry.file };
+  }
+
   /**
    * 执行外部平台消息：找到或创建持久 session，prompt 并捕获回复文本
    * @param {string} prompt - 格式化后的用户消息
@@ -145,11 +176,15 @@ export class BridgeSessionManager {
 
     try {
       let mgr;
+      let reopenError = null;
       if (existingPath) {
         try {
           mgr = SessionManager.open(existingPath, sessionDir);
-        } catch {
+        } catch (err) {
+          reopenError = err;
           mgr = null;
+          console.warn(`[bridge-session] existing session open failed (${sessionKey}): ${err.message}; creating a new session and rebinding index`);
+          debugLog()?.log("bridge-session", `open failed for ${sessionKey}: ${err.message}`);
         }
       }
       const homeCwd = this._deps.getHomeCwd(agent.id) || process.cwd();
@@ -237,24 +272,32 @@ export class BridgeSessionManager {
         const promptOpts = opts.images?.length ? { images: opts.images } : undefined;
         await session.prompt(prompt, promptOpts);
       } finally {
-        unsub?.();
+        await teardownSessionResources({
+          session,
+          unsub,
+          label: `bridge.executeExternalMessage[${sessionKey}]`,
+          warn: (msg) => console.warn(`[bridge-session] ${msg}`),
+        });
         this._activeSessions.delete(sessionKey);
       }
 
       // 更新索引 + 元数据
       const sessionPath = session.sessionManager?.getSessionFile?.();
       if (sessionPath) {
-        const fileName = `${subDir}/${path.basename(sessionPath)}`;
-        if (!existingFile) {
-          index[sessionKey] = { file: fileName, ...(meta || {}) };
-        } else if (meta) {
-          const entry = typeof index[sessionKey] === "string"
-            ? { file: index[sessionKey] }
-            : index[sessionKey];
-          Object.assign(entry, meta);
-          index[sessionKey] = entry;
+        const { changed, file } = this._syncIndexEntry(index, sessionKey, raw, {
+          bridgeDir,
+          sessionPath,
+          meta,
+        });
+        if (changed) {
+          if (existingFile && existingFile !== file) {
+            debugLog()?.log("bridge-session", `rebound ${sessionKey}: ${existingFile} -> ${file}`);
+            if (reopenError) {
+              console.log(`[bridge-session] ${sessionKey} 已自愈：${existingFile} -> ${file}`);
+            }
+          }
+          this.writeIndex(index, agent);
         }
-        this.writeIndex(index, agent);
       }
 
       const text = capturedText.trim() || null;
@@ -439,19 +482,27 @@ export class BridgeSessionManager {
       ...sessionOpts,
     });
 
-    // 5. 读 usage → compact → 读 usage
-    const before = session.getContextUsage?.() ?? null;
-    if (session.isCompacting) {
-      throw new Error("bridge compact: already compacting");
-    }
-    await session.compact();
-    const after = session.getContextUsage?.() ?? null;
+    try {
+      // 5. 读 usage → compact → 读 usage
+      const before = session.getContextUsage?.() ?? null;
+      if (session.isCompacting) {
+        throw new Error("bridge compact: already compacting");
+      }
+      await session.compact();
+      const after = session.getContextUsage?.() ?? null;
 
-    return {
-      tokensBefore: before?.tokens ?? null,
-      tokensAfter: after?.tokens ?? null,
-      contextWindow: after?.contextWindow ?? before?.contextWindow ?? null,
-    };
+      return {
+        tokensBefore: before?.tokens ?? null,
+        tokensAfter: after?.tokens ?? null,
+        contextWindow: after?.contextWindow ?? before?.contextWindow ?? null,
+      };
+    } finally {
+      await teardownSessionResources({
+        session,
+        label: `bridge.compactSession[${sessionKey}]`,
+        warn: (msg) => console.warn(`[bridge-session] ${msg}`),
+      });
+    }
   }
 
   /** 创建 bridge 专用 settings：compaction 由 SDK 默认触发（contextWindow - 16384） */

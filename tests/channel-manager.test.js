@@ -71,26 +71,26 @@ describe("ChannelManager", () => {
   });
 
   describe("deleteChannelByName", () => {
-    it("deletes channel file", () => {
+    it("deletes channel file", async () => {
       writeChannelMd(channelsDir, "test-ch", ["a", "b"]);
       expect(fs.existsSync(path.join(channelsDir, "test-ch.md"))).toBe(true);
 
-      manager.deleteChannelByName("test-ch");
+      await manager.deleteChannelByName("test-ch");
       expect(fs.existsSync(path.join(channelsDir, "test-ch.md"))).toBe(false);
     });
 
-    it("throws on non-existent channel", () => {
-      expect(() => manager.deleteChannelByName("nope")).toThrow('error.channelNotFoundById');
+    it("throws on non-existent channel", async () => {
+      await expect(manager.deleteChannelByName("nope")).rejects.toThrow('error.channelNotFoundById');
     });
 
-    it("cleans up agent bookmark references", () => {
+    it("cleans up agent bookmark references", async () => {
       writeChannelMd(channelsDir, "general", ["agent-a"]);
 
       // Create agent dir (deleteChannelByName scans agentsDir for bookmark cleanup)
       const agentDir = path.join(agentsDir, "agent-a");
       fs.mkdirSync(agentDir, { recursive: true });
 
-      manager.deleteChannelByName("general");
+      await manager.deleteChannelByName("general");
 
       // Channel file should be gone
       expect(fs.existsSync(path.join(channelsDir, "general.md"))).toBe(false);
@@ -98,33 +98,33 @@ describe("ChannelManager", () => {
   });
 
   describe("setupChannelsForNewAgent", () => {
-    it("creates ch_crew channel if not exists", () => {
+    it("creates ch_crew channel if not exists", async () => {
       const agentDir = path.join(agentsDir, "new-agent");
       fs.mkdirSync(agentDir, { recursive: true });
       fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: New\n", "utf-8");
 
-      manager.setupChannelsForNewAgent("new-agent");
+      await manager.setupChannelsForNewAgent("new-agent");
 
       expect(fs.existsSync(path.join(channelsDir, "ch_crew.md"))).toBe(true);
       const members = readMembers(channelsDir, "ch_crew");
       expect(members).toContain("new-agent");
     });
 
-    it("adds to existing ch_crew channel", () => {
+    it("adds to existing ch_crew channel", async () => {
       writeChannelMd(channelsDir, "ch_crew", ["existing-agent"]);
 
       const agentDir = path.join(agentsDir, "new-agent");
       fs.mkdirSync(agentDir, { recursive: true });
       fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: New\n", "utf-8");
 
-      manager.setupChannelsForNewAgent("new-agent");
+      await manager.setupChannelsForNewAgent("new-agent");
 
       const members = readMembers(channelsDir, "ch_crew");
       expect(members).toContain("existing-agent");
       expect(members).toContain("new-agent");
     });
 
-    it("does NOT create DM channels (DM is separate system now)", () => {
+    it("does NOT create DM channels (DM is separate system now)", async () => {
       const existingDir = path.join(agentsDir, "alice");
       fs.mkdirSync(existingDir, { recursive: true });
       fs.writeFileSync(path.join(existingDir, "config.yaml"), "agent:\n  name: Alice\n", "utf-8");
@@ -134,7 +134,7 @@ describe("ChannelManager", () => {
       fs.mkdirSync(newDir, { recursive: true });
       fs.writeFileSync(path.join(newDir, "config.yaml"), "agent:\n  name: Bob\n", "utf-8");
 
-      manager.setupChannelsForNewAgent("bob");
+      await manager.setupChannelsForNewAgent("bob");
 
       // No DM channel files should exist
       const files = fs.readdirSync(channelsDir);
@@ -142,12 +142,12 @@ describe("ChannelManager", () => {
       expect(dmFiles).toHaveLength(0);
     });
 
-    it("writes channels.md for new agent with ch_crew", () => {
+    it("writes channels.md for new agent with ch_crew", async () => {
       const agentDir = path.join(agentsDir, "new-agent");
       fs.mkdirSync(agentDir, { recursive: true });
       fs.writeFileSync(path.join(agentDir, "config.yaml"), "agent:\n  name: New\n", "utf-8");
 
-      manager.setupChannelsForNewAgent("new-agent");
+      await manager.setupChannelsForNewAgent("new-agent");
 
       const channelsMd = fs.readFileSync(path.join(agentDir, "channels.md"), "utf-8");
       expect(channelsMd).toContain("ch_crew");
@@ -155,10 +155,10 @@ describe("ChannelManager", () => {
   });
 
   describe("cleanupAgentFromChannels", () => {
-    it("removes agent from channel members", () => {
+    it("removes agent from channel members", async () => {
       writeChannelMd(channelsDir, "crew", ["alice", "bob", "charlie"]);
 
-      manager.cleanupAgentFromChannels("bob");
+      await manager.cleanupAgentFromChannels("bob");
 
       const members = readMembers(channelsDir, "crew");
       expect(members).toContain("alice");
@@ -166,16 +166,16 @@ describe("ChannelManager", () => {
       expect(members).not.toContain("bob");
     });
 
-    it("deletes channel when members drop to 1 or fewer", () => {
+    it("deletes channel when members drop to 1 or fewer", async () => {
       writeChannelMd(channelsDir, "alice-bob", ["alice", "bob"]);
 
-      manager.cleanupAgentFromChannels("bob");
+      await manager.cleanupAgentFromChannels("bob");
 
       // DM channel should be deleted (only alice left)
       expect(fs.existsSync(path.join(channelsDir, "alice-bob.md"))).toBe(false);
     });
 
-    it("no-ops when channelsDir does not exist", () => {
+    it("no-ops when channelsDir does not exist", async () => {
       const badManager = new ChannelManager({
         channelsDir: "/nonexistent",
         agentsDir,
@@ -183,7 +183,7 @@ describe("ChannelManager", () => {
         getHub: () => null,
       });
 
-      expect(() => badManager.cleanupAgentFromChannels("x")).not.toThrow();
+      await expect(badManager.cleanupAgentFromChannels("x")).resolves.toBeUndefined();
     });
   });
 });

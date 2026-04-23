@@ -155,7 +155,10 @@ function installStoreMethods() {
     delete (mockState._loadMessagesVersion as Record<string, number>)[path];
     delete (mockState.scrollPositions as Record<string, number>)[path];
   });
-  s.setSessionTodosForPath = vi.fn();
+  s.setSessionTodosForPath = vi.fn((path: string, todos: unknown[]) => {
+    const bySession = mockState.todosBySession as Record<string, unknown>;
+    bySession[path] = todos;
+  });
   s.appendItem = vi.fn((path: string, item: unknown) => {
     const chat = mockState.chatSessions as Record<string, { items: unknown[] }>;
     const entry = chat[path];
@@ -178,6 +181,7 @@ function installStoreMethods() {
 import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { clearChat } from '../../stores/agent-actions';
 import { loadDeskFiles } from '../../stores/desk-actions';
+import { bumpMessageLiveVersion, clearMessageLiveVersion } from '../../stores/message-live-version';
 import { archiveSession, loadMessages, switchSession } from '../../stores/session-actions';
 import { snapshotStreamBuffer } from '../../stores/stream-invalidator';
 
@@ -201,6 +205,7 @@ describe('session-actions', () => {
     mockLoadDeskFiles.mockReset();
     mockSnapshot.mockReset();
     mockSnapshot.mockReturnValue(null);
+    clearMessageLiveVersion();
     dispatchedEvents.length = 0;
   });
 
@@ -236,12 +241,74 @@ describe('session-actions', () => {
       const initSession = (mockState as unknown as { initSession: ReturnType<typeof vi.fn> }).initSession;
       expect(initSession).toHaveBeenCalledTimes(1);
     });
+
+    it('mid-flight 收到 live message 更新时，跳过 messages hydrate', async () => {
+      let resolveFetch!: (r: Response) => void;
+      const pending = new Promise<Response>((resolve) => { resolveFetch = resolve; });
+      mockFetch.mockImplementationOnce(() => pending);
+
+      const task = loadMessages('/a');
+      bumpMessageLiveVersion('/a');
+      resolveFetch(jsonResponse({
+        messages: [{ text: 'stale' }], blocks: [], todos: [], hasMore: false,
+      }));
+      await task;
+
+      const initSession = (mockState as unknown as { initSession: ReturnType<typeof vi.fn> }).initSession;
+      expect(initSession).not.toHaveBeenCalled();
+    });
+
+    it('stale 响应不会先把 todos 回滚到旧快照', async () => {
+      let resolveFirst!: (r: Response) => void;
+      const firstPromise = new Promise<Response>((resolve) => { resolveFirst = resolve; });
+      mockFetch.mockImplementationOnce(() => firstPromise);
+      mockFetch.mockImplementationOnce(async () =>
+        jsonResponse({ messages: [{ text: 'new' }], blocks: [], todos: [{ id: 'todo-new' }], hasMore: false }),
+      );
+
+      const p1 = loadMessages('/a');
+      const p2 = loadMessages('/a');
+      await p2;
+
+      resolveFirst(jsonResponse({
+        messages: [{ text: 'stale' }],
+        blocks: [],
+        todos: [{ id: 'todo-stale' }],
+        hasMore: false,
+      }));
+      await p1;
+
+      expect((mockState.todosBySession as Record<string, unknown>)['/a']).toEqual([{ id: 'todo-new' }]);
+    });
+
+    it('mid-flight 收到 live todo 更新时，整次 hydrate 跳过，不只跳过 messages', async () => {
+      let resolveFetch!: (r: Response) => void;
+      const pending = new Promise<Response>((resolve) => { resolveFetch = resolve; });
+      mockFetch.mockImplementationOnce(() => pending);
+
+      const task = loadMessages('/a');
+      (mockState.todosLiveVersionBySession as Record<string, number>)['/a'] = 1;
+      resolveFetch(jsonResponse({
+        messages: [{ text: 'stale' }],
+        blocks: [],
+        todos: [{ id: 'todo-stale' }],
+        hasMore: false,
+      }));
+      await task;
+
+      const initSession = (mockState as unknown as { initSession: ReturnType<typeof vi.fn> }).initSession;
+      const setSessionTodosForPath = (mockState as unknown as { setSessionTodosForPath: ReturnType<typeof vi.fn> }).setSessionTodosForPath;
+      expect(initSession).not.toHaveBeenCalled();
+      expect(setSessionTodosForPath).not.toHaveBeenCalled();
+      expect((mockState.todosBySession as Record<string, unknown>)['/a']).toBeUndefined();
+    });
   });
 
   describe('loadMessages 合并 in-flight snapshot', () => {
     it('buf 有 in-flight 内容时，initSession 后 append 一条 assistant', async () => {
       mockSnapshot.mockReturnValue({
         hasContent: true,
+        messageId: 'stream-42',
         text: '正文',
         thinking: '',
         mood: 'Vibe: 好',
@@ -254,10 +321,11 @@ describe('session-actions', () => {
       }));
       await loadMessages('/a');
 
-      const chat = mockState.chatSessions as Record<string, { items: Array<{ type: string; data: { role?: string; blocks?: Array<{ type: string }> } }> }>;
+      const chat = mockState.chatSessions as Record<string, { items: Array<{ type: string; data: { id?: string; role?: string; blocks?: Array<{ type: string }> } }> }>;
       const items = chat['/a'].items;
       expect(items.length).toBe(2);
       expect(items[1].type).toBe('message');
+      expect(items[1].data.id).toBe('stream-42');
       expect(items[1].data.role).toBe('assistant');
       const blocks = items[1].data.blocks!;
       expect(blocks.some(b => b.type === 'mood')).toBe(true);
@@ -412,6 +480,27 @@ describe('session-actions', () => {
       expect(mockState.deskFiles).toEqual([]);
       expect(mockState.deskJianContent).toBeNull();
       expect(mockLoadDeskFiles).not.toHaveBeenCalled();
+    });
+
+    it('当前 session 附件删空后，切走时仍显式写回空数组，避免旧附件复活', async () => {
+      (mockState as Record<string, unknown>).currentSessionPath = '/a';
+      (mockState as Record<string, unknown>).attachedFiles = [];
+      (mockState.attachedFilesBySession as Record<string, unknown>)['/a'] = [{ name: 'old.txt' }];
+
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        agentId: null,
+        currentModelId: null,
+        currentModelName: null,
+        currentModelProvider: null,
+      }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        messages: [{ text: 'history' }], blocks: [], todos: [], hasMore: false,
+      }));
+
+      await switchSession('/b');
+
+      expect((mockState.attachedFilesBySession as Record<string, unknown>)['/a']).toEqual([]);
+      expect(mockState.attachedFiles).toEqual([]);
     });
   });
 

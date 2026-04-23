@@ -146,9 +146,9 @@ export class DmRouter {
       // 写入双方的 dm 文件
       const toFile = path.join(agentsDir, toId, "dm", `${fromId}.md`);
       const fromFile = path.join(agentsDir, fromId, "dm", `${toId}.md`);
-      appendMessage(toFile, toId, cleanReply);
+      await appendMessage(toFile, toId, cleanReply);
       if (fs.existsSync(fromFile)) {
-        appendMessage(fromFile, toId, cleanReply);
+        await appendMessage(fromFile, toId, cleanReply);
       }
 
       // 通知前端

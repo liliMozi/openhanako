@@ -322,4 +322,100 @@ describe('SubagentSessionPreview session binding', () => {
     expect(screen.getByText('第一轮已落盘')).toBeTruthy();
     expect(screen.getByText('第二轮的正文')).toBeTruthy();
   });
+
+  it('旧 turn_end 的异步 cleanup 晚到时，不会抹掉下一轮已开始的 live preview', async () => {
+    let resolveTurnEndReload: (() => void) | null = null;
+    mockedLoadMessages.mockImplementation(async () => {
+      await new Promise<void>((resolve) => {
+        resolveTurnEndReload = () => {
+          useStore.setState({
+            chatSessions: {
+              '/session/subagent': {
+                items: [
+                  {
+                    type: 'message',
+                    data: {
+                      id: 'u-1',
+                      role: 'user',
+                      text: 'synthetic prompt',
+                      textHtml: '<p>synthetic prompt</p>',
+                    },
+                  },
+                  {
+                    type: 'message',
+                    data: {
+                      id: 'a-first-turn',
+                      role: 'assistant',
+                      blocks: [{ type: 'text', html: '<p>第一轮已落盘</p>' }],
+                    },
+                  },
+                ],
+                hasMore: false,
+                loadingMore: false,
+              },
+            },
+          } as never);
+          resolve();
+        };
+      });
+    });
+
+    useStore.setState({
+      chatSessions: {
+        '/session/subagent': {
+          items: [
+            {
+              type: 'message',
+              data: {
+                id: 'u-1',
+                role: 'user',
+                text: 'synthetic prompt',
+                textHtml: '<p>synthetic prompt</p>',
+              },
+            },
+          ],
+          hasMore: false,
+          loadingMore: false,
+        },
+      },
+    } as never);
+
+    render(
+      <SubagentSessionPreview
+        taskId="task-a"
+        sessionPath="/session/subagent"
+        streamStatus="running"
+        scrollContainerRef={makeScrollContainerRef()}
+      />,
+    );
+
+    await act(async () => {});
+
+    act(() => {
+      dispatchStreamKey('/session/subagent', { type: 'text_delta', sessionPath: '/session/subagent', delta: '第一轮的临时预览' });
+    });
+
+    expect(screen.getByText('第一轮的临时预览')).toBeTruthy();
+
+    act(() => {
+      dispatchStreamKey('/session/subagent', { type: 'turn_end', sessionPath: '/session/subagent' });
+    });
+
+    expect(mockedLoadMessages).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      dispatchStreamKey('/session/subagent', { type: 'text_delta', sessionPath: '/session/subagent', delta: '第二轮刚开始' });
+    });
+
+    expect(screen.queryByText('第一轮的临时预览')).toBeNull();
+    expect(screen.getByText('第二轮刚开始')).toBeTruthy();
+
+    await act(async () => {
+      resolveTurnEndReload?.();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('第一轮已落盘')).toBeTruthy();
+    expect(screen.getByText('第二轮刚开始')).toBeTruthy();
+  });
 });

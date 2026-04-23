@@ -20,20 +20,39 @@ import { isSensitivePath } from "../utils/path-security.js";
 
 const MAX_FILES = 9;
 
-/** 递归统计路径中的文件数量（异步） */
-async function countFiles(p) {
-  try {
-    const stat = await fs.stat(p);
-    if (!stat.isDirectory()) return 1;
-    let count = 0;
-    const entries = await fs.readdir(p);
-    for (const entry of entries) {
-      count += await countFiles(path.join(p, entry));
-    }
-    return count;
-  } catch {
-    return 0;
+class UploadPathError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "UploadPathError";
   }
+}
+
+/** 递归统计路径中的文件数量（异步） */
+export async function countFiles(p, { limit = Infinity, seen = new Set() } = {}) {
+  const stat = await fs.lstat(p);
+  if (stat.isSymbolicLink()) {
+    throw new UploadPathError("symlink not allowed");
+  }
+  if (!stat.isDirectory()) return 1;
+
+  let realDir;
+  try {
+    realDir = await fs.realpath(p);
+  } catch {
+    realDir = path.resolve(p);
+  }
+  if (seen.has(realDir)) return 0;
+  seen.add(realDir);
+
+  let count = 0;
+  const entries = await fs.readdir(p);
+  for (const entry of entries) {
+    const remaining = limit - count;
+    if (remaining <= 0) return limit + 1;
+    count += await countFiles(path.join(p, entry), { limit: remaining, seen });
+    if (count > limit) return limit + 1;
+  }
+  return count;
 }
 
 /** 清理超过 24 小时的上传临时文件（异步，后台执行） */
@@ -91,9 +110,13 @@ export function createUploadRoute(engine) {
         }
         let stat;
         try {
-          stat = await fs.stat(srcPath);
+          stat = await fs.lstat(srcPath);
         } catch {
           results.push({ src: srcPath, error: t("error.pathNotFound") });
+          continue;
+        }
+        if (stat.isSymbolicLink()) {
+          results.push({ src: srcPath, error: "symlink not allowed" });
           continue;
         }
         if (isSensitivePath(srcPath, engine.hanakoHome)) {
@@ -102,7 +125,7 @@ export function createUploadRoute(engine) {
         }
 
         // 安全检查通过后再统计文件数
-        const pathFileCount = await countFiles(srcPath);
+        const pathFileCount = await countFiles(srcPath, { limit: MAX_FILES - totalFiles });
         totalFiles += pathFileCount;
         if (totalFiles > MAX_FILES) {
           results.push({
@@ -135,6 +158,10 @@ export function createUploadRoute(engine) {
           isDirectory: isDir,
         });
       } catch (err) {
+        if (err instanceof UploadPathError) {
+          results.push({ src: srcPath, error: err.message });
+          continue;
+        }
         results.push({ src: srcPath, error: err.message });
       }
     }

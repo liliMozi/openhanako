@@ -22,10 +22,21 @@ describe('chat message session ownership', () => {
     // 以 props 形式传给 UserMessage / AssistantMessage。这里校验这条链路仍然成立。
     const chatAreaSource = read('components/chat/ChatArea.tsx');
     expect(chatAreaSource).toMatch(/<ChatTranscript[\s\S]*sessionPath=\{path\}/);
+    expect(chatAreaSource).toMatch(/<ChatTranscript[\s\S]*agentId=\{sessionAgentId\}/);
 
     const transcriptSource = read('components/chat/ChatTranscript.tsx');
     expect(transcriptSource).toMatch(/<UserMessage[\s\S]*sessionPath=\{sessionPath\}/);
     expect(transcriptSource).toMatch(/<AssistantMessage[\s\S]*sessionPath=\{sessionPath\}/);
+    expect(transcriptSource).toMatch(/<AssistantMessage[\s\S]*agentId=\{agentId\}/);
+  });
+
+  it('plugin card 通过显式 agentId 渲染，不读取全局 currentAgentId', () => {
+    const assistantSource = read('components/chat/AssistantMessage.tsx');
+    const pluginCardSource = read('components/chat/PluginCardBlock.tsx');
+
+    expect(assistantSource).toMatch(/<ContentBlockView[\s\S]*agentId=\{agentId\}/);
+    expect(assistantSource).toMatch(/<PluginCardBlock card=\{block\.card\} agentId=\{agentId\} \/>/);
+    expect(pluginCardSource).not.toMatch(/currentAgentId/);
   });
 
   it('聊天消息 selector 不再为缺失 key 内联返回新空数组', () => {

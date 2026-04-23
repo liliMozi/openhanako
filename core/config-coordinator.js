@@ -9,7 +9,6 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { createModuleLogger } from "../lib/debug-log.js";
-import { saveConfig } from "../lib/memory/config-loader.js";
 import { findModel, parseModelRef } from "../shared/model-ref.js";
 import { t } from "../server/i18n.js";
 
@@ -239,19 +238,18 @@ export class ConfigCoordinator {
    *
    * provider 必填——setDefaultModel 不做按 id 猜 provider 的兜底。
    */
-  setDefaultModel(modelId, provider) {
+  async setDefaultModel(modelId, provider, { agentId } = {}) {
     if (!modelId || !provider) {
       throw new Error(`setDefaultModel: modelId and provider both required (got ${modelId}, ${provider})`);
     }
     const models = this._d.getModels();
-    const model = models.setDefaultModel(modelId, provider);
-    const agent = this._d.getAgent();
-    if (agent?.configPath) {
-      saveConfig(agent.configPath, {
-        models: { chat: { id: modelId, provider } },
-      });
-    }
-    log.log(`default model set to: ${model.provider}/${model.id}`);
+    const model = findModel(models.availableModels, modelId, provider);
+    if (!model) throw new Error(t("error.modelNotFound", { id: `${provider}/${modelId}` }));
+    await this.updateConfig(
+      { models: { chat: { id: modelId, provider } } },
+      agentId ? { agentId } : {},
+    );
+    log.log(`default model set to: ${model.provider}/${model.id}${agentId ? ` agentId=${agentId}` : ""}`);
     return model;
   }
 
@@ -288,7 +286,10 @@ export class ConfigCoordinator {
     const agent = this._d.getAgent();
     const sessionCoord = this._d.getSessionCoordinator();
     return sessionCoord.writeSessionMeta(sessPath, {
-      memoryEnabled: agent.memoryEnabled,
+      // session-meta 持久化的是 session 自身冻结下来的记忆参与态，
+      // 不能写 master && session 的临时组合态，否则会把运行时 gate
+      // 错写成 session 身份，打穿 prefix cache 前提。
+      memoryEnabled: agent.sessionMemoryEnabled,
     });
   }
 

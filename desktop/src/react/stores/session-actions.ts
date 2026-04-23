@@ -18,6 +18,7 @@ import { updateKeyed } from './create-keyed-slice';
 import { snapshotStreamBuffer, type StreamBufferSnapshot } from './stream-invalidator';
 import { renderMarkdown } from '../utils/markdown';
 import type { ChatMessage, ContentBlock } from './chat-types';
+import { readMessageLiveVersion } from './message-live-version';
 
 // ── 防竞争计数器 ──
 
@@ -71,9 +72,10 @@ function clearSessionRuntimeCaches(path: string): void {
 export async function loadMessages(forPath?: string): Promise<void> {
   const targetPath = forPath || useStore.getState().currentSessionPath;
   if (!targetPath) return;
+  const messageLiveVersionBefore = readMessageLiveVersion(targetPath);
   // 捕获 hydrate 前的 live 版本：若 fetch 期间有 tool_end 更新 todos，
   // 后面就跳过 hydrate 写入，避免旧快照覆盖刚收到的实时状态。
-  const liveVersionBefore =
+  const todosLiveVersionBefore =
     useStore.getState().todosLiveVersionBySession[targetPath] ?? 0;
   // messages 维度的竞态护栏：rapid switch 或并发 load 时，只有最新一次调用
   // 的响应允许 apply initSession，stale 响应直接丢弃。
@@ -81,26 +83,35 @@ export async function loadMessages(forPath?: string): Promise<void> {
   try {
     const res = await hanaFetch(`/api/sessions/messages?path=${encodeURIComponent(targetPath)}`);
     const data = await res.json();
-    // per-session todos（防御性兼容层：即使后端漏转或缓存残留，这里兜底再转一次）
-    const rawTodos = data.todos || [];
-    const migratedTodos = migrateLegacyTodos({ todos: rawTodos });
-    const liveVersionNow =
-      useStore.getState().todosLiveVersionBySession[targetPath] ?? 0;
-    if (liveVersionNow === liveVersionBefore) {
-      useStore.getState().setSessionTodosForPath(targetPath, migratedTodos);
-    } else {
-      console.log(
-        '[loadMessages] 跳过 todos hydrate: mid-flight 收到 live 更新',
-        targetPath,
-      );
-    }
     const latestVersion =
       useStore.getState()._loadMessagesVersion[targetPath] ?? 0;
     if (latestVersion !== myVersion) {
-      // 已经有更新的 loadMessages 在途，stale 响应不应覆盖新状态
+      // 已经有更新的 loadMessages 在途，stale 响应不应覆盖新状态。
+      // todos 与 messages 必须作为同一份 hydrate 快照一起生效或一起丢弃。
       return;
     }
+    const messageLiveVersionNow = readMessageLiveVersion(targetPath);
+    if (messageLiveVersionNow !== messageLiveVersionBefore) {
+      console.log(
+        '[loadMessages] 跳过 session hydrate: mid-flight 收到 live message 更新',
+        targetPath,
+      );
+      return;
+    }
+    const todosLiveVersionNow =
+      useStore.getState().todosLiveVersionBySession[targetPath] ?? 0;
+    if (todosLiveVersionNow !== todosLiveVersionBefore) {
+      console.log(
+        '[loadMessages] 跳过 session hydrate: mid-flight 收到 live todo 更新',
+        targetPath,
+      );
+      return;
+    }
+    // per-session todos（防御性兼容层：即使后端漏转或缓存残留，这里兜底再转一次）
+    const rawTodos = data.todos || [];
+    const migratedTodos = migrateLegacyTodos({ todos: rawTodos });
     const items = buildItemsFromHistory(data);
+    useStore.getState().setSessionTodosForPath(targetPath, migratedTodos);
     if (items.length > 0) {
       useStore.getState().initSession(targetPath, items, data.hasMore ?? false);
       if (targetPath === useStore.getState().currentSessionPath) {
@@ -135,7 +146,7 @@ function buildInflightAssistantMessage(snap: StreamBufferSnapshot): ChatMessage 
     const displayText = snap.text.replace(/<tool_code>[\s\S]*?<\/tool_code>\s*/g, '');
     blocks.push({ type: 'text', html: renderMarkdown(displayText) });
   }
-  return { id: `inflight-${Date.now()}`, role: 'assistant', blocks };
+  return { id: snap.messageId || `inflight-${Date.now()}`, role: 'assistant', blocks };
 }
 
 /** 上滑加载更早的消息（分页） */
@@ -238,9 +249,9 @@ export async function switchSession(path: string): Promise<void> {
     // 保存当前 session 的附件到 keyed store
     const currentPath = s.currentSessionPath;
     const currentAttachments = state.attachedFiles;
-    if (currentPath && currentAttachments.length) {
+    if (currentPath) {
       useStore.setState(prev => ({
-        attachedFilesBySession: { ...prev.attachedFilesBySession, [currentPath]: currentAttachments },
+        attachedFilesBySession: { ...prev.attachedFilesBySession, [currentPath]: [...currentAttachments] },
       }));
     }
 

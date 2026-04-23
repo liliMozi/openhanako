@@ -128,7 +128,54 @@ describe("BridgeManager._handleMessage", () => {
         agentId: "hana",
       });
 
+      await vi.waitFor(() => expect(hub.send).toHaveBeenCalledOnce());
       expect(hub.send).toHaveBeenCalledWith(tagged("Bob: hi there"), expect.any(Object));
+    });
+
+    it("serializes group messages for the same sessionKey", async () => {
+      const { bm, hub } = createMocks();
+
+      let resolveFirst;
+      hub.send.mockImplementationOnce(() =>
+        new Promise((resolve) => { resolveFirst = resolve; })
+      );
+
+      await bm._handleMessage("telegram", {
+        sessionKey: "tg_group_g1@hana",
+        text: "first",
+        senderName: "Alice",
+        userId: "user1",
+        isGroup: true,
+        chatId: "g1",
+        agentId: "hana",
+      });
+      await vi.waitFor(() => expect(hub.send).toHaveBeenCalledTimes(1));
+
+      await bm._handleMessage("telegram", {
+        sessionKey: "tg_group_g1@hana",
+        text: "second",
+        senderName: "Bob",
+        userId: "user2",
+        isGroup: true,
+        chatId: "g1",
+        agentId: "hana",
+      });
+
+      expect(hub.send).toHaveBeenCalledTimes(1);
+
+      resolveFirst("response 1");
+      await vi.waitFor(() => expect(hub.send).toHaveBeenCalledTimes(2));
+
+      expect(hub.send).toHaveBeenNthCalledWith(
+        1,
+        tagged("Alice: first"),
+        expect.objectContaining({ sessionKey: "tg_group_g1@hana", role: "guest", isGroup: true }),
+      );
+      expect(hub.send).toHaveBeenNthCalledWith(
+        2,
+        tagged("Bob: second"),
+        expect.objectContaining({ sessionKey: "tg_group_g1@hana", role: "guest", isGroup: true }),
+      );
     });
   });
 

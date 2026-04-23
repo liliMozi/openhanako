@@ -1,4 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import fs from "fs";
+import fsp from "fs/promises";
+import os from "os";
+import path from "path";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("../core/llm-utils.js", () => ({
   isToolCallBlock: (b) => (b.type === "tool_use" || b.type === "toolCall") && !!b.name,
@@ -10,8 +14,19 @@ import {
   stripThinkTags,
   extractTextContent,
   loadSessionHistoryMessages,
+  loadLatestAssistantSummaryFromSessionFile,
   isValidSessionPath,
 } from "../core/message-utils.js";
+
+let tmpDir;
+
+beforeEach(() => {
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-message-utils-"));
+});
+
+afterEach(() => {
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
 
 describe("TOOL_ARG_SUMMARY_KEYS", () => {
   it("存在并包含常用字段", () => {
@@ -154,5 +169,47 @@ describe("loadSessionHistoryMessages", () => {
     const engine = { messages: [{ role: "user", content: "hi" }] };
     const result = await loadSessionHistoryMessages(engine, undefined);
     expect(result).toEqual([]);
+  });
+});
+
+describe("loadLatestAssistantSummaryFromSessionFile", () => {
+  it("从小 session 文件里提取最后 assistant 摘要", async () => {
+    const sessionPath = path.join(tmpDir, "child.jsonl");
+    fs.writeFileSync(sessionPath, [
+      JSON.stringify({ type: "message", message: { role: "user", content: [{ type: "text", text: "hi" }] } }),
+      JSON.stringify({ type: "message", message: { role: "assistant", content: [{ type: "text", text: "done summary" }] } }),
+      "",
+    ].join("\n"), "utf-8");
+
+    await expect(loadLatestAssistantSummaryFromSessionFile(sessionPath)).resolves.toBe("done summary");
+  });
+
+  it("大 session 文件只读尾部，也能跳过首个截断半行拿到最后 assistant 摘要", async () => {
+    const sessionPath = path.join(tmpDir, "large-child.jsonl");
+    const hugeUserText = "x".repeat(300 * 1024);
+    fs.writeFileSync(sessionPath, [
+      JSON.stringify({ type: "message", message: { role: "user", content: [{ type: "text", text: hugeUserText }] } }),
+      JSON.stringify({ type: "message", message: { role: "assistant", content: [{ type: "text", text: "tail summary" }] } }),
+      "",
+    ].join("\n"), "utf-8");
+
+    const readFileSpy = vi.spyOn(fsp, "readFile");
+    try {
+      await expect(loadLatestAssistantSummaryFromSessionFile(sessionPath)).resolves.toBe("tail summary");
+      expect(readFileSpy).not.toHaveBeenCalledWith(sessionPath, "utf-8");
+    } finally {
+      readFileSpy.mockRestore();
+    }
+  });
+
+  it("最近 assistant 没有文本时返回 null，不继续向前找更早 assistant", async () => {
+    const sessionPath = path.join(tmpDir, "empty-last-assistant.jsonl");
+    fs.writeFileSync(sessionPath, [
+      JSON.stringify({ type: "message", message: { role: "assistant", content: [{ type: "text", text: "older summary" }] } }),
+      JSON.stringify({ type: "message", message: { role: "assistant", content: [{ type: "tool_use", name: "read" }] } }),
+      "",
+    ].join("\n"), "utf-8");
+
+    await expect(loadLatestAssistantSummaryFromSessionFile(sessionPath)).resolves.toBeNull();
   });
 });

@@ -15,6 +15,7 @@ import {
 import {
   extractTextContent,
   loadSessionHistoryMessages,
+  loadLatestAssistantSummaryFromSessionFile,
   isValidSessionPath,
 } from "../../core/message-utils.js";
 import { loadLatestTodosFromSessionFile } from "../../lib/tools/todo-compat.js";
@@ -90,6 +91,17 @@ export function createSessionsRoute(engine) {
         block.requestedAgentName = source.requestedAgentNameSnapshot;
       }
     }
+  }
+
+  function createSubagentSummaryCache() {
+    const map = new Map();
+    return async (sessionPath) => {
+      if (!sessionPath) return null;
+      if (!map.has(sessionPath)) {
+        map.set(sessionPath, loadLatestAssistantSummaryFromSessionFile(sessionPath));
+      }
+      return await map.get(sessionPath);
+    };
   }
 
   function invalidateRcTarget(sessionPath) {
@@ -199,6 +211,7 @@ export function createSessionsRoute(engine) {
       {
         const deferredStore = engine.deferredResults;
         const readSessionMeta = createSubagentMetaCache();
+        const readSessionSummary = createSubagentSummaryCache();
         for (const b of slicedBlocks) {
           if (b.type !== "subagent" || !b.taskId) continue;
           const task = deferredStore?.query?.(b.taskId) || null;
@@ -235,23 +248,11 @@ export function createSessionsRoute(engine) {
           // 从 session 文件推断 done 状态（异步读取，只需尾部几行）
           let sp = b.streamKey || null;
           if (!sp) continue;
-          try {
-            const raw = await fs.readFile(sp, "utf-8");
-            const lines = raw.trim().split("\n");
-            for (let j = lines.length - 1; j >= 0; j--) {
-              const entry = JSON.parse(lines[j]);
-              const msg = entry.message;
-              if (msg?.role !== "assistant") continue;
-              const content = msg.content;
-              if (!Array.isArray(content)) continue;
-              const textBlock = content.find(c => c.type === "text");
-              if (textBlock?.text) {
-                b.streamStatus = "done";
-                b.summary = textBlock.text.slice(0, 200);
-              }
-              break;
-            }
-          } catch { /* session 文件读取失败，保持 running */ }
+          const summary = await readSessionSummary(sp);
+          if (summary) {
+            b.streamStatus = "done";
+            b.summary = summary;
+          }
         }
       }
 
@@ -347,13 +348,18 @@ export function createSessionsRoute(engine) {
       const switchedAgent = engine.getAgent(switchedAgentId);
 
       // switchSession 已同步设置焦点到目标 session。
-      // cwd/planMode/memoryEnabled/model 是 session 级状态，此时读焦点是安全的。
+      // cwd/planMode/model 是 session 级状态，此时读焦点是安全的。
+      // memoryEnabled 需要返回 session 自身冻结下来的值，而不是当前
+      // master && session 的临时组合态；否则现有 session 的缓存前缀身份
+      // 会被全局 gate 混淆。
       // agentId/agentName 已从 sessionPath 解析，不依赖焦点。
       const activeModel = engine.activeSessionModel ?? engine.currentModel;
+      const frozenSessionMemoryEnabled =
+        switchedAgent?.isSessionMemoryEnabledFor?.(sessionPath) ?? engine.memoryEnabled;
       return c.json({
         ok: true,
         messageCount: session?.messages?.length || 0,
-        memoryEnabled: engine.memoryEnabled,
+        memoryEnabled: frozenSessionMemoryEnabled,
         planMode: engine.planMode,
         memoryModelUnavailableReason: engine.memoryModelUnavailableReason || null,
         cwd: engine.cwd,

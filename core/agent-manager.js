@@ -271,9 +271,9 @@ export class AgentManager {
    * All cleanup is wrapped in try/catch so a cleanup failure doesn't mask
    * the original error.
    */
-  _rollbackAgentCreation(agentDir, agentId) {
+  async _rollbackAgentCreation(agentDir, agentId) {
     try { fs.rmSync(agentDir, { recursive: true, force: true }); } catch {}
-    try { this._d.getChannelManager().cleanupAgentFromChannels(agentId); } catch {}
+    try { await this._d.getChannelManager().cleanupAgentFromChannels(agentId); } catch {}
   }
 
   async createAgent({ name, id, yuan }) {
@@ -371,7 +371,12 @@ export class AgentManager {
     touchIfMissing(path.join(agentDir, 'pinned.md'));
 
     // 频道系统
-    this._d.getChannelManager().setupChannelsForNewAgent(agentId);
+    try {
+      await this._d.getChannelManager().setupChannelsForNewAgent(agentId);
+    } catch (err) {
+      await this._rollbackAgentCreation(agentDir, agentId);
+      throw err;
+    }
 
     // 初始化并加入长驻 Map
     const ag = this._createAgentInstance(agentId, () => ({}));
@@ -382,7 +387,7 @@ export class AgentManager {
       await ag.init(() => {}, this._d.getSharedModels(), resolveModel);
     } catch (err) {
       // init 失败：回滚已创建的目录和频道状态，防止孤儿残留
-      this._rollbackAgentCreation(agentDir, agentId);
+      await this._rollbackAgentCreation(agentDir, agentId);
       throw err;
     }
     // #419: 新建 agent 继承当前已装 user/SDK skill 快照;空快照时保留 template 默认
@@ -392,7 +397,7 @@ export class AgentManager {
         ag.updateConfig({ skills: { enabled: defaultEnabled } });
         this._d.getSkills().syncAgentSkills(ag);
       } catch (err) {
-        this._rollbackAgentCreation(agentDir, agentId);
+        await this._rollbackAgentCreation(agentDir, agentId);
         throw err;
       }
     }
@@ -518,7 +523,7 @@ export class AgentManager {
 
     // 频道清理
     try {
-      this._d.getChannelManager().cleanupAgentFromChannels(agentId);
+      await this._d.getChannelManager().cleanupAgentFromChannels(agentId);
     } catch (err) {
       log.error(`频道清理失败 (${agentId}): ${err.message}`);
     }

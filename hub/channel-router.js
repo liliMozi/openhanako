@@ -229,7 +229,7 @@ export class ChannelRouter {
 
       // 写入频道文件
       const channelFile = path.join(engine.channelsDir, `${channelName}.md`);
-      appendMessage(channelFile, agentId, replyText);
+      await appendMessage(channelFile, agentId, replyText);
 
       console.log(`\x1b[90m[channel] ${agentId} replied #${channelName} (${replyText.length} chars)\x1b[0m`);
       debugLog()?.log("channel", `${agentId} replied #${channelName} (${replyText.length} chars)`);

@@ -16,6 +16,8 @@ export const TOOL_ARG_SUMMARY_KEYS = [
   "key", "value", "action", "type", "schedule", "prompt", "label",
 ];
 
+const SESSION_TAIL_READ_THRESHOLD = 256 * 1024;
+
 /** 从文本中提取并剥离 <think>/<thinking> 标签 */
 export function stripThinkTags(raw) {
   const thinkParts = [];
@@ -100,6 +102,68 @@ export async function loadSessionHistoryMessages(engine, explicitPath) {
   }
 
   return [];
+}
+
+async function readSessionTailUtf8(filePath, maxBytes = SESSION_TAIL_READ_THRESHOLD) {
+  const stat = await fs.stat(filePath);
+  if (!stat.size) return "";
+  if (stat.size <= maxBytes) {
+    return await fs.readFile(filePath, "utf-8");
+  }
+
+  const start = Math.max(0, stat.size - maxBytes);
+  const fh = await fs.open(filePath, "r");
+  try {
+    const length = stat.size - start;
+    const buf = Buffer.alloc(length);
+    await fh.read(buf, 0, length, start);
+    let raw = buf.toString("utf-8");
+    const firstNewline = raw.indexOf("\n");
+    if (firstNewline === -1) return "";
+    return raw.slice(firstNewline + 1);
+  } finally {
+    await fh.close();
+  }
+}
+
+/**
+ * 从 session JSONL 尾部推断最后一条 assistant 文本摘要。
+ *
+ * 这里故意保持和 sessions route 旧语义一致：
+ * - 只看物理文件尾部最近的 assistant message
+ * - 若最近 assistant 没有文本，则返回 null，不继续向前找更早的 assistant
+ *
+ * 这样可以把整文件 read+split 降成有界尾读，同时不改变现有 UI 的终态判断规则。
+ */
+export async function loadLatestAssistantSummaryFromSessionFile(sessionPath, options = {}) {
+  if (!sessionPath) return null;
+  const maxBytes = options.maxBytes ?? SESSION_TAIL_READ_THRESHOLD;
+  const summaryLimit = options.summaryLimit ?? 200;
+
+  try {
+    const raw = await readSessionTailUtf8(sessionPath, maxBytes);
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+
+    const lines = trimmed.split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i]?.trim();
+      if (!line) continue;
+      try {
+        const entry = JSON.parse(line);
+        const msg = entry?.message;
+        if (entry?.type !== "message" || msg?.role !== "assistant") continue;
+        const { text } = extractTextContent(msg.content, { stripThink: true });
+        return text ? text.slice(0, summaryLimit) : null;
+      } catch {
+        // 跳过损坏行，继续向前扫描
+      }
+    }
+  } catch {
+    // 文件读取失败
+  }
+
+  return null;
 }
 
 /**

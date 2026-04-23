@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { getPluginIframeOrigin, isTrustedPluginIframeMessage } from '../utils/plugin-iframe-security';
 
 type IframeStatus = 'loading' | 'ready' | 'error';
 
@@ -10,12 +11,14 @@ export function usePluginIframe(routeUrl: string | null) {
   const [status, setStatus] = useState<IframeStatus>('loading');
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const seqRef = useRef(0);
+  const expectedOrigin = useMemo(() => getPluginIframeOrigin(routeUrl), [routeUrl]);
 
   useEffect(() => {
     if (!routeUrl) return;
     setStatus('loading');
 
     const onMessage = (event: MessageEvent) => {
+      if (!isTrustedPluginIframeMessage(event, iframeRef.current?.contentWindow, expectedOrigin)) return;
       const data = event.data;
       if (!data || typeof data.type !== 'string') return;
       if (!TYPE_WHITELIST.includes(data.type)) return;
@@ -42,14 +45,15 @@ export function usePluginIframe(routeUrl: string | null) {
       window.removeEventListener('message', onMessage);
       clearTimeout(timeoutRef.current);
     };
-  }, [routeUrl]);
+  }, [routeUrl, expectedOrigin]);
 
   const postToIframe = useCallback((type: string, payload: Record<string, unknown> = {}) => {
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
+    if (!expectedOrigin) return;
     seqRef.current += 1;
-    iframe.contentWindow.postMessage({ type, payload, seq: seqRef.current }, '*');
-  }, []);
+    iframe.contentWindow.postMessage({ type, payload, seq: seqRef.current }, expectedOrigin);
+  }, [expectedOrigin]);
 
   const retry = useCallback(() => {
     setStatus('loading');

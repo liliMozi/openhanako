@@ -25,9 +25,9 @@ function hasAssistantHistory(items: ChatListItem[]): boolean {
   return items.some((item) => item.type === 'message' && item.data.role === 'assistant');
 }
 
-function createStreamMessage(taskId: string): ChatMessage {
+function createStreamMessage(taskId: string, turnToken: number): ChatMessage {
   return {
-    id: `${STREAM_MESSAGE_ID_PREFIX}-${taskId}`,
+    id: `${STREAM_MESSAGE_ID_PREFIX}-${taskId}-${turnToken}`,
     role: 'assistant',
     blocks: [],
   };
@@ -57,6 +57,14 @@ export function SubagentSessionPreview({ taskId, sessionPath, agentId, streamSta
   const [streamRevision, setStreamRevision] = useState(0);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
+  const activeStreamTurnRef = useRef(0);
+  const pendingCleanupTurnRef = useRef<number | null>(null);
+
+  const beginNextStreamTurn = useCallback(() => {
+    activeStreamTurnRef.current += 1;
+    pendingCleanupTurnRef.current = null;
+    return activeStreamTurnRef.current;
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -66,6 +74,8 @@ export function SubagentSessionPreview({ taskId, sessionPath, agentId, streamSta
 
   useEffect(() => {
     stickToBottomRef.current = true;
+    activeStreamTurnRef.current = 0;
+    pendingCleanupTurnRef.current = null;
     setStreamMessage(null);
     setStreamRevision(0);
   }, [sessionPath]);
@@ -164,7 +174,11 @@ export function SubagentSessionPreview({ taskId, sessionPath, agentId, streamSta
 
     const updateStreamMessage = (updater: (message: ChatMessage) => ChatMessage) => {
       setStreamMessage((prev) => {
-        const next = updater(prev || createStreamMessage(taskId));
+        let base = prev;
+        if (!base || pendingCleanupTurnRef.current === activeStreamTurnRef.current) {
+          base = createStreamMessage(taskId, beginNextStreamTurn());
+        }
+        const next = updater(base);
         return next;
       });
       setStreamRevision((v) => v + 1);
@@ -300,14 +314,24 @@ export function SubagentSessionPreview({ taskId, sessionPath, agentId, streamSta
           break;
 
         case 'turn_end':
-          void loadMessages(sessionPath)
-            .then(() => {
-              const latestItems = useStore.getState().chatSessions[sessionPath]?.items ?? EMPTY_ITEMS;
-              if (hasAssistantHistory(latestItems)) {
-                setStreamMessage(null);
-              }
-            })
-            .catch(() => {});
+          pendingCleanupTurnRef.current = activeStreamTurnRef.current || null;
+          {
+            const cleanupTurn = pendingCleanupTurnRef.current;
+            if (!cleanupTurn) break;
+            void loadMessages(sessionPath)
+              .then(() => {
+                if (pendingCleanupTurnRef.current !== cleanupTurn) return;
+                if (activeStreamTurnRef.current !== cleanupTurn) return;
+                const latestItems = useStore.getState().chatSessions[sessionPath]?.items ?? EMPTY_ITEMS;
+                if (!hasAssistantHistory(latestItems)) return;
+                pendingCleanupTurnRef.current = null;
+                setStreamMessage((prev) => {
+                  if (activeStreamTurnRef.current !== cleanupTurn) return prev;
+                  return null;
+                });
+              })
+              .catch(() => {});
+          }
           break;
 
         default:
@@ -316,7 +340,7 @@ export function SubagentSessionPreview({ taskId, sessionPath, agentId, streamSta
     });
 
     return unsubscribe;
-  }, [sessionPath, streamStatus, taskId]);
+  }, [beginNextStreamTurn, sessionPath, streamStatus, taskId]);
 
   const mergedItems = streamMessage
     ? [...items, { type: 'message' as const, data: streamMessage }]

@@ -95,6 +95,78 @@ describe("SessionCoordinator", () => {
     expect(createAgentSessionMock.mock.calls[0][0].resourceLoader.getSystemPrompt()).toBe("MEMORY OFF");
   });
 
+  it("fresh session freezes the effective memory state into meta for cache safety", async () => {
+    const sessionFile = path.join(tempDir, "frozen-memory.jsonl");
+    let sessionMemoryEnabled = true;
+    const agent = {
+      id: "hana",
+      agentDir: tempDir,
+      sessionDir: tempDir,
+      memoryMasterEnabled: false,
+      get sessionMemoryEnabled() { return sessionMemoryEnabled; },
+      get memoryEnabled() { return this.memoryMasterEnabled && sessionMemoryEnabled; },
+      setMemoryEnabled: vi.fn((enabled) => {
+        sessionMemoryEnabled = !!enabled;
+      }),
+      getToolsSnapshot: vi.fn(({ forceMemoryEnabled } = {}) =>
+        forceMemoryEnabled ? [{ name: "search_memory" }] : [{ name: "todo_write" }],
+      ),
+      buildSystemPrompt: vi.fn(({ forceMemoryEnabled } = {}) =>
+        forceMemoryEnabled ? "MEMORY ON" : "MEMORY OFF",
+      ),
+      config: { tools: {} },
+      tools: [{ name: "todo_write" }],
+    };
+
+    sessionManagerCreateMock.mockReturnValue({
+      getCwd: () => "/tmp/workspace",
+      getSessionFile: () => sessionFile,
+    });
+    createAgentSessionMock.mockResolvedValue({
+      session: {
+        sessionManager: { getSessionFile: () => sessionFile },
+        subscribe: vi.fn(() => vi.fn()),
+        setActiveToolsByName: vi.fn(),
+        model: { id: "test-model", provider: "test" },
+      },
+    });
+
+    const coordinator = new SessionCoordinator({
+      agentsDir: tempDir,
+      getAgent: () => agent,
+      getActiveAgentId: () => "hana",
+      getModels: () => ({
+        currentModel: { id: "test-model", provider: "test", name: "test-model" },
+        authStorage: {},
+        modelRegistry: {},
+        resolveThinkingLevel: () => "medium",
+      }),
+      getResourceLoader: () => ({
+        getSystemPrompt: () => "BASE",
+        getAppendSystemPrompt: () => [],
+        getExtensions: () => ({ extensions: [], errors: [] }),
+      }),
+      getSkills: () => null,
+      buildTools: (_cwd, customTools) => ({ tools: [], customTools }),
+      emitEvent: () => {},
+      getHomeCwd: () => "/tmp/home",
+      agentIdFromSessionPath: () => "hana",
+      switchAgentOnly: async () => {},
+      getConfig: () => ({}),
+      getPrefs: () => ({ getThinkingLevel: () => "medium" }),
+      getAgents: () => new Map(),
+      getActivityStore: () => null,
+      getAgentById: () => agent,
+      listAgents: () => [],
+    });
+
+    await coordinator.createSession(null, "/tmp/workspace", true);
+
+    expect(createAgentSessionMock.mock.calls[0][0].resourceLoader.getSystemPrompt()).toBe("MEMORY OFF");
+    const meta = JSON.parse(fs.readFileSync(path.join(tempDir, "hana", "sessions", "session-meta.json"), "utf-8"));
+    expect(meta[path.basename(sessionFile)].memoryEnabled).toBe(false);
+  });
+
   it("cleans up the temporary session file when aborted after session creation", async () => {
     const sessionFile = path.join(tempDir, "isolated.jsonl");
     fs.writeFileSync(sessionFile, "temp");

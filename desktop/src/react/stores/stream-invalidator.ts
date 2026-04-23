@@ -10,6 +10,7 @@
 
 export interface StreamBufferSnapshot {
   hasContent: boolean;
+  messageId: string | null;
   text: string;
   thinking: string;
   mood: string;
