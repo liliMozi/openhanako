@@ -14,14 +14,10 @@ const path = require("path");
 const { spawn, execFile } = require("child_process");
 const fs = require("fs");
 const { pathToFileURL } = require("url");
-const { promisify } = require("util");
 const { initAutoUpdater, checkForUpdatesAuto, setMainWindow: setUpdaterMainWindow, setUpdateChannel, getState: getUpdateState } = require("./auto-updater.cjs");
 const { createFileWatchRegistry } = require("./file-watch-registry.cjs");
-const { MAX_SCREENSHOT_STITCH_RAW_BYTES } = require("./screenshot-stitch-worker.cjs");
 const { wrapIpcHandler, wrapIpcBestEffortHandler, wrapIpcOn } = require('./ipc-wrapper.cjs');
 const themeRegistry = require('./src/shared/theme-registry.cjs');
-
-const execFileAsync = promisify(execFile);
 
 // preload 缺失时 Electron 会静默忽略，renderer 拿不到 window.hana →
 // onboarding/主窗口白屏且无前端报错。此处硬崩，拒绝以不可用状态启动。
@@ -1785,31 +1781,6 @@ function getScreenshotWindow() {
   return _screenshotWin;
 }
 
-function getScreenshotStitchWorkerPath() {
-  return path.join(app.getAppPath(), "desktop", "screenshot-stitch-worker.cjs");
-}
-
-async function runScreenshotStitchWorker(payload) {
-  const env = { ...process.env };
-  delete env.ELECTRON_RUN_AS_NODE;
-
-  const { stdout, stderr } = await execFileAsync(
-    process.execPath,
-    [getScreenshotStitchWorkerPath(), JSON.stringify(payload)],
-    { env, maxBuffer: 1024 * 1024 }
-  );
-
-  if (stderr && stderr.trim()) {
-    throw new Error(stderr.trim());
-  }
-  if (!stdout || !stdout.trim()) return;
-
-  const result = JSON.parse(stdout);
-  if (!result?.ok) {
-    throw new Error(result?.error || "screenshot stitch worker failed");
-  }
-}
-
 let _screenshotLock = Promise.resolve();
 
 function withScreenshotLock(fn) {
@@ -1963,10 +1934,12 @@ function buildScreenshotHTML(payload) {
 
 async function screenshotCapture(htmlContent, width) {
   const offscreen = getScreenshotWindow();
+  const scale = 2;
+
   offscreen.setSize(width, 100);
 
-  const tmpRoot = fs.mkdtempSync(path.join(app.getPath("temp"), "hana-ss-"));
-  const tmpHtml = path.join(tmpRoot, "render.html");
+  const tmpDir = app.getPath("temp");
+  const tmpHtml = path.join(tmpDir, `hana-ss-${Date.now()}.html`);
   fs.writeFileSync(tmpHtml, htmlContent, "utf-8");
 
   try {
@@ -1994,57 +1967,49 @@ async function screenshotCapture(htmlContent, width) {
       const image = await offscreen.webContents.capturePage();
       pngBuffer = image.toPNG();
     } else {
-      const segmentPaths = [];
+      const segments = [];
       let captured = 0;
-      let actualWidth = null;
-      let actualTotalHeight = 0;
       while (captured < totalHeight) {
         const segH = Math.min(SCREENSHOT_MAX_SEGMENT, totalHeight - captured);
         offscreen.setSize(width, segH);
         await offscreen.webContents.executeJavaScript(`window.scrollTo(0, ${captured})`);
         await new Promise(r => setTimeout(r, 300));
         const segImage = await offscreen.webContents.capturePage();
-        const segSize = segImage.getSize();
-        if (actualWidth == null) actualWidth = segSize.width;
-        else if (segSize.width !== actualWidth) {
-          throw new Error(`screenshot segment width drifted from ${actualWidth} to ${segSize.width}`);
-        }
-        actualTotalHeight += segSize.height;
-
-        const segPath = path.join(tmpRoot, `segment-${String(segmentPaths.length).padStart(3, "0")}.png`);
-        fs.writeFileSync(segPath, segImage.toPNG());
-        segmentPaths.push(segPath);
+        segments.push(segImage);
         captured += segH;
       }
 
-      if (!actualWidth || !actualTotalHeight) {
-        throw new Error("no screenshot segments captured");
-      }
-      const rawBytes = actualWidth * actualTotalHeight * 4;
-      if (!Number.isSafeInteger(rawBytes)) {
-        throw new Error("screenshot bitmap size overflow");
-      }
-      if (rawBytes > MAX_SCREENSHOT_STITCH_RAW_BYTES) {
-        throw new Error(
-          `screenshot is too large to render safely (${Math.ceil(rawBytes / (1024 * 1024))} MiB raw > ${Math.ceil(MAX_SCREENSHOT_STITCH_RAW_BYTES / (1024 * 1024))} MiB limit)`
-        );
+      const actualWidth = width * scale;
+      const actualTotalHeight = totalHeight * scale;
+      const fullBitmap = Buffer.alloc(actualWidth * actualTotalHeight * 4);
+      let yOffset = 0;
+
+      for (const seg of segments) {
+        const bitmap = seg.toBitmap();
+        const size = seg.getSize();
+        const partHeight = size.height;
+        const partRowBytes = size.width * 4;
+        for (let row = 0; row < partHeight; row++) {
+          bitmap.copy(
+            fullBitmap,
+            (yOffset + row) * actualWidth * 4,
+            row * partRowBytes,
+            row * partRowBytes + Math.min(partRowBytes, actualWidth * 4)
+          );
+        }
+        yOffset += partHeight;
       }
 
-      const stitchedPath = path.join(tmpRoot, "stitched.png");
-      await runScreenshotStitchWorker({
-        segmentPaths,
-        outputPath: stitchedPath,
+      const fullImage = nativeImage.createFromBitmap(fullBitmap, {
         width: actualWidth,
-        actualWidth,
-        actualTotalHeight,
-        maxRawBytes: MAX_SCREENSHOT_STITCH_RAW_BYTES,
+        height: actualTotalHeight,
       });
-      pngBuffer = fs.readFileSync(stitchedPath);
+      pngBuffer = fullImage.toPNG();
     }
 
     return pngBuffer;
   } finally {
-    try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch {}
+    try { fs.unlinkSync(tmpHtml); } catch {}
   }
 }
 

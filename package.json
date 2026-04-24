@@ -1,6 +1,6 @@
 {
   "name": "hanako",
-  "version": "0.113.0",
+  "version": "0.113.1",
   "type": "module",
   "description": "Hanako - a personal AI agent with memory and soul",
   "license": "Apache-2.0",
@@ -98,7 +98,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "jsdom": "^29.0.2",
     "patch-package": "^8.0.1",
-    "pngjs": "^5.0.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.2",
     "vite": "^7.3.1",
@@ -115,7 +114,6 @@
     "files": [
       "desktop/main.bundle.cjs",
       "desktop/preload.bundle.cjs",
-      "desktop/screenshot-stitch-worker.cjs",
       "desktop/dist-renderer/**",
       "desktop/src/**/*.{html,icns,ico,png,svg,json}",
       "desktop/src/assets/**",
