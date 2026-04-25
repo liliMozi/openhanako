@@ -447,6 +447,9 @@ export class AgentManager {
     return queued;
   }
 
+  // 纯切指针：不动 heartbeat / cron / channel。heartbeat 是 per-agent 闭包，
+  // 与 _activeAgentId 解耦，跨 agent 跳转期间应持续运行。pause/resume 是
+  // _doSwitchAgent 重建焦点 session 窗口期的保护措施，不属于这条路径。
   async _doSwitchAgentOnly(agentId) {
     if (!this._agents.has(agentId)) {
       throw new Error(t("error.agentNotFound", { id: agentId }));
@@ -454,8 +457,6 @@ export class AgentManager {
     const prevAgentId = this._activeAgentId;
     log.log(`switching agent to ${agentId}`);
     try {
-      const hub = this._d.getHub();
-      await hub?.pauseForAgentSwitch();
       clearConfigCache();
       this._activeAgentId = agentId;
 
@@ -478,19 +479,24 @@ export class AgentManager {
       log.log(`agent switched to ${this.agent.agentName} (${agentId}), model=${effectiveModel}`);
     } catch (err) {
       this._activeAgentId = prevAgentId;
-      try { this._d.getHub()?.resumeAfterAgentSwitch(); } catch {}
       throw err;
     }
   }
 
   async _doSwitchAgent(agentId) {
-    await this._doSwitchAgentOnly(agentId);
     const hub = this._d.getHub();
-    hub?.resumeAfterAgentSwitch();
-    this._d.getSkills().syncAgentSkills(this.agent);
-    this._d.getPrefs().savePrimaryAgent(agentId);
-    await this._d.getSessionCoordinator().createSession();
-    log.log(`已切换到助手: ${this.agent.agentName} (${agentId})`);
+    // pause/resume 严格配对：try/finally 保证 resume 一定调到，
+    // 包括 _doSwitchAgentOnly / syncAgentSkills / createSession 任一抛错的路径。
+    await hub?.pauseForAgentSwitch();
+    try {
+      await this._doSwitchAgentOnly(agentId);
+      this._d.getSkills().syncAgentSkills(this.agent);
+      this._d.getPrefs().savePrimaryAgent(agentId);
+      await this._d.getSessionCoordinator().createSession();
+      log.log(`已切换到助手: ${this.agent.agentName} (${agentId})`);
+    } finally {
+      hub?.resumeAfterAgentSwitch();
+    }
   }
 
   async createSessionForAgent(agentId, cwd, memoryEnabled = true) {
