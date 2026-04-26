@@ -69,6 +69,10 @@ function hasOptimisticCurrentSession(): boolean {
   return !!state.sessions.find((s: any) => s.path === sessionPath && s._optimistic);
 }
 
+function isKnownChatSession(sessionPath: string, state = useStore.getState()): boolean {
+  return !!state.chatSessions?.[sessionPath] || state.sessions.some((s: any) => s.path === sessionPath);
+}
+
 export function applyStreamingStatus(isStreaming: boolean, sessionPath: string | null): void {
   // 元数据层：把 isStreaming 视为 sessionPath 维度的权威信号，统一写回 streamingSessions。
   // 这一层不分焦点，任何来源（普通 status、stream_resume 恢复）都必须到达这里，
@@ -123,8 +127,12 @@ export function handleServerMessage(msg: any): void {
     updateSessionStreamMeta(msg);
   }
 
-  // 活跃 block 事件路由：非当前 session 的聊天事件分发到 stream-key-dispatcher
+  // 活跃 block 事件路由：非当前 session 的聊天事件也要写入正常聊天缓存。
+  // stream-key-dispatcher 只负责卡片/预览订阅，不能吞掉主 transcript 的后台流。
   if (REACT_CHAT_EVENTS.has(msg.type) && msg.sessionPath && msg.sessionPath !== state.currentSessionPath) {
+    if (isKnownChatSession(msg.sessionPath, state)) {
+      streamBufferManager.handle(msg);
+    }
     dispatchStreamKey(msg.sessionPath, msg);
     return;
   }

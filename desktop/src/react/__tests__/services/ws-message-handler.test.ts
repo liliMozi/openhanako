@@ -34,8 +34,14 @@ vi.mock('../../services/stream-resume', () => ({
   updateSessionStreamMeta: vi.fn(),
 }));
 
+vi.mock('../../services/stream-key-dispatcher', () => ({
+  dispatchStreamKey: vi.fn(),
+}));
+
+import { streamBufferManager } from '../../hooks/use-stream-buffer';
 import { useStore } from '../../stores';
 import { applyStreamingStatus, handleServerMessage } from '../../services/ws-message-handler';
+import { dispatchStreamKey } from '../../services/stream-key-dispatcher';
 
 describe('ws-message-handler applyStreamingStatus', () => {
   beforeEach(() => {
@@ -143,5 +149,56 @@ describe('ws-message-handler session-scoped desktop events', () => {
     });
 
     expect(useStore.getState().sessions[0]?.rcAttachment).toBeNull();
+  });
+});
+
+describe('ws-message-handler background chat stream routing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useStore.setState({
+      currentSessionPath: '/session/a.jsonl',
+      pendingNewSession: false,
+      sessions: [
+        {
+          path: '/session/a.jsonl',
+          title: 'A',
+          firstMessage: 'hello',
+          modified: '2026-04-24T10:00:00.000Z',
+          messageCount: 1,
+          agentId: 'a1',
+          agentName: 'Hana',
+          cwd: null,
+        },
+        {
+          path: '/session/b.jsonl',
+          title: 'B',
+          firstMessage: 'hi',
+          modified: '2026-04-24T10:01:00.000Z',
+          messageCount: 1,
+          agentId: 'a1',
+          agentName: 'Hana',
+          cwd: null,
+        },
+      ],
+      chatSessions: {},
+      streamingSessions: [],
+    } as never);
+    useStore.getState().clearSession('/session/a.jsonl');
+    useStore.getState().clearSession('/session/b.jsonl');
+    useStore.getState().initSession('/session/a.jsonl', [], false);
+    useStore.getState().initSession('/session/b.jsonl', [], false);
+  });
+
+  it('非当前 session 的正文流也进入主聊天 buffer，同时保留 streamKey 预览分发', () => {
+    const msg = {
+      type: 'text_delta',
+      sessionPath: '/session/b.jsonl',
+      delta: '后台正文',
+    };
+
+    handleServerMessage(msg);
+
+    expect(streamBufferManager.handle).toHaveBeenCalledWith(msg);
+    expect(dispatchStreamKey).toHaveBeenCalledWith('/session/b.jsonl', msg);
   });
 });
