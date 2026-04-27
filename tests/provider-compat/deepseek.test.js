@@ -123,28 +123,26 @@ describe("provider-compat/deepseek — ensureReasoningContentForToolCalls", () =
     expect(result[1].reasoning_content).toBe("我应该调用 date 工具");
   });
 
-  it("reasoning_content 已存在但为空字符串/null 时仍视为档 1（不再尝试从 content 恢复）", () => {
+  it("reasoning_content 已存在但为空字符串/null 时不再视为合规", () => {
     const messages = [
       { role: "user", content: "x" },
       {
         role: "assistant",
-        content: [{ type: "text", text: "本不应被当作 reasoning 取出" }],
+        content: [{ type: "thinking", thinking: "从 thinking 恢复", thinkingSignature: "reasoning_content" }],
         reasoning_content: "",
         tool_calls: [{ id: "call_1" }],
       },
       {
         role: "assistant",
-        content: [{ type: "text", text: "也不应被取出" }],
+        content: [{ type: "thinking", thinking: "也从 thinking 恢复", thinkingSignature: "reasoning_content" }],
         reasoning_content: null,
         tool_calls: [{ id: "call_2" }],
       },
     ];
     const result = deepseek.ensureReasoningContentForToolCalls(messages);
-    // 档 1 命中：reasoning_content 字段存在即视为合规，即使值是 "" 或 null
-    expect(result[1].reasoning_content).toBe("");
-    expect(result[2].reasoning_content).toBeNull();
-    // 引用相等：档 1 不分配新对象
-    expect(result).toBe(messages);
+    expect(result[1].reasoning_content).toBe("从 thinking 恢复");
+    expect(result[2].reasoning_content).toBe("也从 thinking 恢复");
+    expect(result).not.toBe(messages);
   });
 
   it("档 1 命中时被检查的 assistant message 保持对象引用相等", () => {
@@ -204,7 +202,7 @@ describe("provider-compat/deepseek — ensureReasoningContentForToolCalls", () =
     expect(result[1].reasoning_content).toBe("用 date 工具查时间");
   });
 
-  it("既无 reasoning_content 也无可恢复原文 → 注入空字符串占位（档 3）", () => {
+  it("既无 reasoning_content 也无可恢复原文 → fail closed，不再注入空字符串占位", () => {
     const messages = [
       { role: "user", content: "what time" },
       {
@@ -213,8 +211,8 @@ describe("provider-compat/deepseek — ensureReasoningContentForToolCalls", () =
         tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
       },
     ];
-    const result = deepseek.ensureReasoningContentForToolCalls(messages);
-    expect(result[1].reasoning_content).toBe("");
+    expect(() => deepseek.ensureReasoningContentForToolCalls(messages))
+      .toThrow(/DeepSeek.*reasoning_content.*tool_calls/);
   });
 
   it("无 tool_calls 的 assistant message 不动（不属于硬约束）", () => {
@@ -235,7 +233,10 @@ describe("provider-compat/deepseek — ensureReasoningContentForToolCalls", () =
       { role: "user", content: "what time" },
       {
         role: "assistant",
-        content: null,
+        content: [
+          { type: "thinking", thinking: "调用 date", thinkingSignature: "reasoning_content" },
+          { type: "toolCall", id: "call_1", name: "date" },
+        ],
         tool_calls: [{ id: "call_1", type: "function", function: { name: "date", arguments: "{}" } }],
       },
       { role: "tool", tool_call_id: "call_1", content: "2026-04-26" },
@@ -254,14 +255,14 @@ describe("provider-compat/deepseek — ensureReasoningContentForToolCalls", () =
     expect(deepseek.ensureReasoningContentForToolCalls(messages)).toBe(messages);
   });
 
-  it("不 mutate 调用方传入的 message", () => {
+  it("fail closed 也不 mutate 调用方传入的 message", () => {
     const original = {
       role: "assistant",
       content: null,
       tool_calls: [{ id: "call_1" }],
     };
     const messages = [{ role: "user", content: "x" }, original];
-    deepseek.ensureReasoningContentForToolCalls(messages);
+    expect(() => deepseek.ensureReasoningContentForToolCalls(messages)).toThrow(/reasoning_content/);
     expect(Object.prototype.hasOwnProperty.call(original, "reasoning_content")).toBe(false);
   });
 
@@ -281,7 +282,7 @@ describe("provider-compat/deepseek — ensureReasoningContentForToolCalls", () =
   });
 });
 
-describe("provider-compat/deepseek — apply 主流程接入 ensure 兜底", () => {
+describe("provider-compat/deepseek — apply 主流程接入 reasoning_content 恢复/校验", () => {
   const deepseekModel = {
     id: "deepseek-v4-pro",
     provider: "deepseek",
@@ -309,7 +310,7 @@ describe("provider-compat/deepseek — apply 主流程接入 ensure 兜底", () 
     expect(result.thinking).toEqual({ type: "enabled" });
   });
 
-  it("chat mode + 思考开启：tool_calls 历史无可恢复原文 → 空字符串占位", () => {
+  it("chat mode + 思考开启：tool_calls 历史无可恢复原文 → fail closed", () => {
     const payload = {
       model: "deepseek-v4-pro",
       messages: [
@@ -322,11 +323,11 @@ describe("provider-compat/deepseek — apply 主流程接入 ensure 兜底", () 
       ],
       tools: [{ type: "function", function: { name: "date" } }],
     };
-    const result = deepseek.apply(payload, deepseekModel, { mode: "chat", reasoningLevel: "high" });
-    expect(result.messages[1].reasoning_content).toBe("");
+    expect(() => deepseek.apply(payload, deepseekModel, { mode: "chat", reasoningLevel: "high" }))
+      .toThrow(/DeepSeek.*reasoning_content.*tool_calls/);
   });
 
-  it("chat mode + reasoningLevel='off'（disableThinking 路径）也要跑 ensure", () => {
+  it("chat mode + reasoningLevel='off'（disableThinking 路径）不强制 reasoning_content", () => {
     const payload = {
       model: "deepseek-v4-pro",
       messages: [
@@ -340,12 +341,11 @@ describe("provider-compat/deepseek — apply 主流程接入 ensure 兜底", () 
       ],
     };
     const result = deepseek.apply(payload, deepseekModel, { mode: "chat", reasoningLevel: "off" });
-    // disableThinking 先 strip，然后 ensure 补回空字符串占位
     expect(result.thinking).toEqual({ type: "disabled" });
-    expect(result.messages[1].reasoning_content).toBe("");
+    expect(result.messages[1]).not.toHaveProperty("reasoning_content");
   });
 
-  it("utility mode（disableThinking 路径）历史含 tool_calls 也要 ensure", () => {
+  it("utility mode（disableThinking 路径）历史含 tool_calls 不注入 reasoning_content", () => {
     const payload = {
       model: "deepseek-v4-flash",
       messages: [
@@ -361,7 +361,7 @@ describe("provider-compat/deepseek — apply 主流程接入 ensure 兜底", () 
     };
     const result = deepseek.apply(payload, deepseekModel, { mode: "utility" });
     expect(result.thinking).toEqual({ type: "disabled" });
-    expect(result.messages[1].reasoning_content).toBe("");
+    expect(result.messages[1]).not.toHaveProperty("reasoning_content");
   });
 
   it("无 tool_calls 历史时 ensure 不引入新字段（不污染）", () => {
@@ -398,7 +398,7 @@ describe("provider-compat/deepseek — apply 主流程接入 ensure 兜底", () 
         },
         { role: "tool", tool_call_id: "call_2", content: "ok2" },
         { role: "user", content: "round 3" },
-        // 档 3：无 reasoning_content 也无原文可恢复
+        // 坏历史：无 reasoning_content 也无原文可恢复
         {
           role: "assistant",
           content: null,
@@ -407,11 +407,8 @@ describe("provider-compat/deepseek — apply 主流程接入 ensure 兜底", () 
       ],
       tools: [{ type: "function", function: { name: "x" } }],
     };
-    const result = deepseek.apply(payload, deepseekModel, { mode: "chat", reasoningLevel: "high" });
-    // 三条 assistant 各自命中正确档位
-    expect(result.messages[1].reasoning_content).toBe("上轮思考");      // 档 1：保留
-    expect(result.messages[4].reasoning_content).toBe("本轮思考被降级"); // 档 2：从 text 恢复
-    expect(result.messages[7].reasoning_content).toBe("");              // 档 3：空字符串占位
+    expect(() => deepseek.apply(payload, deepseekModel, { mode: "chat", reasoningLevel: "high" }))
+      .toThrow(/DeepSeek.*reasoning_content.*tool_calls/);
   });
 });
 

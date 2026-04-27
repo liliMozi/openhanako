@@ -13,8 +13,7 @@
  *           reasoning_content 字段
  *   场景 B — V4-Pro 切 V4-Flash 多轮：跨子版本切换后 transform-messages 把 thinking
  *           block 降级为 text，hana 必须从 content 恢复 reasoning_content
- *   场景 C — 切 thinking off → on → off：disable 路径会 strip 历史 reasoning_content，
- *           ensure 兜底必须仍补占位
+ *   场景 C — 切 thinking off：disable 路径不再强制 reasoning_content，避免关思考用户受影响
  *
  * 这套测试不依赖真实 DeepSeek API key，跑 npm test 即可验证 #468 不再 400。
  */
@@ -39,7 +38,7 @@ const v4FlashModel = {
 
 /**
  * 协议铁律断言：扫 payload.messages，每条带 tool_calls 的 assistant message 必须有
- * reasoning_content 字段（值可以是空字符串，但字段必须存在）。
+ * reasoning_content 字段且值必须是非空字符串。
  */
 function assertDeepSeekProtocolCompliant(payload) {
   expect(Array.isArray(payload.messages)).toBe(true);
@@ -48,6 +47,10 @@ function assertDeepSeekProtocolCompliant(payload) {
       expect(
         Object.prototype.hasOwnProperty.call(msg, "reasoning_content"),
         `messages[${idx}] 是 assistant + tool_calls 但缺 reasoning_content 字段（DeepSeek 会 400）`
+      ).toBe(true);
+      expect(
+        typeof msg.reasoning_content === "string" && msg.reasoning_content.trim().length > 0,
+        `messages[${idx}] 是 assistant + tool_calls 但 reasoning_content 不是非空字符串（DeepSeek 会 400）`
       ).toBe(true);
     }
   }
@@ -85,7 +88,7 @@ describe("issue #468 验收 — DeepSeek 思考模式协议铁律", () => {
       expect(result.thinking).toEqual({ type: "enabled" });
     });
 
-    it("3 轮工具调用混合状态各自命中正确档位", () => {
+    it("3 轮工具调用混合状态里出现坏历史 → fail closed", () => {
       const payload = {
         model: "deepseek-v4-pro",
         messages: [
@@ -107,7 +110,7 @@ describe("issue #468 验收 — DeepSeek 思考模式协议铁律", () => {
           },
           { role: "tool", tool_call_id: "c2", content: "ok2" },
           { role: "user", content: "round 3" },
-          // 档 3：第 3 轮 content 完全为 null（compaction 后或极端情况）
+          // 坏历史：第 3 轮 content 完全为 null（compaction 后或极端情况）
           {
             role: "assistant",
             content: null,
@@ -116,14 +119,10 @@ describe("issue #468 验收 — DeepSeek 思考模式协议铁律", () => {
         ],
         tools: [{ type: "function", function: { name: "x" } }],
       };
-      const result = normalizeProviderPayload(payload, v4ProModel, {
+      expect(() => normalizeProviderPayload(payload, v4ProModel, {
         mode: "chat",
         reasoningLevel: "high",
-      });
-      assertDeepSeekProtocolCompliant(result);
-      expect(result.messages[1].reasoning_content).toBe("上轮思考");
-      expect(result.messages[4].reasoning_content).toBe("上轮思考被降级保留");
-      expect(result.messages[7].reasoning_content).toBe("");
+      })).toThrow(/DeepSeek.*reasoning_content.*tool_calls/);
     });
   });
 
@@ -131,7 +130,7 @@ describe("issue #468 验收 — DeepSeek 思考模式协议铁律", () => {
     it("用 V4-Flash 发请求，历史含 V4-Pro 时代降级的 thinking block → 全员补 reasoning_content", () => {
       // 模拟用户开了 V4-Pro 跑了一轮工具调用，切到 V4-Flash 继续。
       // pi-ai transform-messages 跨模型保护把 thinking block 降级为 text。
-      // 没有 hana 兜底的话，新请求历史里有 tool_calls 但缺 reasoning_content，DeepSeek 拒收。
+      // 没有 hana 恢复逻辑的话，新请求历史里有 tool_calls 但缺 reasoning_content，DeepSeek 拒收。
       const payload = {
         model: "deepseek-v4-flash",
         messages: [
@@ -198,9 +197,8 @@ describe("issue #468 验收 — DeepSeek 思考模式协议铁律", () => {
     });
   });
 
-  describe("场景 C：切 thinking off → on → off（disable 路径）", () => {
-    it("用户切 thinking off，历史含 tool_calls + reasoning_content → strip 后仍占位", () => {
-      // disableThinking 内部会 stripReasoningContent 把字段清掉。但 ensure 兜底必须再补回。
+  describe("场景 C：thinking off / utility 不受 thinking-tool 回传约束影响", () => {
+    it("用户切 thinking off，历史含 tool_calls + reasoning_content → strip 后不补占位", () => {
       const payload = {
         model: "deepseek-v4-pro",
         messages: [
@@ -219,13 +217,11 @@ describe("issue #468 验收 — DeepSeek 思考模式协议铁律", () => {
         mode: "chat",
         reasoningLevel: "off",
       });
-      assertDeepSeekProtocolCompliant(result);
       expect(result.thinking).toEqual({ type: "disabled" });
-      // 协议铁律：即使 disabled 模式，tool_calls 历史仍带 reasoning_content（hana 兜底）
-      expect(result.messages[1].reasoning_content).toBe("");
+      expect(result.messages[1]).not.toHaveProperty("reasoning_content");
     });
 
-    it("utility mode + tool_calls 历史 → 同样兜底", () => {
+    it("utility mode + tool_calls 历史 → 不注入 reasoning_content", () => {
       const payload = {
         model: "deepseek-v4-flash",
         messages: [
@@ -240,8 +236,8 @@ describe("issue #468 验收 — DeepSeek 思考模式协议铁律", () => {
         max_tokens: 50,
       };
       const result = normalizeProviderPayload(payload, v4FlashModel, { mode: "utility" });
-      assertDeepSeekProtocolCompliant(result);
       expect(result.thinking).toEqual({ type: "disabled" });
+      expect(result.messages[1]).not.toHaveProperty("reasoning_content");
     });
   });
 

@@ -187,19 +187,23 @@ export class ModelManager {
   }
 
   /**
-   * 将模型引用（id/name/object）解析成 SDK 可用的模型对象
+   * 将模型引用（provider/id 或 {id, provider}）解析成 SDK 可用的模型对象
    * 只查 _availableModels（唯一真理源）
    */
   resolveExecutionModel(modelRef) {
     if (!modelRef) return this.currentModel;
-    if (typeof modelRef !== "string") return modelRef; // 对象直通（session-coordinator 路径）
-    const ref = modelRef.trim();
-    if (!ref) return this.currentModel;
+    if (typeof modelRef === "string" && !modelRef.trim()) return this.currentModel;
 
-    const model = this._resolveFromAvailable(ref);
+    const parsed = parseModelRef(modelRef);
+    const model = parsed?.id && parsed.provider
+      ? findModel(this._availableModels, parsed.id, parsed.provider)
+      : null;
     if (model) return model;
 
-    throw new Error(t("error.modelNotFound", { id: ref }));
+    const id = parsed?.id
+      ? (parsed.provider ? `${parsed.provider}/${parsed.id}` : parsed.id)
+      : String(modelRef);
+    throw new Error(t("error.modelNotFound", { id }));
   }
 
   /**

@@ -238,6 +238,45 @@ describe("模型选择无 fallback", () => {
 
   // ────── resolveUtilityConfig ──────
 
+  describe("resolveModelWithCredentials", () => {
+    let ModelManager;
+
+    beforeEach(async () => {
+      const mod = await import("../core/model-manager.js");
+      ModelManager = mod.ModelManager;
+    });
+
+    it("对象模型引用会先解析成 availableModels 里的完整模型对象", () => {
+      const mm = new ModelManager({ hanakoHome: tempDir });
+      const fullModel = {
+        id: "kimi-k2.6",
+        provider: "kimi-coding",
+        input: ["text", "image"],
+        contextWindow: 262144,
+      };
+      mm._availableModels = [fullModel];
+      mm.providerRegistry = {
+        getCredentials: vi.fn((provider) => (
+          provider === "kimi-coding"
+            ? {
+                api: "anthropic-messages",
+                apiKey: "sk-test",
+                baseUrl: "https://api.kimi.com/coding/",
+              }
+            : null
+        )),
+      };
+
+      const result = mm.resolveModelWithCredentials({
+        id: "kimi-k2.6",
+        provider: "kimi-coding",
+      });
+
+      expect(result.model).toBe(fullModel);
+      expect(result.model.input).toEqual(["text", "image"]);
+    });
+  });
+
   describe("resolveUtilityConfig", () => {
     // 直接测试 ModelManager 的 resolveUtilityConfig 方法（委托 ExecutionRouter）
     let ModelManager, ExecutionRouter;

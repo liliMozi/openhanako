@@ -10,7 +10,7 @@
  *   2. reasoning_effort 归一化：low/medium → high；xhigh → max
  *   3. max_tokens 抬升：思考模式下需 ≥ 32768
  *   4. utility mode 主动关思考（短输出场景思考链既无意义又耗光预算）
- *   5. 工具调用轮次必须回传 reasoning_content（issue #468 根因；本文件 Task 4 加入提取器，Task 5 加入 ensure 兜底）
+ *   5. 工具调用轮次必须回传真实 reasoning_content（issue #468 根因；缺失时 fail closed，不伪造空占位）
  *      官方文档：https://api-docs.deepseek.com/zh-cn/guides/thinking_mode
  *
  * 删除条件：
@@ -27,6 +27,9 @@ const DEEPSEEK_HIGH_SAFE_MAX_TOKENS = 65536;
 const DEEPSEEK_MAX_SAFE_MAX_TOKENS = 131072;
 
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+const MISSING_TOOL_REASONING_ERROR =
+  "DeepSeek thinking mode reasoning_content is missing for tool_calls history. "
+  + "Compact this session or start a new session before continuing with DeepSeek thinking mode.";
 
 function lower(value) {
   return typeof value === "string" ? value.toLowerCase() : "";
@@ -35,6 +38,14 @@ function lower(value) {
 function positiveInteger(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+}
+
+function hasToolCalls(message) {
+  return Array.isArray(message?.tool_calls) && message.tool_calls.length > 0;
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 export function matches(model) {
@@ -154,7 +165,7 @@ function ensureThinkingTokenBudget(payload, model) {
  *      原始 content 首位是 thinking → 降级后的首段 text / 字符串即思考原文。
  *      若未来 SDK 改变累积顺序，此假设需重新评估（README 升级 SDK 检查清单已点名本函数）。
  *
- * 找不到原文时返回空字符串（不抛错）。
+ * 找不到原文时返回空字符串（调用方决定是否 fail closed）。
  *
  * 注：导出仅供单元测试使用，运行时只在本文件内部被 ensureReasoningContentForToolCalls 调用。
  *
@@ -184,18 +195,17 @@ export function extractReasoningFromContent(message) {
 }
 
 /**
- * 兜底：保证所有「带 tool_calls 的 assistant message」都有 reasoning_content 字段。
+ * 恢复/校验：保证所有「带 tool_calls 的 assistant message」都有真实 reasoning_content 字段。
  *
  * 三档策略：
- *   档 1：已有 reasoning_content → 不动
+ *   档 1：已有非空 reasoning_content → 不动
  *   档 2：无 reasoning_content 但能从 message.content 恢复原文 → 注入恢复值
- *   档 3：原文也找不到 → 注入空字符串 ""（schema 兼容占位，DeepSeek server 接受）
+ *   档 3：原文也找不到 → 抛错，阻止远端 400（禁止空字符串伪造）
  *
- * 这条兜底覆盖以下漏字段路径：
+ * 这条恢复/校验覆盖以下漏字段路径：
  *   - 跨 V4 子版本切换：pi-ai transform-messages 把 thinking block 降级 text
  *   - 空思考被过滤：openai-completions:492 nonEmptyThinkingBlocks filter 掉空内容
- *   - disableThinking 路径：本模块的 stripReasoningContent 清掉但 tool_calls 残留
- *   - compaction / 跨 session 续接边界：原文确实丢失
+ *   - compaction / 跨 session 续接边界：原文确实丢失（此时本函数 fail closed）
  *
  * 不可变契约：未修改时返回原数组；修改时返回新数组（仅修改的 message 浅拷贝）。
  *
@@ -210,14 +220,17 @@ export function ensureReasoningContentForToolCalls(messages) {
     if (!message || typeof message !== "object" || message.role !== "assistant") {
       return message;
     }
-    if (!Array.isArray(message.tool_calls) || message.tool_calls.length === 0) {
+    if (!hasToolCalls(message)) {
       return message;
     }
-    if (hasOwn(message, "reasoning_content")) {
+    if (isNonEmptyString(message.reasoning_content)) {
       return message;
+    }
+    const recovered = extractReasoningFromContent(message);
+    if (!isNonEmptyString(recovered)) {
+      throw new Error(MISSING_TOOL_REASONING_ERROR);
     }
     changed = true;
-    const recovered = extractReasoningFromContent(message);
     return { ...message, reasoning_content: recovered };
   });
 
@@ -241,11 +254,6 @@ export function apply(payload, model, options = {}) {
 
   if (isThinkingOff(reasoningLevel) || next.thinking?.type === "disabled") {
     disableThinking(editable());
-    // 兜底：disableThinking 已 strip 历史 reasoning_content，但 tool_calls 轮次仍需占位
-    const ensured = ensureReasoningContentForToolCalls(next.messages);
-    if (ensured !== next.messages) {
-      editable().messages = ensured;
-    }
     return next;
   }
 
@@ -253,11 +261,6 @@ export function apply(payload, model, options = {}) {
 
   if (mode === "utility") {
     disableThinking(editable());
-    // utility 路径也走 disableThinking，strip 后同样需要补 tool_calls 占位（DeepSeek server 对 disabled+tool_calls 仍可能严格校验）
-    const ensured = ensureReasoningContentForToolCalls(next.messages);
-    if (ensured !== next.messages) {
-      editable().messages = ensured;
-    }
     return next;
   }
 
@@ -266,8 +269,11 @@ export function apply(payload, model, options = {}) {
   normalizeReasoningEffort(p);
   enableThinking(p);
   ensureThinkingTokenBudget(p, model);
+  if (p.thinking?.type === "disabled") {
+    return next;
+  }
 
-  // chat mode 思考开启：兜底 tool_calls 历史的 reasoning_content（覆盖 transform-messages 降级）。
+  // chat mode 思考开启：严格校验 tool_calls 历史的 reasoning_content（覆盖 transform-messages 降级）。
   // 守卫与上方 off-path / utility-path 风格对称；此处 p 已是副本，去掉守卫直接赋值也对，但保持三处同形便于阅读。
   const ensured = ensureReasoningContentForToolCalls(p.messages);
   if (ensured !== p.messages) {
