@@ -62,6 +62,7 @@ body:not(.no-paper-texture) .msg-card,
 body:not(.no-paper-texture) .input-wrapper,
 body:not(.no-paper-texture) .hana-warning-box,
 body:not(.no-paper-texture) .browser-floating-card,
+body:not(.no-paper-texture) .hana-toast,
 body:not(.no-paper-texture) .ob-input,
 body:not(.no-paper-texture) .provider-card,
 body:not(.no-paper-texture) .model-list,
@@ -2141,16 +2142,17 @@ body.resizing .jian-sidebar-inner {
     display: flex;
     align-items: center;
     gap: 10px;
-    background: var(--bg-secondary);
-    color: var(--text-primary);
+    background: var(--bg-card, var(--bg));
+    color: var(--text, var(--text-primary, #3f3a34));
     padding: 8px 12px 8px 20px;
+    border: 1px solid rgba(var(--accent-rgb), 0.12);
     border-radius: 8px;
     font-size: 13px;
     opacity: 0;
     transition: opacity 0.3s, transform 0.3s;
     z-index: 9999;
     pointer-events: none;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.12);
 }
 .hana-toast.show {
     opacity: 1;
@@ -2158,7 +2160,7 @@ body.resizing .jian-sidebar-inner {
     pointer-events: auto;
 }
 .hana-toast.error {
-    background: var(--bg-secondary);
+    background: var(--bg-card, var(--bg));
     color: var(--text-muted);
 }
 .hana-toast-close {

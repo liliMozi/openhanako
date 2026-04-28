@@ -2,7 +2,7 @@ import {
   EditorView, ViewPlugin, Decoration, WidgetType,
 } from '@codemirror/view';
 import type { DecorationSet, ViewUpdate } from '@codemirror/view';
-import { RangeSetBuilder } from '@codemirror/state';
+import { EditorState, RangeSetBuilder, StateField, type Transaction } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import katex from 'katex';
 import { hrDecoration } from './widgets/hr';
@@ -17,6 +17,9 @@ export type LivePreviewRange =
   | { kind: 'hide'; from: number; to: number }
   | { kind: 'mark'; from: number; to: number; text: string; color?: string }
   | { kind: 'inlineMath' | 'blockMath'; from: number; to: number; source: string };
+interface LivePreviewOptions {
+  includeBlockMath?: boolean;
+}
 
 export const hideMark = Decoration.replace({});
 const centerLineDeco = Decoration.line({ class: 'cm-center-line' });
@@ -32,10 +35,14 @@ export const CONCEAL_MARKS = new Set([
 ]);
 
 export function collectActiveLines(view: EditorView): Set<number> {
+  return collectActiveLinesFromState(view.state);
+}
+
+function collectActiveLinesFromState(state: EditorState): Set<number> {
   const active = new Set<number>();
-  for (const range of view.state.selection.ranges) {
-    const start = view.state.doc.lineAt(range.from).number;
-    const end = view.state.doc.lineAt(range.to).number;
+  for (const range of state.selection.ranges) {
+    const start = state.doc.lineAt(range.from).number;
+    const end = state.doc.lineAt(range.to).number;
     for (let i = start; i <= end; i++) active.add(i);
   }
   return active;
@@ -137,7 +144,12 @@ function findBackgroundSpans(line: string, lineOffset: number, ranges: LivePrevi
   }
 }
 
-export function collectLivePreviewRanges(src: string, activeLines: Set<number>): LivePreviewRange[] {
+export function collectLivePreviewRanges(
+  src: string,
+  activeLines: Set<number>,
+  options: LivePreviewOptions = {},
+): LivePreviewRange[] {
+  const includeBlockMath = options.includeBlockMath ?? true;
   const lines = src.split('\n');
   const ranges: LivePreviewRange[] = [];
   let offset = 0;
@@ -181,7 +193,7 @@ export function collectLivePreviewRanges(src: string, activeLines: Set<number>):
         if (!blockHasActiveLine) {
           const source = lines.slice(idx + 1, endIdx).join('\n').trim();
           const blockTo = offset + lines.slice(idx, endIdx + 1).join('\n').length;
-          if (source) ranges.push({ kind: 'blockMath', from: offset, to: blockTo, source });
+          if (source && includeBlockMath) ranges.push({ kind: 'blockMath', from: offset, to: blockTo, source });
           for (; idx < endIdx; idx += 1) offset += lines[idx].length + 1;
           offset += lines[idx].length + 1;
           continue;
@@ -199,13 +211,37 @@ export function collectLivePreviewRanges(src: string, activeLines: Set<number>):
 }
 
 class MathWidget extends WidgetType {
-  constructor(private source: string, private displayMode: boolean) {
+  constructor(private source: string, private displayMode: boolean, private revealFrom: number | null = null) {
     super();
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const el = document.createElement(this.displayMode ? 'div' : 'span');
     el.className = this.displayMode ? 'cm-math-widget cm-math-block-widget' : 'cm-math-widget';
+    if (this.displayMode && this.revealFrom !== null) {
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', 'Edit LaTeX block');
+      const revealSource = () => {
+        view.focus();
+        view.dispatch({
+          selection: { anchor: this.revealFrom ?? 0 },
+          scrollIntoView: true,
+        });
+      };
+      el.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        revealSource();
+      });
+      el.addEventListener('keydown', (event) => {
+        const keyboardEvent = event as KeyboardEvent;
+        if (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ') return;
+        event.preventDefault();
+        event.stopPropagation();
+        revealSource();
+      });
+    }
     try {
       el.innerHTML = katex.renderToString(this.source, {
         displayMode: this.displayMode,
@@ -233,11 +269,40 @@ function livePreviewDeco(range: LivePreviewRange): DecoRange {
     from: range.from,
     to: range.to,
     deco: Decoration.replace({
-      widget: new MathWidget(range.source, range.kind === 'blockMath'),
+      widget: new MathWidget(
+        range.source,
+        range.kind === 'blockMath',
+        range.kind === 'blockMath' ? range.from : null,
+      ),
       block: range.kind === 'blockMath',
     }),
   };
 }
+
+function buildMarkdownBlockDecorations(state: EditorState): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  const activeLines = collectActiveLinesFromState(state);
+  const ranges = collectLivePreviewRanges(state.doc.toString(), activeLines)
+    .filter((range): range is Extract<LivePreviewRange, { kind: 'blockMath' }> => range.kind === 'blockMath');
+
+  for (const range of ranges) {
+    const { from, to, deco } = livePreviewDeco(range);
+    builder.add(from, to, deco);
+  }
+
+  return builder.finish();
+}
+
+export const markdownBlockDecoField = StateField.define<DecorationSet>({
+  create(state) {
+    return buildMarkdownBlockDecorations(state);
+  },
+  update(value, tr: Transaction) {
+    if (tr.docChanged || tr.selection) return buildMarkdownBlockDecorations(tr.state);
+    return value;
+  },
+  provide: f => EditorView.decorations.from(f),
+});
 
 export function buildMarkdownDecorations(view: EditorView): DecorationSet {
   const activeLines = collectActiveLines(view);
@@ -299,7 +364,7 @@ export function buildMarkdownDecorations(view: EditorView): DecorationSet {
     });
   }
 
-  for (const range of collectLivePreviewRanges(view.state.doc.toString(), activeLines)) {
+  for (const range of collectLivePreviewRanges(view.state.doc.toString(), activeLines, { includeBlockMath: false })) {
     ranges.push(livePreviewDeco(range));
   }
 

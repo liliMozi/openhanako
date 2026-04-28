@@ -28,6 +28,7 @@
     width: var(--preview-panel-width);
     min-width: var(--preview-panel-width);
     height: 100%;
+    min-height: 0;
     opacity: 1;
     transition: opacity 0.18s var(--ease-out);
 }
@@ -37,11 +38,17 @@
     pointer-events: none;
 }
 
-.previewPanelBody {
+.previewBodyShell {
     flex: 1;
-    overflow: auto;
+    min-height: 0;
     position: relative;
     margin: 5px 10px 10px;
+}
+
+.previewPanelBody {
+    height: 100%;
+    overflow: auto;
+    position: relative;
     border-radius: var(--radius-lg);
     background: var(--bg-card, var(--bg));
     border: 1px solid var(--overlay-light);

@@ -33,5 +33,10 @@ export const markdownTheme = EditorView.theme({
     display: 'block',
     overflowX: 'auto',
     padding: 'var(--space-xs) 0',
+    borderRadius: 'var(--radius-sm)',
+    cursor: 'text',
+  },
+  '.cm-math-block-widget:hover': {
+    backgroundColor: 'var(--overlay-subtle)',
   },
 });

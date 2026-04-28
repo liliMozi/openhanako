@@ -26,7 +26,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { markdownHighlight, codeHighlight } from '../editor/highlight';
 import { markdownTheme, codeTheme } from '../editor/theme';
-import { markdownDecoPlugin } from '../editor/md-decorations';
+import { markdownBlockDecoField, markdownDecoPlugin } from '../editor/md-decorations';
 import { linkClickHandler } from '../editor/link-handler';
 import { tableDecoField } from '../editor/table-field';
 import { csvTableField } from '../editor/csv-field';
@@ -186,7 +186,7 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
         c.highlight.of(
           syntaxHighlighting(isMd ? markdownHighlight : codeHighlight),
         ),
-        c.conceal.of(isMd ? markdownDecoPlugin : []),
+        c.conceal.of(isMd ? [markdownDecoPlugin, markdownBlockDecoField] : []),
         ...(isMd ? [tableDecoField] : []),
         ...(isCsv ? [csvTableField] : []),
         c.theme.of(isMd || isCsv ? markdownTheme : codeTheme),

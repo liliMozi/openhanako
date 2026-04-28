@@ -75,7 +75,7 @@ export function PreviewPanel() {
       <div className="resize-handle resize-handle-left" id="previewResizeHandle"></div>
       <div className={previewStyles.previewPanelInner}>
         <TabBar />
-        <div className={previewStyles.previewPanelBody} id="previewBody" onMouseUp={handleMouseUp}>
+        <div className={previewStyles.previewBodyShell}>
           {previewOpen && artifact && (
             <FloatingActions
               content={artifact.content}
@@ -84,21 +84,23 @@ export function PreviewPanel() {
               onToggleMarkdownPreview={handleToggleMarkdownPreview}
             />
           )}
-          {previewOpen && artifact && !editable && (
-            <ArtifactRenderer artifact={artifact} />
-          )}
-          {previewOpen && artifact && editable && (
-            <ArtifactEditor
-              content={artifact.content}
-              filePath={artifact.filePath}
-              mode={getEditorMode(artifact)}
-              language={artifact.language}
-              onSelectionChange={(view) => {
-                if (artifact) captureSelection(artifact, view);
-              }}
-              onContentChange={handleEditorContentChange}
-            />
-          )}
+          <div className={previewStyles.previewPanelBody} id="previewBody" onMouseUp={handleMouseUp}>
+            {previewOpen && artifact && !editable && (
+              <ArtifactRenderer artifact={artifact} />
+            )}
+            {previewOpen && artifact && editable && (
+              <ArtifactEditor
+                content={artifact.content}
+                filePath={artifact.filePath}
+                mode={getEditorMode(artifact)}
+                language={artifact.language}
+                onSelectionChange={(view) => {
+                  if (artifact) captureSelection(artifact, view);
+                }}
+                onContentChange={handleEditorContentChange}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
