@@ -1,10 +1,10 @@
 /**
  * auto-updater.cjs — electron-updater 集成
  *
- * 行为：启动时静默检查 → 静默下载 → 用户在 AboutTab 手动触发重启安装。
+ * 行为：启动时静默检查 → 静默下载 → renderer 展示状态 → 页内触发或 app quit 安装。
  * 频道：Stable（allowPrerelease=false）/ Preview（allowPrerelease=true）。
  */
-const { ipcMain, app } = require("electron");
+const { ipcMain, app, BrowserWindow } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const fs = require("fs");
@@ -15,11 +15,10 @@ let _mainWindow = null;
 let _shutdownServer = null; // 由 main.cjs 注入
 let _setIsUpdating = null;  // 由 main.cjs 注入
 let _hanakoHome = null;     // 由 main.cjs 注入
-let _showInstalling = null; // 由 main.cjs 注入：打开"正在安装更新"小窗
-let _failInstalling = null; // 由 main.cjs 注入：安装失败时切换窗口文案
 let _checkTimer = null;
 let _ipcHandlersRegistered = false;
 let _updaterConfigured = false;
+let _installPromise = null;
 
 /**
  * 读 preferences.json 里的 auto_check_updates，默认 true。
@@ -39,7 +38,7 @@ function isAutoCheckEnabled() {
 // ── 状态管理（保持与前端 AutoUpdateState 契约一致）──
 
 let _updateState = {
-  status: "idle",       // idle | checking | available | downloading | downloaded | error | latest
+  status: "idle",       // idle | checking | available | downloading | downloaded | installing | error | latest
   version: null,
   releaseNotes: null,
   releaseUrl: null,
@@ -52,9 +51,33 @@ function getState() {
   return { ..._updateState };
 }
 
+function logUpdate(message) {
+  const line = `[${new Date().toISOString()}] ${message}`;
+  try { console.log(`[auto-updater] ${message}`); } catch {}
+  if (!_hanakoHome) return;
+  try {
+    const logDir = path.join(_hanakoHome, "logs");
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(path.join(logDir, "auto-update.log"), line + "\n", "utf-8");
+  } catch {}
+}
+
+function getRendererWindows() {
+  const windows = [];
+  try {
+    if (BrowserWindow?.getAllWindows) windows.push(...BrowserWindow.getAllWindows());
+  } catch {}
+  if (windows.length === 0 && _mainWindow) windows.push(_mainWindow);
+  return [...new Set(windows)].filter(win => {
+    try { return win && !win.isDestroyed?.(); } catch { return false; }
+  });
+}
+
 function sendToRenderer(channel, data) {
-  if (_mainWindow && !_mainWindow.isDestroyed()) {
-    _mainWindow.webContents.send(channel, data);
+  for (const win of getRendererWindows()) {
+    try {
+      win.webContents?.send?.(channel, data);
+    } catch {}
   }
 }
 
@@ -68,6 +91,38 @@ function resetState() {
     status: "idle", version: null, releaseNotes: null,
     releaseUrl: null, downloadUrl: null, progress: null, error: null,
   };
+}
+
+async function installDownloadedUpdate(source = "manual") {
+  if (_updateState.status === "installing") return true;
+  if (_updateState.status !== "downloaded") {
+    logUpdate(`install ignored: status=${_updateState.status}, source=${source}`);
+    return false;
+  }
+  if (_installPromise) return _installPromise;
+
+  _installPromise = (async () => {
+    const version = _updateState.version;
+    logUpdate(`install requested: source=${source}, version=${version || "unknown"}`);
+    if (_setIsUpdating) _setIsUpdating(true);
+    setState({ status: "installing", version, progress: null, error: null });
+
+    try {
+      if (_shutdownServer) await _shutdownServer();
+      autoUpdater.quitAndInstall(true, true);
+      return true;
+    } catch (err) {
+      const msg = err?.message || String(err);
+      logUpdate(`install failed before quitAndInstall: ${msg}`);
+      if (_setIsUpdating) _setIsUpdating(false);
+      setState({ status: "error", error: msg });
+      return false;
+    } finally {
+      _installPromise = null;
+    }
+  })();
+
+  return _installPromise;
 }
 
 // ── 磁盘空间检查 ──
@@ -178,20 +233,24 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.autoDownload = false;          // 由我们控制（磁盘空间检查后手动触发）
-  autoUpdater.autoInstallOnAppQuit = false;  // 等用户手动触发
+  autoUpdater.autoInstallOnAppQuit = false;  // 统一走 installDownloadedUpdate，包含手动退出
   autoUpdater.allowPrerelease = false;       // 由频道控制
   autoUpdater.disableDifferentialDownload = true;
 
   // ── 事件 → 状态映射 ──
 
   autoUpdater.on("checking-for-update", () => {
-    setState({ status: "checking", error: null });
+    logUpdate("checking for update");
+    setState({ status: "checking", progress: null, error: null });
   });
 
   autoUpdater.on("update-available", async (info) => {
+    logUpdate(`update available: version=${info.version || "unknown"}`);
     setState({
       status: "available",
       version: info.version,
+      progress: null,
+      error: null,
       releaseNotes: typeof info.releaseNotes === "string"
         ? info.releaseNotes
         : Array.isArray(info.releaseNotes)
@@ -202,12 +261,14 @@ function setupAutoUpdater() {
     // 磁盘空间检查
     const ok = await hasSufficientDiskSpace(app.getPath("userData"), 500);
     if (!ok) {
+      logUpdate(`download blocked: insufficient disk space, version=${info.version || "unknown"}`);
       setState({ status: "error", error: "disk_space_insufficient", version: info.version });
       return;
     }
 
     // 空间足够，开始静默下载
     autoUpdater.downloadUpdate().catch((err) => {
+      logUpdate(`download failed: ${err?.message || String(err)}`);
       setState({ status: "error", error: err?.message || String(err) });
     });
   });
@@ -225,6 +286,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on("update-downloaded", (info) => {
+    logUpdate(`update downloaded: version=${info.version || "unknown"}`);
     setState({
       status: "downloaded",
       version: info.version,
@@ -233,12 +295,15 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on("update-not-available", () => {
+    logUpdate("update not available");
     setState({ status: "latest" });
   });
 
   autoUpdater.on("error", (err) => {
     // 下载中出错才设 error，idle/latest 状态的检查失败静默忽略
     if (_updateState.status !== "idle" && _updateState.status !== "latest") {
+      logUpdate(`error: ${err?.message || String(err)}`);
+      if (_updateState.status === "installing" && _setIsUpdating) _setIsUpdating(false);
       setState({ status: "error", error: err?.message || String(err) });
     }
   });
@@ -250,6 +315,7 @@ function registerIpcHandlers() {
   if (_ipcHandlersRegistered) return;
   _ipcHandlersRegistered = true;
   ipcMain.handle("auto-update-check", async () => {
+    if (_updateState.status === "installing") return getState();
     resetState();
     try {
       await autoUpdater.checkForUpdates();
@@ -262,21 +328,7 @@ function registerIpcHandlers() {
   ipcMain.handle("auto-update-download", async () => true);
 
   ipcMain.handle("auto-update-install", async () => {
-    if (_updateState.status !== "downloaded") return;
-    console.log("[auto-updater] 用户触发重启安装...");
-    if (_setIsUpdating) _setIsUpdating(true);
-    // 在主窗口被关掉之前，先把"正在安装更新"的小窗打开，
-    // 防止 quitAndInstall 期间黑屏让用户以为 app 崩了。
-    try { _showInstalling?.(_updateState.version); } catch {}
-    if (_shutdownServer) await _shutdownServer();
-    try {
-      autoUpdater.quitAndInstall(true, true);
-    } catch (err) {
-      // 权限不足等原因导致安装失败
-      if (_setIsUpdating) _setIsUpdating(false);
-      try { _failInstalling?.(err?.message || String(err)); } catch {}
-      setState({ status: "error", error: err?.message || String(err) });
-    }
+    return installDownloadedUpdate("manual");
   });
 
   ipcMain.handle("auto-update-state", () => getState());
@@ -301,14 +353,11 @@ function startPolling() {
 
 function initAutoUpdater(mainWindow, {
   shutdownServer, setIsUpdating, hanakoHome,
-  showInstalling, failInstalling,
 } = {}) {
   _mainWindow = mainWindow;
   _shutdownServer = shutdownServer;
   _setIsUpdating = setIsUpdating;
   _hanakoHome = hanakoHome;
-  _showInstalling = showInstalling;
-  _failInstalling = failInstalling;
 
   registerIpcHandlers(); // IPC handlers 是进程级单例，重复 init 时直接复用
 
@@ -349,4 +398,4 @@ function setMainWindow(win) {
   _mainWindow = win;
 }
 
-module.exports = { initAutoUpdater, checkForUpdatesAuto, setMainWindow, setUpdateChannel, getState };
+module.exports = { initAutoUpdater, checkForUpdatesAuto, setMainWindow, setUpdateChannel, getState, installDownloadedUpdate };

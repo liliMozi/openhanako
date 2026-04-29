@@ -633,6 +633,8 @@
       "updateChecking": "正在检查更新…",
       "updateDownloading": "{agentName}正在准备新家 {percent}%",
       "updateReadyInstall": "v{version} 已就绪",
+      "updateInstalling": "正在安装更新，Hanako 会自动重启…",
+      "updateInstallOnQuit": "退出 Hanako 时也会自动安装",
       "updateInstall": "重启更新",
       "updateProgress": "{percent}%",
       "updateError": "检查更新失败",

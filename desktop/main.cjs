@@ -14,7 +14,7 @@ const path = require("path");
 const { spawn, execFile } = require("child_process");
 const fs = require("fs");
 const { pathToFileURL } = require("url");
-const { initAutoUpdater, checkForUpdatesAuto, setMainWindow: setUpdaterMainWindow, setUpdateChannel, getState: getUpdateState } = require("./auto-updater.cjs");
+const { initAutoUpdater, checkForUpdatesAuto, setMainWindow: setUpdaterMainWindow, setUpdateChannel, getState: getUpdateState, installDownloadedUpdate } = require("./auto-updater.cjs");
 const { createFileWatchRegistry } = require("./file-watch-registry.cjs");
 const { wrapIpcHandler, wrapIpcBestEffortHandler, wrapIpcOn } = require('./ipc-wrapper.cjs');
 const themeRegistry = require('./src/shared/theme-registry.cjs');
@@ -752,51 +752,6 @@ function createSplashWindow() {
   });
 }
 
-// ── "正在安装更新" 小窗口 ──
-// auto-updater 的 quitAndInstall 会关掉主窗口、跑系统级文件替换、重启应用，
-// 中间用户看不到任何反馈。这个独立窗口从 install 触发到应用真的重启（或失败）
-// 期间一直在屏上，避免"整个 app 凭空消失"的体验。
-let installingWindow = null;
-function createInstallingWindow(version) {
-  if (installingWindow && !installingWindow.isDestroyed()) return;
-  installingWindow = new BrowserWindow({
-    width: 380,
-    height: 280,
-    resizable: false,
-    frame: false,
-    title: "Hanako",
-    ...titleBarOpts({ x: 12, y: 12 }),
-    transparent: true,
-    show: false,
-    alwaysOnTop: true,
-    skipTaskbar: false,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.bundle.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-  loadWindowURL(installingWindow, "splash", {
-    query: { mode: "installing", version: String(version || "") },
-  });
-  installingWindow.once("ready-to-show", () => {
-    if (installingWindow && !installingWindow.isDestroyed()) installingWindow.show();
-  });
-  installingWindow.on("closed", () => { installingWindow = null; });
-}
-
-function failInstallingWindow(msg) {
-  if (installingWindow && !installingWindow.isDestroyed()) {
-    try { installingWindow.close(); } catch {}
-  }
-  try {
-    dialog.showErrorBox(
-      mt("dialog.installFailedTitle", null, "Hanako Update"),
-      mt("dialog.installFailedBody", { error: msg || "unknown" })
-    );
-  } catch {}
-}
-
 // ── 窗口状态记忆 ──
 const windowStatePath = path.join(hanakoHome, "user", "window-state.json");
 
@@ -861,8 +816,6 @@ function createMainWindow() {
       shutdownServer,
       setIsUpdating: (v) => { _isUpdating = v; },
       hanakoHome,
-      showInstalling: createInstallingWindow,
-      failInstalling: failInstallingWindow,
     });
     _autoUpdaterInitialized = true;
   } else {
@@ -931,7 +884,7 @@ function createMainWindow() {
 
   // macOS 风格：点关闭按钮只是隐藏窗口，Dock 保留黑点
   mainWindow.on("close", (e) => {
-    if (!isQuitting) {
+    if (!isQuitting && !_isUpdating && !forceQuitApp) {
       e.preventDefault();
       mainWindow.hide();
       // 不调 app.dock.hide()，Dock 上保留图标和黑点
@@ -2910,6 +2863,19 @@ app.on("before-quit", async (event) => {
 
   // auto-updater 已完成 server 清理，直接放行
   if (_isUpdating) return;
+
+  if (getUpdateState().status === "downloaded") {
+    event.preventDefault();
+    const started = await installDownloadedUpdate("app-quit");
+    if (!started) {
+      isExitingServer = true;
+      if ((serverProcess && !serverProcess.killed) || reusedServerPid) {
+        await shutdownServer();
+      }
+      app.quit();
+    }
+    return;
+  }
 
   isExitingServer = true;
 

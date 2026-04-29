@@ -1,7 +1,7 @@
 // ── Auto-update ──
 
 export interface AutoUpdateState {
-  status: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error' | 'latest';
+  status: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'error' | 'latest';
   version: string | null;
   releaseNotes: string | null;
   releaseUrl: string | null;
@@ -225,10 +225,10 @@ export interface PlatformApi {
   // ── Auto-update (Windows) ──
   autoUpdateCheck?(): Promise<string | null>;
   autoUpdateDownload?(): Promise<boolean>;
-  autoUpdateInstall?(): void;
+  autoUpdateInstall?(): Promise<boolean>;
   autoUpdateState?(): Promise<AutoUpdateState>;
   autoUpdateSetChannel?(channel: 'stable' | 'beta'): Promise<void>;
-  onAutoUpdateState?(callback: (state: AutoUpdateState) => void): void;
+  onAutoUpdateState?(callback: (state: AutoUpdateState) => void): (() => void) | void;
 
   // ── Skill viewer overlay ──
   onShowSkillViewer?(callback: (data: unknown) => void): void;

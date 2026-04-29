@@ -13,8 +13,11 @@ const mockAutoUpdater = {
   on: vi.fn(),
 };
 
+const mockWindows = [];
+
 vi.mock("electron", () => ({
   ipcMain: { handle: vi.fn() },
+  BrowserWindow: { getAllWindows: vi.fn(() => mockWindows) },
   app: {
     isPackaged: true,
     getVersion: () => "1.0.0",
@@ -32,6 +35,7 @@ vi.mock("electron-updater", () => ({
 
 describe("auto-updater", () => {
   let handlers;
+  let ipcHandlers;
   let mod;
   let ipcMain;
 
@@ -39,6 +43,8 @@ describe("auto-updater", () => {
     vi.clearAllMocks();
     vi.resetModules();
     handlers = {};
+    ipcHandlers = {};
+    mockWindows.length = 0;
 
     mockAutoUpdater.on.mockImplementation((event, handler) => {
       handlers[event] = handler;
@@ -48,17 +54,32 @@ describe("auto-updater", () => {
     mockAutoUpdater.allowPrerelease = false;
 
     ({ ipcMain } = await import("electron"));
-    ipcMain.handle.mockImplementation(() => {});
+    ipcMain.handle.mockImplementation((name, handler) => {
+      ipcHandlers[name] = handler;
+    });
 
     mod = await import("../desktop/auto-updater.cjs");
   });
 
-  function initWithMockWindow() {
-    const win = {
+  function createMockWindow() {
+    return {
       isDestroyed: () => false,
       webContents: { send: vi.fn() },
     };
-    mod.initAutoUpdater(win);
+  }
+
+  function initWithMockWindow(opts = {}) {
+    const win = createMockWindow();
+    mockWindows.push(win);
+    mod.initAutoUpdater(win, opts);
+    return win;
+  }
+
+  function createDestroyedWindow() {
+    const win = {
+      isDestroyed: () => true,
+      webContents: { send: vi.fn() },
+    };
     return win;
   }
 
@@ -114,12 +135,25 @@ describe("auto-updater", () => {
     expect(mod.getState().status).toBe("downloaded");
   });
 
-  it("second init reuses process-level setup and only updates mainWindow reference", () => {
+  it("broadcasts update state to every live renderer window", () => {
     const win1 = initWithMockWindow();
-    const win2 = {
-      isDestroyed: () => false,
-      webContents: { send: vi.fn() },
-    };
+    const win2 = createMockWindow();
+    const destroyed = createDestroyedWindow();
+    mockWindows.push(win2, destroyed);
+
+    if (handlers["update-not-available"]) {
+      handlers["update-not-available"]();
+    }
+
+    expect(win1.webContents.send).toHaveBeenCalledWith("auto-update-state", expect.objectContaining({ status: "latest" }));
+    expect(win2.webContents.send).toHaveBeenCalledWith("auto-update-state", expect.objectContaining({ status: "latest" }));
+    expect(destroyed.webContents.send).not.toHaveBeenCalled();
+  });
+
+  it("second init reuses process-level setup without narrowing broadcasts to one window", () => {
+    const win1 = initWithMockWindow();
+    const win2 = createMockWindow();
+    mockWindows.push(win2);
 
     mod.initAutoUpdater(win2);
 
@@ -130,7 +164,41 @@ describe("auto-updater", () => {
       handlers["update-not-available"]();
     }
 
-    expect(win1.webContents.send).not.toHaveBeenCalledWith("auto-update-state", expect.anything());
+    expect(win1.webContents.send).toHaveBeenCalledWith("auto-update-state", expect.objectContaining({ status: "latest" }));
     expect(win2.webContents.send).toHaveBeenCalledWith("auto-update-state", expect.objectContaining({ status: "latest" }));
+  });
+
+  it("installDownloadedUpdate enters installing state and delegates to quitAndInstall", async () => {
+    const shutdownServer = vi.fn().mockResolvedValue(undefined);
+    const setIsUpdating = vi.fn();
+    const win = initWithMockWindow({ shutdownServer, setIsUpdating });
+
+    if (handlers["update-downloaded"]) {
+      handlers["update-downloaded"]({ version: "2.0.0" });
+    }
+
+    const ok = await mod.installDownloadedUpdate("manual");
+
+    expect(ok).toBe(true);
+    expect(setIsUpdating).toHaveBeenCalledWith(true);
+    expect(shutdownServer).toHaveBeenCalledTimes(1);
+    expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledWith(true, true);
+    expect(mod.getState()).toEqual(expect.objectContaining({ status: "installing", version: "2.0.0" }));
+    expect(win.webContents.send).toHaveBeenCalledWith("auto-update-state", expect.objectContaining({ status: "installing" }));
+  });
+
+  it("manual install IPC uses the same install path as app quit", async () => {
+    const shutdownServer = vi.fn().mockResolvedValue(undefined);
+    initWithMockWindow({ shutdownServer });
+
+    if (handlers["update-downloaded"]) {
+      handlers["update-downloaded"]({ version: "2.0.0" });
+    }
+
+    const ok = await ipcHandlers["auto-update-install"]();
+
+    expect(ok).toBe(true);
+    expect(shutdownServer).toHaveBeenCalledTimes(1);
+    expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledWith(true, true);
   });
 });

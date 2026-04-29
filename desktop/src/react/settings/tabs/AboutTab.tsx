@@ -6,34 +6,31 @@ import { loadSettingsConfig } from '../actions';
 import { SettingsSection } from '../components/SettingsSection';
 import { SettingsRow } from '../components/SettingsRow';
 import { ExpandableRow } from '../components/ExpandableRow';
+import { AutoUpdateStatus } from '../../components/AutoUpdateStatus';
+import { useAutoUpdateState } from '../../hooks/use-auto-update-state';
 import appIconUrl from '../../../icon.png';
 import styles from '../Settings.module.css';
-import type { AutoUpdateState } from '../../types';
 
 const hana = window.hana;
 
 export function AboutTab() {
   const { settingsConfig } = useSettingsStore();
   const [version, setVersion] = useState('');
-  const [autoUpdate, setAutoUpdate] = useState<AutoUpdateState | null>(null);
+  const autoUpdate = useAutoUpdateState();
   const isBeta = settingsConfig?.update_channel === 'beta';
   // 默认 true：老用户（preferences 里没写这个字段）保持原有"自动检查"行为
   const autoCheck = settingsConfig?.auto_check_updates !== false;
 
   useEffect(() => {
     hana?.getAppVersion?.().then((v: string) => setVersion(v || ''));
-    hana?.autoUpdateState?.().then((s: AutoUpdateState) => {
-      if (s) setAutoUpdate(s);
-    });
-    hana?.onAutoUpdateState?.((s: AutoUpdateState) => setAutoUpdate(s));
   }, []);
 
   const handleCheck = useCallback(() => {
     hana?.autoUpdateCheck?.();
   }, []);
 
-  const handleInstall = useCallback(() => {
-    hana?.autoUpdateInstall?.();
+  const handleInstall = useCallback(async () => {
+    await hana?.autoUpdateInstall?.();
   }, []);
 
   const handleBetaToggle = useCallback(async (on: boolean) => {
@@ -49,80 +46,6 @@ export function AboutTab() {
     await loadSettingsConfig();
   }, []);
 
-  const renderUpdateStatus = () => {
-    if (!autoUpdate) return null;
-    const { status, version: newVer, progress, error } = autoUpdate;
-
-    switch (status) {
-      case 'checking':
-        return (
-          <div className={styles['about-update']}>
-            <span>{t('settings.about.updateChecking')}</span>
-          </div>
-        );
-      case 'available':
-        return (
-          <div className={styles['about-update']}>
-            <span>{t('settings.about.updateAvailable', { version: newVer })}</span>
-          </div>
-        );
-      case 'downloading':
-        return (
-          <div className={styles['about-update']} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-            <span>
-              {t('settings.about.updateDownloading', {
-                agentName: settingsConfig?.agent?.name || 'Hanako',
-                percent: progress ? Math.round(progress.percent) : 0,
-              })}
-            </span>
-            <div className={styles['about-update-bar-track']}>
-              <div className={styles['about-update-bar-fill']} style={{ width: `${progress ? Math.round(progress.percent) : 0}%` }} />
-            </div>
-          </div>
-        );
-      case 'downloaded':
-        return (
-          <div className={styles['about-update']}>
-            <span>{t('settings.about.updateReadyInstall', { version: newVer })}</span>
-            <a className={styles['about-update-link']} href="#"
-              onClick={(e) => { e.preventDefault(); handleInstall(); }}>
-              {t('settings.about.updateInstall')}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 2v6h-6" />
-                <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-                <path d="M3 22v-6h6" />
-                <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-              </svg>
-            </a>
-          </div>
-        );
-      case 'error':
-        return (
-          <div className={styles['about-update']}>
-            {error === 'disk_space_insufficient' ? (
-              <span className={styles['about-update-error']}>{t('settings.about.updateDiskSpace')}</span>
-            ) : error === 'running_from_dmg' ? (
-              <span className={styles['about-update-error']}>{t('settings.about.updateNeedInstall')}</span>
-            ) : (
-              <>
-                <span className={styles['about-update-error']}>{t('settings.about.updateError')}</span>
-                {error && <span className={styles['about-update-error-detail']}>{error}</span>}
-              </>
-            )}
-          </div>
-        );
-      case 'latest':
-        return (
-          <div className={styles['about-update']}>
-            <span>{t('settings.about.updateLatest')}</span>
-          </div>
-        );
-      case 'idle':
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className={`${styles['settings-tab-content']} ${styles['active']}`} data-tab="about">
       {/* Hero：保留原 about-hero 独立视觉组件（icon + name + tagline + version + update + check 按钮） */}
@@ -131,7 +54,11 @@ export function AboutTab() {
         <div className={styles['about-name']}>Hanako</div>
         <div className={styles['about-tagline']}>{t('settings.about.tagline')}</div>
         {version && <div className={styles['about-version']}>v{version}</div>}
-        {renderUpdateStatus()}
+        <AutoUpdateStatus
+          state={autoUpdate}
+          agentName={settingsConfig?.agent?.name || 'Hanako'}
+          onInstall={handleInstall}
+        />
         {(!autoUpdate || autoUpdate.status === 'idle' || autoUpdate.status === 'latest' || autoUpdate.status === 'error') && (
           <button className={styles['about-check-update-btn']} onClick={handleCheck}>
             {t('settings.about.updateCheckBtn')}

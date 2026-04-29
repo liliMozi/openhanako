@@ -623,6 +623,8 @@
       "updateChecking": "正在檢查更新…",
       "updateDownloading": "{agentName}正在準備新家 {percent}%",
       "updateReadyInstall": "v{version} 已就緒",
+      "updateInstalling": "正在安裝更新，Hanako 會自動重新啟動…",
+      "updateInstallOnQuit": "退出 Hanako 時也會自動安裝",
       "updateInstall": "重新啟動更新",
       "updateProgress": "{percent}%",
       "updateError": "檢查更新失敗",
@@ -630,7 +632,8 @@
       "updateCheckBtn": "檢查更新",
       "updateNeedInstall": "請先將 Hanako 移動到應用程式資料夾",
       "updateDiskSpace": "磁碟空間不足，無法下載更新",
-      "betaUpdates": "接收測試版更新"
+      "betaUpdates": "接收測試版更新",
+      "autoCheckUpdates": "自動檢查更新"
     },
     "security": {
       "sandbox": "沙盒",

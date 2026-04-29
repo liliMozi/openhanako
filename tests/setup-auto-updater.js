@@ -38,6 +38,7 @@ function injectCjsStub(moduleId, stubExports) {
 
 const electronStub = {
   ipcMain: { handle: () => {} },
+  BrowserWindow: { getAllWindows: () => [] },
   app: {
     isPackaged: true,
     getVersion: () => "1.0.0",

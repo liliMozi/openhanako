@@ -623,6 +623,8 @@
       "updateChecking": "アップデートを確認中…",
       "updateDownloading": "{agentName}が新しいお家を準備中 {percent}%",
       "updateReadyInstall": "v{version} インストール準備完了",
+      "updateInstalling": "アップデートをインストール中です。Hanako は自動で再起動します…",
+      "updateInstallOnQuit": "Hanako を終了した時にも自動でインストールします",
       "updateInstall": "再起動して更新",
       "updateProgress": "{percent}%",
       "updateError": "アップデートの確認に失敗しました",
@@ -630,7 +632,8 @@
       "updateCheckBtn": "アップデートを確認",
       "updateNeedInstall": "先に Hanako をアプリケーションフォルダに移動してください",
       "updateDiskSpace": "ディスク容量不足のため、アップデートをダウンロードできません",
-      "betaUpdates": "ベータ版アップデートを受け取る"
+      "betaUpdates": "ベータ版アップデートを受け取る",
+      "autoCheckUpdates": "アップデートを自動で確認"
     },
     "security": {
       "sandbox": "サンドボックス",
