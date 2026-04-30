@@ -6,7 +6,6 @@ export const WORKSPACE_SKILL_DIRS = [
   { sub: ".codex/skills", label: "Codex" },
   { sub: ".openclaw/skills", label: "OpenClaw" },
   { sub: ".agents/skills", label: "Agents" },
-  { sub: ".pi/skills", label: "Pi" },
 ];
 
 export function resolveWorkspaceSkillPaths(workspaceDir) {

@@ -207,24 +207,34 @@ describe("SkillManager metadata scanning", () => {
     };
     const onReloaded = vi.fn();
 
-    manager.init(resourceLoader, new Map(), new Set());
-    manager.watch(resourceLoader, new Map(), onReloaded);
+    const prevUsePolling = process.env.CHOKIDAR_USEPOLLING;
+    process.env.CHOKIDAR_USEPOLLING = "1";
+    try {
+      manager.init(resourceLoader, new Map(), new Set());
+      manager.watch(resourceLoader, new Map(), onReloaded);
 
-    // 给 chokidar 启动 ready 一点时间，然后写入 skill 文件
-    await new Promise((resolve) => setTimeout(resolve, 300));
+      // 给 chokidar 启动 ready 一点时间，然后写入 skill 文件
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-    const skillDir = path.join(workspaceSkillsDir, "late-skill");
-    fs.mkdirSync(skillDir);
-    fs.writeFileSync(path.join(skillDir, "SKILL.md"), [
-      "---",
-      "name: late-skill",
-      "description: Added after watcher start.",
-      "---",
-    ].join("\n"), "utf-8");
+      const skillDir = path.join(workspaceSkillsDir, "late-skill");
+      fs.mkdirSync(skillDir);
+      fs.writeFileSync(path.join(skillDir, "SKILL.md"), [
+        "---",
+        "name: late-skill",
+        "description: Added after watcher start.",
+        "---",
+      ].join("\n"), "utf-8");
 
-    // 等 chokidar 事件 + 1s debounce + autoReload
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    manager.unwatch();
+      // 等 chokidar 事件 + 1s debounce + autoReload
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    } finally {
+      manager.unwatch();
+      if (prevUsePolling === undefined) {
+        delete process.env.CHOKIDAR_USEPOLLING;
+      } else {
+        process.env.CHOKIDAR_USEPOLLING = prevUsePolling;
+      }
+    }
 
     // 旧的 dot ignore 规则会让这个期望失败；新 per-path 规则允许 workspace 下的 skill 触发 reload
     expect(onReloaded).toHaveBeenCalled();

@@ -3,22 +3,22 @@ import readline from "readline";
 import { HanaEngine } from "./core/engine.js";
 import { ensureFirstRun } from "./core/first-run.js";
 import { MoodParser } from "./core/events.js";
+import { configureProcessPiSdkEnv, ensureHanaPiSdkDirs, resolveHanakoHome } from "./shared/hana-runtime-paths.js";
 
 // ═══════════════════════════════════════
 // Project Hana — CLI Agent with Memory
 // ═══════════════════════════════════════
 
-import os from "os";
 import path from "path";
 
 const projectRoot = import.meta.dirname;
 const productDir = projectRoot + "/lib";
 
 // 用户数据目录：优先 HANA_HOME，默认 ~/.hanako
-const hanakoHome = process.env.HANA_HOME
-  ? path.resolve(process.env.HANA_HOME.replace(/^~/, os.homedir()))
-  : path.join(os.homedir(), ".hanako");
+const hanakoHome = resolveHanakoHome(process.env.HANA_HOME);
 process.env.HANA_HOME = hanakoHome;
+ensureHanaPiSdkDirs(hanakoHome);
+configureProcessPiSdkEnv(hanakoHome);
 
 // ── 首次运行播种 ──
 ensureFirstRun(hanakoHome, productDir);

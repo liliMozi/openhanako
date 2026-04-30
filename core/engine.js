@@ -20,11 +20,12 @@ import { migrateToProvidersYaml } from "./migrate-providers.js";
 import { runMigrations } from "./migrations.js";
 import { findModel } from "../shared/model-ref.js";
 import { resolveWorkspaceSkillPaths } from "../shared/workspace-skill-paths.js";
+import { resolveHanaPiAgentDir, resolveHanaPiProjectDir } from "../shared/hana-runtime-paths.js";
 import { PluginManager } from "./plugin-manager.js";
 import { DefaultResourceLoader, PI_BUILTIN_TOOL_NAMES, SettingsManager } from "../lib/pi-sdk/index.js";
 
 /** 已知的外部 AI 工具技能目录（相对 $HOME） */
-const WELL_KNOWN_SKILL_PATHS = [
+export const WELL_KNOWN_SKILL_PATHS = [
   { suffix: ".claude/skills",     label: "Claude Code" },
   { suffix: ".codex/skills",      label: "Codex" },
   { suffix: ".openclaw/skills",   label: "OpenClaw" },
@@ -431,8 +432,8 @@ export class HanaEngine {
     return this._configCoord.getHomeFolder(agentId) || null;
   }
   _createResourceLoaderOptions(skillsDir) {
-    const cwd = this.getHomeCwd(this.currentAgentId) || this.hanakoHome;
-    const agentDir = this.agent?.agentDir || this.agentDir;
+    const cwd = resolveHanaPiProjectDir(this.hanakoHome);
+    const agentDir = resolveHanaPiAgentDir(this.hanakoHome);
     if (!cwd || typeof cwd !== "string") {
       throw new Error("ResourceLoader init: cwd is required");
     }
@@ -444,6 +445,7 @@ export class HanaEngine {
       agentDir,
       settingsManager: SettingsManager.inMemory(),
       systemPromptOverride: () => this.agent.systemPrompt,
+      appendSystemPromptOverride: () => [],
       agentsFilesOverride: () => ({ agentsFiles: [] }),
       noContextFiles: true,
       noExtensions: true,

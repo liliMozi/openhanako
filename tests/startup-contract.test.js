@@ -23,6 +23,24 @@ describe("local startup contract", () => {
     expect(mainCjs).toContain("HANA_DEV_NODE_BIN");
   });
 
+  it("CLI and server configure the Pi SDK agent directory from HANA_HOME", () => {
+    const cliSource = fs.readFileSync(path.join(ROOT, "index.js"), "utf-8");
+    const serverSource = fs.readFileSync(path.join(ROOT, "server", "index.js"), "utf-8");
+
+    expect(cliSource).toContain("ensureHanaPiSdkDirs(hanakoHome)");
+    expect(cliSource).toContain("configureProcessPiSdkEnv(hanakoHome)");
+    expect(serverSource).toContain("ensureHanaPiSdkDirs(hanakoHome)");
+    expect(serverSource).toContain("configureProcessPiSdkEnv(hanakoHome)");
+  });
+
+  it("desktop main propagates Hana-owned Pi SDK env to the spawned server", () => {
+    const mainCjs = fs.readFileSync(path.join(ROOT, "desktop", "main.cjs"), "utf-8");
+
+    expect(mainCjs).toContain("ensureHanaPiSdkDirs(hanakoHome)");
+    expect(mainCjs).toContain("configureProcessPiSdkEnv(hanakoHome)");
+    expect(mainCjs).toContain("withHanaPiSdkEnv(process.env, hanakoHome)");
+  });
+
   it("desktop main installs the client single-instance lock before app readiness", () => {
     const mainCjs = fs.readFileSync(path.join(ROOT, "desktop", "main.cjs"), "utf-8");
 

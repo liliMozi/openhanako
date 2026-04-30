@@ -24,6 +24,12 @@ const {
   focusExistingWindow,
 } = require("./src/shared/single-instance-lock.cjs");
 const {
+  configureProcessPiSdkEnv,
+  ensureHanaPiSdkDirs,
+  resolveHanakoHome,
+  withHanaPiSdkEnv,
+} = require("../shared/hana-runtime-paths.cjs");
+const {
   buildBrowserSearchExtractionScript,
   buildBrowserSearchUrl,
 } = require("../lib/browser/browser-search-extractors.cjs");
@@ -74,9 +80,10 @@ function safeReadJSON(filePath, fallback = null) {
   }
 }
 
-const hanakoHome = process.env.HANA_HOME
-  ? path.resolve(process.env.HANA_HOME.replace(/^~/, os.homedir()))
-  : path.join(os.homedir(), ".hanako");
+const hanakoHome = resolveHanakoHome(process.env.HANA_HOME);
+process.env.HANA_HOME = hanakoHome;
+ensureHanaPiSdkDirs(hanakoHome);
+configureProcessPiSdkEnv(hanakoHome);
 
 // 按 HANA_HOME 隔离 Electron userData（localStorage / cache / session）
 // 生产: ~/Library/Application Support/Hanako
@@ -499,7 +506,7 @@ async function startServer() {
 async function _spawnServerOnce(serverInfoPath) {
   _serverLogs = [];
 
-  const serverEnv = { ...process.env, HANA_HOME: hanakoHome };
+  const serverEnv = { ...withHanaPiSdkEnv(process.env, hanakoHome), HANA_HOME: hanakoHome };
 
   // Windows: 注入 MinGit 路径
   if (process.platform === "win32") {

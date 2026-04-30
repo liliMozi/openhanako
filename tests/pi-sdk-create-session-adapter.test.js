@@ -59,4 +59,22 @@ describe("Pi SDK createAgentSession adapter", () => {
       normalizedByAdapter: true,
     });
   });
+
+  it("uses the resource loader agentDir as the SDK agentDir when omitted", async () => {
+    const sdk = await import("@mariozechner/pi-coding-agent");
+    const adapter = await import("../lib/pi-sdk/index.js");
+    const resourceLoader = { agentDir: "/hana-home/.pi/agent" };
+
+    await adapter.createAgentSession({
+      cwd: "/tmp/project",
+      resourceLoader,
+    });
+
+    expect(sdk.createAgentSession).toHaveBeenLastCalledWith({
+      cwd: "/tmp/project",
+      resourceLoader,
+      agentDir: "/hana-home/.pi/agent",
+      normalizedByAdapter: true,
+    });
+  });
 });
