@@ -17,7 +17,7 @@ import {
   EditorView, keymap, highlightActiveLine, drawSelection,
   lineNumbers,
 } from '@codemirror/view';
-import { EditorState, Compartment, Transaction } from '@codemirror/state';
+import { EditorState, Compartment, Transaction, EditorSelection } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import {
   syntaxHighlighting, bracketMatching,
@@ -58,6 +58,11 @@ export interface ArtifactEditorProps {
 const SAVE_DELAY = 600;
 const CHECKPOINT_INTERVAL = 5 * 60 * 1000;
 
+interface SaveJob {
+  text: string;
+  revision: number;
+}
+
 function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -67,6 +72,23 @@ function showSaveError(prefixKey: string, err: unknown): void {
   window.dispatchEvent(new CustomEvent('hana-inline-notice', {
     detail: { text: `${tFn(prefixKey)}: ${getErrorMessage(err)}`, type: 'error' },
   }));
+}
+
+function clampPos(pos: number, max: number): number {
+  return Math.max(0, Math.min(pos, max));
+}
+
+function replaceDocumentPreservingSelection(view: EditorView, content: string): boolean {
+  const current = view.state.doc.toString();
+  if (current === content) return false;
+  const nextLength = content.length;
+  const { anchor, head } = view.state.selection.main;
+  view.dispatch({
+    changes: { from: 0, to: current.length, insert: content },
+    selection: EditorSelection.single(clampPos(anchor, nextLength), clampPos(head, nextLength)),
+    annotations: Transaction.remote.of(true),
+  });
+  return true;
 }
 
 /* ── File change emitter (global singleton) ── */
@@ -89,6 +111,8 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
     const containerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const saveInFlightRef = useRef(false);
+    const pendingSaveRef = useRef<SaveJob | null>(null);
     const lastSavedContentRef = useRef<string>(content);
     const selfWriteContentsRef = useRef<Set<string>>(new Set());
     const diskVersionRef = useRef<FileVersion | null>(fileVersion ?? null);
@@ -144,13 +168,15 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
       }, 5000);
     }, []);
 
-    const saveToFile = useCallback((text: string, revision: number = docRevisionRef.current) => {
+    const performSave = useCallback(async ({ text, revision }: SaveJob) => {
       const fp = filePathRef.current;
       if (!fp) return;
-      const expectedVersion = diskVersionRef.current;
-      void (async () => {
+
+      try {
         await createCheckpointIfDue(fp);
         if (revision !== docRevisionRef.current || fp !== filePathRef.current) return;
+        const expectedVersion = diskVersionRef.current;
+        let nextVersion: FileVersion | null | undefined;
 
         if (window.platform?.writeFileIfUnchanged) {
           const result = await window.platform.writeFileIfUnchanged(fp, text, expectedVersion);
@@ -161,20 +187,42 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
             }
             throw new Error('write-file-if-unchanged returned false');
           }
+          nextVersion = result.version ?? null;
           if (result.version) diskVersionRef.current = result.version;
           rememberSelfWrite(text);
-          contentCbRef.current?.(text, result.version ?? null);
         } else {
           rememberSelfWrite(text);
           const ok = await window.platform?.writeFile(fp, text);
           if (ok === false) throw new Error('write-file returned false');
+          nextVersion = undefined;
         }
         lastSavedContentRef.current = text;
-      })().catch((err) => {
+
+        if (revision === docRevisionRef.current && fp === filePathRef.current && nextVersion !== undefined) {
+          contentCbRef.current?.(text, nextVersion);
+        }
+      } catch (err) {
         console.warn('[ArtifactEditor] write failed:', err);
         showSaveError('settings.saveFailed', err);
-      });
+      }
     }, [createCheckpointIfDue, rememberSelfWrite]);
+
+    const drainSaveQueue = useCallback(function drain() {
+      if (saveInFlightRef.current) return;
+      const job = pendingSaveRef.current;
+      if (!job) return;
+      pendingSaveRef.current = null;
+      saveInFlightRef.current = true;
+      void performSave(job).finally(() => {
+        saveInFlightRef.current = false;
+        drain();
+      });
+    }, [performSave]);
+
+    const saveToFile = useCallback((text: string, revision: number = docRevisionRef.current) => {
+      pendingSaveRef.current = { text, revision };
+      drainSaveQueue();
+    }, [drainSaveQueue]);
 
     // Create editor
     useEffect(() => {
@@ -256,10 +304,7 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
           clearTimeout(saveTimerRef.current);
           saveTimerRef.current = null;
         }
-        view.dispatch({
-          changes: { from: 0, to: current.length, insert: content },
-          annotations: Transaction.remote.of(true),
-        });
+        replaceDocumentPreservingSelection(view, content);
       }
     }, [content]);
 
@@ -295,10 +340,7 @@ export const ArtifactEditor = forwardRef<ArtifactEditorHandle, ArtifactEditorPro
               saveTimerRef.current = null;
             }
             lastSavedContentRef.current = newContent;
-            view.dispatch({
-              changes: { from: 0, to: current.length, insert: newContent },
-              annotations: Transaction.remote.of(true),
-            });
+            replaceDocumentPreservingSelection(view, newContent);
             contentCbRef.current?.(newContent, diskVersionRef.current);
           })
           .catch((err) => {

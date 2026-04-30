@@ -6,7 +6,7 @@ import { Transaction } from '@codemirror/state';
 import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ArtifactEditor, type ArtifactEditorHandle } from '../../components/ArtifactEditor';
-import type { PlatformApi } from '../../types';
+import type { PlatformApi, VersionedWriteResult } from '../../types';
 
 vi.mock('../../utils/checkpoints', () => ({
   requestUserEditCheckpoint: vi.fn(async () => undefined),
@@ -123,5 +123,116 @@ describe('ArtifactEditor file sync', () => {
     );
     expect(onContentChange).toHaveBeenLastCalledWith('user edit', nextVersion);
     expect(platform.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('preserves the cursor when parent content is refreshed', async () => {
+    const ref = createRef<ArtifactEditorHandle>();
+
+    const { rerender } = render(
+      <ArtifactEditor
+        ref={ref}
+        content="abcdef"
+        filePath="/tmp/hana-note.md"
+        mode="markdown"
+      />,
+    );
+
+    await act(async () => {
+      ref.current?.getView()?.dispatch({ selection: { anchor: 3 } });
+    });
+
+    await act(async () => {
+      rerender(
+        <ArtifactEditor
+          ref={ref}
+          content="abcXYZdef"
+          filePath="/tmp/hana-note.md"
+          mode="markdown"
+        />,
+      );
+    });
+
+    const view = ref.current?.getView();
+    expect(view?.state.doc.toString()).toBe('abcXYZdef');
+    expect(view?.state.selection.main.head).toBe(3);
+  });
+
+  it('queues saves and does not publish stale save results over newer edits', async () => {
+    const ref = createRef<ArtifactEditorHandle>();
+    const loadedVersion = { mtimeMs: 1, size: 8, sha256: 'loaded' };
+    const firstVersion = { mtimeMs: 2, size: 10, sha256: 'first' };
+    const secondVersion = { mtimeMs: 3, size: 11, sha256: 'second' };
+    const onContentChange = vi.fn();
+
+    let resolveFirst!: (value: VersionedWriteResult) => void;
+    const firstWrite = new Promise<VersionedWriteResult>((resolve) => {
+      resolveFirst = resolve;
+    });
+
+    vi.mocked(platform.writeFileIfUnchanged!)
+      .mockReturnValueOnce(firstWrite)
+      .mockResolvedValueOnce({
+        ok: true,
+        conflict: false,
+        version: secondVersion,
+      });
+
+    render(
+      <ArtifactEditor
+        ref={ref}
+        content="original"
+        filePath="/tmp/hana-note.md"
+        fileVersion={loadedVersion}
+        mode="markdown"
+        onContentChange={onContentChange}
+      />,
+    );
+
+    await act(async () => {
+      ref.current?.getView()?.dispatch({
+        changes: { from: 0, to: 'original'.length, insert: 'first edit' },
+        annotations: Transaction.userEvent.of('input.type'),
+      });
+      vi.advanceTimersByTime(700);
+      await Promise.resolve();
+    });
+
+    expect(platform.writeFileIfUnchanged).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      ref.current?.getView()?.dispatch({
+        changes: { from: 0, to: 'first edit'.length, insert: 'second edit' },
+        annotations: Transaction.userEvent.of('input.type'),
+      });
+      vi.advanceTimersByTime(700);
+      await Promise.resolve();
+    });
+
+    expect(platform.writeFileIfUnchanged).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveFirst({
+        ok: true,
+        conflict: false,
+        version: firstVersion,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(platform.writeFileIfUnchanged).toHaveBeenCalledTimes(2);
+    expect(platform.writeFileIfUnchanged).toHaveBeenLastCalledWith(
+      '/tmp/hana-note.md',
+      'second edit',
+      firstVersion,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onContentChange).not.toHaveBeenCalledWith('first edit', firstVersion);
+    expect(onContentChange).toHaveBeenLastCalledWith('second edit', secondVersion);
   });
 });
