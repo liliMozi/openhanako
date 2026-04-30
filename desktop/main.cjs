@@ -530,23 +530,29 @@ async function _spawnServerOnce(serverInfoPath) {
 
   // 选择 server 启动方式
   let serverBin, serverArgs;
-  const bundledServer = path.join(process.resourcesPath || "", "server", "hana-server");
+  const bundledServerRoot = path.join(process.resourcesPath || "", "server");
+  const bundledServer = path.join(bundledServerRoot, "hana-server");
   if (fs.existsSync(bundledServer) || fs.existsSync(bundledServer + ".exe")) {
     // 打包模式：使用 extraResources 里的独立 server
-    // macOS/Linux：hana-server 是 shell wrapper，内部调用 node bundle/index.js，无需额外参数
-    // Windows：hana-server.exe 是裸 Node 二进制（改名），需要显式传入 bundle/index.js
+    // macOS/Linux：hana-server 是 shell wrapper，内部调用 bootstrap.js，无需额外参数
+    // Windows：hana-server.exe 是裸 Node 二进制（改名），需要显式传入 bootstrap.js
     const bin = process.platform === "win32" ? bundledServer + ".exe" : bundledServer;
+    const entry = path.join(bundledServerRoot, "bundle", "index.js");
     serverBin = bin;
     serverArgs = process.platform === "win32"
-      ? [path.join(path.dirname(bin), "bundle", "index.js")]
+      ? [path.join(bundledServerRoot, "bootstrap.js")]
       : [];
-    serverEnv.HANA_ROOT = path.join(process.resourcesPath, "server");
+    serverEnv.HANA_ROOT = bundledServerRoot;
+    serverEnv.HANA_SERVER_ENTRY = entry;
   } else {
     // 开发模式：沿用 launch.js 传下来的独立 Node runtime 跑 source server，
     // 让源码模式和 BUILD 文档保持同一 ABI 合同，避免本地 npm install 的
     // native addon 被 Electron 自带 Node 误加载。
+    const devRoot = path.join(__dirname, "..");
     serverBin = process.env.HANA_DEV_NODE_BIN || process.env.npm_node_execpath || "node";
-    serverArgs = [path.join(__dirname, "..", "server", "index.js")];
+    serverArgs = [path.join(devRoot, "server", "bootstrap.js")];
+    serverEnv.HANA_ROOT = devRoot;
+    serverEnv.HANA_SERVER_ENTRY = path.join(devRoot, "server", "index.js");
     delete serverEnv.ELECTRON_RUN_AS_NODE;
   }
 

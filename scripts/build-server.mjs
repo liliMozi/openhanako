@@ -148,6 +148,9 @@ const bundleOutDir = path.join(outDir, "bundle");
 fs.cpSync(viteBundleDir, bundleOutDir, { recursive: true });
 console.log("[build-server] Vite bundle copied to bundle/");
 
+fs.copyFileSync(path.join(ROOT, "server", "bootstrap.js"), path.join(outDir, "bootstrap.js"));
+console.log("[build-server] bootstrap copied");
+
 // ── 3. 复制运行时数据文件 ──
 // 这些文件由 fromRoot() / fs.readFileSync() 在运行时读取，无法打进 bundle
 
@@ -435,7 +438,7 @@ fs.writeFileSync(
 if (isWin) {
   fs.writeFileSync(
     path.join(outDir, "hana-server.cmd"),
-    '@echo off\r\nset "HANA_ROOT=%~dp0"\r\n"%~dp0hana-server.exe" "%~dp0bundle\\index.js" %*\r\n',
+    '@echo off\r\nset "HANA_ROOT=%~dp0"\r\nset "HANA_SERVER_ENTRY=%~dp0bundle\\index.js"\r\n"%~dp0hana-server.exe" "%~dp0bootstrap.js" %*\r\n',
   );
 } else {
   const wrapper = path.join(outDir, "hana-server");
@@ -443,7 +446,8 @@ if (isWin) {
     "#!/bin/sh",
     'DIR="$(cd "$(dirname "$0")" && pwd)"',
     'export HANA_ROOT="$DIR"',
-    'exec "$DIR/node" "$DIR/bundle/index.js" "$@"',
+    'export HANA_SERVER_ENTRY="$DIR/bundle/index.js"',
+    'exec "$DIR/node" "$DIR/bootstrap.js" "$@"',
     "",
   ].join("\n"));
   fs.chmodSync(wrapper, 0o755);

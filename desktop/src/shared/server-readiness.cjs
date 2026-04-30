@@ -8,7 +8,7 @@
  * ⚠️ 扩展名必须是 .cjs：根 package.json 有 "type": "module"，.js 会被 Node
  * 当成 ESM，module.exports 失效。同 path-to-file-url.cjs / auto-updater.cjs。
  *
- * 关键 external 包列表与 vite.config.server.js 的 external 字段同步维护：
+ * 关键文件 + external 包列表与打包入口、vite.config.server.js 的 external 字段同步维护：
  * 那边的 string 类型 external 在 build-server.mjs 构建期已强制校验装入
  * server/node_modules，运行时这里只挑最关键的几个做"文件竞态"判定。
  * 维护原则：宁可少列，不要多列。误判"少包"会让用户白白多等几秒。
@@ -20,6 +20,11 @@ const CRITICAL_BUNDLED_EXTERNALS = [
   "ws",              // WebSocket，server 启动期立刻 import
   "better-sqlite3",  // SQLite native addon
   "qrcode",          // QR 渲染
+];
+
+const CRITICAL_BUNDLED_FILES = [
+  "bootstrap.js",    // 第一条可观测启动日志，必须早于 bundle import
+  "bundle/index.js",
 ];
 
 const DEFAULT_BACKOFF_MS = [200, 500, 1000, 2000, 4000, 8000];
@@ -43,12 +48,20 @@ async function ensureServerFilesReady(serverRoot, opts = {}) {
 
   const checkOnce = () => {
     const missing = [];
+    for (const file of CRITICAL_BUNDLED_FILES) {
+      const filePath = path.join(serverRoot, ...file.split("/"));
+      try {
+        fs.accessSync(filePath, fs.constants.R_OK);
+      } catch {
+        missing.push(file);
+      }
+    }
     for (const pkg of CRITICAL_BUNDLED_EXTERNALS) {
       const pkgJson = path.join(serverRoot, "node_modules", pkg, "package.json");
       try {
         fs.accessSync(pkgJson, fs.constants.R_OK);
       } catch {
-        missing.push(pkg);
+        missing.push(`node_modules/${pkg}/package.json`);
       }
     }
     return missing;
@@ -86,6 +99,7 @@ function isModuleResolutionError(stderrLogs) {
 }
 
 module.exports = {
+  CRITICAL_BUNDLED_FILES,
   CRITICAL_BUNDLED_EXTERNALS,
   ensureServerFilesReady,
   isModuleResolutionError,

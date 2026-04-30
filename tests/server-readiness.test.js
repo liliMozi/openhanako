@@ -13,6 +13,7 @@ import {
   ensureServerFilesReady,
   isModuleResolutionError,
   CRITICAL_BUNDLED_EXTERNALS,
+  CRITICAL_BUNDLED_FILES,
 } from "../desktop/src/shared/server-readiness.cjs";
 
 let tmp;
@@ -31,9 +32,20 @@ function writePkg(pkgName) {
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: pkgName }));
 }
 
+function writeCriticalFile(fileName) {
+  const filePath = path.join(tmp, fileName);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, "");
+}
+
+function writeAllCriticalFiles() {
+  for (const fileName of CRITICAL_BUNDLED_FILES) writeCriticalFile(fileName);
+}
+
 describe("ensureServerFilesReady", () => {
   it("所有关键 external 都在 → 立即 ok", async () => {
     for (const pkg of CRITICAL_BUNDLED_EXTERNALS) writePkg(pkg);
+    writeAllCriticalFiles();
     const result = await ensureServerFilesReady(tmp);
     expect(result).toEqual({ ok: true });
   });
@@ -45,7 +57,10 @@ describe("ensureServerFilesReady", () => {
       sleep: async () => { sleeps++; },
     });
     expect(result.ok).toBe(false);
-    expect(result.missing.sort()).toEqual([...CRITICAL_BUNDLED_EXTERNALS].sort());
+    expect(result.missing.sort()).toEqual([
+      ...CRITICAL_BUNDLED_EXTERNALS.map((name) => `node_modules/${name}/package.json`),
+      ...CRITICAL_BUNDLED_FILES,
+    ].sort());
     expect(sleeps).toBe(3);
     expect(typeof result.waitedMs).toBe("number");
   });
@@ -57,6 +72,7 @@ describe("ensureServerFilesReady", () => {
       sleepCount++;
       if (sleepCount === 1) {
         for (const pkg of CRITICAL_BUNDLED_EXTERNALS) writePkg(pkg);
+        writeAllCriticalFiles();
       }
     };
     const result = await ensureServerFilesReady(tmp, {
@@ -69,12 +85,13 @@ describe("ensureServerFilesReady", () => {
 
   it("仅缺 ws 一个包 → 退避耗尽后只报 ws", async () => {
     for (const pkg of CRITICAL_BUNDLED_EXTERNALS.filter(p => p !== "ws")) writePkg(pkg);
+    writeAllCriticalFiles();
     const result = await ensureServerFilesReady(tmp, {
       backoffMs: [1, 1],
       sleep: async () => {},
     });
     expect(result.ok).toBe(false);
-    expect(result.missing).toEqual(["ws"]);
+    expect(result.missing).toEqual(["node_modules/ws/package.json"]);
   });
 
   it("onRetry 回调能拿到首次缺失列表", async () => {
@@ -84,7 +101,25 @@ describe("ensureServerFilesReady", () => {
       sleep: async () => {},
       onRetry: (missing) => { firstMissing = missing; },
     });
-    expect(firstMissing).toEqual(expect.arrayContaining(CRITICAL_BUNDLED_EXTERNALS));
+    expect(firstMissing).toEqual(expect.arrayContaining([
+      ...CRITICAL_BUNDLED_EXTERNALS.map((name) => `node_modules/${name}/package.json`),
+      ...CRITICAL_BUNDLED_FILES,
+    ]));
+  });
+
+  it("缺 bootstrap 文件时不进入 spawn 阶段", async () => {
+    for (const pkg of CRITICAL_BUNDLED_EXTERNALS) writePkg(pkg);
+    for (const fileName of CRITICAL_BUNDLED_FILES.filter((fileName) => fileName !== "bootstrap.js")) {
+      writeCriticalFile(fileName);
+    }
+
+    const result = await ensureServerFilesReady(tmp, {
+      backoffMs: [1],
+      sleep: async () => {},
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.missing).toEqual(["bootstrap.js"]);
   });
 });
 
