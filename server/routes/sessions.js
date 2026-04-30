@@ -266,7 +266,8 @@ export function createSessionsRoute(engine) {
 
           if (b.streamStatus !== "running") continue;
 
-          // 优先查 deferred store 的持久化终态（aborted / failed）
+          // subagent 完成状态只能由 deferred store 的任务终态确认。
+          // 子 session 可能有多轮输出，尾部 assistant 文本只能作为 resolved 后的摘要来源。
           if (deferredStore) {
             if (task?.status === "aborted") {
               b.streamStatus = "aborted";
@@ -286,15 +287,18 @@ export function createSessionsRoute(engine) {
               applySubagentIdentity(b, task, readSessionMeta);
               continue;
             }
-          }
+            if (task?.status === "resolved") {
+              b.streamStatus = "done";
+              if (task.meta?.sessionPath) b.streamKey = task.meta.sessionPath;
+              patchBlockRequestedMetadata(b, task);
+              patchBlockExecutorMetadata(b, task, readSessionMeta);
+              applySubagentIdentity(b, task, readSessionMeta);
 
-          // 从 session 文件推断 done 状态（异步读取，只需尾部几行）
-          let sp = b.streamKey || null;
-          if (!sp) continue;
-          const summary = await readSessionSummary(sp);
-          if (summary) {
-            b.streamStatus = "done";
-            b.summary = summary;
+              const sp = b.streamKey || task.meta?.sessionPath || null;
+              const summary = await readSessionSummary(sp);
+              b.summary = summary || (typeof task.result === "string" ? task.result.slice(0, 200) : b.summary);
+              continue;
+            }
           }
         }
       }

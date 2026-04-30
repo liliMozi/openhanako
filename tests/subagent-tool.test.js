@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createSubagentTool } from "../lib/tools/subagent-tool.js";
 
 // ---- helpers ----------------------------------------------------------------
@@ -57,6 +57,10 @@ describe("subagent-tool (executeIsolated 原子模式)", () => {
   beforeEach(() => {
     mockStore = { defer: vi.fn(), resolve: vi.fn(), fail: vi.fn(), query: vi.fn(() => ({ meta: {} })), _save: vi.fn() };
     deps = makeDeps({ getDeferredStore: () => mockStore });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   // 1. fire-and-forget: returns immediately with taskId / streamStatus / sessionPath
@@ -271,6 +275,47 @@ describe("subagent-tool (executeIsolated 原子模式)", () => {
         "/test/session.jsonl",
       );
     });
+  });
+
+  it("does not time out subagent work before the 15 minute default", async () => {
+    vi.useFakeTimers();
+    const pendingExecute = vi.fn().mockImplementation((_prompt, opts) => {
+      opts?.onSessionReady?.("/test/child.jsonl");
+      return new Promise((_resolve, reject) => {
+        opts?.signal?.addEventListener("abort", () => {
+          const err = new Error("aborted");
+          err.name = "AbortError";
+          reject(err);
+        });
+      });
+    });
+    const emitEvent = vi.fn();
+    const tool = createSubagentTool(makeDeps({
+      executeIsolated: pendingExecute,
+      getDeferredStore: () => mockStore,
+      emitEvent,
+    }));
+
+    const result = await tool.execute("call_1", { task: "长任务" }, null, null, mockCtx());
+    expect(result.details.streamStatus).toBe("running");
+
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    expect(mockStore.fail).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+    await vi.waitFor(() => {
+      expect(mockStore.fail).toHaveBeenCalledWith(
+        expect.stringMatching(/^subagent-/),
+        expect.any(String),
+      );
+    });
+    expect(emitEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "block_update",
+        patch: expect.objectContaining({ streamStatus: "failed" }),
+      }),
+      "/test/session.jsonl",
+    );
   });
 
   // 6. per-session concurrent limit: rejects 9th task on the same session

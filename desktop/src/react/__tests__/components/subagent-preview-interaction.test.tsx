@@ -8,6 +8,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useStore } from '../../stores/index';
 import { SubagentCard } from '../../components/chat/SubagentCard';
 import { createSubagentPreviewSlice, type SubagentPreviewSlice } from '../../stores/subagent-preview-slice';
+import { dispatchStreamKey } from '../../services/stream-key-dispatcher';
 
 function makeSlice(): SubagentPreviewSlice {
   let state: SubagentPreviewSlice;
@@ -197,6 +198,30 @@ describe('SubagentCard inline preview interaction', () => {
     expect(screen.getByText('任务：制定一份一周生活整理清单')).toBeTruthy();
     expect(screen.queryByText('这里是运行时输出，不该抢占 header')).toBeNull();
     expect(screen.getByText('Preview A')).toBeTruthy();
+  });
+
+  it('子 session 的 turn_end 不会把 subagent 卡片标记为完成', () => {
+    render(
+      <SubagentCard
+        block={{
+          taskId: 'task-a',
+          task: 'do work',
+          taskTitle: '任务：do work',
+          agentName: 'SORA',
+          streamKey: '/session/subagent-a',
+          streamStatus: 'running',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('已派出')).toBeTruthy();
+
+    act(() => {
+      dispatchStreamKey('/session/subagent-a', { type: 'turn_end', sessionPath: '/session/subagent-a' });
+    });
+
+    expect(screen.getByText('已派出')).toBeTruthy();
+    expect(screen.queryByText('已完成')).toBeNull();
   });
 
   it('多张 subagent 卡可以同时保持展开', () => {

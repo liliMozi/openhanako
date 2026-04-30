@@ -393,7 +393,57 @@ describe("sessions route", () => {
     });
   });
 
-  it("marks running subagent block done when child-session tail summary is available", async () => {
+  it("keeps pending subagent block running even when child-session tail summary is available", async () => {
+    const { createSessionsRoute } = await import("../server/routes/sessions.js");
+    const msgUtils = await import("../core/message-utils.js");
+    const app = new Hono();
+
+    vi.mocked(msgUtils.extractTextContent)
+      .mockReturnValueOnce({ text: "parent says hi", images: [], thinking: "", toolUses: [] });
+    vi.mocked(msgUtils.loadSessionHistoryMessages).mockResolvedValueOnce([
+      { role: "assistant", content: "parent says hi" },
+      {
+        role: "toolResult",
+        toolName: "subagent",
+        details: {
+          taskId: "subagent-1",
+          task: "do work",
+          sessionPath: "/tmp/agents/hanako/subagent-sessions/child.jsonl",
+          streamStatus: "running",
+        },
+      },
+    ]);
+    const engine = {
+      agentsDir: "/tmp/agents",
+      deferredResults: {
+        query: vi.fn(() => ({
+          status: "pending",
+          meta: {
+            sessionPath: "/tmp/agents/hanako/subagent-sessions/child.jsonl",
+          },
+        })),
+      },
+      agentIdFromSessionPath: vi.fn((sp) => {
+        const rel = path.relative("/tmp/agents", sp);
+        return rel.split(path.sep)[0] || null;
+      }),
+      getAgent: vi.fn((id) => (id === "hanako" ? { agentName: "Hanako" } : null)),
+    };
+
+    app.route("/api", createSessionsRoute(engine));
+
+    const res = await app.request("/api/sessions/messages");
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(msgUtils.loadLatestAssistantSummaryFromSessionFile).not.toHaveBeenCalled();
+    expect(data.blocks[0]).toMatchObject({
+      type: "subagent",
+      streamStatus: "running",
+    });
+  });
+
+  it("marks running subagent block done only after deferred store resolves", async () => {
     const { createSessionsRoute } = await import("../server/routes/sessions.js");
     const msgUtils = await import("../core/message-utils.js");
     const app = new Hono();
@@ -418,7 +468,15 @@ describe("sessions route", () => {
 
     const engine = {
       agentsDir: "/tmp/agents",
-      deferredResults: null,
+      deferredResults: {
+        query: vi.fn(() => ({
+          status: "resolved",
+          result: "deferred result",
+          meta: {
+            sessionPath: "/tmp/agents/hanako/subagent-sessions/child.jsonl",
+          },
+        })),
+      },
       agentIdFromSessionPath: vi.fn((sp) => {
         const rel = path.relative("/tmp/agents", sp);
         return rel.split(path.sep)[0] || null;

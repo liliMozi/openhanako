@@ -113,9 +113,6 @@ export const SubagentCard = memo(function SubagentCard({ block }: SubagentCardPr
       } else if (event.type === 'tool_end') {
         if (textRef.current) setDisplay(textRef.current);
         else setDisplay('执行中...');
-      } else if (event.type === 'turn_end') {
-        setStatus('done');
-        setDisplay(textRef.current || '已完成');
       }
     });
 
