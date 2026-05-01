@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   VisionBridge,
   VISUAL_PRIMITIVES_END,
@@ -9,6 +12,13 @@ import {
 
 const image = { type: "image", data: "BASE64", mimeType: "image/png" };
 const pathA = "/tmp/upload-a.png";
+const tempDirs = [];
+
+function makeTempDir() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-vision-bridge-"));
+  tempDirs.push(dir);
+  return dir;
+}
 
 function makeBridge(callText = vi.fn(async () => [
   "image_overview: A desk screenshot with a red error banner.",
@@ -31,6 +41,12 @@ function makeBridge(callText = vi.fn(async () => [
 }
 
 describe("VisionBridge", () => {
+  afterEach(() => {
+    while (tempDirs.length) {
+      fs.rmSync(tempDirs.pop(), { recursive: true, force: true });
+    }
+  });
+
   it("analyzes text-only model images and registers notes by attachment path", async () => {
     const { bridge, callText } = makeBridge();
 
@@ -56,6 +72,93 @@ describe("VisionBridge", () => {
     expect(injected.messages[0].content[0].text).toContain("image_overview");
     expect(injected.messages[0].content[0].text).toContain("user_request_answer");
     expect(injected.messages[0].content[0].text).toContain(VISION_CONTEXT_END);
+  });
+
+  it("restores vision notes from the session sidecar after the in-memory bridge is gone", async () => {
+    const dir = makeTempDir();
+    const sessionPath = path.join(dir, "session.jsonl");
+    const imagePath = path.join(dir, "upload-a.png");
+    const { bridge, callText } = makeBridge();
+
+    await bridge.prepare({
+      sessionPath,
+      targetModel: { id: "deepseek-chat", provider: "deepseek", input: ["text"] },
+      text: `[attached_image: ${imagePath}]\nwhat is this?`,
+      images: [image],
+      imageAttachmentPaths: [imagePath],
+    });
+
+    expect(callText).toHaveBeenCalledTimes(1);
+    const sidecar = JSON.parse(fs.readFileSync(path.join(dir, "session-vision-notes.json"), "utf-8"));
+    expect(sidecar.sessions["session.jsonl"].images[imagePath]).toMatchObject({
+      imagePath,
+      visionModel: { id: "qwen-vl", provider: "dashscope" },
+      targetModel: { id: "deepseek-chat", provider: "deepseek" },
+    });
+
+    const restored = new VisionBridge({
+      resolveVisionConfig: () => null,
+      callText: vi.fn(),
+    });
+    const injected = restored.injectNotes([
+      { role: "user", content: [{ type: "text", text: `[attached_image: ${imagePath}]\nwhat is this?` }] },
+    ], sessionPath);
+
+    expect(injected.injected).toBe(1);
+    expect(injected.messages[0].content[0].text).toContain(VISION_CONTEXT_START);
+    expect(injected.messages[0].content[0].text).toContain("image_overview");
+    expect(injected.messages[0].content[0].text).toContain("user_request_answer");
+    expect(injected.messages[0].content[0].text).toContain(VISION_CONTEXT_END);
+  });
+
+  it("bounds the in-memory note cache while keeping evicted notes recoverable from sidecar", async () => {
+    const dir = makeTempDir();
+    const firstSession = path.join(dir, "first.jsonl");
+    const secondSession = path.join(dir, "second.jsonl");
+    const firstImage = path.join(dir, "first.png");
+    const secondImage = path.join(dir, "second.png");
+    const { callText } = makeBridge();
+    const bridge = new VisionBridge({
+      resolveVisionConfig: () => ({
+        model: { id: "qwen-vl", provider: "dashscope", input: ["text", "image"] },
+        api: "openai-completions",
+        api_key: "sk-test",
+        base_url: "https://example.test/v1",
+      }),
+      callText,
+      now: (() => {
+        let n = 0;
+        return () => ++n;
+      })(),
+      maxCacheEntries: 1,
+    });
+    const targetModel = { id: "deepseek-chat", provider: "deepseek", input: ["text"] };
+
+    await bridge.prepare({
+      sessionPath: firstSession,
+      targetModel,
+      text: `[attached_image: ${firstImage}]\nfirst`,
+      images: [image],
+      imageAttachmentPaths: [firstImage],
+    });
+    await bridge.prepare({
+      sessionPath: secondSession,
+      targetModel,
+      text: `[attached_image: ${secondImage}]\nsecond`,
+      images: [{ ...image, data: "BASE64-2" }],
+      imageAttachmentPaths: [secondImage],
+    });
+
+    expect(bridge._noteByPath.size).toBeLessThanOrEqual(1);
+
+    const injected = bridge.injectNotes([
+      { role: "user", content: [{ type: "text", text: `[attached_image: ${firstImage}]\nfirst` }] },
+    ], firstSession);
+
+    expect(injected.injected).toBe(1);
+    expect(injected.messages[0].content[0].text).toContain(VISION_CONTEXT_START);
+    expect(injected.messages[0].content[0].text).toContain("image_overview");
+    expect(bridge._noteByPath.size).toBeLessThanOrEqual(1);
   });
 
   it("routes Gemini family models through their native box_2d format", async () => {

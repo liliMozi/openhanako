@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import { callText as defaultCallText } from "./llm-client.js";
 import { modelSupportsImage } from "./message-sanitizer.js";
 import { getVisionCapabilities } from "../shared/model-capabilities.js";
@@ -12,6 +14,7 @@ const MAX_NOTE_CHARS = 3200;
 const MAX_CACHE_ENTRIES = 256;
 const MAX_VISUAL_PRIMITIVES = 16;
 const MAX_PRIMITIVE_REF_CHARS = 96;
+const VISION_NOTES_FILE = "session-vision-notes.json";
 
 function normalizeUserRequest(text) {
   return String(text || "")
@@ -47,6 +50,53 @@ function uniquePathsFromText(text) {
   let m;
   while ((m = re.exec(text || ""))) paths.push(m[1].trim());
   return paths;
+}
+
+function sessionNotesDir(sessionPath) {
+  if (!sessionPath) return null;
+  const dir = path.dirname(sessionPath);
+  return path.basename(dir) === "archived" ? path.dirname(dir) : dir;
+}
+
+function sessionNotesPath(sessionPath) {
+  const dir = sessionNotesDir(sessionPath);
+  return dir ? path.join(dir, VISION_NOTES_FILE) : null;
+}
+
+function sessionNotesKey(sessionPath) {
+  return sessionPath ? path.basename(sessionPath) : null;
+}
+
+function emptyNotesSidecar() {
+  return { version: 1, sessions: {} };
+}
+
+function readNotesSidecar(filePath) {
+  if (!filePath) return emptyNotesSidecar();
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    if (!parsed || typeof parsed !== "object") return emptyNotesSidecar();
+    if (!parsed.sessions || typeof parsed.sessions !== "object") {
+      return { version: 1, sessions: {} };
+    }
+    return parsed;
+  } catch (err) {
+    if (err.code === "ENOENT") return emptyNotesSidecar();
+    throw err;
+  }
+}
+
+function writeNotesSidecar(filePath, data) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmp = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n", "utf-8");
+  fs.renameSync(tmp, filePath);
+}
+
+function compactModelRef(model) {
+  return model?.id && model?.provider
+    ? { id: model.id, provider: model.provider }
+    : null;
 }
 
 function contentText(content) {
@@ -340,11 +390,18 @@ export class VisionBridge {
       const note = await this._analyzeImage(config, img, i, userRequest);
       const imagePath = paths[i];
       if (imagePath) {
-        this._noteByPath.set(imagePath, {
+        const entry = {
           note,
           sessionPath: sessionPath || null,
+          imagePath,
+          userRequest,
+          visionModel: compactModelRef(config.model),
+          targetModel: compactModelRef(targetModel),
           updatedAt: this._now(),
-        });
+        };
+        this._noteByPath.set(imagePath, entry);
+        this._trimNoteCache();
+        if (sessionPath) this._persistNote(sessionPath, imagePath, entry);
       }
       notes.push(note);
     }
@@ -353,7 +410,7 @@ export class VisionBridge {
   }
 
   injectNotes(messages, sessionPath = null) {
-    if (!Array.isArray(messages) || this._noteByPath.size === 0) return { messages, injected: 0 };
+    if (!Array.isArray(messages)) return { messages, injected: 0 };
     let injected = 0;
 
     const next = messages.map((msg) => {
@@ -361,27 +418,76 @@ export class VisionBridge {
       if (msg.role !== "user") return msg;
       const text = contentText(msg.content);
       if (!text || text.includes(VISION_CONTEXT_START)) return msg;
-      const paths = uniquePathsFromText(text).filter((p) => {
-        const entry = this._noteByPath.get(p);
-        return entry && (!sessionPath || !entry.sessionPath || entry.sessionPath === sessionPath);
-      });
-      if (!paths.length) return msg;
+      const entries = uniquePathsFromText(text)
+        .map((imagePath) => [imagePath, this._lookupNote(sessionPath, imagePath)])
+        .filter(([, entry]) => !!entry);
+      if (!entries.length) return msg;
 
-      const noteText = paths.map((p, idx) => {
-        const entry = this._noteByPath.get(p);
+      const noteText = entries.map(([, entry], idx) => {
         return `image_${idx + 1}: ${entry.note}`;
       }).join("\n\n");
       const block = `${VISION_CONTEXT_START}\n${noteText}\n${VISION_CONTEXT_END}\n\n`;
 
       const replacedContent = replaceTextContent(msg.content, (oldText) => {
-        if (!uniquePathsFromText(oldText).some((p) => paths.includes(p))) return oldText;
-        injected += paths.length;
+        const localPaths = uniquePathsFromText(oldText);
+        const localHits = entries.filter(([imagePath]) => localPaths.includes(imagePath));
+        if (!localHits.length) return oldText;
+        injected += localHits.length;
         return `${block}${oldText}`;
       });
       return replacedContent === msg.content ? msg : { ...msg, content: replacedContent };
     });
 
     return { messages: injected ? next : messages, injected };
+  }
+
+  _persistNote(sessionPath, imagePath, entry) {
+    const filePath = sessionNotesPath(sessionPath);
+    const sessionKey = sessionNotesKey(sessionPath);
+    if (!filePath || !sessionKey) return;
+
+    const sidecar = readNotesSidecar(filePath);
+    const sessionEntry = sidecar.sessions[sessionKey] || { images: {} };
+    const images = sessionEntry.images && typeof sessionEntry.images === "object"
+      ? sessionEntry.images
+      : {};
+    images[imagePath] = {
+      note: entry.note,
+      imagePath,
+      userRequest: entry.userRequest || "",
+      visionModel: entry.visionModel || null,
+      targetModel: entry.targetModel || null,
+      updatedAt: entry.updatedAt,
+    };
+    sidecar.sessions[sessionKey] = { ...sessionEntry, images };
+    writeNotesSidecar(filePath, sidecar);
+  }
+
+  _lookupNote(sessionPath, imagePath) {
+    const memoryEntry = this._noteByPath.get(imagePath);
+    if (memoryEntry && (!sessionPath || !memoryEntry.sessionPath || memoryEntry.sessionPath === sessionPath)) {
+      return memoryEntry;
+    }
+    if (!sessionPath) return null;
+
+    const filePath = sessionNotesPath(sessionPath);
+    const sessionKey = sessionNotesKey(sessionPath);
+    if (!filePath || !sessionKey) return null;
+    const sidecar = readNotesSidecar(filePath);
+    const entry = sidecar.sessions?.[sessionKey]?.images?.[imagePath] || null;
+    if (!entry?.note) return null;
+    const restored = {
+      note: entry.note,
+      sessionPath,
+      imagePath,
+      userRequest: entry.userRequest || "",
+      visionModel: entry.visionModel || null,
+      targetModel: entry.targetModel || null,
+      updatedAt: entry.updatedAt || this._now(),
+    };
+    this._noteByPath.set(imagePath, restored);
+    this._trimNoteCache();
+    return restored;
   }
 
   async _analyzeImage(config, img, index, userRequest) {
@@ -503,6 +609,15 @@ export class VisionBridge {
       .sort((a, b) => (a[1].lastUsedAt || 0) - (b[1].lastUsedAt || 0));
     for (const [key] of entries.slice(0, this._analysisByPrompt.size - this._maxCacheEntries)) {
       this._analysisByPrompt.delete(key);
+    }
+  }
+
+  _trimNoteCache() {
+    if (this._noteByPath.size <= this._maxCacheEntries) return;
+    const entries = [...this._noteByPath.entries()]
+      .sort((a, b) => (a[1].updatedAt || 0) - (b[1].updatedAt || 0));
+    for (const [key] of entries.slice(0, this._noteByPath.size - this._maxCacheEntries)) {
+      this._noteByPath.delete(key);
     }
   }
 }
