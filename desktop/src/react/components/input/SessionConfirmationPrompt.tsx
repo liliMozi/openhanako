@@ -3,20 +3,53 @@ import { hanaFetch } from '../../hooks/use-hana-fetch';
 import type { SessionConfirmationBlock } from '../../stores/chat-types';
 import styles from './InputArea.module.css';
 
+type ConfirmationAction = 'confirmed' | 'rejected';
+
 interface SessionConfirmationPromptProps {
   block: SessionConfirmationBlock;
   exiting?: boolean;
 }
 
+function displayTitle(block: SessionConfirmationBlock) {
+  if (block.kind === 'computer_app_approval') {
+    const appName = block.subject?.label || '这个应用';
+    return `是否允许 Hana 控制 ${appName}`;
+  }
+  return block.title;
+}
+
+function displaySubject(block: SessionConfirmationBlock) {
+  if (block.kind === 'computer_app_approval') {
+    return {
+      label: 'computer app',
+      detail: block.subject?.detail || block.subject?.label || '',
+    };
+  }
+  if (block.subject?.label || block.subject?.detail) {
+    return {
+      label: block.subject?.label || '',
+      detail: block.subject?.detail || '',
+    };
+  }
+  return {
+    label: block.body || '',
+    detail: '',
+  };
+}
+
 export function SessionConfirmationPrompt({ block, exiting = false }: SessionConfirmationPromptProps) {
-  const [submitting, setSubmitting] = useState<'confirmed' | 'rejected' | null>(null);
+  const [submission, setSubmission] = useState<{ confirmId: string; action: ConfirmationAction } | null>(null);
   const pending = block.status === 'pending' && !exiting;
+  const submitting = submission?.confirmId === block.confirmId ? submission.action : null;
   const confirmLabel = block.actions?.confirmLabel || window.t?.('common.approve') || '同意';
   const rejectLabel = block.actions?.rejectLabel || window.t?.('common.reject') || '拒绝';
+  const title = displayTitle(block);
+  const subject = displaySubject(block);
+  const hasSubject = !!(subject.label || subject.detail);
 
-  const submit = useCallback(async (action: 'confirmed' | 'rejected') => {
+  const submit = useCallback(async (action: ConfirmationAction) => {
     if (!pending || submitting) return;
-    setSubmitting(action);
+    setSubmission({ confirmId: block.confirmId, action });
     try {
       await hanaFetch(`/api/confirm/${block.confirmId}`, {
         method: 'POST',
@@ -24,7 +57,9 @@ export function SessionConfirmationPrompt({ block, exiting = false }: SessionCon
         body: JSON.stringify({ action }),
       });
     } catch (err) {
-      setSubmitting(null);
+      setSubmission((current) => (
+        current?.confirmId === block.confirmId ? null : current
+      ));
       console.warn('[session-confirmation] submit failed', err);
     }
   }, [block.confirmId, pending, submitting]);
@@ -37,15 +72,11 @@ export function SessionConfirmationPrompt({ block, exiting = false }: SessionCon
       data-severity={block.severity || 'normal'}
     >
       <div className={styles['session-confirmation-body']}>
-        <div className={styles['session-confirmation-kicker']}>
-          {block.kind === 'computer_app_approval' ? 'Computer Use' : '确认'}
-        </div>
-        <div className={styles['session-confirmation-title']}>{block.title}</div>
-        {block.body && <div className={styles['session-confirmation-text']}>{block.body}</div>}
-        {block.subject && (
+        <div className={styles['session-confirmation-title']}>{title}</div>
+        {hasSubject && (
           <div className={styles['session-confirmation-subject']}>
-            <span className={styles['session-confirmation-subject-label']}>{block.subject.label}</span>
-            {block.subject.detail && <span className={styles['session-confirmation-subject-detail']}>{block.subject.detail}</span>}
+            {subject.label && <span className={styles['session-confirmation-subject-label']}>{subject.label}</span>}
+            {subject.detail && <span className={styles['session-confirmation-subject-detail']}>{subject.detail}</span>}
           </div>
         )}
       </div>

@@ -317,6 +317,8 @@ export async function switchSession(path: string): Promise<void> {
       if (wsConn?.readyState === WebSocket.OPEN) {
         wsConn.send(JSON.stringify({ type: 'context_usage', sessionPath: path }));
       }
+    }).catch((err) => {
+      console.warn('[session] context usage refresh skipped:', err);
     });
   } catch (err) {
     console.error('[session] switch failed:', err);
@@ -360,8 +362,9 @@ export async function createNewSession(): Promise<void> {
   try {
     const res = await hanaFetch('/api/session-permission-mode');
     const data = await res.json();
+    const mode = data.defaultMode || data.mode || 'ask';
     window.dispatchEvent(new CustomEvent('hana-plan-mode', {
-      detail: { enabled: data.mode === 'read_only', mode: data.mode || 'ask' },
+      detail: { enabled: mode === 'read_only', mode },
     }));
   } catch {
     window.dispatchEvent(new CustomEvent('hana-plan-mode', { detail: { enabled: false, mode: 'ask' } }));

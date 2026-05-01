@@ -21,8 +21,7 @@ const CAPABILITY_ALLOWED_VALUES = new Set([
   "allowed",
   "semantic",
   "focused",
-  "foreground",
-  "requiresApproval",
+  "pidScoped",
 ]);
 
 const FOREGROUND_CAPABILITY_VALUES = new Set(["foreground"]);
@@ -52,6 +51,13 @@ function cloneLease(lease) {
 function findSnapshotElement(snapshot, elementId) {
   if (!elementId || !Array.isArray(snapshot?.elements)) return null;
   return snapshot.elements.find((element) => String(element?.elementId) === String(elementId)) || null;
+}
+
+function capabilityKeyForAction(capabilities, action = {}) {
+  if (action?.type === "double_click" && action?.elementId && capabilities?.elementDoubleClick !== undefined) {
+    return "elementDoubleClick";
+  }
+  return ACTION_CAPABILITY[action?.type];
 }
 
 export class ComputerHost {
@@ -170,7 +176,7 @@ export class ComputerHost {
     }
 
     const provider = this._providers.require(lease.providerId);
-    this._assertCapability(provider.capabilities, action?.type);
+    this._assertCapability(provider.capabilities, action);
     const providerAction = {
       ...action,
       snapshotId,
@@ -334,11 +340,28 @@ export class ComputerHost {
     return Boolean(appId || windowId);
   }
 
-  _assertCapability(capabilities, actionType) {
-    const key = ACTION_CAPABILITY[actionType];
+  _assertCapability(capabilities, action) {
+    const actionType = typeof action === "string" ? action : action?.type;
+    const key = typeof action === "string"
+      ? ACTION_CAPABILITY[actionType]
+      : capabilityKeyForAction(capabilities, action);
     if (!key) return;
     const value = capabilities?.[key];
     if (CAPABILITY_ALLOWED_VALUES.has(value)) return;
+    if (value === "foreground") {
+      throw computerUseError(COMPUTER_USE_ERRORS.ACTION_REQUIRES_FOREGROUND, `Computer action requires foreground input: ${actionType}`, {
+        action: actionType,
+        capability: key,
+        value,
+      });
+    }
+    if (value === "requiresApproval") {
+      throw computerUseError(COMPUTER_USE_ERRORS.ACTION_REQUIRES_INPUT_INJECTION_APPROVAL, `Computer action requires explicit input-injection approval: ${actionType}`, {
+        action: actionType,
+        capability: key,
+        value,
+      });
+    }
     throw computerUseError(COMPUTER_USE_ERRORS.CAPABILITY_UNSUPPORTED, `Computer provider does not support action: ${actionType}`, {
       action: actionType,
       capability: key,

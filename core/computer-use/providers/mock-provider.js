@@ -12,6 +12,7 @@ export function createMockComputerProvider({ providerId = "mock" } = {}) {
       screenshot: true,
       accessibilityTree: true,
       elementActions: true,
+      elementDoubleClick: true,
       backgroundControl: "full",
       pointClick: "requiresApproval",
       drag: "unsupported",

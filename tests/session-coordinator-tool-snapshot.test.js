@@ -68,7 +68,7 @@ function allNames() {
 }
 
 describe("session-coordinator tool snapshot (createSession)", () => {
-  let tmpDir, agentDir, sessionDir, coord, fakeSessionPath, activeToolsSpy, currentAgentConfig, defaultModeSaveSpy;
+  let tmpDir, agentDir, sessionDir, coord, fakeSessionPath, activeToolsSpy, currentAgentConfig, defaultModeSaveSpy, storedDefaultMode, lastSessionOptions;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -82,16 +82,21 @@ describe("session-coordinator tool snapshot (createSession)", () => {
 
     activeToolsSpy = vi.fn();
     defaultModeSaveSpy = vi.fn();
+    storedDefaultMode = "ask";
+    lastSessionOptions = null;
 
     sessionManagerCreateMock.mockReturnValue({ getCwd: () => tmpDir });
     sessionManagerOpenMock.mockReturnValue({ getCwd: () => tmpDir });
-    createAgentSessionMock.mockResolvedValue({
+    createAgentSessionMock.mockImplementation(async (options) => {
+      lastSessionOptions = options;
+      return {
       session: {
         sessionManager: { getSessionFile: () => fakeSessionPath },
         subscribe: vi.fn(() => vi.fn()),
         model: { id: "test-model", name: "test-model" },
         setActiveToolsByName: activeToolsSpy,
       },
+      };
     });
 
     const agent = {
@@ -129,7 +134,7 @@ describe("session-coordinator tool snapshot (createSession)", () => {
       getConfig: () => ({}),
       getPrefs: () => ({
         getThinkingLevel: () => "medium",
-        getSessionPermissionModeDefault: () => "ask",
+        getSessionPermissionModeDefault: () => storedDefaultMode,
         setSessionPermissionModeDefault: defaultModeSaveSpy,
       }),
       getAgents: () => new Map(),
@@ -162,6 +167,73 @@ describe("session-coordinator tool snapshot (createSession)", () => {
 
     const meta = JSON.parse(await fsp.readFile(path.join(sessionDir, "session-meta.json"), "utf-8"));
     expect(meta[path.basename(sessionPath)].accessMode).toBe("operate");
+  });
+
+  it("starts fresh sessions in ask even when an old persisted default says operate", async () => {
+    storedDefaultMode = "operate";
+    currentAgentConfig = { tools: { disabled: [] } };
+
+    const { sessionPath } = await coord.createSession(null, tmpDir, true);
+
+    expect(coord.getPermissionModeDefault()).toBe("ask");
+    expect(coord.getPermissionMode(sessionPath)).toBe("ask");
+    expect(coord.getAccessMode(sessionPath)).toBe("operate");
+    expect(defaultModeSaveSpy).not.toHaveBeenCalled();
+
+    const meta = JSON.parse(await fsp.readFile(path.join(sessionDir, "session-meta.json"), "utf-8"));
+    expect(meta[path.basename(sessionPath)]).toMatchObject({
+      permissionMode: "ask",
+      accessMode: "operate",
+      planMode: false,
+    });
+  });
+
+  it("remembers the last selected permission mode only for the current app run", async () => {
+    currentAgentConfig = { tools: { disabled: [] } };
+    const { sessionPath: firstPath } = await coord.createSession(null, tmpDir, true);
+
+    coord.setPermissionMode("operate");
+
+    const secondSessionPath = path.join(sessionDir, "second-session.jsonl");
+    createAgentSessionMock.mockResolvedValueOnce({
+      session: {
+        sessionManager: { getSessionFile: () => secondSessionPath },
+        subscribe: vi.fn(() => vi.fn()),
+        model: { id: "test-model", name: "test-model" },
+        setActiveToolsByName: activeToolsSpy,
+      },
+    });
+    const { sessionPath: secondPath } = await coord.createSession(null, tmpDir, true);
+
+    expect(coord.getPermissionMode(firstPath)).toBe("operate");
+    expect(coord.getPermissionMode(secondPath)).toBe("operate");
+    expect(coord.getPermissionModeDefault()).toBe("operate");
+    expect(defaultModeSaveSpy).not.toHaveBeenCalled();
+  });
+
+  it("can stage a pending new-session permission mode without mutating the active session", async () => {
+    currentAgentConfig = { tools: { disabled: [] } };
+    const { sessionPath: activePath } = await coord.createSession(null, tmpDir, true);
+
+    const result = coord.setPendingPermissionMode("read_only");
+
+    expect(result).toMatchObject({ ok: true, mode: "read_only", enabled: true });
+    expect(coord.getPermissionMode(activePath)).toBe("ask");
+    expect(coord.getPermissionModeDefault()).toBe("read_only");
+
+    const secondSessionPath = path.join(sessionDir, "pending-read-only.jsonl");
+    createAgentSessionMock.mockResolvedValueOnce({
+      session: {
+        sessionManager: { getSessionFile: () => secondSessionPath },
+        subscribe: vi.fn(() => vi.fn()),
+        model: { id: "test-model", name: "test-model" },
+        setActiveToolsByName: activeToolsSpy,
+      },
+    });
+    const { sessionPath: nextPath } = await coord.createSession(null, tmpDir, true);
+
+    expect(coord.getPermissionMode(nextPath)).toBe("read_only");
+    expect(defaultModeSaveSpy).not.toHaveBeenCalled();
   });
 
   it("new session with pending read-only access mode keeps tool schema stable", async () => {
@@ -323,9 +395,22 @@ describe("session-coordinator tool snapshot (createSession)", () => {
 
     expect(result).toMatchObject({ ok: true, mode: "read_only", enabled: true });
     expect(activeToolsSpy).toHaveBeenCalledTimes(1);
-    expect(defaultModeSaveSpy).toHaveBeenCalledWith("read_only");
+    expect(defaultModeSaveSpy).not.toHaveBeenCalled();
+    expect(coord.getPermissionModeDefault()).toBe("read_only");
     expect(coord.getAccessMode()).toBe("read_only");
     expect(coord.getPermissionMode(sessionPath)).toBe("read_only");
+  });
+
+  it("keeps runtime permission changes out of dynamic append system prompt", async () => {
+    currentAgentConfig = { tools: { disabled: [] } };
+    await coord.createSession(null, tmpDir, true);
+
+    const before = lastSessionOptions.resourceLoader.getAppendSystemPrompt();
+    coord.setPermissionMode("read_only");
+    const after = lastSessionOptions.resourceLoader.getAppendSystemPrompt();
+
+    expect(after).toEqual(before);
+    expect(after.join("\n")).not.toMatch(/READ-ONLY MODE|ASK MODE|只读模式|先问模式/);
   });
 
   it("restores accessMode from session meta before applying tools", async () => {

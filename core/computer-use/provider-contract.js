@@ -1,6 +1,6 @@
 export const DEFAULT_COMPUTER_PROVIDER_BY_PLATFORM = Object.freeze({
   darwin: "macos:cua",
-  win32: "windows:uia",
+  win32: "mock",
   linux: "mock",
 });
 
@@ -10,6 +10,7 @@ export const COMPUTER_PROVIDER_CAPABILITY_DEFAULTS = Object.freeze({
   screenshot: false,
   accessibilityTree: false,
   elementActions: false,
+  elementDoubleClick: false,
   backgroundControl: "none",
   pointClick: "unsupported",
   drag: "unsupported",

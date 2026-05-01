@@ -16,7 +16,7 @@ describe("Computer Use settings", () => {
 
     expect(settings.provider_by_platform).toMatchObject({
       darwin: "mock",
-      win32: "windows:uia",
+      win32: "mock",
       linux: "mock",
     });
     expect(settings.enabled).toBe(false);

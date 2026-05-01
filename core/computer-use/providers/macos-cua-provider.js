@@ -1,12 +1,39 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { fileURLToPath } from "url";
 import { COMPUTER_USE_ERRORS, computerUseError } from "../errors.js";
 import { createCommandRunner } from "./command-runner.js";
 
 const HANA_CURSOR_BLOOM_COLOR = "#537D96";
-const MACOS_CUA_ALLOWED_ACTIONS = ["double_click", "click_point", "type_text", "press_key", "scroll", "drag", "stop"];
+const HANA_CURSOR_GRADIENT_COLORS = Object.freeze(["#FFFDF8", "#8FAABD", "#2F4A56"]);
+const HANA_CUA_CURSOR_STYLE = Object.freeze({
+  gradient_colors: HANA_CURSOR_GRADIENT_COLORS,
+  bloom_color: HANA_CURSOR_BLOOM_COLOR,
+  image_path: "",
+});
+const HANA_AGENT_CURSOR_CONFIG_ENV = "HANA_AGENT_CURSOR_CONFIG_JSON";
+const HANA_AGENT_SOCKET_PATH_ENV = "HANA_COMPUTER_USE_SOCKET_PATH";
+const HANA_CURSOR_MOTION = Object.freeze({
+  start_handle: 0.38,
+  end_handle: 0.28,
+  arc_size: 0.08,
+  arc_flow: 0,
+  spring: 1,
+  glide_duration_ms: 520,
+  dwell_after_click_ms: 160,
+  idle_hide_ms: 2600,
+});
+const MACOS_CUA_ALLOWED_ACTIONS = [
+  "click_element",
+  "double_click",
+  "type_text",
+  "press_key",
+  "scroll",
+  "perform_secondary_action",
+  "click_point",
+  "drag",
+  "stop",
+];
 
 function expandHome(filePath, homeDir = os.homedir()) {
   if (!filePath || !filePath.startsWith("~/")) return filePath;
@@ -17,11 +44,11 @@ function helperPath(root) {
   return path.join(root, "hana-computer-use-helper");
 }
 
-export function resolveHanaCursorImagePath() {
-  return fileURLToPath(new URL("../assets/hana-cursor.svg", import.meta.url));
+function defaultHanaComputerUseSocketPath(homeDir = os.homedir()) {
+  return path.join(homeDir, "Library", "Caches", "hana-computer-use", "hana-computer-use-helper.sock");
 }
 
-function commandSupportsHanaCursor(command) {
+function commandIsBundledHanaHelper(command) {
   return path.basename(String(command || "")) === "hana-computer-use-helper";
 }
 
@@ -275,6 +302,7 @@ function normalizeWindowState(result, lease) {
     mimeType: image.mimeType || image.mime_type || "image/png",
     data: image.data,
   };
+  const display = normalizeScreenshotDisplay(structured);
 
   const elements = Array.isArray(structured.elements)
     ? structured.elements.map((el, index) => ({
@@ -292,10 +320,43 @@ function normalizeWindowState(result, lease) {
     appId: lease.appId,
     windowId: lease.windowId,
     screenshot,
-    display: structured.display || structured.screen || { width: 1568, height: 1000, scaleFactor: 1 },
+    display,
     focusedElementId: structured.focusedElementId || null,
     elements,
     providerState: lease.providerState,
+  };
+}
+
+function finiteNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function positiveNumber(value, fallback = 1) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function normalizeScreenshotDisplay(structured = {}) {
+  const source = structured.display || structured.screen || {};
+  const width = positiveNumber(structured.screenshot_width ?? source.width, 1568);
+  const height = positiveNumber(structured.screenshot_height ?? source.height, 1000);
+  const originalWidth = positiveNumber(
+    structured.screenshot_original_width ?? source.originalWidth ?? source.original_width,
+    width,
+  );
+  const originalHeight = positiveNumber(
+    structured.screenshot_original_height ?? source.originalHeight ?? source.original_height,
+    height,
+  );
+  return {
+    x: finiteNumber(source.x, 0),
+    y: finiteNumber(source.y, 0),
+    width,
+    height,
+    originalWidth,
+    originalHeight,
+    scaleFactor: positiveNumber(structured.screenshot_scale_factor ?? source.scaleFactor ?? source.scale_factor, 1),
   };
 }
 
@@ -308,30 +369,83 @@ function elementIndexFromId(elementId) {
   return n;
 }
 
-function assertNoElementIndex(action) {
-  if (!action?.elementId) return;
+function requireElementIndex(action) {
+  if (action?.elementId) return elementIndexFromId(action.elementId);
   throw computerUseError(
-    COMPUTER_USE_ERRORS.CAPABILITY_UNSUPPORTED,
-    "Element-indexed Computer Use actions are unavailable with the bundled macOS helper. Use screenshot coordinates with click_point or double_click instead.",
-    { action: action.type, elementId: action.elementId },
+    COMPUTER_USE_ERRORS.TARGET_NOT_FOUND,
+    `Computer action requires an elementId from the latest Cua snapshot: ${action?.type}`,
+    { action: action?.type || null },
   );
+}
+
+function normalizeCursorStyle({ cursorStyle, cursorImagePath, cursorBloomColor }) {
+  if (cursorStyle === false || cursorStyle == null) return null;
+  if (cursorImagePath) {
+    return {
+      image_path: cursorImagePath,
+      bloom_color: cursorBloomColor,
+    };
+  }
+  if (typeof cursorStyle !== "object") return null;
+  const normalized = {};
+  if (Array.isArray(cursorStyle.gradient_colors)) {
+    normalized.gradient_colors = [...cursorStyle.gradient_colors];
+  }
+  normalized.bloom_color = typeof cursorStyle.bloom_color === "string"
+    ? cursorStyle.bloom_color
+    : cursorBloomColor;
+  if (typeof cursorStyle.image_path === "string") {
+    normalized.image_path = cursorStyle.image_path;
+  }
+  return normalized;
 }
 
 export function createMacosCuaProvider({
   providerId = "macos:cua",
   platform = process.platform,
   command = resolveCuaDriverCommand(),
-  cursorImagePath = commandSupportsHanaCursor(command) ? resolveHanaCursorImagePath() : null,
+  cursorStyle = HANA_CUA_CURSOR_STYLE,
+  cursorImagePath = null,
   cursorBloomColor = HANA_CURSOR_BLOOM_COLOR,
+  cursorEnabled = true,
+  cursorMotion = HANA_CURSOR_MOTION,
   runner = createCommandRunner(),
   timeoutMs = 30000,
   launchRetryAttempts = 3,
   launchRetryDelayMs = 350,
+  socketPath = process.env[HANA_AGENT_SOCKET_PATH_ENV] || defaultHanaComputerUseSocketPath(),
+  autoStartDaemon = null,
+  daemonStartupTimeoutMs = 5000,
 } = {}) {
   let nativeCursorConfigPromise = null;
+  let daemonStartPromise = null;
+  const bundledHanaHelper = commandIsBundledHanaHelper(command);
+  const shouldAutoStartDaemon = autoStartDaemon ?? bundledHanaHelper;
+  const resolvedCursorStyle = normalizeCursorStyle({ cursorStyle, cursorImagePath, cursorBloomColor });
+  const nativeCursorEnabled = bundledHanaHelper && cursorEnabled !== false && Boolean(resolvedCursorStyle);
+  const hanaCursorRuntimeConfig = resolvedCursorStyle && bundledHanaHelper
+    ? {
+        enabled: cursorEnabled !== false,
+        style: { ...resolvedCursorStyle },
+        motion: cursorMotion && typeof cursorMotion === "object" ? { ...cursorMotion } : {},
+      }
+    : null;
+
+  function runEnv(baseEnv) {
+    return {
+      ...(baseEnv || process.env),
+      [HANA_AGENT_SOCKET_PATH_ENV]: socketPath,
+      ...(hanaCursorRuntimeConfig
+        ? { [HANA_AGENT_CURSOR_CONFIG_ENV]: JSON.stringify(hanaCursorRuntimeConfig) }
+        : {}),
+    };
+  }
 
   async function runRaw(args, options = {}) {
-    const result = await runner.run(command, args, { timeoutMs: options.timeoutMs || timeoutMs });
+    const result = await runner.run(command, args, {
+      timeoutMs: options.timeoutMs || timeoutMs,
+      env: runEnv(options.env),
+    });
     if (result.exitCode !== 0) {
       const stderr = result.stderr || "";
       const parsed = parseJsonMaybe(result.stdout);
@@ -352,20 +466,68 @@ export function createMacosCuaProvider({
 
   async function runTool(name, payload = null) {
     const args = payload == null
-      ? [name, "--raw", "--compact"]
-      : [name, JSON.stringify(payload), "--raw", "--compact"];
+      ? [name, "--raw", "--compact", "--socket", socketPath]
+      : [name, JSON.stringify(payload), "--raw", "--compact", "--socket", socketPath];
     return runRaw(args);
   }
 
+  async function isDaemonRunning() {
+    try {
+      const result = await runner.run(command, ["status", "--socket", socketPath], {
+        timeoutMs: 2000,
+        env: runEnv(process.env),
+      });
+      return result.exitCode === 0;
+    } catch {
+      return false;
+    }
+  }
+
+  async function ensureDaemonRunning() {
+    if (!shouldAutoStartDaemon) return;
+    if (await isDaemonRunning()) return;
+    if (!daemonStartPromise) {
+      daemonStartPromise = (async () => {
+        if (typeof runner.spawn !== "function") {
+          throw computerUseError(
+            COMPUTER_USE_ERRORS.PROVIDER_UNAVAILABLE,
+            "Computer Use helper runner cannot start the Cua daemon.",
+            { providerId, command },
+          );
+        }
+        runner.spawn(command, ["serve", "--socket", socketPath], {
+          env: runEnv(process.env),
+          detached: true,
+          stdio: "ignore",
+        });
+        const deadline = Date.now() + daemonStartupTimeoutMs;
+        while (Date.now() < deadline) {
+          if (await isDaemonRunning()) return;
+          await sleep(120);
+        }
+        throw computerUseError(
+          COMPUTER_USE_ERRORS.PROVIDER_UNAVAILABLE,
+          "Computer Use helper daemon did not become ready in time.",
+          { providerId, command, socketPath },
+        );
+      })().catch((err) => {
+        daemonStartPromise = null;
+        throw err;
+      });
+    }
+    await daemonStartPromise;
+  }
+
   async function ensureNativeCursorConfigured() {
-    if (!cursorImagePath) return;
+    if (!resolvedCursorStyle || !bundledHanaHelper) return;
+    await ensureDaemonRunning();
     if (!nativeCursorConfigPromise) {
       nativeCursorConfigPromise = (async () => {
-        await runTool("set_agent_cursor_enabled", { enabled: true });
-        await runTool("set_agent_cursor_style", {
-          image_path: cursorImagePath,
-          bloom_color: cursorBloomColor,
-        });
+        await runTool("set_agent_cursor_style", resolvedCursorStyle);
+        if (cursorMotion && typeof cursorMotion === "object") {
+          await runTool("set_agent_cursor_motion", cursorMotion);
+        }
+        await runTool("set_agent_cursor_enabled", { enabled: cursorEnabled !== false });
       })().catch((err) => {
         nativeCursorConfigPromise = null;
         throw err;
@@ -391,13 +553,14 @@ export function createMacosCuaProvider({
       screenshot: true,
       accessibilityTree: true,
       elementActions: true,
+      elementDoubleClick: true,
       backgroundControl: "full",
       pointClick: "requiresApproval",
       drag: "requiresApproval",
       textInput: "semantic",
       keyboardInput: "pidScoped",
       requiresForegroundForInput: false,
-      nativeCursor: Boolean(cursorImagePath),
+      nativeCursor: nativeCursorEnabled,
       isolated: false,
     },
 
@@ -406,7 +569,10 @@ export function createMacosCuaProvider({
         return { providerId, available: false, reason: "unsupported-platform", platform };
       }
       try {
-        const status = await runner.run(command, ["status"], { timeoutMs: 5000 });
+        const status = await runner.run(command, ["status", "--socket", socketPath], {
+          timeoutMs: 5000,
+          env: runEnv(process.env),
+        });
         if (status.exitCode !== 0) {
           return { providerId, available: false, reason: "daemon-unavailable", stderr: status.stderr || "" };
         }
@@ -436,6 +602,7 @@ export function createMacosCuaProvider({
 
     async listApps() {
       ensureDarwin();
+      await ensureDaemonRunning();
       const result = await runTool("list_apps");
       return normalizeAppsPayload(getStructured(result));
     },
@@ -487,6 +654,7 @@ export function createMacosCuaProvider({
 
     async getAppState(_ctx, lease) {
       ensureDarwin();
+      await ensureDaemonRunning();
       await ensureNativeCursorConfigured();
       const { pid, windowId } = lease.providerState || {};
       if (!pid || !windowId) {
@@ -498,6 +666,7 @@ export function createMacosCuaProvider({
 
     async performAction(_ctx, lease, action) {
       ensureDarwin();
+      await ensureDaemonRunning();
       await ensureNativeCursorConfigured();
       const { pid, windowId } = lease.providerState || {};
       if (!pid || !windowId) {
@@ -505,33 +674,23 @@ export function createMacosCuaProvider({
       }
 
       if (action.type === "click_element") {
-        assertNoElementIndex(action);
-        return getStructured(await runTool("click", { pid, window_id: windowId, element_index: elementIndexFromId(action.elementId) })) || { ok: true };
+        return getStructured(await runTool("click", { pid, window_id: windowId, element_index: requireElementIndex(action) })) || { ok: true };
       }
       if (action.type === "double_click") {
-        assertNoElementIndex(action);
-        const payload = { pid, window_id: windowId };
-        if (action.elementId) {
-          payload.element_index = elementIndexFromId(action.elementId);
-        } else {
-          payload.x = action.x;
-          payload.y = action.y;
-        }
+        const payload = { pid, window_id: windowId, element_index: requireElementIndex(action) };
         return getStructured(await runTool("double_click", payload)) || { ok: true };
       }
       if (action.type === "perform_secondary_action") {
-        assertNoElementIndex(action);
-        return getStructured(await runTool("right_click", { pid, window_id: windowId, element_index: elementIndexFromId(action.elementId) })) || { ok: true };
+        return getStructured(await runTool("right_click", { pid, window_id: windowId, element_index: requireElementIndex(action) })) || { ok: true };
       }
       if (action.type === "click_point") {
         return getStructured(await runTool("click", { pid, window_id: windowId, x: action.x, y: action.y })) || { ok: true };
       }
       if (action.type === "type_text") {
-        assertNoElementIndex(action);
         const payload = { pid, text: action.text || "" };
         if (action.elementId) {
           payload.window_id = windowId;
-          payload.element_index = elementIndexFromId(action.elementId);
+          payload.element_index = requireElementIndex(action);
         }
         return getStructured(await runTool("type_text", payload)) || { ok: true };
       }
@@ -539,11 +698,10 @@ export function createMacosCuaProvider({
         return getStructured(await runTool("press_key", { pid, key: action.key })) || { ok: true };
       }
       if (action.type === "scroll") {
-        assertNoElementIndex(action);
         const payload = { pid, direction: action.direction, amount: action.amount || 3 };
         if (action.elementId) {
           payload.window_id = windowId;
-          payload.element_index = elementIndexFromId(action.elementId);
+          payload.element_index = requireElementIndex(action);
         }
         return getStructured(await runTool("scroll", payload)) || { ok: true };
       }

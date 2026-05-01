@@ -69,6 +69,24 @@ describe("ComputerHost", () => {
     expect(lease.providerState).toMatchObject({ mock: true });
   });
 
+  it("keeps Windows Computer Use on the inert provider unless explicitly configured", async () => {
+    const providers = new ComputerProviderRegistry();
+    providers.register(createMockComputerProvider({ providerId: "mock" }));
+    providers.register(createMockComputerProvider({ providerId: "windows:uia" }));
+    const host = new ComputerHost({
+      providers,
+      defaultProviderId: "mock",
+      platform: "win32",
+      getSettings: () => ({ enabled: true }),
+    });
+
+    const status = await host.getStatus(ctx);
+    const lease = await host.createLease(ctx, { appId: "app.notes" });
+
+    expect(status.selectedProviderId).toBe("mock");
+    expect(lease.providerId).toBe("mock");
+  });
+
   it("rejects stale snapshot actions", async () => {
     const { host } = makeHost();
     const lease = await host.createLease(ctx, { appId: "app.notes" });
@@ -109,7 +127,34 @@ describe("ComputerHost", () => {
     })).rejects.toMatchObject({ code: COMPUTER_USE_ERRORS.CAPABILITY_UNSUPPORTED });
   });
 
-  it("accepts explicit foreground capability values for Windows-style raw input", async () => {
+  it("allows element-indexed double click without enabling raw point clicks", async () => {
+    const provider = createMockComputerProvider({ providerId: "mock" });
+    provider.capabilities.pointClick = "requiresApproval";
+    provider.capabilities.elementDoubleClick = true;
+    provider.createLease = async (_ctx, target) => ({
+      appId: target?.appId || "app.notes",
+      windowId: target?.windowId || "win-1",
+      allowedActions: ["double_click", "click_point", "stop"],
+      providerState: {},
+    });
+    const { host } = makeHost(provider);
+    const lease = await host.createLease(ctx, { appId: "app.notes" });
+    const snapshot = await host.getAppState(ctx, lease.leaseId);
+
+    await expect(host.performAction(ctx, lease.leaseId, {
+      type: "double_click",
+      snapshotId: snapshot.snapshotId,
+      elementId: "mock-button",
+    })).resolves.toMatchObject({ ok: true, action: "double_click" });
+    await expect(host.performAction(ctx, lease.leaseId, {
+      type: "click_point",
+      snapshotId: snapshot.snapshotId,
+      x: 10,
+      y: 20,
+    })).rejects.toMatchObject({ code: COMPUTER_USE_ERRORS.ACTION_REQUIRES_INPUT_INJECTION_APPROVAL });
+  });
+
+  it("rejects explicit foreground capability values for Windows-style raw input", async () => {
     const provider = createMockComputerProvider({ providerId: "mock" });
     provider.capabilities.pointClick = "foreground";
     provider.capabilities.drag = "foreground";
@@ -129,7 +174,27 @@ describe("ComputerHost", () => {
       snapshotId: snapshot.snapshotId,
       x: 10,
       y: 20,
-    })).resolves.toMatchObject({ ok: true, action: "click_point" });
+    })).rejects.toMatchObject({ code: COMPUTER_USE_ERRORS.ACTION_REQUIRES_FOREGROUND });
+    await expect(host.performAction(ctx, lease.leaseId, {
+      type: "press_key",
+      snapshotId: snapshot.snapshotId,
+      key: "Return",
+    })).rejects.toMatchObject({ code: COMPUTER_USE_ERRORS.ACTION_REQUIRES_FOREGROUND });
+  });
+
+  it("accepts pid-scoped keyboard capability for macOS Cua key input", async () => {
+    const provider = createMockComputerProvider({ providerId: "mock" });
+    provider.capabilities.keyboardInput = "pidScoped";
+    provider.createLease = async (_ctx, target) => ({
+      appId: target?.appId || "app.notes",
+      windowId: target?.windowId || "win-1",
+      allowedActions: ["press_key", "stop"],
+      providerState: {},
+    });
+    const { host } = makeHost(provider);
+    const lease = await host.createLease(ctx, { appId: "app.notes" });
+    const snapshot = await host.getAppState(ctx, lease.leaseId);
+
     await expect(host.performAction(ctx, lease.leaseId, {
       type: "press_key",
       snapshotId: snapshot.snapshotId,

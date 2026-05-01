@@ -295,6 +295,19 @@ describe('session-actions', () => {
       expect(deskActionMocks.activateWorkspaceDesk).not.toHaveBeenCalledWith('/workspace/Desktop');
     });
 
+    it('uses the runtime new-session permission default instead of the old active session mode', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({
+        mode: 'operate',
+        accessMode: 'operate',
+        defaultMode: 'read_only',
+      }));
+
+      await createNewSession();
+
+      const permissionEvent = dispatchedEvents.filter(e => e.type === 'hana-plan-mode').at(-1);
+      expect(permissionEvent?.detail).toEqual({ enabled: true, mode: 'read_only' });
+    });
+
     it('sends extra workspace folders when creating a pending session', async () => {
       Object.assign(mockState, {
         pendingNewSession: true,

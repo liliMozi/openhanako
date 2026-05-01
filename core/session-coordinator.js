@@ -16,9 +16,6 @@ import { createModuleLogger } from "../lib/debug-log.js";
 import { BrowserManager } from "../lib/browser/browser-manager.js";
 import { t, getLocale } from "../server/i18n.js";
 import {
-  READ_ONLY_TOOL_NAMES,
-} from "./config-coordinator.js";
-import {
   DEFAULT_SESSION_PERMISSION_MODE,
   SESSION_PERMISSION_MODES,
   isReadOnlyPermissionMode,
@@ -75,6 +72,7 @@ export class SessionCoordinator {
     this._titlesCache = new Map(); // sessionDir → { titles, ts }
     this._metaCache = new Map();   // metaPath → { data, ts }
     this._pendingPermissionMode = null;
+    this._runtimePermissionModeDefault = DEFAULT_SESSION_PERMISSION_MODE;
     this._metaWriteQueue = Promise.resolve();
   }
 
@@ -267,19 +265,6 @@ export class SessionCoordinator {
         value: () => {
           const base = baseResourceLoader.getAppendSystemPrompt();
           const parts = [...base, ...providerPromptPatches];
-
-          const permissionMode = sessionEntry.permissionMode || DEFAULT_SESSION_PERMISSION_MODE;
-          if (permissionMode === SESSION_PERMISSION_MODES.READ_ONLY) {
-            const isZh = String(agent.config?.locale || "").startsWith("zh");
-            parts.push(isZh
-              ? `【系统通知】当前处于「只读模式」。你只能使用信息获取工具（${READ_ONLY_TOOL_NAMES.join("、")}），不能执行命令行、写入、编辑、删除、设置修改、后台任务派发或电脑控制。`
-              : `[System Notice] The current session is in READ-ONLY MODE. You may only use information-gathering tools (${READ_ONLY_TOOL_NAMES.join(", ")}). You cannot run shell commands, write, edit, delete, change settings, dispatch background work, or control the computer.`);
-          } else if (permissionMode === SESSION_PERMISSION_MODES.ASK) {
-            const isZh = String(agent.config?.locale || "").startsWith("zh");
-            parts.push(isZh
-              ? `【系统通知】当前处于「先问模式」。信息获取可以直接做；写入、命令、本机控制和外部副作用前必须等待用户确认。`
-              : `[System Notice] The current session is in ASK MODE. Information gathering may proceed directly; writes, commands, computer control, and external side effects require user confirmation first.`);
-          }
 
           // 后台任务行为引导
           if (this._d.getDeferredResultStore?.()) {
@@ -901,11 +886,15 @@ After dispatching subagent or other background tasks:
   }
 
   _getDefaultPermissionMode() {
-    return this._d.getPrefs?.()?.getSessionPermissionModeDefault?.() || DEFAULT_SESSION_PERMISSION_MODE;
+    return normalizeSessionPermissionMode(this._runtimePermissionModeDefault);
   }
 
   _setDefaultPermissionMode(mode) {
-    this._d.getPrefs?.()?.setSessionPermissionModeDefault?.(mode);
+    this._runtimePermissionModeDefault = normalizeSessionPermissionMode(mode);
+  }
+
+  getPermissionModeDefault() {
+    return this._getDefaultPermissionMode();
   }
 
   getPermissionMode(sessionPath = this.currentSessionPath) {
@@ -919,7 +908,15 @@ After dispatching subagent or other background tasks:
   }
 
   setPendingAccessMode(mode) {
-    return this.setPermissionMode(mode);
+    return this.setPendingPermissionMode(mode);
+  }
+
+  setPendingPermissionMode(mode) {
+    const nextMode = normalizeSessionPermissionMode(mode);
+    this._setDefaultPermissionMode(nextMode);
+    this._pendingPermissionMode = nextMode;
+    this._emitPermissionModeChanged(nextMode, null);
+    return { ok: true, mode: nextMode, enabled: isReadOnlyPermissionMode(nextMode) };
   }
 
   setPermissionMode(mode) {
@@ -941,9 +938,7 @@ After dispatching subagent or other background tasks:
       return { ok: true, mode: nextMode, enabled: entry.planMode };
     }
 
-    this._pendingPermissionMode = nextMode;
-    this._emitPermissionModeChanged(nextMode, null);
-    return { ok: true, mode: nextMode, enabled: isReadOnlyPermissionMode(nextMode) };
+    return this.setPendingPermissionMode(nextMode);
   }
 
   setAccessMode(mode) {

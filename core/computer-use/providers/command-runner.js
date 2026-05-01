@@ -2,6 +2,19 @@ import { spawn } from "child_process";
 
 export function createCommandRunner({ spawnImpl = spawn } = {}) {
   return {
+    spawn(command, args = [], options = {}) {
+      const child = spawnImpl(command, args, {
+        env: options.env || process.env,
+        windowsHide: options.windowsHide !== false,
+        detached: options.detached !== false,
+        stdio: options.stdio || "ignore",
+      });
+      if (options.unref !== false && typeof child.unref === "function") {
+        child.unref();
+      }
+      return child;
+    },
+
     run(command, args = [], options = {}) {
       return new Promise((resolve, reject) => {
         const child = spawnImpl(command, args, {

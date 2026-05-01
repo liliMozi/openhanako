@@ -348,7 +348,7 @@ describe("computer tool", () => {
     });
   });
 
-  it("marks foreground input actions in overlay events", async () => {
+  it("marks foreground input actions as errors in overlay events", async () => {
     const { tool, ctx, emitted } = makeForegroundTool();
     const started = await tool.execute("call-1", {
       action: "start",
@@ -360,7 +360,7 @@ describe("computer tool", () => {
       leaseId: started.details.leaseId,
     }, null, null, ctx);
 
-    await tool.execute("call-3", {
+    const action = await tool.execute("call-3", {
       action: "click_point",
       leaseId: started.details.leaseId,
       snapshotId: state.details.snapshotId,
@@ -369,10 +369,12 @@ describe("computer tool", () => {
     }, null, null, ctx);
 
     const actionEvents = emitted.map((entry) => entry.event).filter((event) => event.action === "click_point");
-    expect(actionEvents.map((event) => event.phase)).toEqual(["preview", "running", "done"]);
+    expect(action.details.errorCode).toBe(COMPUTER_USE_ERRORS.ACTION_REQUIRES_FOREGROUND);
+    expect(actionEvents.map((event) => event.phase)).toEqual(["preview", "running", "error"]);
     expect(actionEvents.every((event) => event.inputMode === "foreground-input")).toBe(true);
     expect(actionEvents.every((event) => event.requiresForeground === true)).toBe(true);
     expect(actionEvents.every((event) => event.interruptKey === "Escape")).toBe(true);
+    expect(actionEvents.at(-1)).toMatchObject({ errorCode: COMPUTER_USE_ERRORS.ACTION_REQUIRES_FOREGROUND });
   });
 
   it("marks overlay events as provider-rendered when the provider owns the cursor", async () => {

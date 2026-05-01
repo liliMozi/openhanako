@@ -351,12 +351,16 @@ app.get("/api/session-permission-mode", async (c) => {
 });
 
 app.post("/api/session-permission-mode", async (c) => {
-  const { mode } = await safeJson(c);
-  const result = engine.setSessionPermissionMode(mode);
+  const { mode, pendingNewSession } = await safeJson(c);
+  const result = pendingNewSession === true
+    ? engine.setPendingSessionPermissionMode(mode)
+    : engine.setSessionPermissionMode(mode);
   return c.json({
     ok: result?.ok !== false,
-    mode: engine.permissionMode,
-    accessMode: engine.accessMode,
+    mode: pendingNewSession === true ? result?.mode : engine.permissionMode,
+    accessMode: pendingNewSession === true
+      ? (result?.mode === "read_only" ? "read_only" : "operate")
+      : engine.accessMode,
     defaultMode: engine.getSessionPermissionModeDefault(),
   });
 });

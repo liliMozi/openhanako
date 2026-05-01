@@ -19,7 +19,7 @@ describe('ComputerUseOverlay', () => {
     } as never);
   });
 
-  it('renders only for the current session overlay state', () => {
+  it('does not draw background action cursors in the Hanako window', () => {
     useStore.getState().setComputerOverlayForSession('/session/b.jsonl', {
       phase: 'running',
       action: 'click_element',
@@ -32,14 +32,15 @@ describe('ComputerUseOverlay', () => {
     useStore.getState().setComputerOverlayForSession('/session/a.jsonl', {
       phase: 'running',
       action: 'click_element',
+      visualSurface: 'renderer',
       target: { coordinateSpace: 'element', elementId: 'mock-button' },
       ts: 101,
     });
     const second = render(<ComputerUseOverlay />);
-    expect(second.container.querySelector('[data-action="click_element"]')).toBeTruthy();
+    expect(second.container.querySelector('[data-action="click_element"]')).toBeNull();
   });
 
-  it('renders a click pulse after done events', () => {
+  it('does not draw done pulses in the Hanako window', () => {
     useStore.getState().setComputerOverlayForSession('/session/a.jsonl', {
       phase: 'done',
       action: 'click_element',
@@ -48,7 +49,7 @@ describe('ComputerUseOverlay', () => {
     });
     render(<ComputerUseOverlay />);
 
-    expect(document.querySelector('[data-action="click_element"]')).toBeTruthy();
+    expect(document.querySelector('[data-action="click_element"]')).toBeNull();
   });
 
   it('does not draw a renderer cursor when the provider owns the visual surface', () => {
@@ -87,5 +88,20 @@ describe('ComputerUseOverlay', () => {
       sessionPath: '/session/a.jsonl',
     }));
     expect(useStore.getState().computerOverlayBySession['/session/a.jsonl']).toBeUndefined();
+  });
+
+  it('keeps the Hanako overlay reserved for foreground takeover UI only', () => {
+    useStore.getState().setComputerOverlayForSession('/session/a.jsonl', {
+      phase: 'running',
+      action: 'click_point',
+      inputMode: 'background',
+      visualSurface: 'renderer',
+      target: { coordinateSpace: 'window', x: 120, y: 140 },
+      ts: 102,
+    });
+
+    const rendered = render(<ComputerUseOverlay />);
+
+    expect(rendered.container.firstChild).toBeNull();
   });
 });

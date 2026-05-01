@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { hanaFetch } from '../../hooks/use-hana-fetch';
 import { useI18n } from '../../hooks/use-i18n';
+import { useStore } from '../../stores';
 import styles from './InputArea.module.css';
 
 export type PermissionMode = 'operate' | 'ask' | 'read_only';
@@ -21,10 +22,11 @@ export function PlanModeButton({ mode, onChange, locked = false }: {
   const handleClick = useCallback(async () => {
     try {
       const nextMode = NEXT_MODE[mode] || 'ask';
+      const pendingNewSession = useStore.getState().pendingNewSession === true;
       const res = await hanaFetch('/api/session-permission-mode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: nextMode }),
+        body: JSON.stringify({ mode: nextMode, pendingNewSession }),
       });
       const data = await res.json();
       if (data.locked) {
