@@ -369,6 +369,8 @@ export function createSessionsRoute(engine) {
         agentId: newAgentId,
         agentName: engine.getAgent(newAgentId)?.agentName || engine.agentName,
         planMode: engine.planMode,
+        permissionMode: engine.permissionMode,
+        accessMode: engine.accessMode,
         memoryModelUnavailableReason: engine.memoryModelUnavailableReason || null,
       });
     } catch (err) {
@@ -422,6 +424,8 @@ export function createSessionsRoute(engine) {
         messageCount: session?.messages?.length || 0,
         memoryEnabled: frozenSessionMemoryEnabled,
         planMode: engine.planMode,
+        permissionMode: engine.permissionMode,
+        accessMode: engine.accessMode,
         memoryModelUnavailableReason: engine.memoryModelUnavailableReason || null,
         cwd: engine.cwd,
         workspaceFolders: engine.getSessionWorkspaceFolders?.(sessionPath) || [],

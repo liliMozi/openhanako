@@ -217,6 +217,7 @@ describe("BridgeSessionManager teardown", () => {
     const deps = {
       ...makeDeps(agent),
       getVisionBridge: () => visionBridge,
+      isVisionAuxiliaryEnabled: () => true,
       getModelManager: () => ({
         availableModels: [{ id: "gpt-4o", provider: "openai", name: "GPT-4o", input: ["text"] }],
         authStorage: {},

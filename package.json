@@ -1,6 +1,6 @@
 {
   "name": "hanako",
-  "version": "0.120.0",
+  "version": "0.120.1",
   "type": "module",
   "description": "Hanako - a personal AI agent with memory and soul",
   "license": "Apache-2.0",
@@ -31,12 +31,13 @@
     "cli": "node scripts/launch.js cli",
     "server": "node scripts/launch.js server",
     "build:main": "vite build --config vite.config.main.js",
+    "build:computer-use-helper": "node scripts/build-computer-use-helper.mjs",
     "build:client": "npm run build:main && npm run build:preload && npm run build:renderer && npm run build:theme",
     "generate:windows-icon": "node scripts/generate-windows-icon.cjs",
-    "pack": "npm run build:server && npm run build:client && electron-builder --dir",
+    "pack": "npm run build:computer-use-helper && npm run build:server && npm run build:client && electron-builder --dir",
     "install:local": "npm run pack && rm -rf /Applications/Hanako.app && cp -R dist/mac-arm64/Hanako.app /Applications/ && printf 'provider: github\\nowner: liliMozi\\nrepo: openhanako\\n' > /Applications/Hanako.app/Contents/Resources/app-update.yml && node scripts/sign-local.cjs",
-    "dist": "npm run build:server && npm run build:client && electron-builder --mac dmg",
-    "dist:win": "npm run generate:windows-icon && npm run build:server && npm run build:client && electron-builder --win nsis",
+    "dist": "npm run build:computer-use-helper && npm run build:server && npm run build:client && electron-builder --mac dmg",
+    "dist:win": "npm run build:computer-use-helper && npm run generate:windows-icon && npm run build:server && npm run build:client && electron-builder --win nsis",
     "test": "vitest run",
     "build:server": "node scripts/build-server.mjs",
     "lint": "eslint desktop/src/ server/",
@@ -146,7 +147,13 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "desktop/entitlements.mac.plist",
-      "entitlementsInherit": "desktop/entitlements.mac.plist"
+      "entitlementsInherit": "desktop/entitlements.mac.plist",
+      "extraResources": [
+        {
+          "from": "dist-computer-use/mac-${arch}/",
+          "to": "computer-use/macos/"
+        }
+      ]
     },
     "dmg": {
       "title": "Hanako",

@@ -3,6 +3,11 @@
  *
  * GET  /api/preferences/models  — 读取全局模型 + 搜索配置
  * PUT  /api/preferences/models  — 更新全局模型 + 搜索配置
+ * GET  /api/preferences/computer-use  — 读取 Computer Use provider/approval 状态
+ * PUT  /api/preferences/computer-use  — 更新 Computer Use 全局设置
+ * POST /api/preferences/computer-use/request-permissions — 请求系统权限
+ * POST /api/preferences/computer-use/approvals  — 批准 app
+ * DELETE /api/preferences/computer-use/approvals  — 撤销批准
  */
 
 import { Hono } from "hono";
@@ -100,6 +105,75 @@ export function createPreferencesRoute(engine) {
     } catch (err) {
       debugLog()?.error("api", `PUT /api/preferences/models failed: ${err.message}`);
       return c.json({ error: err.message }, 500);
+    }
+  });
+
+  route.get("/preferences/computer-use", async (c) => {
+    try {
+      const settings = engine.getComputerUseSettings();
+      const status = await engine.getComputerHost?.()?.getStatus?.({}) || null;
+      return c.json({
+        settings,
+        status,
+        selectedProviderId: status?.selectedProviderId || null,
+      });
+    } catch (err) {
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  route.put("/preferences/computer-use", async (c) => {
+    try {
+      const body = await safeJson(c);
+      if (!body || typeof body !== "object") {
+        return c.json({ error: "invalid JSON body" }, 400);
+      }
+      const settings = engine.setComputerUseSettings(body.settings && typeof body.settings === "object" ? body.settings : body);
+      debugLog()?.log("api", "PUT /api/preferences/computer-use");
+      emitAppEvent(engine, "computer-use-settings-changed", { selectedProviderId: settings.provider_by_platform?.[process.platform] || null });
+      return c.json({ ok: true, settings });
+    } catch (err) {
+      return c.json({ error: err.message }, 400);
+    }
+  });
+
+  route.post("/preferences/computer-use/request-permissions", async (c) => {
+    try {
+      const body = await safeJson(c);
+      const providerId = body && typeof body === "object" ? body.providerId || null : null;
+      const result = await engine.getComputerHost?.()?.requestPermissions?.({}, providerId);
+      emitAppEvent(engine, "computer-use-permissions-requested", { providerId: providerId || result?.providerId || null });
+      return c.json({ ok: true, result });
+    } catch (err) {
+      return c.json({ error: err.message }, 400);
+    }
+  });
+
+  route.post("/preferences/computer-use/approvals", async (c) => {
+    try {
+      const body = await safeJson(c);
+      if (!body || typeof body !== "object") {
+        return c.json({ error: "invalid JSON body" }, 400);
+      }
+      const settings = engine.approveComputerUseApp(body);
+      emitAppEvent(engine, "computer-use-settings-changed", { providerId: body.providerId || null, appId: body.appId || null });
+      return c.json({ ok: true, settings });
+    } catch (err) {
+      return c.json({ error: err.message }, 400);
+    }
+  });
+
+  route.delete("/preferences/computer-use/approvals", async (c) => {
+    try {
+      const body = await safeJson(c);
+      if (!body || typeof body !== "object") {
+        return c.json({ error: "invalid JSON body" }, 400);
+      }
+      const settings = engine.revokeComputerUseApp(body);
+      emitAppEvent(engine, "computer-use-settings-changed", { providerId: body.providerId || null, appId: body.appId || null });
+      return c.json({ ok: true, settings });
+    } catch (err) {
+      return c.json({ error: err.message }, 400);
     }
   });
 

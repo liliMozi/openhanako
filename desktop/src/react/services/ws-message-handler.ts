@@ -254,6 +254,30 @@ export function handleServerMessage(msg: any): void {
       break;
     }
 
+    case 'computer_overlay': {
+      const sp = msg.sessionPath;
+      if (!sp) { console.warn('[ws] event missing sessionPath:', msg.type); break; }
+      if (msg.phase === 'clear') {
+        useStore.getState().clearComputerOverlayForSession(sp);
+      } else {
+        useStore.getState().setComputerOverlayForSession(sp, {
+          phase: msg.phase || 'running',
+          action: msg.action || 'computer',
+          agentId: msg.agentId ?? null,
+          leaseId: msg.leaseId ?? null,
+          snapshotId: msg.snapshotId ?? null,
+          target: msg.target ?? null,
+          inputMode: msg.inputMode === 'foreground-input' ? 'foreground-input' : 'background',
+          visualSurface: msg.visualSurface === 'provider' ? 'provider' : 'renderer',
+          requiresForeground: msg.requiresForeground === true,
+          interruptKey: msg.interruptKey ?? null,
+          errorCode: msg.errorCode ?? null,
+          ts: msg.ts || Date.now(),
+        });
+      }
+      break;
+    }
+
     case 'block_update': {
       const { taskId, patch, sessionPath: sp } = msg;
       if (!taskId || !patch) break;
@@ -355,7 +379,32 @@ export function handleServerMessage(msg: any): void {
     case 'plan_mode': {
       const sp = msg.sessionPath;
       if (!sp || sp === useStore.getState().currentSessionPath) {
-        window.dispatchEvent(new CustomEvent('hana-plan-mode', { detail: { enabled: !!msg.enabled } }));
+        window.dispatchEvent(new CustomEvent('hana-plan-mode', {
+          detail: { enabled: !!msg.enabled, mode: msg.enabled ? 'read_only' : 'operate' },
+        }));
+      }
+      break;
+    }
+
+    case 'permission_mode': {
+      const sp = msg.sessionPath;
+      if (!sp || sp === useStore.getState().currentSessionPath) {
+        window.dispatchEvent(new CustomEvent('hana-plan-mode', {
+          detail: { enabled: msg.mode === 'read_only', mode: msg.mode },
+        }));
+      }
+      break;
+    }
+
+    case 'access_mode': {
+      const sp = msg.sessionPath;
+      if (!sp || sp === useStore.getState().currentSessionPath) {
+        window.dispatchEvent(new CustomEvent('hana-plan-mode', {
+          detail: {
+            enabled: msg.readOnly === true,
+            mode: msg.permissionMode || msg.mode,
+          },
+        }));
       }
       break;
     }
@@ -403,27 +452,49 @@ export function handleServerMessage(msg: any): void {
     }
 
     case 'confirmation_resolved': {
-      // 更新所有 session 中匹配 confirmId 的确认卡片状态
-      // cron_confirm 用 approved/rejected，settings_confirm 用 confirmed/rejected
-      const sessions = state.chatSessions || {};
-      for (const sp of Object.keys(sessions)) {
-        useStore.getState().updateLastMessage(sp, (m: any) => {
-          if (!m.blocks) return m;
-          const updated = m.blocks.map((b: any) => {
-            if ((b.type === 'settings_confirm' || b.type === 'cron_confirm') && b.confirmId === msg.confirmId) {
-              let status: string;
-              if (msg.action === 'confirmed') {
-                status = b.type === 'cron_confirm' ? 'approved' : 'confirmed';
-              } else {
-                status = 'rejected';
-              }
-              return { ...b, status };
-            }
-            return b;
+      // 更新所有 session 中匹配 confirmId 的确认卡片状态。确认块可能不在最后一条消息，
+      // 输入区也从消息块派生 pending 状态，所以这里按 session/message/block 三层显式定位。
+      const nextStatusFor = (blockType: string): string => {
+        if (msg.action === 'confirmed') return blockType === 'cron_confirm' ? 'approved' : 'confirmed';
+        if (msg.action === 'timeout') return 'timeout';
+        return 'rejected';
+      };
+      let changedPaths: string[] = [];
+      useStore.setState((s: any) => {
+        const chatSessions = s.chatSessions || {};
+        let changed = false;
+        const nextSessions: Record<string, any> = {};
+
+        for (const [sp, session] of Object.entries(chatSessions) as Array<[string, any]>) {
+          let sessionChanged = false;
+          const items = (session.items || []).map((item: any) => {
+            if (item.type !== 'message' || !item.data?.blocks) return item;
+            let messageChanged = false;
+            const blocks = item.data.blocks.map((b: any) => {
+              const matchesType = b.type === 'settings_confirm'
+                || b.type === 'cron_confirm'
+                || b.type === 'session_confirmation';
+              if (!matchesType || b.confirmId !== msg.confirmId) return b;
+              messageChanged = true;
+              return { ...b, status: nextStatusFor(b.type) };
+            });
+            if (!messageChanged) return item;
+            sessionChanged = true;
+            return { ...item, data: { ...item.data, blocks } };
           });
-          return { ...m, blocks: updated };
-        });
-      }
+          if (!sessionChanged) {
+            nextSessions[sp] = session;
+            continue;
+          }
+          changed = true;
+          changedPaths.push(sp);
+          nextSessions[sp] = { ...session, items };
+        }
+
+        return changed ? { chatSessions: nextSessions } : {};
+      });
+      changedPaths = Array.from(new Set(changedPaths));
+      for (const sp of changedPaths) bumpMessageLiveVersion(sp);
       break;
     }
 

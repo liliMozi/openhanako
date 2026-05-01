@@ -165,4 +165,26 @@ describe("agent.systemPrompt: master / per-session 解耦", () => {
 
     await agent.dispose();
   });
+
+  it("Computer Use 开启时，system prompt 引导桌面应用控制不要绕去 shell", async () => {
+    const agent = makeAgent(agentsDir, tmpDir);
+    agent.setCallbacks({
+      getEngine: () => ({
+        getComputerUseSettings: () => ({ enabled: true }),
+        getPrimaryAgentId: () => "test-agent",
+      }),
+      getLearnSkills: () => ({}),
+      isChannelsEnabled: () => false,
+    });
+    await agent.init(() => {});
+
+    const prompt = agent.buildSystemPrompt({ forceMemoryEnabled: false });
+
+    expect(prompt).toContain("Desktop App Control");
+    expect(prompt).toContain("computer");
+    expect(prompt).toContain("AppleScript");
+    expect(prompt).toContain("osascript");
+
+    await agent.dispose();
+  });
 });

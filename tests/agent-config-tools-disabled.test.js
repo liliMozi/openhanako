@@ -44,6 +44,7 @@ describe("agents route: tools.disabled", () => {
         { name: "read" },
         { name: "bash" },
         { name: "browser" },
+        { name: "computer" },
         { name: "cron" },
         { name: "install_skill" },
         { name: "update_settings" },
@@ -90,6 +91,17 @@ describe("agents route: tools.disabled", () => {
       body: JSON.stringify({ tools: { disabled: ["browser", "cron"] } }),
     });
     expect(res.status).toBe(200);
+  });
+
+  it("PUT with computer returns 400 because it is governed globally", async () => {
+    const res = await app.request(`/api/agents/${agentId}/config`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tools: { disabled: ["computer"] } }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("computer");
   });
 
   it("PUT with empty tools.disabled array returns 200 (clearing the list)", async () => {
@@ -149,6 +161,7 @@ describe("agents route: tools.disabled", () => {
     expect(Array.isArray(body.availableTools)).toBe(true);
     expect(body.availableTools).toContain("read");
     expect(body.availableTools).toContain("browser");
+    expect(body.availableTools).toContain("computer");
     expect(body.availableTools).toContain("cron");
     expect(engine.getAgent).toHaveBeenCalledWith(agentId);
   });

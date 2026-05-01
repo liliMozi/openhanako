@@ -35,6 +35,26 @@ export interface DeskContext {
 
 // ── 内容块 ──
 
+export interface SessionConfirmationBlock {
+  type: 'session_confirmation';
+  confirmId: string;
+  kind: string;
+  surface: 'input' | 'message';
+  status: 'pending' | 'confirmed' | 'rejected' | 'timeout' | 'aborted';
+  title: string;
+  body?: string;
+  subject?: {
+    label: string;
+    detail?: string;
+  };
+  severity?: 'normal' | 'elevated' | 'danger';
+  actions?: {
+    confirmLabel?: string;
+    rejectLabel?: string;
+  };
+  payload?: Record<string, unknown>;
+}
+
 // 物种 A：文本装饰器（流式组装，upsert 到 blocks 数组）
 export type TextDecorator =
   | { type: 'thinking'; content: string; sealed: boolean }
@@ -50,6 +70,7 @@ export type RichBlock =
   | { type: 'skill'; skillName: string; skillFilePath: string }
   | { type: 'cron_confirm'; confirmId?: string; jobData: Record<string, unknown>; status: 'pending' | 'approved' | 'rejected' }
   | { type: 'settings_confirm'; confirmId?: string; settingKey: string; cardType: 'toggle' | 'list' | 'text'; currentValue: string; proposedValue: string; options?: string[]; optionLabels?: Record<string, string>; label: string; description?: string; frontend?: boolean; status: 'pending' | 'confirmed' | 'rejected' | 'timeout' }
+  | SessionConfirmationBlock
   | {
     type: 'subagent';
     taskId: string;

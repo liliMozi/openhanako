@@ -1,5 +1,5 @@
 import { memo, type RefObject } from 'react';
-import { PlanModeButton } from './PlanModeButton';
+import { PlanModeButton, type PermissionMode } from './PlanModeButton';
 import { DocContextButton } from './DocContextButton';
 import { ContextRing } from './ContextRing';
 import { ThinkingLevelButton } from './ThinkingLevelButton';
@@ -16,8 +16,9 @@ interface Props {
   onAttach: () => void;
   slashBtnRef: RefObject<HTMLButtonElement | null>;
   onSlashToggle: () => void;
-  planMode: boolean;
-  onTogglePlanMode: (v: boolean) => void;
+  permissionMode: PermissionMode;
+  onPermissionModeChange: (v: PermissionMode) => void;
+  planModeLocked: boolean;
   hasDoc: boolean;
   docContextAttached: boolean;
   onToggleDocContext: () => void;
@@ -40,7 +41,7 @@ interface Props {
 export const InputControlBar = memo(function InputControlBar(props: Props) {
   const {
     t, onAttach, slashBtnRef, onSlashToggle,
-    planMode, onTogglePlanMode, hasDoc, docContextAttached, onToggleDocContext,
+    permissionMode, onPermissionModeChange, planModeLocked, hasDoc, docContextAttached, onToggleDocContext,
     showThinking, thinkingLevel, onThinkingChange, modelXhigh,
     models, sessionModel, isStreaming, hasInput, canSend, onSend, onSteer, onStop,
   } = props;
@@ -68,7 +69,7 @@ export const InputControlBar = memo(function InputControlBar(props: Props) {
             <path d="M12 2L14 10L22 12L14 14L12 22L10 14L2 12L10 10Z" />
           </svg>
         </button>
-        <PlanModeButton enabled={planMode} onToggle={onTogglePlanMode} />
+        <PlanModeButton mode={permissionMode} onChange={onPermissionModeChange} locked={planModeLocked} />
         {hasDoc && <DocContextButton active={docContextAttached} disabled={false} onToggle={onToggleDocContext} />}
         <ContextRing />
       </div>

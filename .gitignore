@@ -22,10 +22,12 @@ handoff-*.md
 dist/
 dist-server/
 dist-server-bundle/
+dist-computer-use/
 desktop/main.bundle.cjs
 desktop/preload.bundle.cjs
 .cache/
 desktop/dist-renderer/
+desktop/native/**/.build/
 vendor/
 inbox/
 

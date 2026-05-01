@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   CORE_TOOL_NAMES,
+  GLOBAL_TOOL_NAMES,
   STANDARD_TOOL_NAMES,
   OPTIONAL_TOOL_NAMES,
   assertAllToolsCategorized,
@@ -11,12 +12,18 @@ describe("tool-categories constants", () => {
   it("three categories are pairwise disjoint", () => {
     const core = new Set(CORE_TOOL_NAMES);
     const standard = new Set(STANDARD_TOOL_NAMES);
+    const global = new Set(GLOBAL_TOOL_NAMES);
     const optional = new Set(OPTIONAL_TOOL_NAMES);
     for (const name of core) {
       expect(standard.has(name)).toBe(false);
+      expect(global.has(name)).toBe(false);
       expect(optional.has(name)).toBe(false);
     }
     for (const name of standard) {
+      expect(global.has(name)).toBe(false);
+      expect(optional.has(name)).toBe(false);
+    }
+    for (const name of global) {
       expect(optional.has(name)).toBe(false);
     }
   });
@@ -25,6 +32,10 @@ describe("tool-categories constants", () => {
     expect(new Set(OPTIONAL_TOOL_NAMES)).toEqual(
       new Set(["browser", "cron", "dm", "install_skill", "update_settings"])
     );
+  });
+
+  it("GLOBAL_TOOL_NAMES is exactly the global setting governed whitelist", () => {
+    expect(new Set(GLOBAL_TOOL_NAMES)).toEqual(new Set(["computer"]));
   });
 });
 

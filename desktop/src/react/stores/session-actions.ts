@@ -41,6 +41,7 @@ function clearSessionRuntimeCaches(path: string): void {
     const { [path]: _draft, ...drafts } = s.drafts || {};
     const { [path]: _streamMeta, ...sessionStreams } = s.sessionStreams || {};
     const { [path]: _browser, ...browserBySession } = s.browserBySession || {};
+    const { [path]: _computerOverlay, ...computerOverlayBySession } = s.computerOverlayBySession || {};
     const { [path]: _scroll, ...scrollPositions } = s.scrollPositions || {};
     const { [path]: _todos, ...todosBySession } = s.todosBySession || {};
     const { [path]: _todosLive, ...todosLiveVersionBySession } = s.todosLiveVersionBySession || {};
@@ -49,6 +50,7 @@ function clearSessionRuntimeCaches(path: string): void {
       drafts,
       sessionStreams,
       browserBySession,
+      computerOverlayBySession,
       scrollPositions,
       streamingSessions: (s.streamingSessions || []).filter((sessionPath: string) => sessionPath !== path),
       todosBySession,
@@ -278,7 +280,12 @@ export async function switchSession(path: string): Promise<void> {
     useStore.getState().clearQuotedSelection();
 
     // Sync plan mode for the switched-to session
-    window.dispatchEvent(new CustomEvent('hana-plan-mode', { detail: { enabled: data.planMode ?? false } }));
+    window.dispatchEvent(new CustomEvent('hana-plan-mode', {
+      detail: {
+        enabled: data.permissionMode === 'read_only' || data.accessMode === 'read_only' || data.planMode === true,
+        mode: data.permissionMode || data.accessMode,
+      },
+    }));
 
     // 刷新模型列表（当前 session 的模型可能不同）
     loadModels();
@@ -350,6 +357,15 @@ export async function createNewSession(): Promise<void> {
 
   // 重置 context ring
   useStore.setState({ contextTokens: null, contextWindow: null, contextPercent: null });
+  try {
+    const res = await hanaFetch('/api/session-permission-mode');
+    const data = await res.json();
+    window.dispatchEvent(new CustomEvent('hana-plan-mode', {
+      detail: { enabled: data.mode === 'read_only', mode: data.mode || 'ask' },
+    }));
+  } catch {
+    window.dispatchEvent(new CustomEvent('hana-plan-mode', { detail: { enabled: false, mode: 'ask' } }));
+  }
 
   // pending 状态下刷新 model 列表，让 ModelSelector 显示 agent Chat 默认 model
   loadModels();
@@ -427,8 +443,12 @@ export async function ensureSession(): Promise<boolean> {
 
     await resetDeskForSessionCwd(data.cwd || null);
 
-    // New session defaults to plan mode OFF
-    window.dispatchEvent(new CustomEvent('hana-plan-mode', { detail: { enabled: data.planMode ?? false } }));
+    window.dispatchEvent(new CustomEvent('hana-plan-mode', {
+      detail: {
+        enabled: data.permissionMode === 'read_only' || data.accessMode === 'read_only' || data.planMode === true,
+        mode: data.permissionMode || data.accessMode,
+      },
+    }));
 
     await loadSessions();
 

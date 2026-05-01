@@ -12,6 +12,7 @@ import { AgentTab } from './tabs/AgentTab';
 import { MeTab } from './tabs/MeTab';
 import { InterfaceTab } from './tabs/InterfaceTab';
 import { WorkTab } from './tabs/WorkTab';
+import { ComputerUseTab } from './tabs/ComputerUseTab';
 import { SkillsTab } from './tabs/SkillsTab';
 import { BridgeTab } from './tabs/BridgeTab';
 import { ProvidersTab } from './tabs/ProvidersTab';
@@ -39,6 +40,7 @@ const TAB_COMPONENTS: Record<string, React.ComponentType> = {
   me: MeTab,
   interface: InterfaceTab,
   work: WorkTab,
+  computer: ComputerUseTab,
   skills: SkillsTab,
   bridge: BridgeTab,
   providers: ProvidersTab,
@@ -55,6 +57,7 @@ const TAB_TITLES: Record<string, string> = {
   me: '我',
   interface: '界面',
   work: '工作空间',
+  computer: '使用电脑',
   skills: '技能',
   bridge: '社交平台',
   providers: '供应商',

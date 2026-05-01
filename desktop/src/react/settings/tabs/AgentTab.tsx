@@ -9,7 +9,6 @@ import { YuanSelector } from './agent/YuanSelector';
 import { MemorySection } from './agent/AgentMemory';
 import { AgentToolsSection } from './agent/AgentToolsSection';
 import { SettingsSection } from '../components/SettingsSection';
-import { SettingsRow } from '../components/SettingsRow';
 import styles from '../Settings.module.css';
 import {
   type ExpCategory, parseExperience,
@@ -79,6 +78,8 @@ export function AgentTab() {
   }, [availableModels, currentModel]);
 
   const memoryEnabled = settingsConfig?.memory?.enabled !== false;
+  const hasAvailableToolsField = !!settingsConfig && Object.prototype.hasOwnProperty.call(settingsConfig, 'availableTools');
+  const availableTools = hasAvailableToolsField ? settingsConfig?.availableTools : undefined;
 
   const saveAgent = async () => {
     try {
@@ -303,7 +304,7 @@ export function AgentTab() {
 
       {/* 默认关闭 update_settings 和 dm，与后端 DEFAULT_DISABLED_TOOL_NAMES 保持同步 */}
       <AgentToolsSection
-        availableTools={settingsConfig?.availableTools || []}
+        availableTools={availableTools}
         disabled={settingsConfig?.tools?.disabled ?? ["update_settings", "dm"]}
       />
 

@@ -39,7 +39,13 @@ if (fs.existsSync(serverDir)) {
   findNodeFiles(path.join(serverDir, "node_modules"));
 }
 
-// 2. 签 frameworks + helpers（--deep 处理内部结构）
+// 2. 签 Computer Use helper
+const computerUseHelper = path.join(APP, "Contents", "Resources", "computer-use", "macos", "hana-computer-use-helper");
+if (fs.existsSync(computerUseHelper)) {
+  sign(computerUseHelper);
+}
+
+// 3. 签 frameworks + helpers（--deep 处理内部结构）
 const frameworks = path.join(APP, "Contents", "Frameworks");
 for (const entry of fs.readdirSync(frameworks)) {
   const full = path.join(frameworks, entry);
@@ -50,9 +56,9 @@ for (const entry of fs.readdirSync(frameworks)) {
   }
 }
 
-// 3. 签主 app（带 entitlements，V8 需要 JIT 权限）
+// 4. 签主 app（带 entitlements，V8 需要 JIT 权限）
 sign(APP, `--entitlements "${ENT}"`);
 
-// 4. 验证
+// 5. 验证
 execSync(`codesign --verify --deep --strict "${APP}"`, { stdio: "inherit" });
 console.log("✓ Signed and verified");

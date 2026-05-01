@@ -23,6 +23,7 @@ import { createArtifactTool } from "../lib/tools/artifact-tool.js";
 import { createChannelTool } from "../lib/tools/channel-tool.js";
 import { createDmTool } from "../lib/tools/dm-tool.js";
 import { createBrowserTool } from "../lib/tools/browser-tool.js";
+import { createComputerUseTool } from "../lib/tools/computer-use-tool.js";
 import { createPinnedMemoryTools } from "../lib/tools/pinned-memory.js";
 import { createExperienceTools } from "../lib/tools/experience.js";
 import { createInstallSkillTool } from "../lib/tools/install-skill.js";
@@ -33,7 +34,6 @@ import { writeSubagentSessionMeta } from "../lib/subagent-executor-metadata.js";
 import { createCheckDeferredTool } from "../lib/tools/check-deferred-tool.js";
 import { createWaitTool } from "../lib/tools/wait-tool.js";
 import { createStopTaskTool } from "../lib/tools/stop-task-tool.js";
-import { READ_ONLY_BUILTIN_TOOLS } from "./config-coordinator.js";
 import { runCompatChecks } from "../lib/compat/index.js";
 import { getPlatformPromptNote } from "./platform-prompt.js";
 
@@ -101,6 +101,7 @@ export class Agent {
     this._artifactTool = null;
     this._channelTool = null;
     this._browserTool = null;
+    this._computerUseTool = null;
     this._notifyTool = null;
     this._stopTaskTool = null;
 
@@ -303,6 +304,17 @@ export class Agent {
       },
       getVisionBridge: () => this._cb?.getEngine?.()?.getVisionBridge?.() || null,
       isVisionAuxiliaryEnabled: () => this._cb?.getEngine?.()?.isVisionAuxiliaryEnabled?.() === true,
+    });
+    this._computerUseTool = createComputerUseTool({
+      getComputerHost: () => this._cb?.getEngine?.()?.getComputerHost?.() || null,
+      getSessionModel: (sessionPath) => {
+        const engine = this._cb?.getEngine?.();
+        return engine?.getSessionByPath?.(sessionPath)?.model || null;
+      },
+      getAgentId: () => this.id,
+      getConfirmStore: () => this._cb?.getConfirmStore?.(),
+      approveComputerUseApp: (approval) => this._cb?.getEngine?.()?.approveComputerUseApp?.(approval),
+      emitEvent: (event, sp) => { if (sp) this._cb?.emitEvent?.(event, sp); },
     });
     this._notifyTool = createNotifyTool({
       onNotify: (title, body) => this._notifyHandler?.(title, body),
@@ -541,6 +553,9 @@ export class Agent {
       ...this._pinnedMemoryTools,
       ...this._experienceTools,
     ] : [];
+    const computerUseTools = this._isComputerUseAvailableForThisAgent()
+      ? [this._computerUseTool]
+      : [];
     return [
       ...memTools,
       this._webSearchTool,
@@ -552,6 +567,7 @@ export class Agent {
       this._channelTool,
       this._dmTool,
       this._browserTool,
+      ...computerUseTools,
       this._installSkillTool,
       this._notifyTool,
       this._stopTaskTool,
@@ -563,6 +579,14 @@ export class Agent {
   }
   get tools() {
     return this.getToolsSnapshot();
+  }
+
+  _isComputerUseAvailableForThisAgent() {
+    const engine = this._cb?.getEngine?.();
+    const settings = engine?.getComputerUseSettings?.();
+    if (settings?.enabled !== true) return false;
+    const primaryAgentId = engine?.getPrimaryAgentId?.() || null;
+    return !primaryAgentId || primaryAgentId === this.id;
   }
 
   // Desk 系统访问
@@ -864,6 +888,19 @@ export class Agent {
         "When multiple tools can accomplish the same task, prefer the one with the lowest cost and least disruption. " +
         "Do not reach for heavy tools when simpler ones can do the job."
     );
+
+    if (this._isComputerUseAvailableForThisAgent()) {
+      parts.push(isZh
+        ? "\n## 本机应用控制\n\n" +
+          "用户要求打开、查看、点击、输入或控制本机 GUI 应用时，优先使用 computer 工具。" +
+          "不要用 bash、AppleScript、osascript、open -a 或平台脚本控制 GUI 应用；这些路径会绕过 Hana 的应用审批列表，也更容易撞到系统隐私权限。" +
+          "如果需要控制一个新应用，先用 computer 的 start/list_apps 流程触发应用级确认，让用户在输入框上方同意。"
+        : "\n## Desktop App Control\n\n" +
+          "When the user asks to open, inspect, click, type in, or control a local GUI application, prefer the computer tool. " +
+          "Do not use bash, AppleScript, osascript, open -a, or platform scripts to control GUI applications; those paths bypass Hana's app approval list and are more likely to hit OS privacy permissions. " +
+          "For a new app, use the computer start/list_apps flow so the input-area app approval prompt can ask the user to approve it."
+      );
+    }
 
     // 失败处理（诊断优先于换方案）
     parts.push(isZh

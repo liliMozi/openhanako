@@ -10,7 +10,9 @@
 // Categories:
 //   CORE     — Removing breaks the model. Never user-toggleable, never in UI.
 //   STANDARD — Always-on built-in. Not in UI. Move to OPTIONAL to expose a toggle.
-//   OPTIONAL — User-toggleable in AgentTab → Tools section. Default: all on.
+//   OPTIONAL — User-toggleable in AgentTab → Tools section. Some may default off.
+//   GLOBAL   — Built-in, but governed by a global high-permission setting page
+//              rather than per-agent tool toggles.
 //
 // Plugin-contributed tools (flagged with _pluginId) are NOT part of this
 // categorization. Plugin lifecycle is managed by PluginsTab.
@@ -34,6 +36,10 @@ export const STANDARD_TOOL_NAMES = [
   "check_pending_tasks",
   "wait",
   "stop_task",
+];
+
+export const GLOBAL_TOOL_NAMES = [
+  "computer",
 ];
 
 export const OPTIONAL_TOOL_NAMES = [
@@ -77,6 +83,7 @@ export function assertAllToolsCategorized(actualToolNames) {
   const categorized = new Set([
     ...CORE_TOOL_NAMES,
     ...STANDARD_TOOL_NAMES,
+    ...GLOBAL_TOOL_NAMES,
     ...OPTIONAL_TOOL_NAMES,
   ]);
   const missing = actualToolNames.filter((n) => !categorized.has(n));

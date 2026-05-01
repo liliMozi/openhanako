@@ -59,7 +59,10 @@ export const AssistantMessage = memo(function AssistantMessage({ message, showAv
     setAvatarFailed(false);
   }, [avatarSrc, fallbackAvatar]);
 
-  const blocks = useMemo(() => message.blocks || [], [message.blocks]);
+  const blocks = useMemo(
+    () => (message.blocks || []).filter(block => block.type !== 'session_confirmation' || block.surface !== 'input'),
+    [message.blocks],
+  );
 
   const [copied, setCopied] = useState(false);
   const handleCopy = useCallback(() => {

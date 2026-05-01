@@ -12,6 +12,7 @@ import { useStore } from './stores';
 import { hanaFetch } from './hooks/use-hana-fetch';
 import { toSlash, baseName } from './utils/format';
 import { BrowserCard } from './components/BrowserCard';
+import { ComputerUseOverlay } from './components/ComputerUseOverlay';
 
 declare function t(key: string, vars?: Record<string, string | number>): string;
 
@@ -181,6 +182,7 @@ export function MainContent({ children }: { children: React.ReactNode }) {
       onDrop={onDrop}
     >
       <BrowserCard />
+      <ComputerUseOverlay />
       <div className={`drop-overlay${dragActive ? ' visible' : ''}`}>
         <div className="drop-overlay-inner">
           <span className="drop-icon">📎</span>

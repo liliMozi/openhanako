@@ -18,9 +18,14 @@ const OPTIONAL_TOOL_NAMES = [
 ] as const;
 
 type OptionalToolName = (typeof OPTIONAL_TOOL_NAMES)[number];
+const OPTIONAL_TOOL_NAME_SET = new Set<string>(OPTIONAL_TOOL_NAMES);
+
+function normalizeDisabledTools(disabled: string[]) {
+  return (disabled || []).filter((name) => OPTIONAL_TOOL_NAME_SET.has(name));
+}
 
 interface Props {
-  availableTools: string[];
+  availableTools?: string[];
   disabled: string[];
 }
 
@@ -28,9 +33,11 @@ export function AgentToolsSection({ availableTools, disabled }: Props) {
   // Only render rows for tools the agent actually has registered.
   // This naturally hides dm in single-agent environments where the agent
   // has no channelsDir/agentsDir wiring.
-  const renderable = OPTIONAL_TOOL_NAMES.filter((name) =>
-    availableTools.includes(name)
-  );
+  // If the field is absent (old backend / config still loading), render the
+  // built-in optional list. An explicit [] still means "no optional tools".
+  const renderable = Array.isArray(availableTools)
+    ? OPTIONAL_TOOL_NAMES.filter((name) => availableTools.includes(name))
+    : [...OPTIONAL_TOOL_NAMES];
 
   // Toggle visual state is derived from the `disabled` prop (no useState),
   // but writes must be computed from the freshest known list, not the prop
@@ -40,10 +47,11 @@ export function AgentToolsSection({ availableTools, disabled }: Props) {
   // by prop sync below and optimistically after each toggleTool call) so
   // two consecutive toggles on different tools before the first PUT+GET
   // round-trip both survive.
-  const disabledRef = useRef(disabled);
+  const normalizedDisabled = normalizeDisabledTools(disabled);
+  const disabledRef = useRef(normalizedDisabled);
   useEffect(() => {
-    disabledRef.current = disabled;
-  }, [disabled]);
+    disabledRef.current = normalizedDisabled;
+  }, [normalizedDisabled]);
 
   const toggleTool = (name: OptionalToolName) => {
     const current = disabledRef.current;
@@ -65,7 +73,7 @@ export function AgentToolsSection({ availableTools, disabled }: Props) {
         {t("settings.agent.tools.description")}
       </SettingsSection.Note>
       {renderable.map((name) => {
-        const isOn = !disabled.includes(name);
+        const isOn = !normalizedDisabled.includes(name);
         return (
           <SettingsRow
             key={name}

@@ -102,6 +102,7 @@ describe('ws-message-handler session-scoped desktop events', () => {
       }],
       chatSessions: {},
       streamingSessions: [],
+      computerOverlayBySession: {},
     } as never);
     useStore.getState().clearSession('/session/a.jsonl');
     useStore.getState().initSession('/session/a.jsonl', [], false);
@@ -127,6 +128,37 @@ describe('ws-message-handler session-scoped desktop events', () => {
     expect(first.data.text).toBe('hello from bridge');
     expect(first.data.quotedText).toBe('quote');
     expect(first.data.attachments).toEqual([{ path: '/tmp/a.png', name: 'a.png', isDir: false }]);
+  });
+
+  it('computer_overlay 写入当前 session 的 overlay keyed 状态并支持 clear', () => {
+    handleServerMessage({
+      type: 'computer_overlay',
+      sessionPath: '/session/a.jsonl',
+      phase: 'running',
+      action: 'click_element',
+      leaseId: 'lease-1',
+      snapshotId: 'snapshot-1',
+      visualSurface: 'provider',
+      target: { coordinateSpace: 'element', elementId: 'mock-button' },
+      ts: 100,
+    });
+
+    expect(useStore.getState().computerOverlayBySession['/session/a.jsonl']).toMatchObject({
+      phase: 'running',
+      action: 'click_element',
+      leaseId: 'lease-1',
+      visualSurface: 'provider',
+    });
+
+    handleServerMessage({
+      type: 'computer_overlay',
+      sessionPath: '/session/a.jsonl',
+      phase: 'clear',
+      action: 'stop',
+      ts: 101,
+    });
+
+    expect(useStore.getState().computerOverlayBySession['/session/a.jsonl']).toBeUndefined();
   });
 
   it('bridge_rc_attached / detached 直接补丁 sessions 列表上的接管态', () => {

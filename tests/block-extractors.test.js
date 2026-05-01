@@ -129,6 +129,42 @@ describe('browser', () => {
   });
 });
 
+// ─── computer session confirmation ─────────────────────────────────────────
+
+describe('computer session confirmation extraction', () => {
+  it('rebuilds completed Computer Use app approval confirmations', () => {
+    const approval = {
+      providerId: 'mock',
+      appId: 'app.notes',
+      appName: 'Mock Notes',
+      scope: 'app',
+    };
+
+    const blocks = extractBlocks('computer', {
+      action: 'start',
+      confirmation: {
+        kind: 'computer_app_approval',
+        status: 'confirmed',
+        approval,
+      },
+    });
+
+    expect(blocks).toEqual([{
+      type: 'session_confirmation',
+      confirmId: '',
+      kind: 'computer_app_approval',
+      surface: 'input',
+      status: 'confirmed',
+      title: '允许 Hana 使用电脑',
+      body: 'Hana 想控制这个应用来继续当前任务。',
+      subject: { label: 'Mock Notes', detail: 'mock · app.notes' },
+      severity: 'elevated',
+      actions: { confirmLabel: '同意', rejectLabel: '拒绝' },
+      payload: { approval },
+    }]);
+  });
+});
+
 // ─── install_skill ────────────────────────────────────────────────────────────
 
 describe('install_skill', () => {

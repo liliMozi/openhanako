@@ -151,7 +151,12 @@
     "selectOtherFolder": "选择其他文件夹",
     "extraFolders": "额外文件夹",
     "addExternalFolder": "添加工作空间以外的文件夹",
-    "planMode": "操作电脑",
+    "planMode": "权限模式",
+    "accessMode": "会话权限模式",
+    "operateMode": "操作",
+    "askMode": "先问",
+    "readOnlyMode": "只读",
+    "accessModeLocked": "当前无法更改权限模式",
     "deskContext": "看着书桌说",
     "pastedImage": "粘贴图片",
     "attachFiles": "添加文件",
@@ -526,6 +531,7 @@
       "models": "模型",
       "memory": "记忆",
       "work": "工作空间",
+      "computer": "使用电脑",
       "skills": "技能",
       "bridge": "社交平台",
       "sharing": "分享",
@@ -569,6 +575,27 @@
       "languageHint": "切换语言后需要重新加载",
       "timezone": "时区",
       "timezoneHint": "用于记忆时间标记、日记等"
+    },
+    "computerUse": {
+      "title": "电脑控制",
+      "description": "这是全局高权限工具。开启后，只有主助手可以在操作模式的会话里使用电脑控制；同一时间只允许一个会话占用。",
+      "enabled": "启用电脑控制",
+      "enabledHint": "默认关闭。关闭时新会话不会暴露电脑控制工具。",
+      "provider": "Provider",
+      "availability": "可用性",
+      "available": "可用",
+      "unavailable": "不可用",
+      "permissions": "请求系统权限",
+      "permissionsHint": "macOS 会请求辅助功能和屏幕录制权限；Windows 通常无需额外系统权限。",
+      "permissionsStatus": "系统权限",
+      "permissionsEmpty": "无需额外权限或尚未返回",
+      "approvals": "已批准应用",
+      "approvalsEmpty": "暂无",
+      "activeSession": "当前占用",
+      "active": "运行中",
+      "idle": "空闲",
+      "requestPermissions": "请求系统权限",
+      "refresh": "刷新"
     },
     "agent": {
       "title": "助手",
@@ -616,11 +643,25 @@
         "description": "修改将在新会话时生效。当前进行中的会话使用的是创建时的工具集。",
         "items": {
           "browser": { "label": "浏览器", "summary": "控制无头浏览器浏览网页" },
+          "computer": { "label": "电脑控制", "summary": "控制已批准的桌面应用，并显示实时动作光标" },
           "cron": { "label": "定时任务", "summary": "在指定时间自动执行任务" },
           "dm": { "label": "私信", "summary": "向其他 Agent 发送一对一消息" },
           "install_skill": { "label": "安装技能", "summary": "从 GitHub 或技能库安装新技能" },
           "update_settings": { "label": "修改设置", "summary": "让 Agent 修改应用配置项" }
         }
+      },
+      "computerUse": {
+        "title": "电脑控制状态",
+        "description": "这里展示底层 provider、系统权限和已批准应用。启停仍在上面的工具开关里完成。",
+        "provider": "Provider",
+        "availability": "可用性",
+        "available": "可用",
+        "unavailable": "不可用",
+        "permissions": "系统权限",
+        "permissionsEmpty": "无需额外权限或尚未返回",
+        "approvals": "已批准应用",
+        "approvalsEmpty": "暂无",
+        "refresh": "刷新"
       }
     },
     "about": {

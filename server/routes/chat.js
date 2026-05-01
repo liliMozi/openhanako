@@ -341,6 +341,15 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       broadcast({ type: "devlog", text: event.text, level: event.level });
     } else if (event.type === "browser_bg_status") {
       broadcast({ type: "browser_bg_status", running: event.running, url: event.url, sessionPath });
+    } else if (event.type === "computer_overlay") {
+      if (!ss) return;
+      emitStreamEvent(sessionPath, ss, event);
+    } else if (event.type === "session_confirmation" && event.request) {
+      if (!ss) return;
+      emitStreamEvent(sessionPath, ss, {
+        type: "content_block",
+        block: event.request,
+      });
     } else if (event.type === "cron_confirmation" && event.confirmId) {
       // 新的阻塞式 cron 确认（通过 emitEvent 触发）
       if (!ss) return;

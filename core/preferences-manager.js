@@ -6,6 +6,12 @@
  */
 import fs from "fs";
 import path from "path";
+import {
+  approveComputerUseApp,
+  normalizeComputerUseSettings,
+  revokeComputerUseApp,
+} from "./computer-use/settings.js";
+import { normalizeSessionPermissionMode } from "./session-permission-mode.js";
 
 export class PreferencesManager {
   /**
@@ -63,6 +69,19 @@ export class PreferencesManager {
     const prefs = this._mutableCopy();
     prefs.sandbox = typeof enabled === "string" ? enabled === "true" : !!enabled;
     this.savePreferences(prefs);
+  }
+
+  /** 读取新会话默认权限模式。首次安装没有该字段时默认 ask。 */
+  getSessionPermissionModeDefault() {
+    return normalizeSessionPermissionMode({ permissionMode: this._cache.session_permission_mode_default });
+  }
+
+  /** 保存新会话默认权限模式，用于记住用户上次选择。 */
+  setSessionPermissionModeDefault(mode) {
+    const prefs = this._mutableCopy();
+    prefs.session_permission_mode_default = normalizeSessionPermissionMode(mode);
+    this.savePreferences(prefs);
+    return prefs.session_permission_mode_default;
   }
 
   /** 读取文件备份配置 */
@@ -125,6 +144,38 @@ export class PreferencesManager {
     if (Object.keys(bridge).length === 0) delete prefs.bridge;
     else prefs.bridge = bridge;
     this.savePreferences(prefs);
+  }
+
+  /** 读取 Computer Use 全局设置（provider 选择、批准列表、平台策略） */
+  getComputerUseSettings() {
+    return normalizeComputerUseSettings(this._cache.computer_use || {});
+  }
+
+  /** 合并写入 Computer Use 全局设置 */
+  setComputerUseSettings(partial) {
+    const prefs = this._mutableCopy();
+    prefs.computer_use = normalizeComputerUseSettings({
+      ...(prefs.computer_use || {}),
+      ...(partial || {}),
+    });
+    this.savePreferences(prefs);
+    return prefs.computer_use;
+  }
+
+  /** 批准 Computer Use 控制某个 provider 下的 app/window scope */
+  approveComputerUseApp(approval) {
+    const prefs = this._mutableCopy();
+    prefs.computer_use = approveComputerUseApp(prefs.computer_use || {}, approval);
+    this.savePreferences(prefs);
+    return prefs.computer_use;
+  }
+
+  /** 撤销 Computer Use app 批准 */
+  revokeComputerUseApp(approval) {
+    const prefs = this._mutableCopy();
+    prefs.computer_use = revokeComputerUseApp(prefs.computer_use || {}, approval);
+    this.savePreferences(prefs);
+    return prefs.computer_use;
   }
 
   /** 读取自学技能配置（全局，跨 agent） */

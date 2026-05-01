@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path
+    d="M3 3L10 22L12.0513 15.8461C12.6485 14.0544 14.0544 12.6485 15.846 12.0513L22 10L3 3Z"
+    fill="#FFFDF8"
+    stroke="#2F4A56"
+    stroke-width="1.35"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M3 3L10 22L12.0513 15.8461C12.6485 14.0544 14.0544 12.6485 15.846 12.0513L22 10L3 3Z"
+    fill="none"
+    stroke="#8FAABD"
+    stroke-width="0.55"
+    stroke-linejoin="round"
+    opacity="0.72"
+  />
+</svg>

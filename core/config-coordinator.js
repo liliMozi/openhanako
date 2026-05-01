@@ -14,8 +14,37 @@ import { t } from "../server/i18n.js";
 
 const log = createModuleLogger("config");
 
-/** Plan Mode / Bridge 只读工具名白名单 */
+export const ACCESS_MODE_OPERATE = "operate";
+export const ACCESS_MODE_READ_ONLY = "read_only";
+
+/** Plan Mode / Bridge 只读 SDK 工具名白名单 */
 export const READ_ONLY_BUILTIN_TOOLS = ["read", "grep", "find", "ls"];
+
+/** Session 只读模式下仍允许的信息获取工具。顺序由实际工具注册顺序决定。 */
+export const READ_ONLY_TOOL_NAMES = [
+  ...READ_ONLY_BUILTIN_TOOLS,
+  "search_memory",
+  "web_search",
+  "web_fetch",
+  "recall_experience",
+  "browser",
+];
+
+const READ_ONLY_TOOL_NAME_SET = new Set(READ_ONLY_TOOL_NAMES);
+
+export function normalizeAccessMode(mode, { legacyPlanMode = false } = {}) {
+  if (mode === ACCESS_MODE_READ_ONLY) return ACCESS_MODE_READ_ONLY;
+  if (mode === ACCESS_MODE_OPERATE) return ACCESS_MODE_OPERATE;
+  return legacyPlanMode ? ACCESS_MODE_READ_ONLY : ACCESS_MODE_OPERATE;
+}
+
+export function isReadOnlyAccessMode(mode) {
+  return normalizeAccessMode(mode) === ACCESS_MODE_READ_ONLY;
+}
+
+export function filterReadOnlyToolNames(toolNames) {
+  return (toolNames || []).filter((name) => READ_ONLY_TOOL_NAME_SET.has(name));
+}
 
 /** 全局共享模型字段 → preferences key 映射 */
 export const SHARED_MODEL_KEYS = [

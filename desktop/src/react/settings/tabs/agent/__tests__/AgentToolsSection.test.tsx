@@ -45,28 +45,42 @@ describe("AgentToolsSection", () => {
   it("renders 5 toggles when availableTools includes all optional tools", () => {
     const { container } = render(
       <AgentToolsSection
-        availableTools={["browser", "cron", "dm", "install_skill", "update_settings", "read"]}
+        availableTools={["browser", "computer", "cron", "dm", "install_skill", "update_settings", "read"]}
         disabled={[]}
       />
     );
     expect(container.querySelectorAll("[data-tool-name]")).toHaveLength(5);
     expect(getRow(container, "browser")).toBeTruthy();
+    expect(getRow(container, "computer")).toBeNull();
     expect(getRow(container, "cron")).toBeTruthy();
     expect(getRow(container, "dm")).toBeTruthy();
     expect(getRow(container, "install_skill")).toBeTruthy();
     expect(getRow(container, "update_settings")).toBeTruthy();
   });
 
+  it("renders built-in optional toggles while availableTools is not returned yet", () => {
+    const { container } = render(
+      <AgentToolsSection
+        availableTools={undefined as unknown as string[]}
+        disabled={["update_settings", "dm"]}
+      />
+    );
+    expect(container.querySelectorAll("[data-tool-name]")).toHaveLength(5);
+    expect(getRow(container, "browser")).toBeTruthy();
+    expect(getRow(container, "computer")).toBeNull();
+  });
+
   it("hides dm row when dm is not in availableTools (single agent env)", () => {
     const { container } = render(
       <AgentToolsSection
-        availableTools={["browser", "cron", "install_skill", "update_settings", "read"]}
+        availableTools={["browser", "computer", "cron", "install_skill", "update_settings", "read"]}
         disabled={[]}
       />
     );
     expect(container.querySelectorAll("[data-tool-name]")).toHaveLength(4);
     expect(getRow(container, "dm")).toBeNull();
     expect(getRow(container, "browser")).toBeTruthy();
+    expect(getRow(container, "computer")).toBeNull();
   });
 
   it("toggle shows ON when tool is not in disabled list", () => {

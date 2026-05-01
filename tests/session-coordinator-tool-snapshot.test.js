@@ -68,7 +68,7 @@ function allNames() {
 }
 
 describe("session-coordinator tool snapshot (createSession)", () => {
-  let tmpDir, agentDir, sessionDir, coord, fakeSessionPath, activeToolsSpy, currentAgentConfig;
+  let tmpDir, agentDir, sessionDir, coord, fakeSessionPath, activeToolsSpy, currentAgentConfig, defaultModeSaveSpy;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -81,6 +81,7 @@ describe("session-coordinator tool snapshot (createSession)", () => {
     currentAgentConfig = {}; // tests mutate this before calling createSession
 
     activeToolsSpy = vi.fn();
+    defaultModeSaveSpy = vi.fn();
 
     sessionManagerCreateMock.mockReturnValue({ getCwd: () => tmpDir });
     sessionManagerOpenMock.mockReturnValue({ getCwd: () => tmpDir });
@@ -126,7 +127,11 @@ describe("session-coordinator tool snapshot (createSession)", () => {
       agentIdFromSessionPath: () => "test",
       switchAgentOnly: async () => {},
       getConfig: () => ({}),
-      getPrefs: () => ({ getThinkingLevel: () => "medium" }),
+      getPrefs: () => ({
+        getThinkingLevel: () => "medium",
+        getSessionPermissionModeDefault: () => "ask",
+        setSessionPermissionModeDefault: defaultModeSaveSpy,
+      }),
       getAgents: () => new Map(),
       getActivityStore: () => null,
       getAgentById: () => null,
@@ -143,7 +148,7 @@ describe("session-coordinator tool snapshot (createSession)", () => {
 
   it("Case C: new session with NO tools config applies DEFAULT_DISABLED (update_settings + dm off)", async () => {
     currentAgentConfig = {}; // fresh agent or upgrade, tools field absent
-    await coord.createSession(null, tmpDir, true);
+    const { sessionPath } = await coord.createSession(null, tmpDir, true);
 
     const appliedList = activeToolsSpy.mock.calls[0][0];
     expect(appliedList).not.toContain("update_settings");
@@ -153,6 +158,30 @@ describe("session-coordinator tool snapshot (createSession)", () => {
     expect(appliedList).toContain("cron");
     expect(appliedList).toContain("install_skill");
     expect(appliedList).toContain("read"); // SDK built-in preserved
+    expect(coord.getAccessMode()).toBe("operate");
+
+    const meta = JSON.parse(await fsp.readFile(path.join(sessionDir, "session-meta.json"), "utf-8"));
+    expect(meta[path.basename(sessionPath)].accessMode).toBe("operate");
+  });
+
+  it("new session with pending read-only access mode keeps tool schema stable", async () => {
+    currentAgentConfig = { tools: { disabled: [] } };
+    coord.setPendingAccessMode("read_only");
+
+    const { sessionPath } = await coord.createSession(null, tmpDir, true);
+
+    expect(activeToolsSpy).toHaveBeenCalledTimes(1);
+    const appliedList = activeToolsSpy.mock.calls[0][0];
+    expect(appliedList).toEqual(allNames());
+
+    const entry = coord._sessions.get(sessionPath);
+    expect(entry.accessMode).toBe("read_only");
+    expect(entry.permissionMode).toBe("read_only");
+    expect(entry.planMode).toBe(true);
+
+    const meta = JSON.parse(await fsp.readFile(path.join(sessionDir, "session-meta.json"), "utf-8"));
+    expect(meta[path.basename(sessionPath)].permissionMode).toBe("read_only");
+    expect(meta[path.basename(sessionPath)].accessMode).toBe("read_only");
   });
 
   it("Case C: new session with EXPLICIT empty disabled includes all tools in snapshot", async () => {
@@ -283,66 +312,60 @@ describe("session-coordinator tool snapshot (createSession)", () => {
     expect(entry.toolNames).not.toContain("browser");
   });
 
-  // ── setPlanMode post-creation (P2) ──────────────────────────
+  // ── Runtime permission mode after session creation ─────────────────────
 
-  it("setPlanMode ON after session creation preserves disabled-tool choice via sessionEntry.toolNames", async () => {
+  it("updates setPlanMode after session creation and leaves active tools unchanged", async () => {
     currentAgentConfig = { tools: { disabled: ["browser"] } };
-    await coord.createSession(null, tmpDir, true);
+    const { sessionPath } = await coord.createSession(null, tmpDir, true);
     expect(activeToolsSpy).toHaveBeenCalledTimes(1); // initial snapshot apply
 
-    // Now toggle plan mode ON
-    coord.setPlanMode(true, SDK_BUILTIN_OBJS.map((t) => t.name));
+    const result = coord.setPlanMode(true, SDK_BUILTIN_OBJS.map((t) => t.name));
 
-    // Second setActiveToolsByName call from plan mode
-    expect(activeToolsSpy).toHaveBeenCalledTimes(2);
-    const planOnList = activeToolsSpy.mock.calls[1][0];
-    // Read-only SDK subset present
-    expect(planOnList).toContain("read");
-    expect(planOnList).toContain("grep");
-    expect(planOnList).toContain("find");
-    expect(planOnList).toContain("ls");
-    // Write-capable SDK tools absent in plan mode
-    expect(planOnList).not.toContain("bash");
-    expect(planOnList).not.toContain("edit");
-    expect(planOnList).not.toContain("write");
-    // Custom tool that was NOT disabled stays available
-    expect(planOnList).toContain("cron");
-    // Custom tool that WAS disabled stays disabled even in plan mode
-    expect(planOnList).not.toContain("browser");
+    expect(result).toMatchObject({ ok: true, mode: "read_only", enabled: true });
+    expect(activeToolsSpy).toHaveBeenCalledTimes(1);
+    expect(defaultModeSaveSpy).toHaveBeenCalledWith("read_only");
+    expect(coord.getAccessMode()).toBe("read_only");
+    expect(coord.getPermissionMode(sessionPath)).toBe("read_only");
   });
 
-  it("setPlanMode OFF after plan-on restores the snapshot (not raw agent.tools)", async () => {
-    currentAgentConfig = { tools: { disabled: ["browser"] } };
-    await coord.createSession(null, tmpDir, true);
-    coord.setPlanMode(true, SDK_BUILTIN_OBJS.map((t) => t.name));
-    coord.setPlanMode(false, SDK_BUILTIN_OBJS.map((t) => t.name));
-
-    const planOffList = activeToolsSpy.mock.calls[2][0];
-    // All SDK built-ins back
-    for (const name of ["read", "bash", "edit", "write", "grep", "find", "ls"]) {
-      expect(planOffList).toContain(name);
-    }
-    // Customs respecting the snapshot
-    expect(planOffList).toContain("cron");
-    expect(planOffList).not.toContain("browser"); // still disabled per snapshot
-  });
-
-  it("setPlanMode on legacy session (toolNames=null) falls back to raw agent.tools", async () => {
-    // Pre-write meta WITHOUT toolNames
+  it("restores accessMode from session meta before applying tools", async () => {
     await fsp.writeFile(
       path.join(sessionDir, "session-meta.json"),
-      JSON.stringify({ [path.basename(fakeSessionPath)]: { memoryEnabled: true } }, null, 2),
+      JSON.stringify({
+        [path.basename(fakeSessionPath)]: {
+          memoryEnabled: true,
+          accessMode: "read_only",
+          toolNames: allNames(),
+        },
+      }, null, 2),
     );
     await coord.createSession(null, tmpDir, true, null, { restore: true });
-    // Case B: no initial snapshot applied
-    expect(activeToolsSpy).not.toHaveBeenCalled();
 
-    coord.setPlanMode(true, SDK_BUILTIN_OBJS.map((t) => t.name));
+    const appliedList = activeToolsSpy.mock.calls[0][0];
+    expect(appliedList).toContain("browser");
+    expect(appliedList).toContain("web_search");
+    expect(appliedList).toContain("bash");
+    expect(coord.getAccessMode()).toBe("read_only");
+  });
 
-    // Plan mode still applies read-only SDK + full agent.tools (legacy fallback)
+  it("maps legacy planMode meta to read-only access mode", async () => {
+    await fsp.writeFile(
+      path.join(sessionDir, "session-meta.json"),
+      JSON.stringify({
+        [path.basename(fakeSessionPath)]: {
+          memoryEnabled: true,
+          planMode: true,
+          toolNames: allNames(),
+        },
+      }, null, 2),
+    );
+    await coord.createSession(null, tmpDir, true, null, { restore: true });
+
     const planList = activeToolsSpy.mock.calls[0][0];
     expect(planList).toContain("read");
-    expect(planList).toContain("browser"); // not disabled — legacy session sees all customs
+    expect(planList).toContain("browser");
+    expect(planList).toContain("bash");
     expect(planList).toContain("cron");
+    expect(coord.getAccessMode()).toBe("read_only");
   });
 });

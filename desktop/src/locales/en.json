@@ -151,7 +151,12 @@
     "selectOtherFolder": "Choose another folder",
     "extraFolders": "Extra folders",
     "addExternalFolder": "Add folder outside workspace",
-    "planMode": "Use computer",
+    "planMode": "Access mode",
+    "accessMode": "Session access mode",
+    "operateMode": "Operate",
+    "askMode": "Ask first",
+    "readOnlyMode": "Read only",
+    "accessModeLocked": "Access mode cannot be changed right now",
     "deskContext": "With desk context",
     "pastedImage": "Pasted image",
     "attachFiles": "Add files",
@@ -521,6 +526,7 @@
       "models": "Models",
       "memory": "Memory",
       "work": "Workspace",
+      "computer": "Use Computer",
       "skills": "Skills",
       "bridge": "Social",
       "sharing": "Sharing",
@@ -564,6 +570,27 @@
       "languageHint": "Page will reload after switching",
       "timezone": "Timezone",
       "timezoneHint": "Used for memory timestamps, journal entries, etc."
+    },
+    "computerUse": {
+      "title": "Computer Use",
+      "description": "A global high-permission tool. When enabled, only the main agent can use computer control in Operate sessions, and only one session can hold it at a time.",
+      "enabled": "Enable Computer Use",
+      "enabledHint": "Off by default. When off, new sessions do not expose the computer control tool.",
+      "provider": "Provider",
+      "availability": "Availability",
+      "available": "Available",
+      "unavailable": "Unavailable",
+      "permissions": "Request OS Permissions",
+      "permissionsHint": "macOS requests Accessibility and Screen Recording permissions. Windows usually needs no extra OS permission.",
+      "permissionsStatus": "OS Permissions",
+      "permissionsEmpty": "No extra permissions or no status yet",
+      "approvals": "Approved Apps",
+      "approvalsEmpty": "None",
+      "activeSession": "Current Holder",
+      "active": "Active",
+      "idle": "Idle",
+      "requestPermissions": "Request Permissions",
+      "refresh": "Refresh"
     },
     "agent": {
       "title": "Agent",
@@ -611,11 +638,25 @@
         "description": "Changes apply to new conversations only. Active conversations continue using the tool set they started with.",
         "items": {
           "browser": { "label": "Browser", "summary": "Control a headless browser to navigate web pages" },
+          "computer": { "label": "Computer Use", "summary": "Control approved desktop apps with a visible action overlay" },
           "cron": { "label": "Scheduled Tasks", "summary": "Run tasks automatically at specified times" },
           "dm": { "label": "Direct Message", "summary": "Send a one-on-one message to another agent" },
           "install_skill": { "label": "Install Skill", "summary": "Install new skills from GitHub or the skill library" },
           "update_settings": { "label": "Update Settings", "summary": "Allow the agent to modify application configuration" }
         }
+      },
+      "computerUse": {
+        "title": "Computer Use Status",
+        "description": "Shows the provider, OS permissions, and approved apps. The enable switch stays in Tools above.",
+        "provider": "Provider",
+        "availability": "Availability",
+        "available": "Available",
+        "unavailable": "Unavailable",
+        "permissions": "OS Permissions",
+        "permissionsEmpty": "No extra permissions or no status yet",
+        "approvals": "Approved Apps",
+        "approvalsEmpty": "None",
+        "refresh": "Refresh"
       }
     },
     "about": {

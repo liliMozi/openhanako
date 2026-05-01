@@ -43,6 +43,13 @@ export const BLOCK_EXTRACTORS = {
     }];
   },
 
+  computer: (details) => {
+    const confirmation = details.confirmation;
+    if (details.action !== "start" || confirmation?.kind !== "computer_app_approval") return null;
+    const block = buildComputerAppApprovalBlock(confirmation);
+    return block ? [block] : null;
+  },
+
   install_skill: (details) => {
     if (!details.skillName) return null;
     return [{
@@ -112,6 +119,31 @@ export const BLOCK_EXTRACTORS = {
 };
 
 BLOCK_EXTRACTORS.present_files = BLOCK_EXTRACTORS.stage_files; // COMPAT(v0.98)
+
+function buildComputerAppApprovalBlock(confirmation) {
+  const approval = confirmation?.approval;
+  if (!approval?.providerId || !approval?.appId) return null;
+  const appName = approval.appName || approval.appId;
+  return {
+    type: "session_confirmation",
+    confirmId: confirmation.confirmId || "",
+    kind: "computer_app_approval",
+    surface: "input",
+    status: confirmation.status || "pending",
+    title: "允许 Hana 使用电脑",
+    body: "Hana 想控制这个应用来继续当前任务。",
+    subject: {
+      label: appName,
+      detail: `${approval.providerId} · ${approval.appId}`,
+    },
+    severity: "elevated",
+    actions: {
+      confirmLabel: "同意",
+      rejectLabel: "拒绝",
+    },
+    payload: { approval },
+  };
+}
 
 function extractPluginCard(details) {
   if (!details?.card?.pluginId) return null;
