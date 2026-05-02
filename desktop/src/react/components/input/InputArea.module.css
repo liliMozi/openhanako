@@ -89,6 +89,11 @@
     border-color: rgba(var(--accent-rgb), 0.25);
 }
 
+.plan-mode-selector.open .plan-mode-btn {
+    color: var(--accent);
+    border-color: rgba(var(--accent-rgb), 0.25);
+}
+
 .plan-mode-btn.active {
     color: var(--mood-text);
     background: var(--mood-bg);
@@ -281,6 +286,12 @@
 
 .thinking-selector.open .thinking-dropdown {
     display: block;
+}
+
+.thinking-dropdown.plan-mode-dropdown {
+    left: 0;
+    right: auto;
+    min-width: 8.5rem;
 }
 
 .thinking-option {

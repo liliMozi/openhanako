@@ -26,13 +26,15 @@ describe('PlanModeButton', () => {
     useStore.setState({ pendingNewSession: false } as never);
   });
 
-  it('marks permission changes from the pending new-session surface explicitly', async () => {
+  it('opens a menu and marks permission changes from the pending new-session surface explicitly', async () => {
     vi.mocked(hanaFetch).mockResolvedValueOnce(jsonResponse({ mode: 'read_only' }));
     useStore.setState({ pendingNewSession: true } as never);
     const onChange = vi.fn();
 
     render(<PlanModeButton mode="ask" onChange={onChange} />);
-    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByRole('button', { name: 'input.askMode' }));
+    expect(hanaFetch).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'input.readOnlyMode' }));
 
     await waitFor(() => {
       expect(hanaFetch).toHaveBeenCalledWith('/api/session-permission-mode', expect.objectContaining({
@@ -41,6 +43,17 @@ describe('PlanModeButton', () => {
       }));
     });
     expect(onChange).toHaveBeenCalledWith('read_only');
+  });
+
+  it('uses a distinct trigger icon for each permission mode', () => {
+    const { container, rerender } = render(<PlanModeButton mode="ask" onChange={vi.fn()} />);
+    expect(container.querySelector('svg[data-permission-mode="ask"]')).not.toBeNull();
+
+    rerender(<PlanModeButton mode="operate" onChange={vi.fn()} />);
+    expect(container.querySelector('svg[data-permission-mode="operate"]')).not.toBeNull();
+
+    rerender(<PlanModeButton mode="read_only" onChange={vi.fn()} />);
+    expect(container.querySelector('svg[data-permission-mode="read_only"]')).not.toBeNull();
   });
 
   it('keeps ask visually neutral, read-only accent, and operate danger colored', () => {
