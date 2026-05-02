@@ -54,15 +54,15 @@ describe("submitDesktopSessionMessage", () => {
     expect(engine.setUiContext).toHaveBeenCalledWith("/tmp/desk.jsonl", null);
     expect(engine.emitEvent).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({
-        type: "session_user_message",
-        message: expect.objectContaining({ text: "hello from bridge" }),
-      }),
+      expect.objectContaining({ type: "session_status", isStreaming: true }),
       "/tmp/desk.jsonl",
     );
     expect(engine.emitEvent).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ type: "session_status", isStreaming: true }),
+      expect.objectContaining({
+        type: "session_user_message",
+        message: expect.objectContaining({ text: "hello from bridge" }),
+      }),
       "/tmp/desk.jsonl",
     );
     expect(engine.promptSession).toHaveBeenCalledWith("/tmp/desk.jsonl", "hello from bridge", undefined);
@@ -95,7 +95,7 @@ describe("submitDesktopSessionMessage", () => {
     })).rejects.toThrow("boom");
 
     expect(engine.emitEvent).toHaveBeenNthCalledWith(
-      2,
+      1,
       expect.objectContaining({ type: "session_status", isStreaming: true }),
       "/tmp/desk.jsonl",
     );

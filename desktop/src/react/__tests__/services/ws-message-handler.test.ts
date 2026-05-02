@@ -130,6 +130,34 @@ describe('ws-message-handler session-scoped desktop events', () => {
     expect(first.data.attachments).toEqual([{ path: '/tmp/a.png', name: 'a.png', isDir: false }]);
   });
 
+  it('stream replay 中的 session_user_message 若已由历史加载存在，不重复追加', () => {
+    useStore.getState().appendItem('/session/a.jsonl', {
+      type: 'message',
+      data: {
+        id: 'hist-0',
+        role: 'user',
+        text: 'hello from bridge',
+        textHtml: 'hello from bridge',
+        attachments: [{ path: '/tmp/a.png', name: 'a.png', isDir: false }],
+        quotedText: 'quote',
+      },
+    });
+
+    handleServerMessage({
+      type: 'session_user_message',
+      sessionPath: '/session/a.jsonl',
+      __fromReplay: true,
+      message: {
+        text: 'hello from bridge',
+        quotedText: 'quote',
+        attachments: [{ path: '/tmp/a.png', name: 'a.png', isDir: false }],
+      },
+    });
+
+    const items = useStore.getState().chatSessions['/session/a.jsonl']?.items || [];
+    expect(items).toHaveLength(1);
+  });
+
   it('computer_overlay 写入当前 session 的 overlay keyed 状态并支持 clear', () => {
     handleServerMessage({
       type: 'computer_overlay',

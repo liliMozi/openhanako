@@ -110,6 +110,38 @@ export function applyStreamingStatus(isStreaming: boolean, sessionPath: string |
   }
 }
 
+function attachmentsEqual(a: any, b: any): boolean {
+  const left = Array.isArray(a) ? a : [];
+  const right = Array.isArray(b) ? b : [];
+  if (left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i += 1) {
+    const la = left[i] || {};
+    const rb = right[i] || {};
+    if ((la.path || '') !== (rb.path || '')) return false;
+    if ((la.name || '') !== (rb.name || '')) return false;
+    if (!!la.isDir !== !!rb.isDir) return false;
+    if ((la.mimeType || '') !== (rb.mimeType || '')) return false;
+    if ((la.base64Data || '') !== (rb.base64Data || '')) return false;
+    if (!!la.visionAuxiliary !== !!rb.visionAuxiliary) return false;
+  }
+  return true;
+}
+
+function sameJsonish(a: any, b: any): boolean {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+function replayUserMessageAlreadyHydrated(sessionPath: string, message: any): boolean {
+  const session = useStore.getState().chatSessions[sessionPath];
+  const last = session?.items?.[session.items.length - 1];
+  if (!last || last.type !== 'message' || last.data?.role !== 'user') return false;
+  const text = typeof message?.text === 'string' ? message.text : '';
+  return last.data.text === text &&
+    (last.data.quotedText || '') === (message?.quotedText || '') &&
+    attachmentsEqual(last.data.attachments, message?.attachments) &&
+    sameJsonish(last.data.deskContext, message?.deskContext);
+}
+
 // ── 消息分发（大 switch） ──
 
 export function handleServerMessage(msg: any): void {
@@ -323,6 +355,9 @@ export function handleServerMessage(msg: any): void {
       if (!sp || !msg.message) break;
       if (!useStore.getState().chatSessions[sp]) {
         useStore.getState().initSession(sp, [], false);
+      }
+      if (msg.__fromReplay === true && replayUserMessageAlreadyHydrated(sp, msg.message)) {
+        break;
       }
       const text = typeof msg.message.text === 'string' ? msg.message.text : '';
       useStore.getState().appendItem(sp, {

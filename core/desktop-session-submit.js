@@ -42,6 +42,7 @@ export async function submitDesktopSessionMessage(engine, opts = {}) {
     engine.setUiContext?.(sessionPath, uiContext ?? null);
   }
 
+  engine.emitEvent?.({ type: "session_status", isStreaming: true }, sessionPath);
   engine.emitEvent?.({
     type: "session_user_message",
     message: {
@@ -52,7 +53,6 @@ export async function submitDesktopSessionMessage(engine, opts = {}) {
       deskContext: displayMessage?.deskContext ?? null,
     },
   }, sessionPath);
-  engine.emitEvent?.({ type: "session_status", isStreaming: true }, sessionPath);
 
   let captured = "";
   const toolMedia = [];

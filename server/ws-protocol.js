@@ -27,6 +27,7 @@
  *   { type: "devlog", text: "...", level: "info"|"heartbeat"|"error" }
  *   { type: "activity_update", activity: { id, type, startedAt, finishedAt, summary, sessionFile, status } }
  *   { type: "content_block", block: { type: "file"|"artifact"|"screenshot"|"skill"|"plugin_card"|"cron_confirm"|"settings_confirm", ... } }  (工具结果统一内容块，含 stage_files/create_artifact/browser screenshot/install_skill/plugin card/cron 确认/settings 确认)
+ *   { type: "session_user_message", sessionPath: "...", message: { text, attachments?, quotedText?, skills?, deskContext? } }  (桌面/RC 统一用户消息，参与 stream_resume)
  *   { type: "confirmation_resolved", confirmId: "...", action: "confirmed"|"rejected", value?: any }  (用户操作确认卡片后广播，前端更新卡片状态)
  *   { type: "block_update", taskId: "...", patch: { streamStatus: "done"|"failed", summary?: "..." } }  (活跃 block 状态更新)
  *   { type: "browser_status", running: bool, url: "...", thumbnail?: "..." }  (浏览器状态变更，用于前端浮动卡片)

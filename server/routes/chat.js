@@ -397,7 +397,8 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
     } else if (event.type === "bridge_status") {
       broadcast({ type: "bridge_status", platform: event.platform, status: event.status, error: event.error, agentId: event.agentId || null });
     } else if (event.type === "session_user_message") {
-      broadcast({ type: "session_user_message", sessionPath, message: event.message });
+      if (!ss) return;
+      emitStreamEvent(sessionPath, ss, { type: "session_user_message", message: event.message });
     } else if (event.type === "session_status") {
       if (ss) {
         if (event.isStreaming) {
