@@ -71,6 +71,7 @@ const nodeMap = {
   "linux-x64": `node-${NODE_VERSION}-linux-x64`,
   "linux-arm64": `node-${NODE_VERSION}-linux-arm64`,
   "win32-x64": `node-${NODE_VERSION}-win-x64`,
+  "win32-arm64": `node-${NODE_VERSION}-win-arm64`,
 };
 
 const nodeDirName = nodeMap[`${platform}-${arch}`];
