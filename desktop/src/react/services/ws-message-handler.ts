@@ -556,6 +556,8 @@ export function handleServerMessage(msg: any): void {
     }
 
     case 'tts_audio_done': {
+      const player = getTTSPlayer();
+      player.flush();
       break;
     }
   }
