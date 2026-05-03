@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { promptAttachedDesktopSession } from "../../core/slash-commands/rc-router.js";
 
-function makeFakeSession({ model = null, deltas = ["hel", "lo"], toolMediaOnEnd = [] } = {}) {
+function makeFakeSession({ model = null, deltas = ["hel", "lo"], toolMediaOnEnd = [], toolMediaDetails = null } = {}) {
   const subscribers = [];
   return {
     model,
@@ -22,6 +22,11 @@ function makeFakeSession({ model = null, deltas = ["hel", "lo"], toolMediaOnEnd 
       if (toolMediaOnEnd.length > 0) {
         for (const fn of subscribers) {
           fn({ type: "tool_execution_end", isError: false, result: { details: { media: { mediaUrls: toolMediaOnEnd } } } });
+        }
+      }
+      if (toolMediaDetails) {
+        for (const fn of subscribers) {
+          fn({ type: "tool_execution_end", isError: false, result: { details: { media: toolMediaDetails } } });
         }
       }
     }),
@@ -76,7 +81,21 @@ describe("promptAttachedDesktopSession", () => {
     const session = makeFakeSession({ deltas: ["r"], toolMediaOnEnd: ["https://a.png", "https://b.png"] });
     const engine = makeEngine(session);
     const r = await promptAttachedDesktopSession(engine, "/p.jsonl", "q");
-    expect(r.toolMedia).toEqual(["https://a.png", "https://b.png"]);
+    expect(r.toolMedia).toEqual([
+      { type: "remote_url", url: "https://a.png" },
+      { type: "remote_url", url: "https://b.png" },
+    ]);
+  });
+
+  it("prefers structured tool media items over legacy mediaUrls", async () => {
+    const item = { type: "session_file", fileId: "sf_1", filePath: "/tmp/a.png" };
+    const session = makeFakeSession({
+      deltas: ["r"],
+      toolMediaDetails: { items: [item], mediaUrls: ["/tmp/a.png"] },
+    });
+    const engine = makeEngine(session);
+    const r = await promptAttachedDesktopSession(engine, "/p.jsonl", "q");
+    expect(r.toolMedia).toEqual([item]);
   });
 
   it("passes images opts when session model supports image input", async () => {

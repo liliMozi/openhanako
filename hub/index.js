@@ -26,6 +26,7 @@ import {
   isValidSessionPath,
 } from "../core/message-utils.js";
 import { submitDesktopSessionMessage } from "../core/desktop-session-submit.js";
+import { extOfName, inferFileKind } from "../lib/file-metadata.js";
 
 export class Hub {
   /**
@@ -120,16 +121,22 @@ export class Hub {
       onDelta,
       images,
       imageAttachmentPaths,
+      inboundFiles,
       sessionPath,
       agentId,
       uiContext,
       displayMessage,
     } = opts;
-    const o = { sessionKey, role, ephemeral, meta, isGroup, cwd, model, persist, from, to, onDelta, images, imageAttachmentPaths, sessionPath, agentId, uiContext, displayMessage };
+    const o = { sessionKey, role, ephemeral, meta, isGroup, cwd, model, persist, from, to, onDelta, images, imageAttachmentPaths, inboundFiles, sessionPath, agentId, uiContext, displayMessage };
 
     // ── 图片预处理：持久化到磁盘 + 插入 [attached_image] 标记 ──
     // 在路由之前统一处理，所有消息路径（WS / Bridge DM / Bridge Group）共享
-    if (o.images?.length && this._engine.hanakoHome) {
+    if (
+      o.images?.length
+      && this._engine.hanakoHome
+      && !o.inboundFiles?.length
+      && !hasDisplayImageAttachments(o.displayMessage)
+    ) {
       const attachDir = path.join(this._engine.hanakoHome, "attachments");
       await fs.promises.mkdir(attachDir, { recursive: true });
       const savedPaths = [];
@@ -160,6 +167,7 @@ export class Hub {
             text,
             images: o.images,
             imageAttachmentPaths: o.imageAttachmentPaths,
+            inboundFiles: o.inboundFiles,
             onDelta: o.onDelta,
             uiContext: o.uiContext,
             displayMessage: o.displayMessage,
@@ -168,11 +176,11 @@ export class Hub {
       },
       { // Bridge guest
         match: o => o.sessionKey && o.role === "guest",
-        handle: () => this._guestHandler.handle(text, o.sessionKey, o.meta, { isGroup: o.isGroup, agentId: o.agentId, onDelta: o.onDelta, images: o.images, imageAttachmentPaths: o.imageAttachmentPaths }),
+        handle: () => this._guestHandler.handle(text, o.sessionKey, o.meta, { isGroup: o.isGroup, agentId: o.agentId, onDelta: o.onDelta, images: o.images, imageAttachmentPaths: o.imageAttachmentPaths, inboundFiles: o.inboundFiles }),
       },
       { // Bridge owner
         match: o => o.sessionKey && !o.ephemeral,
-        handle: () => this._engine.executeExternalMessage(text, o.sessionKey, o.meta, { guest: false, agentId: o.agentId, onDelta: o.onDelta, images: o.images, imageAttachmentPaths: o.imageAttachmentPaths }),
+        handle: () => this._engine.executeExternalMessage(text, o.sessionKey, o.meta, { guest: false, agentId: o.agentId, onDelta: o.onDelta, images: o.images, imageAttachmentPaths: o.imageAttachmentPaths, inboundFiles: o.inboundFiles }),
       },
       { // 隔离执行（cron/heartbeat/channel）
         match: o => o.ephemeral,
@@ -382,4 +390,17 @@ export class Hub {
     }
   }
 
+}
+
+function hasDisplayImageAttachments(displayMessage) {
+  const attachments = displayMessage?.attachments;
+  if (!Array.isArray(attachments)) return false;
+  return attachments.some((attachment) => {
+    if (!attachment?.path || attachment.isDir) return false;
+    return inferFileKind({
+      mime: attachment.mimeType,
+      ext: extOfName(attachment.name || attachment.path),
+      isDirectory: false,
+    }) === "image";
+  });
 }

@@ -24,13 +24,14 @@ export class PluginManager {
    * pluginsDirs: 多个扫描目录，先内嵌后用户（靠前的优先）
    * 兼容旧签名 { pluginsDir: string } → 自动转为单元素数组
    */
-  constructor({ pluginsDirs, pluginsDir, dataDir, bus, preferencesManager, appVersion, getSessionPath, slashRegistry }) {
+  constructor({ pluginsDirs, pluginsDir, dataDir, bus, preferencesManager, appVersion, getSessionPath, registerSessionFile, slashRegistry }) {
     this._pluginsDirs = pluginsDirs || (pluginsDir ? [pluginsDir] : []);
     this._dataDir = dataDir;
     this._bus = bus;
     this._preferencesManager = preferencesManager || null;
     this._appVersion = appVersion || "0.0.0";
     this._getSessionPath = getSessionPath || (() => null);
+    this._registerSessionFile = registerSessionFile || null;
     this._plugins = new Map();
     this._scanned = [];
     this._opQueue = Promise.resolve();
@@ -159,6 +160,7 @@ export class PluginManager {
       dataDir: path.join(this._dataDir, entry.id),
       bus: this._bus,
       accessLevel,
+      registerSessionFile: this._registerSessionFile,
     });
 
     // All plugins: declarative contributions

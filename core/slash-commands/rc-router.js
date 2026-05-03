@@ -1,3 +1,5 @@
+import { collectMediaItems } from "../../lib/tools/media-details.js";
+
 /**
  * rc-router.js — /rc 接管态的消息路由层
  *
@@ -48,8 +50,7 @@ export async function promptAttachedDesktopSession(engine, sessionPath, text, op
         try { opts.onDelta?.(delta, captured); } catch {}
       }
     } else if (event.type === "tool_execution_end" && !event.isError) {
-      const media = event.result?.details?.media;
-      if (media?.mediaUrls?.length) toolMedia.push(...media.mediaUrls);
+      toolMedia.push(...collectMediaItems(event.result?.details?.media));
       // 工具产生 card.description 时也并入正文，与 bridge-session-manager 一致
       const card = event.result?.details?.card;
       if (card?.description) {

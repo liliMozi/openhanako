@@ -644,6 +644,7 @@ export class AgentManager {
       emitSessionEvent:     (event) => getEngine()?.emitSessionEvent?.(event),
       getDeferredResults:   () => getEngine()?.deferredResults ?? null,
       getTaskRegistry:      () => getEngine()?.taskRegistry ?? null,
+      registerSessionFile:  (entry) => getEngine()?.registerSessionFile?.(entry),
       setSubagentController: (id, ctrl) => getEngine()?.setSubagentController(id, ctrl),
       removeSubagentController: (id) => getEngine()?.removeSubagentController(id),
       executeIsolated:      (prompt, opts) => getEngine()?.executeIsolated(prompt, opts),

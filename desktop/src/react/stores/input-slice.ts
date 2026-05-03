@@ -1,4 +1,5 @@
 export interface AttachedFile {
+  fileId?: string;
   path: string;
   name: string;
   isDirectory?: boolean;

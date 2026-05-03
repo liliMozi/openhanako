@@ -21,10 +21,25 @@ import {
 } from "../../core/message-utils.js";
 import { loadLatestTodosFromSessionFile } from "../../lib/tools/todo-compat.js";
 import { mergeWorkspaceHistory } from "../../shared/workspace-history.js";
+import {
+  deleteSessionFileSidecarSync,
+  moveSessionFileSidecarSync,
+  sessionFileSidecarPath,
+} from "../../lib/session-files/session-file-registry.js";
+import { browserScreenshotPath } from "../../lib/session-files/browser-screenshot-file.js";
 
 function rcPlatformFromSessionKey(sessionKey) {
   const match = /^([a-z]+)_/i.exec(sessionKey || "");
   return match ? match[1] : "bridge";
+}
+
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function createSessionsRoute(engine) {
@@ -303,6 +318,8 @@ export function createSessionsRoute(engine) {
         }
       }
 
+      patchSessionFileLifecycleBlocks(slicedBlocks, engine, queryPath || engine.currentSessionPath || null);
+
       // 从历史中提取最新 todo 状态：branch-aware，沿当前 leaf 回溯到 root，
       // 只在当前分支路径上找最新合法快照。避免从抛弃的分支取到错误状态。
       const todos = await loadLatestTodosFromSessionFile(queryPath);
@@ -508,6 +525,7 @@ export function createSessionsRoute(engine) {
             const stat = await fs.stat(fp);
             if (stat.mtime.getTime() < cutoff) {
               await fs.unlink(fp);
+              deleteSessionFileSidecarSync(fp);
               deleted++;
               // 清理 titles.json 孤儿（key = 对应的活跃路径）
               const activeKey = path.join(agentsDir, agentId, "sessions", f);
@@ -565,7 +583,11 @@ export function createSessionsRoute(engine) {
 
       const fileName = path.basename(sessionPath);
       const destPath = path.join(archiveDir, fileName);
+      if (await pathExists(sessionFileSidecarPath(destPath))) {
+        return c.json({ error: "Stage file sidecar destination already exists" }, 409);
+      }
       await fs.rename(sessionPath, destPath);
+      moveSessionFileSidecarSync(sessionPath, destPath);
 
       // 将 mtime 置为归档瞬间，使 cleanup 按"归档时间"而非"最后活动时间"判断
       const nowSec = Date.now() / 1000;
@@ -609,8 +631,12 @@ export function createSessionsRoute(engine) {
         await fs.access(destPath);
         return c.json({ error: "Active path already exists" }, 409);
       } catch { /* 目标不存在，可以恢复 */ }
+      if (await pathExists(sessionFileSidecarPath(destPath))) {
+        return c.json({ error: "Stage file sidecar destination already exists" }, 409);
+      }
 
       await fs.rename(sessionPath, destPath);
+      moveSessionFileSidecarSync(sessionPath, destPath);
       return c.json({ ok: true, restoredPath: destPath });
     } catch (err) {
       return c.json({ error: err.message }, 500);
@@ -634,6 +660,7 @@ export function createSessionsRoute(engine) {
       }
       try {
         await fs.unlink(sessionPath);
+        deleteSessionFileSidecarSync(sessionPath);
       } catch (err) {
         if (err.code === "ENOENT") {
           return c.json({ error: t("error.sessionNotFound") }, 404);
@@ -651,4 +678,50 @@ export function createSessionsRoute(engine) {
   });
 
   return route;
+}
+
+function patchSessionFileLifecycleBlocks(blocks, engine, sessionPath) {
+  if (!sessionPath) return;
+  for (const block of blocks || []) {
+    if (!block) continue;
+    if (!["file", "artifact", "skill", "screenshot"].includes(block.type)) continue;
+    let file = null;
+    if (block.fileId && typeof engine?.getSessionFile === "function") {
+      file = engine.getSessionFile(block.fileId, { sessionPath });
+    }
+    if (!file && block.filePath && typeof engine?.getSessionFileByPath === "function") {
+      file = engine.getSessionFileByPath(block.filePath, { sessionPath });
+    }
+    if (!file && block.type === "screenshot" && block.base64 && engine?.hanakoHome && typeof engine?.getSessionFileByPath === "function") {
+      try {
+        const filePath = browserScreenshotPath(engine.hanakoHome, sessionPath, {
+          base64: block.base64,
+          mimeType: block.mimeType,
+        });
+        file = engine.getSessionFileByPath(filePath, { sessionPath });
+        if (file) block.type = "file";
+      } catch {}
+    }
+    if (!file) continue;
+    const patch = sessionFileLifecycleFields(file);
+    Object.assign(block, patch);
+    if (block.type === "skill" && block.installedFile) {
+      block.installedFile = { ...block.installedFile, ...patch };
+    }
+  }
+}
+
+function sessionFileLifecycleFields(file) {
+  const fileId = file.fileId || file.id || null;
+  return {
+    ...(fileId ? { fileId } : {}),
+    ...(file.filePath ? { filePath: file.filePath } : {}),
+    ...(file.label || file.displayName ? { label: file.label || file.displayName } : {}),
+    ...(file.ext !== undefined ? { ext: file.ext } : {}),
+    ...(file.mime ? { mime: file.mime } : {}),
+    ...(file.kind ? { kind: file.kind } : {}),
+    ...(file.storageKind ? { storageKind: file.storageKind } : {}),
+    ...(file.status ? { status: file.status } : {}),
+    ...(file.missingAt !== undefined ? { missingAt: file.missingAt } : {}),
+  };
 }

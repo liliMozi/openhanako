@@ -7,12 +7,14 @@
  * 纯粹的"搬运"操作：把文件或文件夹复制到统一的 uploads 目录。
  * 不做任何业务判断（PDF 解析、图片识别等由 skill 层处理）。
  *
- * 存储位置：{hanakoHome}/uploads/
- * 清理策略：24 小时过期自动删除。
+ * 存储位置：
+ * - 无 sessionPath：{hanakoHome}/uploads/，按 24 小时清理旧临时文件
+ * - 有 sessionPath：{hanakoHome}/session-files/<session-hash>/，跟随 session 冷却清理
  */
 import fsSync from "fs";
 import fs from "fs/promises";
 import path from "path";
+import crypto from "crypto";
 import { Hono } from "hono";
 import { safeJson } from "../hono-helpers.js";
 import { t } from "../i18n.js";
@@ -23,6 +25,8 @@ import {
   isAllowedChatImageMime,
   isChatImageBase64WithinLimit,
 } from "../../shared/image-mime.js";
+import { registerSessionFileFromRequest } from "../../lib/session-files/session-file-response.js";
+import { sessionFilesCacheDir } from "../../lib/session-files/session-file-registry.js";
 
 const MAX_FILES = 9;
 
@@ -96,23 +100,49 @@ async function cleanOldUploads(uploadsDir) {
   } catch {}
 }
 
+function normalizeSessionPath(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function resolveUploadTarget(engine, sessionPath) {
+  if (sessionPath) {
+    return {
+      dir: sessionFilesCacheDir(engine.hanakoHome, sessionPath),
+      storageKind: "managed_cache",
+      shouldCleanOldUploads: false,
+    };
+  }
+  return {
+    dir: path.join(engine.hanakoHome, "uploads"),
+    storageKind: undefined,
+    shouldCleanOldUploads: true,
+  };
+}
+
+function uniqueUploadName(base, ext) {
+  return `${base}_${Date.now().toString(36)}_${crypto.randomBytes(4).toString("hex")}${ext}`;
+}
+
 export function createUploadRoute(engine) {
   const route = new Hono();
 
   route.post("/upload", async (c) => {
     const body = await safeJson(c);
     const { paths } = body;
+    const sessionPath = normalizeSessionPath(body?.sessionPath);
     if (!Array.isArray(paths) || paths.length === 0) {
       return c.json({ error: t("error.pathsRequired") }, 400);
     }
 
-    // 确定 uploads 目录
-    const uploadsDir = path.join(engine.hanakoHome, "uploads");
+    const uploadTarget = resolveUploadTarget(engine, sessionPath);
+    const uploadsDir = uploadTarget.dir;
 
     await fs.mkdir(uploadsDir, { recursive: true });
 
-    // 后台清理旧上传（不阻塞当前请求）
-    cleanOldUploads(uploadsDir).catch(() => {});
+    if (uploadTarget.shouldCleanOldUploads) {
+      // 后台清理旧上传（不阻塞当前请求）
+      cleanOldUploads(uploadsDir).catch(() => {});
+    }
 
     const results = [];
     let totalFiles = 0;
@@ -160,13 +190,12 @@ export function createUploadRoute(engine) {
         }
 
         const name = path.basename(srcPath);
-        const timestamp = Date.now().toString(36);
         const isDir = stat.isDirectory();
 
         // 统一命名：原名_时间戳（文件保留扩展名）
         const ext = isDir ? "" : path.extname(srcPath);
         const base = isDir ? name : path.basename(srcPath, ext);
-        const destName = `${base}_${timestamp}${ext}`;
+        const destName = uniqueUploadName(base, ext);
         const destPath = path.join(uploadsDir, destName);
 
         if (isDir) {
@@ -175,11 +204,20 @@ export function createUploadRoute(engine) {
           await fs.copyFile(srcPath, destPath);
         }
 
+        const sessionFile = registerSessionFileFromRequest(engine, {
+          sessionPath,
+          filePath: destPath,
+          label: name,
+          origin: "user_upload",
+          storageKind: uploadTarget.storageKind,
+        });
+
         results.push({
           src: srcPath,
           dest: destPath,
           name,
           isDirectory: isDir,
+          ...(sessionFile || {}),
         });
       } catch (err) {
         if (err instanceof UploadPathError) {
@@ -198,6 +236,7 @@ export function createUploadRoute(engine) {
   // 把内存中的 base64 数据落到与 /api/upload 同一个 uploads 目录，输出形态保持一致
   route.post("/upload-blob", async (c) => {
     const body = await safeJson(c);
+    const sessionPath = normalizeSessionPath(body?.sessionPath);
     let blobs = body?.blobs;
     if (!Array.isArray(blobs)) {
       if (body?.base64Data) blobs = [{ name: body.name, base64Data: body.base64Data, mimeType: body.mimeType }];
@@ -205,9 +244,12 @@ export function createUploadRoute(engine) {
     }
     if (blobs.length === 0) return c.json({ error: t("error.pathsRequired") }, 400);
 
-    const uploadsDir = path.join(engine.hanakoHome, "uploads");
+    const uploadTarget = resolveUploadTarget(engine, sessionPath);
+    const uploadsDir = uploadTarget.dir;
     await fs.mkdir(uploadsDir, { recursive: true });
-    cleanOldUploads(uploadsDir).catch(() => {});
+    if (uploadTarget.shouldCleanOldUploads) {
+      cleanOldUploads(uploadsDir).catch(() => {});
+    }
 
     const results = [];
     for (let i = 0; i < blobs.length; i++) {
@@ -238,16 +280,24 @@ export function createUploadRoute(engine) {
         const safeName = sanitizeBlobName(name, mimeType);
         const ext = path.extname(safeName);
         const base = path.basename(safeName, ext);
-        const timestamp = Date.now().toString(36);
-        const destName = `${base}_${timestamp}${ext}`;
+        const destName = uniqueUploadName(base, ext);
         const destPath = path.join(uploadsDir, destName);
 
         await fs.writeFile(destPath, buf);
+
+        const sessionFile = registerSessionFileFromRequest(engine, {
+          sessionPath,
+          filePath: destPath,
+          label: safeName,
+          origin: "user_upload",
+          storageKind: uploadTarget.storageKind,
+        });
 
         results.push({
           dest: destPath,
           name: safeName,
           isDirectory: false,
+          ...(sessionFile || {}),
         });
       } catch (err) {
         results.push({ error: err?.message || String(err) });

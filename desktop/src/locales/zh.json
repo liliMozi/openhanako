@@ -120,7 +120,8 @@
     "stop": "停止",
     "browserScreenshot": "浏览器截图",
     "compacting": "上下文压缩中",
-    "visionAuxiliary": "辅助视觉"
+    "visionAuxiliary": "辅助视觉",
+    "fileExpired": "文件已过期"
   },
   "time": {
     "justNow": "刚刚",

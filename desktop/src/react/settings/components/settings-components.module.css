@@ -2,7 +2,7 @@
  * 设置页共享结构组件样式
  * 对应 SETTINGS-SPEC.md v2
  * 该 CSS module 独立于 Settings.module.css
- * 旧 class（.tool-caps-* 等）在 Phase 16 统一清理
+ * 迁移后的设置页结构样式只在共享组件里表达语义
  * ═══════════════════════════════════════════ */
 
 /* ─── Section ─── */

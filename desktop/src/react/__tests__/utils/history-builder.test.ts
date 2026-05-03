@@ -43,7 +43,6 @@ describe('buildItemsFromHistory user image restoration', () => {
       path: '/Users/test/.hanako/attachments/upload-native.png',
       name: 'upload-native.png',
       isDir: false,
-      base64Data: 'BASE64',
       mimeType: 'image/png',
       visionAuxiliary: false,
     }]);

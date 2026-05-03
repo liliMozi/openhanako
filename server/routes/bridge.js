@@ -14,6 +14,7 @@ import { parseSessionKey, collectKnownUsers, KNOWN_PLATFORMS } from "../../lib/b
 import { t } from "../i18n.js";
 import { resolveAgent, resolveAgentStrict } from "../utils/resolve-agent.js";
 
+const MAX_BRIDGE_MEDIA_SIZE = 50 * 1024 * 1024;
 
 export function createBridgeRoute(engine, bridgeManager) {
   const route = new Hono();
@@ -277,6 +278,35 @@ export function createBridgeRoute(engine, bridgeManager) {
     return c.json({ ok: true });
   });
 
+  /** 公开给外部平台拉取的临时媒体 URL（由 MediaPublisher token 控制） */
+  route.get("/bridge/media/:token", async (c) => {
+    const token = c.req.param("token");
+    const entry = bridgeManager.mediaPublisher?.resolve?.(token);
+    if (!entry) return c.text("media not found", 404);
+
+    let stat;
+    try {
+      stat = fs.statSync(entry.realPath);
+      if (!stat.isFile()) return c.text("media not found", 404);
+    } catch {
+      return c.text("media not found", 404);
+    }
+    if (stat.size > MAX_BRIDGE_MEDIA_SIZE) {
+      return c.text("media too large", 413);
+    }
+
+    const filename = entry.filename || path.basename(entry.realPath);
+    const disposition = isInlineBridgeMediaMime(entry.mime) ? "inline" : "attachment";
+    const headers = new Headers({
+      "content-type": entry.mime || "application/octet-stream",
+      "content-length": String(stat.size),
+      "content-disposition": `${disposition}; filename*=UTF-8''${encodeRfc5987ValueChars(filename)}`,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    });
+    return new Response(fs.readFileSync(entry.realPath), { headers });
+  });
+
   /** 发送媒体到 bridge 平台（桌面端推送文件） */
   route.post("/bridge/send-media", async (c) => {
     const body = await safeJson(c);
@@ -288,10 +318,12 @@ export function createBridgeRoute(engine, bridgeManager) {
     const agent = resolveAgentStrict(engine, c);
 
     // 路径安全检查（对齐 fs.js 的 getAllowedRoots 逻辑）
-    const hanaHome = path.resolve(engine.hanakoHome);
-    const allowedRoots = [hanaHome];
+    const allowedRoots = [realpathAllowedRoot(engine.hanakoHome)].filter(Boolean);
     const deskHome = agent.deskManager?.homePath;
-    if (deskHome) allowedRoots.push(path.resolve(deskHome));
+    if (deskHome) {
+      const root = realpathAllowedRoot(deskHome);
+      if (root) allowedRoots.push(root);
+    }
 
     // 先检查文件是否存在
     const resolved = path.resolve(filePath);
@@ -312,19 +344,42 @@ export function createBridgeRoute(engine, bridgeManager) {
     }
 
     // Fix 3: 文件大小保护（50MB 上限，避免同步读大文件卡事件循环）
-    const MAX_MEDIA_SIZE = 50 * 1024 * 1024;
     try {
       const stat = fs.statSync(realPath);
-      if (stat.size > MAX_MEDIA_SIZE) {
+      if (stat.size > MAX_BRIDGE_MEDIA_SIZE) {
         return c.json({ error: `file too large: ${(stat.size / 1024 / 1024).toFixed(1)}MB (max 50MB)` }, 413);
       }
     } catch { return c.json({ error: "file not found" }, 404); }
 
     try {
-      await bridgeManager.sendMediaFile(platform, chatId, realPath, agent.id);
-      return c.json({ ok: true });
+      if (typeof engine.registerSessionFile !== "function") {
+        return c.json({ ok: false, error: "session file registry unavailable" }, 500);
+      }
+      if (typeof bridgeManager.sendMediaItem !== "function") {
+        return c.json({ ok: false, error: "bridge media delivery unavailable" }, 500);
+      }
+
+      const sessionPath = typeof body.sessionPath === "string" && body.sessionPath.trim()
+        ? body.sessionPath.trim()
+        : buildBridgeManualSendSessionPath(agent.id, platform, chatId);
+      const sessionFile = engine.registerSessionFile({
+        sessionPath,
+        filePath: realPath,
+        label: typeof body.label === "string" && body.label.trim() ? body.label.trim() : path.basename(realPath),
+        origin: "bridge_manual_send",
+      });
+      await bridgeManager.sendMediaItem(
+        platform,
+        chatId,
+        { type: "session_file", fileId: sessionFile.id, sessionPath },
+        agent.id,
+      );
+      return c.json({ ok: true, fileId: sessionFile.id });
     } catch (err) {
-      return c.json({ error: err.message }, 500);
+      return c.json(
+        { ok: false, error: err.message },
+        isUnsupportedMediaDeliveryError(err) ? 422 : 500,
+      );
     }
   });
 
@@ -420,4 +475,31 @@ export function createBridgeRoute(engine, bridgeManager) {
   });
 
   return route;
+}
+
+function realpathAllowedRoot(root) {
+  if (!root) return null;
+  const resolved = path.resolve(root);
+  try { return fs.realpathSync(resolved); }
+  catch { return resolved; }
+}
+
+function buildBridgeManualSendSessionPath(agentId, platform, chatId) {
+  return `bridge:${agentId}:${platform}:${chatId}`;
+}
+
+function isUnsupportedMediaDeliveryError(err) {
+  const message = String(err?.message || err || "");
+  return /暂不支持|不支持|unsupported|公网可访问 URL|cannot deliver/i.test(message);
+}
+
+function encodeRfc5987ValueChars(value) {
+  return encodeURIComponent(value)
+    .replace(/['()]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/\*/g, "%2A");
+}
+
+function isInlineBridgeMediaMime(mime) {
+  const value = String(mime || "").toLowerCase();
+  return value.startsWith("image/") || value.startsWith("video/");
 }

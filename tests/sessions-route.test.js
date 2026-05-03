@@ -275,6 +275,170 @@ describe("sessions route", () => {
     });
   });
 
+  it("refreshes session file lifecycle metadata when rebuilding history blocks", async () => {
+    const { createSessionsRoute } = await import("../server/routes/sessions.js");
+    const msgUtils = await import("../core/message-utils.js");
+    const app = new Hono();
+    const sessionPath = "/tmp/agents/hana/sessions/main.jsonl";
+
+    vi.mocked(msgUtils.extractTextContent)
+      .mockReturnValueOnce({ text: "I made a file", images: [], thinking: "", toolUses: [] });
+    vi.mocked(msgUtils.loadSessionHistoryMessages).mockResolvedValueOnce([
+      { role: "assistant", content: "I made a file" },
+      {
+        role: "toolResult",
+        toolName: "stage_files",
+        details: {
+          files: [
+            {
+              fileId: "sf_old",
+              filePath: "/cache/old.png",
+              label: "old.png",
+              ext: "png",
+              status: "available",
+            },
+          ],
+        },
+      },
+      {
+        role: "toolResult",
+        toolName: "create_artifact",
+        details: {
+          artifactId: "art-1",
+          type: "markdown",
+          title: "Plan",
+          content: "# Plan",
+          artifactFile: {
+            fileId: "sf_art",
+            filePath: "/cache/plan.md",
+            label: "Plan.md",
+            ext: "md",
+            status: "available",
+          },
+        },
+      },
+    ]);
+
+    const engine = {
+      agentsDir: "/tmp/agents",
+      currentSessionPath: sessionPath,
+      deferredResults: null,
+      getSessionFile: vi.fn((fileId, options) => {
+        expect(options).toEqual({ sessionPath });
+        if (fileId === "sf_old") {
+          return {
+            id: "sf_old",
+            filePath: "/cache/old.png",
+            label: "old.png",
+            ext: "png",
+            mime: "image/png",
+            kind: "image",
+            storageKind: "managed_cache",
+            status: "expired",
+            missingAt: 1234,
+          };
+        }
+        if (fileId === "sf_art") {
+          return {
+            id: "sf_art",
+            filePath: "/cache/plan.md",
+            label: "Plan.md",
+            ext: "md",
+            mime: "text/markdown",
+            kind: "markdown",
+            storageKind: "managed_cache",
+            status: "expired",
+            missingAt: 5678,
+          };
+        }
+        return null;
+      }),
+    };
+
+    app.route("/api", createSessionsRoute(engine));
+
+    const res = await app.request(`/api/sessions/messages?path=${encodeURIComponent(sessionPath)}`);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.blocks).toHaveLength(2);
+    expect(data.blocks[0]).toMatchObject({
+      type: "file",
+      fileId: "sf_old",
+      status: "expired",
+      missingAt: 1234,
+      mime: "image/png",
+      kind: "image",
+    });
+    expect(data.blocks[1]).toMatchObject({
+      type: "artifact",
+      fileId: "sf_art",
+      filePath: "/cache/plan.md",
+      status: "expired",
+      missingAt: 5678,
+      mime: "text/markdown",
+      kind: "markdown",
+    });
+  });
+
+  it("hydrates legacy file blocks without fileId from the session file sidecar by path", async () => {
+    const { createSessionsRoute } = await import("../server/routes/sessions.js");
+    const msgUtils = await import("../core/message-utils.js");
+    const app = new Hono();
+    const sessionPath = "/tmp/agents/hana/sessions/legacy.jsonl";
+
+    vi.mocked(msgUtils.extractTextContent)
+      .mockReturnValueOnce({ text: "legacy file", images: [], thinking: "", toolUses: [] });
+    vi.mocked(msgUtils.loadSessionHistoryMessages).mockResolvedValueOnce([
+      { role: "assistant", content: "legacy file" },
+      {
+        role: "toolResult",
+        toolName: "stage_files",
+        details: {
+          files: [
+            { filePath: "/cache/legacy.png", label: "legacy.png", ext: "png" },
+          ],
+        },
+      },
+    ]);
+
+    const engine = {
+      agentsDir: "/tmp/agents",
+      currentSessionPath: sessionPath,
+      deferredResults: null,
+      getSessionFile: vi.fn(),
+      getSessionFileByPath: vi.fn((filePath, options) => {
+        expect(filePath).toBe("/cache/legacy.png");
+        expect(options).toEqual({ sessionPath });
+        return {
+          id: "sf_legacy",
+          filePath,
+          label: "legacy.png",
+          ext: "png",
+          mime: "image/png",
+          kind: "image",
+          storageKind: "managed_cache",
+          status: "expired",
+          missingAt: 4321,
+        };
+      }),
+    };
+
+    app.route("/api", createSessionsRoute(engine));
+
+    const res = await app.request(`/api/sessions/messages?path=${encodeURIComponent(sessionPath)}`);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.blocks[0]).toMatchObject({
+      type: "file",
+      fileId: "sf_legacy",
+      filePath: "/cache/legacy.png",
+      status: "expired",
+      missingAt: 4321,
+    });
+  });
+
   it("prefers explicit executor metadata over owner-path inference", async () => {
     const { createSessionsRoute } = await import("../server/routes/sessions.js");
     const msgUtils = await import("../core/message-utils.js");

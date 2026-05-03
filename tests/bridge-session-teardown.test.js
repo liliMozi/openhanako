@@ -54,6 +54,7 @@ function makeAgent(rootDir, id = "agent-a") {
 
 function makeDeps(agent) {
   return {
+    getHanakoHome: () => rootDir,
     getAgent: () => agent,
     getAgentById: (id) => (id === agent.id ? agent : null),
     getAgents: () => new Map([[agent.id, agent]]),
@@ -67,6 +68,23 @@ function makeDeps(agent) {
     getPreferences: () => ({ thinking_level: "medium" }),
     buildTools: () => ({ tools: [], customTools: [] }),
     getHomeCwd: () => rootCwd,
+    registerSessionFile: vi.fn(({ sessionPath, filePath, label, origin, storageKind }) => ({
+      id: "sf_bridge_inbound",
+      fileId: "sf_bridge_inbound",
+      sessionPath,
+      filePath,
+      realPath: filePath,
+      displayName: label,
+      filename: path.basename(filePath),
+      label,
+      ext: "png",
+      mime: "image/png",
+      size: 4,
+      kind: "image",
+      origin,
+      storageKind,
+      createdAt: 1,
+    })),
   };
 }
 
@@ -114,6 +132,49 @@ describe("BridgeSessionManager teardown", () => {
     expect(emitSessionShutdownMock).toHaveBeenCalledWith(session);
     expect(session.dispose).toHaveBeenCalledOnce();
     expect(manager.activeSessions.has("bridge-k1")).toBe(false);
+  });
+
+  it("registers bridge inbound image files after the bridge session path exists", async () => {
+    const agent = makeAgent(rootDir);
+    const mgrPath = path.join(agent.sessionDir, "bridge", "owner", "s-inbound.jsonl");
+    const deps = makeDeps(agent);
+    const manager = new BridgeSessionManager(deps);
+    sessionManagerCreateMock.mockReturnValue({ getSessionFile: () => mgrPath });
+
+    const session = {
+      model: { input: ["text", "image"] },
+      prompt: vi.fn(async () => {}),
+      subscribe: vi.fn(() => () => {}),
+      dispose: vi.fn(),
+      sessionManager: { getSessionFile: () => mgrPath },
+    };
+    createAgentSessionMock.mockResolvedValue({ session });
+
+    await manager.executeExternalMessage("hello", "bridge-inbound", null, {
+      agentId: "agent-a",
+      images: [{ type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" }],
+      inboundFiles: [{
+        type: "image",
+        filename: "photo.png",
+        mimeType: "image/png",
+        buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      }],
+    });
+
+    expect(deps.registerSessionFile).toHaveBeenCalledWith({
+      sessionPath: mgrPath,
+      filePath: expect.stringContaining(path.join(rootDir, "session-files")),
+      label: "photo.png",
+      origin: "bridge_inbound",
+      storageKind: "managed_cache",
+    });
+    expect(session.prompt).toHaveBeenCalledWith(
+      `[attached_image: ${deps.registerSessionFile.mock.calls[0][0].filePath}]\nhello`,
+      expect.objectContaining({
+        images: [{ type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" }],
+        imageAttachmentPaths: [deps.registerSessionFile.mock.calls[0][0].filePath],
+      }),
+    );
   });
 
   it("abortSession releases a bridge session immediately when provider abort never settles", async () => {

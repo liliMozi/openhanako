@@ -20,6 +20,10 @@ import { createSlashSystem } from "../core/slash-commands/index.js";
 function createMocks({ session } = {}) {
   const s = session || {};
   const adapter = {
+    mediaCapabilities: {
+      inputModes: ["buffer", "remote_url", "public_url"],
+      supportedKinds: ["image", "video", "audio", "document"],
+    },
     sendReply: vi.fn().mockResolvedValue(),
     sendTypingIndicator: vi.fn().mockResolvedValue(),
     stop: vi.fn(),
@@ -75,7 +79,7 @@ describe("BridgeManager RC attached-session routing", () => {
     expect(hub.send).toHaveBeenCalledWith("帮我看看 foo 这个函数", expect.objectContaining({
       sessionPath: "/path/to/desk.jsonl",
       displayMessage: expect.objectContaining({ text: "帮我看看 foo 这个函数" }),
-      onDelta: expect.any(Function),
+      onDelta: undefined,
       uiContext: null,
     }));
     // 回复送回 TG（排除 "正在输入..." 之类的预热消息）
@@ -159,5 +163,78 @@ describe("BridgeManager RC attached-session routing", () => {
     await vi.advanceTimersByTimeAsync(2500);
 
     expect(adapterSendMedia).toHaveBeenCalledWith("owner123", "https://example.com/a.png");
+  });
+
+  it("streams attached desktop-session deltas through the same adapter delivery path", async () => {
+    const { bm, adapter, hub, engine, rcState } = createMocks();
+    engine.getBridgeReceiptEnabled = vi.fn(() => false);
+    adapter.streamingCapabilities = {
+      mode: "draft",
+      scopes: ["dm"],
+      minIntervalMs: 0,
+      maxChars: 4096,
+    };
+    adapter.sendDraft = vi.fn().mockResolvedValue();
+    hub.send.mockImplementation(async (_text, opts) => {
+      opts.onDelta("Desk", "Desk");
+      opts.onDelta(" reply", "Desk reply");
+      return { text: "Desk reply", toolMedia: [] };
+    });
+    rcState.attach("tg_dm_owner123@hana", "/s.jsonl");
+
+    bm._handleMessage("telegram", {
+      sessionKey: "tg_dm_owner123@hana",
+      text: "q",
+      userId: "owner123",
+      chatId: "owner123",
+      agentId: "hana",
+    });
+
+    await vi.advanceTimersByTimeAsync(2500);
+    await vi.waitFor(() => expect(adapter.sendReply).toHaveBeenCalledWith("owner123", "Desk reply"));
+
+    expect(adapter.sendDraft).toHaveBeenCalled();
+  });
+
+  it("mirrors desktop-originated user text and assistant reply back to the attached bridge session", async () => {
+    const { bm, adapter, rcState } = createMocks();
+    rcState.attach("tg_dm_owner123@hana", "/s.jsonl", {
+      platform: "telegram",
+      chatId: "owner123",
+      agentId: "hana",
+    });
+
+    await bm._handleRcMirrorEvent({
+      type: "session_user_message",
+      message: { text: "电脑端发起的问题", source: "desktop" },
+    }, "/s.jsonl");
+    await bm._handleRcMirrorEvent({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "桌面端" },
+    }, "/s.jsonl");
+    await bm._handleRcMirrorEvent({
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", delta: "回复" },
+    }, "/s.jsonl");
+    await bm._handleRcMirrorEvent({ type: "session_status", isStreaming: false }, "/s.jsonl");
+
+    expect(adapter.sendReply).toHaveBeenCalledWith("owner123", "电脑端用户：电脑端发起的问题");
+    expect(adapter.sendReply).toHaveBeenCalledWith("owner123", "桌面端回复");
+  });
+
+  it("does not mirror bridge_rc display messages back to the same bridge session", async () => {
+    const { bm, adapter, rcState } = createMocks();
+    rcState.attach("tg_dm_owner123@hana", "/s.jsonl", {
+      platform: "telegram",
+      chatId: "owner123",
+      agentId: "hana",
+    });
+
+    await bm._handleRcMirrorEvent({
+      type: "session_user_message",
+      message: { text: "远程消息", source: "bridge_rc" },
+    }, "/s.jsonl");
+
+    expect(adapter.sendReply).not.toHaveBeenCalled();
   });
 });

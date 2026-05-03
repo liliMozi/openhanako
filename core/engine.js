@@ -87,6 +87,7 @@ import { ComputerProviderRegistry } from "./computer-use/provider-registry.js";
 import { createMockComputerProvider } from "./computer-use/providers/mock-provider.js";
 import { createMacosCuaProvider } from "./computer-use/providers/macos-cua-provider.js";
 import { createWindowsUiaProvider } from "./computer-use/providers/windows-uia-provider.js";
+import { SessionFileRegistry } from "../lib/session-files/session-file-registry.js";
 
 export class HanaEngine {
   /**
@@ -102,6 +103,9 @@ export class HanaEngine {
     this.userDir = path.join(hanakoHome, "user");
     this.channelsDir = path.join(hanakoHome, "channels");
     fs.mkdirSync(this.channelsDir, { recursive: true });
+    this._sessionFiles = new SessionFileRegistry({
+      managedCacheRoot: path.join(hanakoHome, "session-files"),
+    });
 
     // ── Core managers ──
     this._prefs = new PreferencesManager({ userDir: this.userDir, agentsDir: this.agentsDir });
@@ -202,6 +206,8 @@ export class HanaEngine {
       getHomeCwd: (agentId) => this.getHomeCwd(agentId),
       getVisionBridge: () => this._visionBridge,
       isVisionAuxiliaryEnabled: () => this.isVisionAuxiliaryEnabled(),
+      getHanakoHome: () => this.hanakoHome,
+      registerSessionFile: (entry) => this.registerSessionFile(entry),
     });
 
     // ── Slash Command System ──
@@ -304,6 +310,17 @@ export class HanaEngine {
 
   get taskRegistry() {
     return this._taskRegistry;
+  }
+
+  registerSessionFile(entry) { return this._sessionFiles.registerFile(entry); }
+  getSessionFile(fileId, options) { return this._sessionFiles.get(fileId, options); }
+  getSessionFileByPath(filePath, options) { return this._sessionFiles.getByFilePath(filePath, options); }
+  listSessionFiles(sessionPath) { return this._sessionFiles.list(sessionPath); }
+  async cleanupColdSessionFiles(options) {
+    return this._sessionFiles.cleanupColdSessions({
+      agentsDir: this.agentsDir,
+      ...(options || {}),
+    });
   }
 
   setSubagentController(taskId, controller) { this._subagentControllers.set(taskId, controller); }
@@ -1021,6 +1038,7 @@ export class HanaEngine {
       preferencesManager: this._prefs,
       appVersion,
       getSessionPath: () => this.currentSessionPath,
+      registerSessionFile: (entry) => this.registerSessionFile(entry),
       slashRegistry: this._slashSystem?.registry ?? null,
     });
     this._pluginManager.scan();

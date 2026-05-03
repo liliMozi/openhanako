@@ -16,11 +16,18 @@ export const BLOCK_EXTRACTORS = {
     if (!files.length && details.filePath) {
       files.push({ filePath: details.filePath, label: details.label, ext: details.ext || "" });
     }
-    return files.map(f => ({ type: "file", filePath: f.filePath, label: f.label, ext: f.ext || "" }));
+    return files.map(f => ({
+      type: "file",
+      ...sessionFileFields(f),
+      filePath: f.filePath,
+      label: f.label,
+      ext: f.ext || "",
+    }));
   },
 
   create_artifact: (details) => {
     if (!details.content) return null;
+    const artifactFile = details.artifactFile || details.sessionFile || details.file || details;
     return [{
       type: "artifact",
       artifactId: details.artifactId,
@@ -28,11 +35,22 @@ export const BLOCK_EXTRACTORS = {
       title: details.title,
       content: details.content,
       language: details.language,
+      ...sessionFileFields(artifactFile),
     }];
   },
 
   browser: (details, toolResult) => {
     if (details.action !== "screenshot") return null;
+    const screenshotFile = details.screenshotFile || (details.fileId || details.id ? details : null);
+    if (screenshotFile) {
+      return [{
+        type: "file",
+        ...sessionFileFields(screenshotFile),
+        filePath: screenshotFile.filePath,
+        label: screenshotFile.label || screenshotFile.displayName || screenshotFile.filename || "browser screenshot",
+        ext: screenshotFile.ext || "png",
+      }];
+    }
     const imgBlock = toolResult?.content?.find(c => c.type === "image");
     const data = imgBlock?.data || details.thumbnail;
     if (!data) return null;
@@ -52,10 +70,13 @@ export const BLOCK_EXTRACTORS = {
 
   install_skill: (details) => {
     if (!details.skillName) return null;
+    const installedFile = details.installedFile || null;
     return [{
       type: "skill",
       skillName: details.skillName,
       skillFilePath: details.skillFilePath || "",
+      ...(installedFile?.fileId || installedFile?.id ? { fileId: installedFile.fileId || installedFile.id } : {}),
+      ...(installedFile ? { installedFile } : {}),
     }];
   },
 
@@ -142,6 +163,23 @@ function buildComputerAppApprovalBlock(confirmation) {
       rejectLabel: "拒绝",
     },
     payload: { approval },
+  };
+}
+
+function sessionFileFields(file) {
+  if (!file || typeof file !== "object") return {};
+  const fileId = file.fileId || file.id || null;
+  return {
+    ...(fileId ? { fileId } : {}),
+    ...(file.filePath ? { filePath: file.filePath } : {}),
+    ...(file.label ? { label: file.label } : {}),
+    ...(file.ext !== undefined ? { ext: file.ext } : {}),
+    ...(file.mime ? { mime: file.mime } : {}),
+    ...(file.kind ? { kind: file.kind } : {}),
+    ...(file.size !== undefined ? { size: file.size } : {}),
+    ...(file.storageKind ? { storageKind: file.storageKind } : {}),
+    ...(file.status ? { status: file.status } : {}),
+    ...(file.missingAt !== undefined ? { missingAt: file.missingAt } : {}),
   };
 }
 

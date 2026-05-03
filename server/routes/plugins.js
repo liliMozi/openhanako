@@ -6,6 +6,7 @@ import { extractZip } from "../../lib/extract-zip.js";
 import { resolveAgent } from "../utils/resolve-agent.js";
 import { fromRoot } from "../../shared/hana-root.js";
 import { DEFAULT_THEME } from "../../desktop/src/shared/theme-registry.cjs";
+import { registerSessionFileFromRequest } from "../../lib/session-files/session-file-response.js";
 
 /**
  * 代理分发：将 /plugins/:pluginId/* 的请求转发到对应 plugin 子 app。
@@ -100,11 +101,18 @@ export function createPluginsRoute(engine) {
   route.post("/plugins/install", async (c) => {
     const pm = engine.pluginManager;
     if (!pm) return c.json({ error: "Plugin manager not available" }, 500);
-    const { path: sourcePath } = await c.req.json();
+    const { path: sourcePath, sessionPath } = await c.req.json();
     if (!sourcePath) return c.json({ error: "path is required" }, 400);
 
     try {
       const stat = fs.statSync(sourcePath);
+      const sourceFile = registerSessionFileFromRequest(engine, {
+        sessionPath,
+        filePath: sourcePath,
+        label: path.basename(sourcePath),
+        origin: "plugin_install_source",
+        storageKind: "install_source",
+      });
       let targetDir;
       const userPluginsDir = pm.getUserPluginsDir();
       // Ensure plugins directory exists
@@ -145,7 +153,10 @@ export function createPluginsRoute(engine) {
 
       const entry = await pm.installPlugin(targetDir);
       engine.syncPluginExtensions();
-      return c.json(entry);
+      return c.json({
+        ...entry,
+        ...(sourceFile ? { sourceFile } : {}),
+      });
     } catch (err) {
       return c.json({ error: err.message }, 500);
     }

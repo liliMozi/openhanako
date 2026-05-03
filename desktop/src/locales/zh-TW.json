@@ -119,7 +119,8 @@
     "stop": "停止",
     "browserScreenshot": "瀏覽器截圖",
     "compacting": "上下文壓縮中",
-    "visionAuxiliary": "輔助視覺"
+    "visionAuxiliary": "輔助視覺",
+    "fileExpired": "檔案已過期"
   },
   "time": {
     "justNow": "剛剛",

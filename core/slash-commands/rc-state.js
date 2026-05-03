@@ -30,6 +30,10 @@ const PENDING_DEFAULT_TTL_MS = 5 * 60 * 1000;  // 5 分钟
  * @typedef {object} Attachment
  * @property {string} desktopSessionPath  被接管的桌面 session 绝对路径
  * @property {number} attachedAt  毫秒时间戳，用于排障
+ * @property {string|null} [platform]  来源 bridge 平台
+ * @property {string|null} [chatId]  回发目标 chatId
+ * @property {string|null} [agentId]  所属 agent
+ * @property {string|number|null} [messageThreadId]  平台 thread 标识
  */
 
 export class RcStateStore {
@@ -87,7 +91,7 @@ export class RcStateStore {
    * @param {string} sessionKey
    * @param {string} desktopSessionPath  桌面 session 的 jsonl 绝对路径
    */
-  attach(sessionKey, desktopSessionPath) {
+  attach(sessionKey, desktopSessionPath, meta = {}) {
     const current = this._attachment.get(sessionKey) ?? null;
     const holderSessionKey = this._attachedDesktopToBridge.get(desktopSessionPath) ?? null;
     if (holderSessionKey && holderSessionKey !== sessionKey) {
@@ -101,6 +105,10 @@ export class RcStateStore {
     const next = {
       desktopSessionPath,
       attachedAt: Date.now(),
+      platform: meta.platform || null,
+      chatId: meta.chatId || null,
+      agentId: meta.agentId || null,
+      messageThreadId: meta.messageThreadId || null,
     };
     this._attachment.set(sessionKey, next);
     this._attachedDesktopToBridge.set(desktopSessionPath, sessionKey);

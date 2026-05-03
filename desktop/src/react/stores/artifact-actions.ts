@@ -168,6 +168,14 @@ export function handleArtifact(data: Record<string, unknown>): void {
     title: data.title as string,
     content: data.content as string,
     language: data.language as string | undefined,
+    fileId: data.fileId as string | undefined,
+    filePath: data.filePath as string | undefined,
+    ext: data.ext as string | undefined,
+    mime: data.mime as string | undefined,
+    kind: data.kind as string | undefined,
+    storageKind: data.storageKind as string | undefined,
+    status: data.status as string | undefined,
+    missingAt: data.missingAt as number | null | undefined,
   };
   upsertArtifact(artifact);
 }

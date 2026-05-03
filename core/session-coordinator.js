@@ -327,7 +327,7 @@ After dispatching subagent or other background tasks:
     }
     const resourceLoader = Object.create(baseResourceLoader, resourceLoaderProps);
 
-    const toolSnapshotOptions = { forceMemoryEnabled: frozenMemoryEnabled };
+    const toolSnapshotOptions = { forceMemoryEnabled: frozenMemoryEnabled, model: effectiveModel };
     if (agentHasExperienceSwitch) {
       toolSnapshotOptions.forceExperienceEnabled = frozenExperienceEnabled;
     }
@@ -1678,6 +1678,7 @@ After dispatching subagent or other background tasks:
       const targetAgentToolsSnapshot = typeof targetAgent.getToolsSnapshot === "function"
         ? targetAgent.getToolsSnapshot({
           forceMemoryEnabled: targetAgent.memoryMasterEnabled !== false,
+          model: execModel,
           ...(typeof targetAgent.experienceEnabled === "boolean"
             ? { forceExperienceEnabled: targetAgent.experienceEnabled === true }
             : {}),

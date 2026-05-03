@@ -122,6 +122,8 @@ function attachmentsEqual(a: any, b: any): boolean {
     if (!!la.isDir !== !!rb.isDir) return false;
     if ((la.mimeType || '') !== (rb.mimeType || '')) return false;
     if ((la.base64Data || '') !== (rb.base64Data || '')) return false;
+    if ((la.status || '') !== (rb.status || '')) return false;
+    if ((la.missingAt ?? null) !== (rb.missingAt ?? null)) return false;
     if (!!la.visionAuxiliary !== !!rb.visionAuxiliary) return false;
   }
   return true;

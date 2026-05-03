@@ -18,6 +18,7 @@ import { t } from "../i18n.js";
 import { safeCopyDir } from "../../shared/safe-fs.js";
 import { resolveAgent } from "../utils/resolve-agent.js";
 import { validateId, agentExists } from "../utils/validation.js";
+import { registerSessionFileFromRequest } from "../../lib/session-files/session-file-response.js";
 
 /** 从 SKILL.md frontmatter 解析 name */
 function parseSkillName(skillMdPath) {
@@ -112,7 +113,7 @@ export function createSkillsRoute(engine) {
     return withInstallLock(async () => {
     try {
       const body = await safeJson(c);
-      const { path: srcPath } = body;
+      const { path: srcPath, sessionPath } = body;
       if (!srcPath || !path.isAbsolute(srcPath)) {
         return c.json({ error: t("error.skillNeedAbsolutePath") }, 400);
       }
@@ -120,6 +121,14 @@ export function createSkillsRoute(engine) {
       if (!fs.existsSync(srcPath)) {
         return c.json({ error: t("error.skillPathNotExists") }, 400);
       }
+
+      const sourceFile = registerSessionFileFromRequest(engine, {
+        sessionPath,
+        filePath: srcPath,
+        label: path.basename(srcPath),
+        origin: "skill_install_source",
+        storageKind: "install_source",
+      });
 
       const userDir = engine.userSkillsDir;
       const stat = fs.statSync(srcPath);
@@ -231,6 +240,7 @@ export function createSkillsRoute(engine) {
       return c.json({
         ok: true,
         skill: skill || { name: safeName, type: "user" },
+        ...(sourceFile ? { sourceFile } : {}),
       });
     } catch (err) {
       console.error("[skills] install failed:", err);

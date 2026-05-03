@@ -70,7 +70,7 @@ export function MediaTab() {
         <div className={styles['pv-layout']}>
           {/* Left: Provider list */}
           <div className={styles['pv-list']}>
-            <div className={styles['pv-list-section-title']}>{t('settings.media.imageGeneration')}</div>
+            <div className={styles['pv-list-group-label']}>{t('settings.media.imageGeneration')}</div>
             {providerIds.map(pid => {
               const p = providers[pid];
               return (
@@ -88,7 +88,7 @@ export function MediaTab() {
 
             {/* Placeholder sections for future capabilities */}
             <div className={styles['pv-list-divider']} />
-            <div className={styles['pv-list-section-title']} style={{ color: 'var(--text-muted)' }}>
+            <div className={styles['pv-list-group-label']} style={{ color: 'var(--text-muted)' }}>
               {t('settings.media.speechRecognition')}
             </div>
             <div className={styles['pv-list-item']} style={{ opacity: 0.3, pointerEvents: 'none' }}>
@@ -99,7 +99,7 @@ export function MediaTab() {
             </div>
 
             <div className={styles['pv-list-divider']} />
-            <div className={styles['pv-list-section-title']} style={{ color: 'var(--text-muted)' }}>
+            <div className={styles['pv-list-group-label']} style={{ color: 'var(--text-muted)' }}>
               {t('settings.media.speechSynthesis')}
             </div>
             <div className={styles['pv-list-item']} style={{ opacity: 0.3, pointerEvents: 'none' }}>

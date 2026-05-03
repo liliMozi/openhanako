@@ -78,7 +78,7 @@ export function AgentDeleteOverlay() {
         ) : (
           <div className={styles['agent-delete-step']}>
             <h3 className={styles['agent-delete-title']}>{t('settings.agent.deleteTitle2', { name: target.name })}</h3>
-            <div className={styles['settings-field']}>
+            <div className={styles['settings-form-field']}>
               <input
                 ref={inputRef}
                 className={`${styles['settings-input']} ${styles['agent-delete-input']}`}

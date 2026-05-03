@@ -20,11 +20,14 @@ export interface ToolCall {
 // ── 用户附件 ──
 
 export interface UserAttachment {
+  fileId?: string;
   path: string;
   name: string;
   isDir: boolean;
   base64Data?: string;
   mimeType?: string;
+  status?: 'available' | 'expired' | string;
+  missingAt?: number | null;
   visionAuxiliary?: boolean;
 }
 
@@ -64,10 +67,10 @@ export type TextDecorator =
 
 // 物种 B：富内容块（通过 content_block 事件 push，不 upsert）
 export type RichBlock =
-  | { type: 'file'; filePath: string; label: string; ext: string }
-  | { type: 'artifact'; artifactId: string; artifactType: string; title: string; content: string; language?: string }
+  | { type: 'file'; fileId?: string; filePath: string; label: string; ext: string; mime?: string; kind?: string; storageKind?: string; status?: 'available' | 'expired' | string; missingAt?: number | null }
+  | { type: 'artifact'; artifactId: string; artifactType: string; title: string; content: string; language?: string | null; fileId?: string; filePath?: string; label?: string; ext?: string; mime?: string; kind?: string; storageKind?: string; status?: 'available' | 'expired' | string; missingAt?: number | null }
   | { type: 'screenshot'; base64: string; mimeType: string }
-  | { type: 'skill'; skillName: string; skillFilePath: string }
+  | { type: 'skill'; skillName: string; skillFilePath: string; fileId?: string; installedFile?: Record<string, unknown> }
   | { type: 'cron_confirm'; confirmId?: string; jobData: Record<string, unknown>; status: 'pending' | 'approved' | 'rejected' }
   | { type: 'settings_confirm'; confirmId?: string; settingKey: string; cardType: 'toggle' | 'list' | 'text'; currentValue: string; proposedValue: string; options?: string[]; optionLabels?: Record<string, string>; label: string; description?: string; frontend?: boolean; status: 'pending' | 'confirmed' | 'rejected' | 'timeout' }
   | SessionConfirmationBlock

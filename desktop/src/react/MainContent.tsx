@@ -20,7 +20,7 @@ declare function t(key: string, vars?: Record<string, string | number>): string;
 
 // ── 拖拽附件 drop handler（从 bridge.ts appInput shim 迁移） ──
 
-async function installSkillFile(filePath: string): Promise<void> {
+async function installSkillFile(filePath: string, sessionPath?: string | null): Promise<void> {
   try {
     const agentId = useStore.getState().currentAgentId || '';
     if (!agentId) {
@@ -33,7 +33,7 @@ async function installSkillFile(filePath: string): Promise<void> {
     const res = await hanaFetch(`/api/skills/install?agentId=${encodeURIComponent(agentId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: filePath }),
+      body: JSON.stringify({ path: filePath, ...(sessionPath ? { sessionPath } : {}) }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -65,7 +65,8 @@ export async function attachFilesFromPaths(
   const skillPaths = srcPaths.filter(p => /\.skill$/i.test(p));
   if (skillPaths.length) {
     srcPaths = srcPaths.filter(p => !skillPaths.includes(p));
-    for (const p of skillPaths) installSkillFile(p);
+    const sessionPath = useStore.getState().currentSessionPath || null;
+    for (const p of skillPaths) installSkillFile(p, sessionPath);
     if (srcPaths.length === 0) return;
   }
 
@@ -93,16 +94,18 @@ export async function attachFilesFromPaths(
   if (srcPaths.length === 0) return;
 
   try {
+    const sessionPath = useStore.getState().currentSessionPath || null;
     const res = await hanaFetch('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paths: srcPaths }),
+      body: JSON.stringify({ paths: srcPaths, ...(sessionPath ? { sessionPath } : {}) }),
     });
     const data = await res.json();
     const failed: string[] = [];
     for (const item of data.uploads || []) {
       if (item.dest) {
         useStore.getState().addAttachedFile({
+          fileId: item.fileId,
           path: item.dest,
           name: item.name,
           isDirectory: item.isDirectory || false,

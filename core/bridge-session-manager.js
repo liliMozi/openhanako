@@ -15,6 +15,8 @@ import { safeReadJSON } from "../shared/safe-fs.js";
 import { findModel } from "../shared/model-ref.js";
 import { teardownSessionResources } from "./session-teardown.js";
 import { requireVisionAuxiliaryEnabled } from "./vision-auxiliary-policy.js";
+import { collectMediaItems } from "../lib/tools/media-details.js";
+import { materializeBridgeInboundFiles } from "../lib/session-files/bridge-inbound-files.js";
 
 function getSteerPrefix() {
   const isZh = getLocale().startsWith("zh");
@@ -326,6 +328,28 @@ export class BridgeSessionManager {
       sessionPathRef.current = activeSessionPath;
       this._activeSessions.set(sessionKey, session);
 
+      if (opts.inboundFiles?.length && !activeSessionPath) {
+        throw new Error("bridge inbound files require a resolved sessionPath");
+      }
+      if (opts.inboundFiles?.length && activeSessionPath) {
+        const materialized = await materializeBridgeInboundFiles({
+          hanakoHome: this._deps.getHanakoHome?.(),
+          sessionPath: activeSessionPath,
+          files: opts.inboundFiles,
+          registerSessionFile: this._deps.registerSessionFile,
+        });
+        if (materialized.imageAttachmentPaths.length) {
+          promptText = addAttachedImageMarkers(promptText, materialized.imageAttachmentPaths);
+          opts = {
+            ...opts,
+            imageAttachmentPaths: [
+              ...(opts.imageAttachmentPaths || []),
+              ...materialized.imageAttachmentPaths,
+            ],
+          };
+        }
+      }
+
       // 捕获文本输出
       let capturedText = "";
       const unsub = session.subscribe((event) => {
@@ -337,10 +361,7 @@ export class BridgeSessionManager {
             try { opts.onDelta?.(delta, capturedText); } catch {}
           }
         } else if (event.type === "tool_execution_end" && !event.isError) {
-          const media = event.result?.details?.media;
-          if (media?.mediaUrls?.length) {
-            toolMediaUrls.push(...media.mediaUrls);
-          }
+          toolMediaUrls.push(...collectMediaItems(event.result?.details?.media));
           const card = event.result?.details?.card;
           if (card?.description) {
             capturedText += (capturedText ? "\n\n" : "") + card.description;
@@ -369,7 +390,9 @@ export class BridgeSessionManager {
           promptText = prepared.text;
           opts = { ...opts, images: prepared.images };
         }
-        const promptOpts = opts.images?.length ? { images: opts.images } : undefined;
+        const promptOpts = opts.images?.length
+          ? { images: opts.images, ...(opts.imageAttachmentPaths?.length ? { imageAttachmentPaths: opts.imageAttachmentPaths } : {}) }
+          : undefined;
         await session.prompt(promptText, promptOpts);
       } finally {
         await teardownSessionResources({
@@ -622,4 +645,13 @@ export class BridgeSessionManager {
   _createSettings(model) {
     return createDefaultSettings();
   }
+}
+
+function addAttachedImageMarkers(text, imageAttachmentPaths) {
+  let promptText = text || "";
+  const missing = Array.from(new Set(imageAttachmentPaths || []))
+    .filter((filePath) => filePath && !promptText.includes(`[attached_image: ${filePath}]`));
+  if (!missing.length) return promptText;
+  const markerText = missing.map((filePath) => `[attached_image: ${filePath}]`).join("\n");
+  return promptText ? `${markerText}\n${promptText}` : markerText;
 }

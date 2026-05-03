@@ -37,6 +37,10 @@ import { createStopTaskTool } from "../lib/tools/stop-task-tool.js";
 import { runCompatChecks } from "../lib/compat/index.js";
 import { getPlatformPromptNote } from "./platform-prompt.js";
 
+function isExplicitTextOnlyModel(model) {
+  return Array.isArray(model?.input) && !model.input.includes("image");
+}
+
 export class Agent {
   /**
    * @param {object} opts
@@ -102,6 +106,7 @@ export class Agent {
     this._artifactTool = null;
     this._channelTool = null;
     this._browserTool = null;
+    this._browserToolNoScreenshot = null;
     this._computerUseTool = null;
     this._notifyTool = null;
     this._stopTaskTool = null;
@@ -300,8 +305,15 @@ export class Agent {
       emitEvent: (event, sp) => { if (sp) this._cb?.emitEvent?.(event, sp); },
       getSessionPath: () => this._cb?.getCurrentSessionPath?.(),
     });
-    this._stageFilesTool = createStageFilesTool();
-    this._artifactTool = createArtifactTool();
+    this._stageFilesTool = createStageFilesTool({
+      registerSessionFile: (entry) => this._cb?.registerSessionFile?.(entry),
+      getSessionPath: () => this._cb?.getCurrentSessionPath?.(),
+    });
+    this._artifactTool = createArtifactTool({
+      getHanakoHome: () => this._cb?.getEngine?.()?.hanakoHome,
+      registerSessionFile: (entry) => this._cb?.registerSessionFile?.(entry),
+      getSessionPath: () => this._cb?.getCurrentSessionPath?.(),
+    });
     this._browserTool = createBrowserTool(() => this._cb?.getCurrentSessionPath?.(), {
       getSessionModel: (sessionPath) => {
         const engine = this._cb?.getEngine?.();
@@ -309,6 +321,19 @@ export class Agent {
       },
       getVisionBridge: () => this._cb?.getEngine?.()?.getVisionBridge?.() || null,
       isVisionAuxiliaryEnabled: () => this._cb?.getEngine?.()?.isVisionAuxiliaryEnabled?.() === true,
+      getHanakoHome: () => this._cb?.getEngine?.()?.hanakoHome,
+      registerSessionFile: (entry) => this._cb?.registerSessionFile?.(entry),
+    });
+    this._browserToolNoScreenshot = createBrowserTool(() => this._cb?.getCurrentSessionPath?.(), {
+      getSessionModel: (sessionPath) => {
+        const engine = this._cb?.getEngine?.();
+        return engine?.getSessionByPath?.(sessionPath)?.model || null;
+      },
+      getVisionBridge: () => this._cb?.getEngine?.()?.getVisionBridge?.() || null,
+      isVisionAuxiliaryEnabled: () => this._cb?.getEngine?.()?.isVisionAuxiliaryEnabled?.() === true,
+      getHanakoHome: () => this._cb?.getEngine?.()?.hanakoHome,
+      registerSessionFile: (entry) => this._cb?.registerSessionFile?.(entry),
+      screenshotEnabled: false,
     });
     this._computerUseTool = createComputerUseTool({
       getComputerHost: () => this._cb?.getEngine?.()?.getComputerHost?.() || null,
@@ -421,6 +446,7 @@ export class Agent {
       onInstalled: async (skillName) => {
         await this._onInstallCallback?.(skillName);
       },
+      registerSessionFile: (entry) => this._cb?.registerSessionFile?.(entry),
     });
 
     // 11. subagent 工具
@@ -569,6 +595,9 @@ export class Agent {
     const computerUseTools = this._isComputerUseAvailableForThisAgent()
       ? [this._computerUseTool]
       : [];
+    const browserTool = isExplicitTextOnlyModel(options.model)
+      ? this._browserToolNoScreenshot
+      : this._browserTool;
     return [
       ...memTools,
       ...experienceTools,
@@ -580,7 +609,7 @@ export class Agent {
       this._artifactTool,
       this._channelTool,
       this._dmTool,
-      this._browserTool,
+      browserTool,
       ...computerUseTools,
       this._installSkillTool,
       this._notifyTool,

@@ -120,7 +120,8 @@
     "stop": "Stop",
     "browserScreenshot": "Browser screenshot",
     "compacting": "Compacting context",
-    "visionAuxiliary": "Vision auxiliary"
+    "visionAuxiliary": "Vision auxiliary",
+    "fileExpired": "File expired"
   },
   "time": {
     "justNow": "Just now",

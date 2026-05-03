@@ -61,8 +61,8 @@ export function OwnerSelect({ platform, users, currentOwner, onChange }: OwnerSe
   const cancel = () => setPendingUserId(null);
 
   return (
-    <div className={`${styles['settings-field']} ${'bridge-owner-field'}`}>
-      <label className={`${styles['settings-field-label']} ${'bridge-owner-label'}`}>{t('settings.bridge.ownerSelect')}</label>
+    <div className={`${styles['settings-form-field']} ${'bridge-owner-field'}`}>
+      <label className={`${styles['settings-form-label']} ${'bridge-owner-label'}`}>{t('settings.bridge.ownerSelect')}</label>
       <p className="bridge-owner-warning">{t('settings.bridge.ownerWarning')}</p>
       <select
         className={`${styles['settings-input']} ${'bridge-owner-select'}`}

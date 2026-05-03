@@ -47,6 +47,7 @@ export class GuestHandler {
       onDelta: opts.onDelta,
       images: opts.images,
       imageAttachmentPaths: opts.imageAttachmentPaths,
+      inboundFiles: opts.inboundFiles,
     });
   }
 }

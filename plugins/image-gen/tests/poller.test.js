@@ -83,6 +83,7 @@ function makePoller(overrides = {}) {
     bus: mockBus,
     generatedDir: "/tmp/image-gen-generated",
     log,
+    registerSessionFile: overrides.registerSessionFile,
   });
 
   return { poller, mockStore, mockBus, mockRegistry, mockAdapter, log };
@@ -236,6 +237,72 @@ describe("Poller", () => {
       expect.objectContaining({ taskId: "task1", files: ["abc.png", "def.png"] })
     );
     expect(poller.hasPending("task1")).toBe(false);
+
+    poller.stop();
+  });
+
+  it("registers completed generated files as session files when the task has a sessionPath", async () => {
+    const registerSessionFile = vi.fn(({ sessionPath, filePath, label, origin, storageKind }) => ({
+      id: "sf_generated",
+      fileId: "sf_generated",
+      sessionPath,
+      filePath,
+      label,
+      origin,
+      storageKind,
+    }));
+    const mockAdapter = makeAdapter({
+      query: vi.fn(async () => ({
+        status: "success",
+        files: ["abc.png"],
+      })),
+    });
+    const { poller, mockStore, mockBus } = makePoller({
+      adapter: mockAdapter,
+      registerSessionFile,
+    });
+
+    mockStore.get.mockReturnValue({
+      taskId: "task1",
+      adapterId: "test-adapter",
+      status: "pending",
+      files: [],
+      sessionPath: "/sessions/image-gen.jsonl",
+      createdAt: new Date().toISOString(),
+    });
+
+    poller.start();
+    poller.add("task1");
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(registerSessionFile).toHaveBeenCalledWith({
+      sessionPath: "/sessions/image-gen.jsonl",
+      filePath: "/tmp/image-gen-generated/abc.png",
+      label: "abc.png",
+      origin: "plugin_output",
+      storageKind: "plugin_data",
+    });
+    expect(mockStore.update).toHaveBeenCalledWith(
+      "task1",
+      expect.objectContaining({
+        sessionFiles: [expect.objectContaining({
+          fileId: "sf_generated",
+          sessionPath: "/sessions/image-gen.jsonl",
+          filePath: "/tmp/image-gen-generated/abc.png",
+          storageKind: "plugin_data",
+          origin: "plugin_output",
+        })],
+      }),
+    );
+    expect(mockBus.request).toHaveBeenCalledWith(
+      "deferred:resolve",
+      expect.objectContaining({
+        taskId: "task1",
+        files: ["abc.png"],
+        sessionFiles: [expect.objectContaining({ fileId: "sf_generated" })],
+      }),
+    );
 
     poller.stop();
   });

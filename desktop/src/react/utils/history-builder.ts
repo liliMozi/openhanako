@@ -26,7 +26,7 @@ export interface HistoryApiResponse {
   // COMPAT(v0.98): 以下三个老字段在新服务端不再返回，v0.98 后可删
   fileOutputs?: Array<{
     afterIndex: number;
-    files: Array<{ filePath: string; label: string; ext: string }>;
+    files: Array<{ fileId?: string; filePath: string; label: string; ext: string; mime?: string; kind?: string; storageKind?: string; status?: string; missingAt?: number | null }>;
   }>;
   artifacts?: Array<{
     afterIndex: number;
@@ -35,6 +35,15 @@ export interface HistoryApiResponse {
     title: string;
     content: string;
     language?: string;
+    fileId?: string;
+    filePath?: string;
+    label?: string;
+    ext?: string;
+    mime?: string;
+    kind?: string;
+    storageKind?: string;
+    status?: string;
+    missingAt?: number | null;
   }>;
   cards?: Array<{
     afterIndex: number;
@@ -59,11 +68,12 @@ function normalizeBlocks(data: HistoryApiResponse): Array<any> {
   const blocks: Array<any> = [];
   for (const fo of (data.fileOutputs || [])) {
     for (const f of fo.files) {
-      blocks.push({ type: 'file', afterIndex: fo.afterIndex, filePath: f.filePath, label: f.label, ext: f.ext });
+      blocks.push({ type: 'file', afterIndex: fo.afterIndex, ...f });
     }
   }
   for (const ar of (data.artifacts || [])) {
-    blocks.push({ type: 'artifact', afterIndex: ar.afterIndex, artifactId: ar.artifactId, artifactType: ar.artifactType, title: ar.title, content: ar.content, language: ar.language });
+    const { afterIndex, ...artifact } = ar;
+    blocks.push({ type: 'artifact', afterIndex, ...artifact });
   }
   for (const cd of (data.cards || [])) {
     blocks.push({ type: 'plugin_card', afterIndex: cd.afterIndex, card: { ...cd.card, type: cd.card.type || 'iframe' } });
@@ -146,7 +156,6 @@ export function buildItemsFromHistory(data: HistoryApiResponse): ChatListItem[] 
           path: ref.path,
           name: ref.name,
           isDir: false,
-          base64Data: img?.data,
           mimeType: img?.mimeType,
           visionAuxiliary: !img,
         };

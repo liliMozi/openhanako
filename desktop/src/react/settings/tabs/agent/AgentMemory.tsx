@@ -45,7 +45,7 @@ export function MemorySection({ hasUtilityModel, memoryEnabled, isViewingOther, 
     <SettingsSection title={t('settings.memory.sectionTitle')} context={memoryToggle}>
       <div style={{ padding: 'var(--space-sm) var(--space-md)' }}>
         {!hasUtilityModel && (
-          <p className={styles['settings-hint']} style={{ opacity: 0.6, marginTop: 0, marginBottom: 'var(--space-md)' }}>{t('settings.memory.needsUtilityModel')}</p>
+          <p className={styles['settings-inline-note']} style={{ opacity: 0.6, marginTop: 0, marginBottom: 'var(--space-md)' }}>{t('settings.memory.needsUtilityModel')}</p>
         )}
 
         <div className={!hasUtilityModel || !memoryEnabled ? 'settings-disabled' : ''}>

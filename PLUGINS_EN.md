@@ -142,7 +142,7 @@ export const description = "...";       // required
 export const parameters = { ... };      // JSON Schema, optional
 export async function execute(input, toolCtx) {  // required
   // input: user-provided parameters
-  // toolCtx: { pluginId, pluginDir, dataDir, bus, config, log }
+  // toolCtx: { pluginId, pluginDir, dataDir, sessionPath, bus, config, log, registerSessionFile }
   return "result";
 }
 ```
@@ -152,18 +152,36 @@ export async function execute(input, toolCtx) {  // required
 
 #### Media Delivery
 
-When a tool needs to deliver files, declare `media` in the return value's `details`:
+When a tool needs to deliver files, first register the local file as a `SessionFile` for the current session, then reference it from `details.media.items`:
 
 ```js
+const file = toolCtx.registerSessionFile({
+  sessionPath: toolCtx.sessionPath,
+  filePath: "/path/to/image.png",
+  label: "image.png",
+  origin: "plugin_output",
+});
+
 return {
   content: [{ type: "text", text: "Image generated" }],
   details: {
-    media: { mediaUrls: ["/path/to/image.png"] },
+    media: {
+      items: [{ type: "session_file", fileId: file.fileId }],
+    },
   },
 };
 ```
 
-The framework automatically extracts `details.media.mediaUrls` and delivers them according to context (desktop renders file cards, bridge sends to the other party). The tool itself doesn't need to be aware of the runtime environment.
+The framework automatically extracts `details.media` and delivers files according to context: desktop renders file cards, Bridge sends through the target platform, and future mobile surfaces can consume the same `SessionFile` identity. The new protocol prefers structured `session_file` entries in `details.media.items`; `mediaUrls` remains only as a compatibility field for old tools and is not recommended for new plugins.
+
+When a plugin produces local files directly, call `ctx.registerSessionFile({ sessionPath, filePath, label, origin: "plugin_output" })` to attach them to the current session. `sessionPath` is explicit and `filePath` must be absolute. Hana records these files as `storageKind: "plugin_data"`, so they are treated as plugin data or generated output and are not removed by the session temporary-cache cleaner. Plugins should not assign temporary-cache lifecycle to arbitrary local paths; that lifecycle belongs to the framework.
+
+Boundaries:
+
+- Plugin-generated files: `origin: "plugin_output"`, `storageKind: "plugin_data"`
+- User uploads, Bridge inbound attachments, browser screenshots, and Agent artifacts are registered by the framework as `managed_cache`
+- Install sources such as `.skill`, plugin folders, or zip files are registered by install routes as `install_source`
+- Cards own interactive presentation; files remain resources. If a card needs a file, reference the `SessionFile` instead of embedding file bytes in the card payload
 
 #### Visual Cards
 
@@ -189,6 +207,7 @@ return {
 - `pluginId` is auto-injected by the framework; tools don't need to set it
 - Cards render immediately when the tool completes, independent of LLM behavior
 - Card data is stored in JSONL with the toolResult and auto-restored on session reload
+- Cards can be adapted by Bridge or future mobile clients, while their related files still restore through the `SessionFile` lifecycle
 
 ### Skills (Knowledge Injection)
 

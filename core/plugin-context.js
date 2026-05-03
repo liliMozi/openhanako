@@ -1,11 +1,12 @@
 import fs from "fs";
 import path from "path";
+import { serializeSessionFile } from "../lib/session-files/session-file-response.js";
 
 /**
  * Create a PluginContext for a plugin.
- * @param {{ pluginId: string, pluginDir: string, dataDir: string, bus: object, accessLevel?: "full-access" | "restricted" }} opts
+ * @param {{ pluginId: string, pluginDir: string, dataDir: string, bus: object, accessLevel?: "full-access" | "restricted", registerSessionFile?: Function }} opts
  */
-export function createPluginContext({ pluginId, pluginDir, dataDir, bus, accessLevel }) {
+export function createPluginContext({ pluginId, pluginDir, dataDir, bus, accessLevel, registerSessionFile: registerSessionFileImpl }) {
   const configPath = path.join(dataDir, "config.json");
 
   const config = {
@@ -43,5 +44,24 @@ export function createPluginContext({ pluginId, pluginDir, dataDir, bus, accessL
     debug: (...args) => console.debug(prefix, ...args),
   };
 
-  return { pluginId, pluginDir, dataDir, bus: pluginBus, config, log };
+  function registerSessionFile(entry = {}) {
+    if (typeof registerSessionFileImpl !== "function") {
+      throw new Error("plugin session file registry unavailable");
+    }
+    const { sessionPath, filePath, label, origin = "plugin_output" } = entry;
+    const storageKind = origin === "plugin_output" ? "plugin_data" : "external";
+    if (!sessionPath) throw new Error("plugin registerSessionFile requires sessionPath");
+    if (!filePath || !path.isAbsolute(filePath)) {
+      throw new Error("plugin registerSessionFile requires an absolute filePath");
+    }
+    return serializeSessionFile(registerSessionFileImpl({
+      sessionPath,
+      filePath,
+      label,
+      origin,
+      storageKind,
+    }));
+  }
+
+  return { pluginId, pluginDir, dataDir, bus: pluginBus, config, log, registerSessionFile };
 }

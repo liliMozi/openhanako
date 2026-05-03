@@ -38,17 +38,19 @@ export class Poller {
    * @param {{
    *   store: import("./task-store.js").TaskStore,
    *   registry: import("./adapter-registry.js").AdapterRegistry,
-   *   bus: object,
-   *   generatedDir: string,
-   *   log: object,
-   * }} opts
-   */
-  constructor({ store, registry, bus, generatedDir, log }) {
+ *   bus: object,
+ *   generatedDir: string,
+ *   log: object,
+ *   registerSessionFile?: Function,
+ * }} opts
+ */
+  constructor({ store, registry, bus, generatedDir, log, registerSessionFile }) {
     this._store        = store;
     this._registry     = registry;
     this._bus          = bus;
     this._generatedDir = generatedDir;
     this._log          = log;
+    this._registerSessionFile = registerSessionFile || null;
 
     /** @type {Set<string>} taskIds being tracked */
     this._active    = new Set();
@@ -151,6 +153,27 @@ export class Poller {
       : { imageWidth: null, imageHeight: null };
   }
 
+  _registerGeneratedFiles(task, files) {
+    if (!this._registerSessionFile || !task?.sessionPath || !files?.length) return [];
+    const sessionFiles = [];
+    for (const file of files) {
+      const filePath = pathJoin(this._generatedDir, file);
+      try {
+        const sessionFile = this._registerSessionFile({
+          sessionPath: task.sessionPath,
+          filePath,
+          label: file,
+          origin: "plugin_output",
+          storageKind: "plugin_data",
+        });
+        if (sessionFile) sessionFiles.push(sessionFile);
+      } catch (err) {
+        this._log.error(`[image-gen] register generated file failed for ${file}:`, err?.message || err);
+      }
+    }
+    return sessionFiles;
+  }
+
   _tick() {
     this._tickCount += 1;
     const tick = this._tickCount;
@@ -190,14 +213,20 @@ export class Poller {
     // Fake-async: adapter populated files synchronously during submit.
     if (task.files && task.files.length > 0) {
       const dims = await this._readImageDimensions(task.files);
+      const sessionFiles = this._registerGeneratedFiles(task, task.files);
       this._store.update(taskId, {
         status: "done",
         ...dims,
+        ...(sessionFiles.length ? { sessionFiles } : {}),
         completedAt: new Date().toISOString(),
       });
       this._active.delete(taskId);
       this._bus.request("task:remove", { taskId }).catch(() => {});
-      await this._bus.request("deferred:resolve", { taskId, files: task.files });
+      await this._bus.request("deferred:resolve", {
+        taskId,
+        files: task.files,
+        ...(sessionFiles.length ? { sessionFiles } : {}),
+      });
       return;
     }
 
@@ -255,15 +284,21 @@ export class Poller {
     if (status === "success") {
       const files = result.files ?? [];
       const dims = await this._readImageDimensions(files);
+      const sessionFiles = this._registerGeneratedFiles(task, files);
       this._store.update(taskId, {
         status: "done",
         files,
+        ...(sessionFiles.length ? { sessionFiles } : {}),
         ...dims,
         completedAt: new Date().toISOString(),
       });
       this._active.delete(taskId);
       this._bus.request("task:remove", { taskId }).catch(() => {});
-      await this._bus.request("deferred:resolve", { taskId, files });
+      await this._bus.request("deferred:resolve", {
+        taskId,
+        files,
+        ...(sessionFiles.length ? { sessionFiles } : {}),
+      });
       return;
     }
 

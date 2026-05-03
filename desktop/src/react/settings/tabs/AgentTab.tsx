@@ -174,7 +174,7 @@ export function AgentTab() {
           onAdd={() => window.dispatchEvent(new Event('hana-show-agent-create'))}
         />
 
-        <div className={`${styles['settings-field']} ${styles['settings-field-center']}`}>
+        <div className={`${styles['settings-form-field']} ${styles['settings-form-field-center']}`}>
           <input
             className={styles['agent-name-input']}
             type="text"
@@ -183,7 +183,7 @@ export function AgentTab() {
             onChange={(e) => setAgentName(e.target.value)}
           />
         </div>
-        <div className={`${styles['settings-field']} ${styles['settings-field-center']}`}>
+        <div className={`${styles['settings-form-field']} ${styles['settings-form-field-center']}`}>
           <div className={styles['model-capsule']}>
             <span className={styles['model-capsule-label']}>{t('settings.agent.chatModel')}</span>
             <SelectWidget
@@ -204,7 +204,7 @@ export function AgentTab() {
               placeholder={t('settings.api.selectModel')}
             />
           </div>
-          <span className={styles['settings-field-hint']}>{t('settings.agent.chatModelHint')}</span>
+          <span className={styles['settings-form-hint']}>{t('settings.agent.chatModelHint')}</span>
         </div>
         {/* 图片模型选择器暂时隐藏，后续重新设计 */}
       </section>
@@ -212,8 +212,8 @@ export function AgentTab() {
       {/* 关于 Ta（保持原样，不改） */}
       <section className={styles['settings-section']}>
         <h2 className={styles['settings-section-title']}>{t('settings.about.title')}</h2>
-        <div className={`${styles['settings-field']} ${styles['settings-field-center']}`}>
-          <span className={styles['settings-field-hint']}>{t('settings.agent.yuanHint')}</span>
+        <div className={`${styles['settings-form-field']} ${styles['settings-form-field-center']}`}>
+          <span className={styles['settings-form-hint']}>{t('settings.agent.yuanHint')}</span>
           <YuanSelector
             currentYuan={currentYuan}
             onChange={async (key) => {
@@ -233,8 +233,8 @@ export function AgentTab() {
             }}
           />
         </div>
-        <div className={styles['settings-field']}>
-          <label className={styles['settings-field-label']}>{t('settings.agent.identity')}</label>
+        <div className={styles['settings-form-field']}>
+          <label className={styles['settings-form-label']}>{t('settings.agent.identity')}</label>
           <textarea
             className={styles['settings-textarea']}
             rows={3}
@@ -242,10 +242,10 @@ export function AgentTab() {
             value={identity}
             onChange={(e) => setIdentity(e.target.value)}
           />
-          <span className={styles['settings-field-hint']}>{t('settings.agent.identityHint')}</span>
+          <span className={styles['settings-form-hint']}>{t('settings.agent.identityHint')}</span>
         </div>
-        <div className={styles['settings-field']}>
-          <label className={styles['settings-field-label']}>{t('settings.agent.ishiki')}</label>
+        <div className={styles['settings-form-field']}>
+          <label className={styles['settings-form-label']}>{t('settings.agent.ishiki')}</label>
           <textarea
             className={styles['settings-textarea']}
             rows={10}
@@ -253,9 +253,9 @@ export function AgentTab() {
             value={ishiki}
             onChange={(e) => setIshiki(e.target.value)}
           />
-          <span className={styles['settings-field-hint']}>{t('settings.agent.ishikiHint')}</span>
+          <span className={styles['settings-form-hint']}>{t('settings.agent.ishikiHint')}</span>
         </div>
-        <div className={styles['settings-field']} style={{ display: 'flex', justifyContent: 'center' }}>
+        <div className={styles['settings-form-field']} style={{ display: 'flex', justifyContent: 'center' }}>
           <button className={styles['settings-save-btn-sm']} onClick={saveAgent}>
             {t('settings.save')}
           </button>

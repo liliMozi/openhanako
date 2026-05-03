@@ -71,6 +71,16 @@ describe('buildFileRefId', () => {
     })).toBe('sess:/s/1:m2:block:3:/out/diagram.svg');
   });
 
+  it('session-block-artifact 源：sess:<sessionPath>:<messageId>:artifact:<blockIdx>:<path>', () => {
+    expect(buildFileRefId({
+      source: 'session-block-artifact',
+      sessionPath: '/s/1',
+      messageId: 'm2',
+      blockIdx: 4,
+      path: '/cache/plan.md',
+    })).toBe('sess:/s/1:m2:artifact:4:/cache/plan.md');
+  });
+
   it('session-block-screenshot 源：path 忽略（为空也 OK）', () => {
     expect(buildFileRefId({
       source: 'session-block-screenshot',

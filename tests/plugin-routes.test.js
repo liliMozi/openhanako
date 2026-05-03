@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { Hono } from "hono";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { createPluginProxyRoute, createPluginsRoute } from "../server/routes/plugins.js";
 
 describe("plugin route proxy", () => {
@@ -224,6 +227,80 @@ describe("plugin management API", () => {
         body: JSON.stringify({ path: "/some/dir" }),
       });
       expect(res.status).toBe(500);
+    });
+
+    it("registers a session-scoped plugin install source before installing", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hana-plugin-install-"));
+      try {
+        const sourceDir = path.join(tmpDir, "plugin-src");
+        const userPluginsDir = path.join(tmpDir, "plugins");
+        fs.mkdirSync(sourceDir, { recursive: true });
+        fs.writeFileSync(path.join(sourceDir, "manifest.json"), JSON.stringify({
+          id: "plugin-src",
+          name: "Plugin Source",
+          version: "1.0.0",
+        }), "utf-8");
+        const sessionPath = "/sessions/plugin-install.jsonl";
+        const registerSessionFile = vi.fn(({ sessionPath, filePath, label, origin, storageKind }) => ({
+          id: "sf_plugin_source",
+          sessionPath,
+          filePath,
+          realPath: filePath,
+          displayName: label,
+          filename: path.basename(filePath),
+          label,
+          ext: "",
+          mime: "inode/directory",
+          size: null,
+          kind: "directory",
+          origin,
+          storageKind,
+          createdAt: 1,
+        }));
+        const installPlugin = vi.fn(async () => ({
+          id: "plugin-src",
+          name: "Plugin Source",
+          version: "1.0.0",
+        }));
+        const engine = mockEngine({
+          pm: {
+            getUserPluginsDir: () => userPluginsDir,
+            installPlugin,
+          },
+        });
+        engine.registerSessionFile = registerSessionFile;
+        const app = createApp(engine);
+
+        const res = await app.request("/api/plugins/install", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: sourceDir, sessionPath }),
+        });
+        const data = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(registerSessionFile).toHaveBeenCalledWith({
+          sessionPath,
+          filePath: sourceDir,
+          label: "plugin-src",
+          origin: "plugin_install_source",
+          storageKind: "install_source",
+        });
+        expect(installPlugin).toHaveBeenCalledWith(path.join(userPluginsDir, "plugin-src"));
+        expect(data).toMatchObject({
+          id: "plugin-src",
+          sourceFile: {
+            id: "sf_plugin_source",
+            fileId: "sf_plugin_source",
+            sessionPath,
+            filePath: sourceDir,
+            origin: "plugin_install_source",
+            storageKind: "install_source",
+          },
+        });
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
     });
   });
 });

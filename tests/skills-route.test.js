@@ -144,6 +144,71 @@ describe("skills route", () => {
     expect(engine.reloadSkills).toHaveBeenCalledTimes(1);
     expectAppEvent(engine.emitEvent, "skills-changed", { agentId: null });
   });
+
+  it("registers a session-scoped skill install source before installing", async () => {
+    const { createSkillsRoute } = await import("../server/routes/skills.js");
+    const app = new Hono();
+    const srcDir = path.join(tempRoot, "incoming-skill");
+    const userSkillsDir = path.join(tempRoot, "user-skills");
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(path.join(srcDir, "SKILL.md"), "---\nname: sample-skill\n---\n# Sample\n", "utf-8");
+    const sessionPath = "/sessions/install-source.jsonl";
+    const registerSessionFile = vi.fn(({ sessionPath, filePath, label, origin, storageKind }) => ({
+      id: "sf_skill_source",
+      sessionPath,
+      filePath,
+      realPath: filePath,
+      displayName: label,
+      filename: path.basename(filePath),
+      label,
+      ext: "",
+      mime: "inode/directory",
+      size: null,
+      kind: "directory",
+      origin,
+      storageKind,
+      createdAt: 1,
+    }));
+    const engine = {
+      userSkillsDir,
+      agentsDir: tempRoot,
+      registerSessionFile,
+      reloadSkills: vi.fn().mockResolvedValue(undefined),
+      emitEvent: vi.fn(),
+      getAllSkills: vi.fn(() => []),
+      currentAgentId: "",
+    };
+
+    app.route("/api", createSkillsRoute(engine));
+
+    const res = await app.request("/api/skills/install", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: srcDir, sessionPath }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(registerSessionFile).toHaveBeenCalledWith({
+      sessionPath,
+      filePath: srcDir,
+      label: "incoming-skill",
+      origin: "skill_install_source",
+      storageKind: "install_source",
+    });
+    expect(data).toMatchObject({
+      ok: true,
+      skill: { name: "sample-skill" },
+      sourceFile: {
+        id: "sf_skill_source",
+        fileId: "sf_skill_source",
+        sessionPath,
+        filePath: srcDir,
+        origin: "skill_install_source",
+        storageKind: "install_source",
+      },
+    });
+  });
 });
 
 describe("DELETE /skills/:name — per-agent target selection", () => {

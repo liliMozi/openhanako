@@ -17,7 +17,14 @@ export default class ImageGenPlugin {
     // Infrastructure
     const registry = new AdapterRegistry();
     const store = new TaskStore(dataDir);
-    const poller = new Poller({ store, registry, bus, generatedDir, log });
+    const poller = new Poller({
+      store,
+      registry,
+      bus,
+      generatedDir,
+      log,
+      registerSessionFile: this.ctx.registerSessionFile,
+    });
 
     // Built-in adapters
     registry.register(volcengineImageAdapter);

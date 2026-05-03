@@ -32,6 +32,53 @@ describe('stage_files', () => {
     expect(result[0].ext).toBe('');
   });
 
+  it('preserves session file ids for consumers that need ownership', () => {
+    const details = {
+      files: [
+        { fileId: 'sf_123', filePath: '/a/foo.txt', label: 'foo', ext: 'txt' },
+      ],
+    };
+    const result = extractor(details);
+    expect(result[0]).toEqual({
+      type: 'file',
+      fileId: 'sf_123',
+      filePath: '/a/foo.txt',
+      label: 'foo',
+      ext: 'txt',
+    });
+  });
+
+  it('preserves session file lifecycle metadata', () => {
+    const details = {
+      files: [
+        {
+          fileId: 'sf_old',
+          filePath: '/a/old.png',
+          label: 'old.png',
+          ext: 'png',
+          mime: 'image/png',
+          kind: 'image',
+          storageKind: 'managed_cache',
+          status: 'expired',
+          missingAt: 1234,
+        },
+      ],
+    };
+    const result = extractor(details);
+    expect(result[0]).toEqual({
+      type: 'file',
+      fileId: 'sf_old',
+      filePath: '/a/old.png',
+      label: 'old.png',
+      ext: 'png',
+      mime: 'image/png',
+      kind: 'image',
+      storageKind: 'managed_cache',
+      status: 'expired',
+      missingAt: 1234,
+    });
+  });
+
   it('empty details: returns empty array', () => {
     const result = extractor({});
     expect(result).toEqual([]);
@@ -79,6 +126,45 @@ describe('create_artifact', () => {
   it('no content: returns null (extractBlocks treats as empty)', () => {
     expect(extractor({})).toBeNull();
     expect(extractor({ artifactId: 'x' })).toBeNull();
+  });
+
+  it('preserves generated artifact session file metadata', () => {
+    const details = {
+      content: '# Plan',
+      artifactId: 'art-1',
+      type: 'markdown',
+      title: 'Plan',
+      language: null,
+      artifactFile: {
+        fileId: 'sf_art',
+        filePath: '/cache/plan.md',
+        label: 'Plan.md',
+        ext: 'md',
+        mime: 'text/markdown',
+        kind: 'markdown',
+        storageKind: 'managed_cache',
+        status: 'expired',
+        missingAt: 5678,
+      },
+    };
+    const result = extractor(details);
+    expect(result[0]).toEqual({
+      type: 'artifact',
+      artifactId: 'art-1',
+      artifactType: 'markdown',
+      title: 'Plan',
+      content: '# Plan',
+      language: null,
+      fileId: 'sf_art',
+      filePath: '/cache/plan.md',
+      label: 'Plan.md',
+      ext: 'md',
+      mime: 'text/markdown',
+      kind: 'markdown',
+      storageKind: 'managed_cache',
+      status: 'expired',
+      missingAt: 5678,
+    });
   });
 });
 
@@ -178,6 +264,31 @@ describe('install_skill', () => {
       type: 'skill',
       skillName: 'my-skill',
       skillFilePath: '/skills/my-skill.js',
+    });
+  });
+
+  it('preserves installed skill session file metadata', () => {
+    const details = {
+      skillName: 'my-skill',
+      skillFilePath: '/skills/my-skill/SKILL.md',
+      installedFile: {
+        fileId: 'sf_skill',
+        filePath: '/skills/my-skill/SKILL.md',
+        sessionPath: '/sessions/install.jsonl',
+        origin: 'install_skill_output',
+      },
+    };
+    const result = extractor(details);
+    expect(result[0]).toMatchObject({
+      type: 'skill',
+      skillName: 'my-skill',
+      skillFilePath: '/skills/my-skill/SKILL.md',
+      fileId: 'sf_skill',
+      installedFile: {
+        fileId: 'sf_skill',
+        sessionPath: '/sessions/install.jsonl',
+        origin: 'install_skill_output',
+      },
     });
   });
 

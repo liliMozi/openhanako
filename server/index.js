@@ -122,6 +122,16 @@ engine.cleanupCheckpoints().catch(err => {
   console.warn("[checkpoint] startup cleanup failed:", err.message);
 });
 
+engine.cleanupColdSessionFiles().catch(err => {
+  console.warn("[session-files] startup cleanup failed:", err.message);
+});
+const sessionFileCleanupTimer = setInterval(() => {
+  engine.cleanupColdSessionFiles().catch(err => {
+    console.warn("[session-files] periodic cleanup failed:", err.message);
+  });
+}, 24 * 60 * 60 * 1000);
+sessionFileCleanupTimer.unref?.();
+
 // 加载 i18n
 loadLocale(engine.config?.locale);
 

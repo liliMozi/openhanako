@@ -246,7 +246,7 @@ export function SkillsTab() {
         </div>
 
         {userSkills.length === 0 ? (
-          <p className={`${styles['settings-desc']} ${styles['skills-empty']}`}>{t('settings.skills.noUser')}</p>
+          <p className={`${styles['settings-muted-note']} ${styles['skills-empty']}`}>{t('settings.skills.noUser')}</p>
         ) : (
           <div className={styles['skills-list-block']}>
             {userSkills.map(skill => (

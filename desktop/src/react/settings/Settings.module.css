@@ -36,7 +36,7 @@
 :global(body:not(.no-paper-texture)) .settings-select,
 :global(body:not(.no-paper-texture)) .settings-folder-browse,
 :global(body:not(.no-paper-texture)) .settings-folder-clear,
-:global(body:not(.no-paper-texture)) .tool-caps-item,
+:global(body:not(.no-paper-texture)) .capability-row,
 :global(body:not(.no-paper-texture)) .skills-list-item,
 :global(body:not(.no-paper-texture)) .sdw-trigger,
 :global(body:not(.no-paper-texture)) .sdw-popup,
@@ -283,18 +283,6 @@
     background: var(--border);
 }
 
-/* section header with inline toggle */
-.settings-section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-lg);
-}
-
-.settings-section-header .settings-section-title {
-    margin-bottom: 0;
-}
-
 .settings-icon-btn {
     background: none;
     border: none;
@@ -310,7 +298,7 @@
 .settings-icon-btn:disabled { opacity: 0.4; cursor: default; }
 .settings-icon-btn .spin { animation: spin 0.8s linear infinite; }
 
-.settings-hint {
+.settings-inline-note {
     font-size: 0.75rem;
     color: var(--text-muted);
     margin: var(--space-sm) 0 var(--space-md);
@@ -848,17 +836,17 @@
 }
 
 /* 助手/我 tab：名字栏居中 */
-.settings-field-center {
+.settings-form-field-center {
     text-align: center;
 }
 
-.settings-field-center .settings-input {
+.settings-form-field-center .settings-input {
     text-align: center;
     max-width: 340px;
     margin: 0 auto;
 }
 
-.settings-field-center .settings-field-hint {
+.settings-form-field-center .settings-form-hint {
     text-align: center;
 }
 
@@ -973,14 +961,14 @@
 }
 
 /* Field */
-.settings-field {
+.settings-form-field {
     display: flex;
     flex-direction: column;
     gap: 3px;
     margin-bottom: var(--space-md);
 }
 
-.settings-field-label {
+.settings-form-label {
     font-size: 0.82rem;
     color: var(--text-light);
     font-weight: 600;
@@ -993,19 +981,19 @@
     gap: var(--space-sm);
 }
 
-.settings-field-hint {
+.settings-form-hint {
     font-size: 0.7rem;
     color: var(--text-muted);
     line-height: 1.4;
 }
 
 /* 两列布局 */
-.settings-row {
+.settings-form-grid {
     display: flex;
     gap: var(--space-md);
 }
 
-.settings-field-half {
+.settings-form-field-half {
     flex: 1;
     min-width: 0;
 }
@@ -1041,27 +1029,11 @@
     width: 80px;
 }
 
-.settings-input-group {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-}
-
-.settings-input-unit {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-}
-
-.settings-desc {
+.settings-muted-note {
     font-size: 0.72rem;
     color: var(--text-muted);
     margin-top: var(--space-xs);
     line-height: 1.5;
-}
-
-.settings-desc-compact {
-    margin-top: 0;
-    margin-bottom: var(--space-sm);
 }
 
 /* 巡检开关 */
@@ -1166,16 +1138,7 @@
     color: var(--accent);
 }
 
-/* ── 工具权限框架（Agent tab → 工具权限 section） ── */
-.tool-caps-group {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-card, 10px);
-    overflow: hidden;
-}
-
-.tool-caps-item {
+.capability-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1184,28 +1147,28 @@
     background-color: var(--bg-card);
 }
 
-.tool-caps-item + .tool-caps-item {
+.capability-row + .capability-row {
     border-top: 1px solid var(--border);
 }
 
 /* 首尾 item 作为 SettingsSection body 直接子元素时，需要自带圆角贴合白卡 border-radius */
-.tool-caps-item:first-child {
+.capability-row:first-child {
     border-top-left-radius: var(--radius-card, 10px);
     border-top-right-radius: var(--radius-card, 10px);
 }
 
-.tool-caps-item:last-child {
+.capability-row:last-child {
     border-bottom-left-radius: var(--radius-card, 10px);
     border-bottom-right-radius: var(--radius-card, 10px);
 }
 
 /* 缩进子项（如 allow_github_fetch） */
-.tool-caps-sub {
+.capability-row-nested {
     padding-left: calc(var(--space-md) + 1rem);
     background: var(--bg-hover, color-mix(in srgb, var(--bg-card) 90%, transparent));
 }
 
-.tool-caps-label {
+.capability-row-label {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -1213,18 +1176,18 @@
     min-width: 0;
 }
 
-.tool-caps-name {
+.capability-row-name {
     font-size: 0.82rem;
     color: var(--text);
 }
 
-.tool-caps-desc {
+.capability-row-desc {
     font-size: 0.71rem;
     color: var(--text-muted);
     line-height: 1.4;
 }
 
-.tool-caps-desc.warn {
+.capability-row-desc.warn {
     color: var(--danger, #b56b66);
 }
 
@@ -1341,37 +1304,6 @@
     opacity: 0.7;
     white-space: nowrap;
     margin-right: 6px;
-}
-
-/* ========================================
-   Agent Skill 配置（Section 3 — per-Agent 开关）
-   ======================================== */
-
-/* Selector 容器：占满宽度，放在 section 标题下面作为第一元素 */
-.agent-skill-selector-wrap {
-    margin-bottom: var(--space-lg);
-}
-
-.agent-skill-selector-wrap .bridge-agent-select {
-    margin-bottom: 0;
-    width: 100%;
-}
-
-.agent-skill-selector-wrap .bridge-agent-select .sdw-wrapper,
-.agent-skill-selector-wrap .bridge-agent-select .sdw-trigger {
-    width: 100%;
-}
-
-.agent-skill-sub-block + .agent-skill-sub-block {
-    margin-top: var(--space-lg);
-}
-
-.agent-skill-sub-title {
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--text);
-    letter-spacing: 0.04em;
-    margin: 0 0 var(--space-sm);
 }
 
 .agent-skill-empty {
@@ -2702,7 +2634,7 @@ a.about-link:hover {
     letter-spacing: 0.03em;
 }
 
-.pv-list-section-title {
+.pv-list-group-label {
     font-size: 0.62rem;
     font-weight: 600;
     color: var(--accent);
@@ -2861,7 +2793,7 @@ a.about-link:hover {
     gap: var(--space-md);
 }
 
-.pv-add-form .settings-field { margin-bottom: 0; }
+.pv-add-form .settings-form-field { margin-bottom: 0; }
 
 .pv-add-form-actions {
     display: flex;

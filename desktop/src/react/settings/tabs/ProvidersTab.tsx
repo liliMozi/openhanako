@@ -81,19 +81,19 @@ export function ProvidersTab() {
           <div className={styles['pv-list']}>
             {oauthProviders.length > 0 && (
               <>
-                <div className={styles['pv-list-section-title']}>OAuth</div>
+                <div className={styles['pv-list-group-label']}>OAuth</div>
                 {oauthProviders.map(renderRegistered)}
               </>
             )}
 
             {codingPlanProviders.length > 0 && (
               <>
-                <div className={styles['pv-list-section-title']}>Coding Plan</div>
+                <div className={styles['pv-list-group-label']}>Coding Plan</div>
                 {codingPlanProviders.map(renderRegistered)}
               </>
             )}
 
-            <div className={styles['pv-list-section-title']}>API</div>
+            <div className={styles['pv-list-group-label']}>API</div>
             {presetProviders.map(renderRegistered)}
             {unregisteredPresets.map(renderUnregistered)}
             {customProviders.map(renderRegistered)}

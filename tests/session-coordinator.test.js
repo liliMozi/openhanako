@@ -209,6 +209,7 @@ describe("SessionCoordinator", () => {
     expect(agent.getToolsSnapshot).toHaveBeenCalledWith({
       forceMemoryEnabled: true,
       forceExperienceEnabled: false,
+      model: { name: "test-model" },
     });
   });
 
@@ -752,7 +753,10 @@ describe("SessionCoordinator", () => {
 
     await coordinator.executeIsolated("background check");
 
-    expect(getToolsSnapshot).toHaveBeenCalledWith({ forceMemoryEnabled: true });
+    expect(getToolsSnapshot).toHaveBeenCalledWith({
+      forceMemoryEnabled: true,
+      model: { id: "default-model", provider: "test" },
+    });
     expect(buildTools.mock.calls[0][1].map((tool) => tool.name)).toEqual([
       "plain_custom",
       "search_memory",

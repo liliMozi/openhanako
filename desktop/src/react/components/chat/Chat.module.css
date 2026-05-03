@@ -813,6 +813,13 @@
     border-color: var(--text-muted, rgba(0,0,0,0.2));
 }
 
+.fileOutputExpired {
+    border-style: dashed;
+    background: var(--overlay-subtle, rgba(0,0,0,0.03));
+    box-shadow: none;
+    opacity: 0.82;
+}
+
 .fileOutputIcon {
     flex-shrink: 0;
     width: 40px;
@@ -925,6 +932,13 @@
 .artifactCard:hover {
     background: var(--accent-light);
     box-shadow: 0 2px 8px var(--shadow);
+}
+
+.artifactExpiredBadge {
+    flex-shrink: 0;
+    margin-left: var(--space-xs);
+    font-size: 0.68rem;
+    color: var(--text-muted);
 }
 
 .artifactCardIcon {

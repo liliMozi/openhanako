@@ -59,7 +59,7 @@ export function AgentCreateOverlay() {
     <div className={`${styles['agent-create-overlay']} ${styles['visible']}`} onClick={(e) => { if (!creating && e.target === e.currentTarget) close(); }}>
       <div className={styles['agent-create-card']} aria-busy={creating || undefined}>
         <h3 className={styles['agent-create-title']}>{t('settings.agent.createTitle')}</h3>
-        <div className={styles['settings-field']}>
+        <div className={styles['settings-form-field']}>
           <input
             ref={inputRef}
             className={styles['settings-input']}
@@ -74,7 +74,7 @@ export function AgentCreateOverlay() {
             }}
           />
         </div>
-        <div className={styles['settings-field']}>
+        <div className={styles['settings-form-field']}>
           <div className="yuan-selector">
             <div className="yuan-chips">
               {entries.filter(([key]) => key !== 'kong').map(([key, meta]) => (

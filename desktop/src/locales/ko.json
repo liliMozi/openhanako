@@ -119,7 +119,8 @@
     "stop": "중지",
     "browserScreenshot": "브라우저 스크린샷",
     "compacting": "컨텍스트 압축 중",
-    "visionAuxiliary": "보조 시각"
+    "visionAuxiliary": "보조 시각",
+    "fileExpired": "파일 만료됨"
   },
   "time": {
     "justNow": "방금",

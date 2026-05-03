@@ -132,7 +132,7 @@ describe('selectSessionFiles', () => {
         attachments: [
           { path: '/a/pic.png', name: 'pic.png', isDir: false },
           { path: '/a/sub', name: 'sub', isDir: true },
-          { path: '/a/clip.mp4', name: 'clip.mp4', isDir: false, mimeType: 'video/mp4' },
+          { fileId: 'sf_clip', path: '/a/clip.mp4', name: 'clip.mp4', isDir: false, mimeType: 'video/mp4' },
         ],
         timestamp: 1000,
       },
@@ -141,7 +141,34 @@ describe('selectSessionFiles', () => {
     expect(refs.map(r => r.name)).toEqual(['pic.png', 'clip.mp4']);
     expect(refs[0].source).toBe('session-attachment');
     expect(refs[0].sessionMessageId).toBe('m1');
+    expect(refs[1].fileId).toBe('sf_clip');
     expect(refs[1].mime).toBe('video/mp4');
+  });
+
+  it('保留 attachment 的 session file lifecycle 状态', () => {
+    const items: ChatListItem[] = [{
+      type: 'message',
+      data: {
+        id: 'm-expired', role: 'user',
+        attachments: [
+          {
+            fileId: 'sf_old',
+            path: '/cache/old.png',
+            name: 'old.png',
+            isDir: false,
+            mimeType: 'image/png',
+            status: 'expired',
+            missingAt: 1234,
+          },
+        ],
+      },
+    }];
+    const refs = selectSessionFiles(sessionState(items), '/s/1');
+    expect(refs[0]).toMatchObject({
+      fileId: 'sf_old',
+      status: 'expired',
+      missingAt: 1234,
+    });
   });
 
   it('抽取 blocks.file', () => {
@@ -150,7 +177,7 @@ describe('selectSessionFiles', () => {
       data: {
         id: 'm2', role: 'assistant',
         blocks: [
-          { type: 'file', filePath: '/out/diagram.svg', label: 'diagram.svg', ext: 'svg' },
+          { type: 'file', fileId: 'sf_diagram', filePath: '/out/diagram.svg', label: 'diagram.svg', ext: 'svg' },
         ],
         timestamp: 2000,
       },
@@ -159,7 +186,70 @@ describe('selectSessionFiles', () => {
     expect(refs).toHaveLength(1);
     expect(refs[0].kind).toBe('svg');
     expect(refs[0].source).toBe('session-block-file');
+    expect(refs[0].fileId).toBe('sf_diagram');
     expect(refs[0].path).toBe('/out/diagram.svg');
+  });
+
+  it('保留 blocks.file 的 session file lifecycle 状态', () => {
+    const items: ChatListItem[] = [{
+      type: 'message',
+      data: {
+        id: 'm2', role: 'assistant',
+        blocks: [
+          {
+            type: 'file',
+            fileId: 'sf_diagram',
+            filePath: '/out/diagram.svg',
+            label: 'diagram.svg',
+            ext: 'svg',
+            status: 'expired',
+            missingAt: 5678,
+          },
+        ],
+      },
+    }];
+    const refs = selectSessionFiles(sessionState(items), '/s/1');
+    expect(refs[0]).toMatchObject({
+      fileId: 'sf_diagram',
+      source: 'session-block-file',
+      status: 'expired',
+      missingAt: 5678,
+    });
+  });
+
+  it('抽取 artifact 对应的 session file', () => {
+    const items: ChatListItem[] = [{
+      type: 'message',
+      data: {
+        id: 'm-art', role: 'assistant',
+        blocks: [
+          {
+            type: 'artifact',
+            artifactId: 'art-1',
+            artifactType: 'markdown',
+            title: 'Plan',
+            content: '# Plan',
+            fileId: 'sf_art',
+            filePath: '/cache/plan.md',
+            ext: 'md',
+            mime: 'text/markdown',
+            kind: 'markdown',
+            status: 'expired',
+            missingAt: 9999,
+          },
+        ],
+      },
+    }];
+    const refs = selectSessionFiles(sessionState(items), '/s/1');
+    expect(refs[0]).toMatchObject({
+      fileId: 'sf_art',
+      kind: 'markdown',
+      source: 'session-block-artifact',
+      name: 'Plan',
+      path: '/cache/plan.md',
+      status: 'expired',
+      missingAt: 9999,
+    });
   });
 
   it('抽取 blocks.screenshot（内嵌 base64，path 为空）', () => {

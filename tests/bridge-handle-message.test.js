@@ -358,6 +358,12 @@ describe("BridgeManager._handleMessage", () => {
         tagged("Stranger: "),
         expect.objectContaining({
           images: [expect.objectContaining({ mimeType: "image/png" })],
+          inboundFiles: [expect.objectContaining({
+            type: "image",
+            filename: "image.png",
+            mimeType: "image/png",
+            buffer: expect.any(Buffer),
+          })],
         }),
       );
     });
@@ -391,8 +397,125 @@ describe("BridgeManager._handleMessage", () => {
       expect(wechatAdapter.downloadFileByRef).toHaveBeenCalledWith("{\"encrypt_query_param\":\"abc\",\"aes_key\":\"def\"}");
       expect(hub.send).toHaveBeenCalledWith(
         expect.stringContaining("hello from wechat txt"),
-        expect.objectContaining({ sessionKey: "wx_dm_owner123@hana" }),
+        expect.objectContaining({
+          sessionKey: "wx_dm_owner123@hana",
+          inboundFiles: [expect.objectContaining({
+            type: "file",
+            filename: "notes.txt",
+            mimeType: "text/plain",
+            buffer: expect.any(Buffer),
+          })],
+        }),
       );
+    });
+  });
+
+  describe("streaming delivery", () => {
+    it("uses Telegram draft streaming for deltas and sends one final message", async () => {
+      const { bm, hub, adapter, engine } = createMocks();
+      engine.getBridgeReceiptEnabled.mockReturnValue(false);
+      adapter.streamingCapabilities = {
+        mode: "draft",
+        scopes: ["dm"],
+        minIntervalMs: 0,
+        maxChars: 4096,
+      };
+      adapter.sendDraft = vi.fn().mockResolvedValue();
+      hub.send.mockImplementation(async (_text, opts) => {
+        opts.onDelta("Hel", "Hel");
+        opts.onDelta("lo", "Hello");
+        return "Hello";
+      });
+
+      bm._handleMessage("telegram", {
+        sessionKey: "tg_dm_owner123@hana",
+        text: "hi",
+        userId: "owner123",
+        chatId: "owner123",
+        agentId: "hana",
+      });
+
+      await vi.advanceTimersByTimeAsync(2100);
+      await vi.waitFor(() => expect(adapter.sendReply).toHaveBeenCalledWith("owner123", "Hello"));
+
+      expect(adapter.sendDraft).toHaveBeenCalled();
+      expect(adapter.sendBlockReply).not.toHaveBeenCalled();
+      const draftIds = adapter.sendDraft.mock.calls.map(call => call[2]?.draftId);
+      expect(new Set(draftIds).size).toBe(1);
+    });
+
+    it("updates one Feishu stream message instead of sending block replies", async () => {
+      const { bm, hub, engine } = createMocks();
+      engine.getBridgeReceiptEnabled.mockReturnValue(false);
+      const feishuAdapter = {
+        streamingCapabilities: {
+          mode: "edit_message",
+          scopes: ["dm"],
+          minIntervalMs: 0,
+          maxChars: 150_000,
+        },
+        startStreamReply: vi.fn().mockResolvedValue({ messageId: "om_stream_001" }),
+        updateStreamReply: vi.fn().mockResolvedValue(),
+        finishStreamReply: vi.fn().mockResolvedValue(),
+        sendReply: vi.fn().mockResolvedValue(),
+        sendBlockReply: vi.fn().mockResolvedValue(),
+        stop: vi.fn(),
+      };
+      bm._platforms.set("feishu:hana", { adapter: feishuAdapter, status: "connected", agentId: "hana", platform: "feishu" });
+      hub.send.mockImplementation(async (_text, opts) => {
+        opts.onDelta("Hel", "Hel");
+        opts.onDelta("lo", "Hello");
+        return "Hello";
+      });
+
+      bm._handleMessage("feishu", {
+        sessionKey: "fs_dm_owner123@hana",
+        text: "hi",
+        userId: "owner123",
+        chatId: "oc_chat",
+        agentId: "hana",
+      });
+
+      await vi.advanceTimersByTimeAsync(2100);
+      await vi.waitFor(() => expect(feishuAdapter.finishStreamReply).toHaveBeenCalledWith(
+        "oc_chat",
+        { messageId: "om_stream_001" },
+        "Hello",
+        expect.any(Object),
+      ));
+
+      expect(feishuAdapter.startStreamReply).toHaveBeenCalledWith("oc_chat", "Hel", expect.any(Object));
+      expect(feishuAdapter.updateStreamReply).toHaveBeenCalledWith(
+        "oc_chat",
+        { messageId: "om_stream_001" },
+        "Hello",
+        expect.any(Object),
+      );
+      expect(feishuAdapter.sendBlockReply).not.toHaveBeenCalled();
+      expect(feishuAdapter.sendReply).not.toHaveBeenCalledWith("oc_chat", "Hello");
+    });
+
+    it("does not use legacy block streaming without an explicit streaming capability", async () => {
+      const { bm, hub, adapter, engine } = createMocks();
+      engine.getBridgeReceiptEnabled.mockReturnValue(false);
+      bm.blockStreaming = true;
+      hub.send.mockImplementation(async (_text, opts) => {
+        expect(opts.onDelta).toBeUndefined();
+        return "final only";
+      });
+
+      bm._handleMessage("telegram", {
+        sessionKey: "tg_dm_owner123@hana",
+        text: "hi",
+        userId: "owner123",
+        chatId: "owner123",
+        agentId: "hana",
+      });
+
+      await vi.advanceTimersByTimeAsync(2100);
+
+      expect(adapter.sendBlockReply).not.toHaveBeenCalled();
+      expect(adapter.sendReply).toHaveBeenCalledWith("owner123", "final only");
     });
   });
 

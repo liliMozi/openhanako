@@ -401,12 +401,17 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
           const res = await hanaFetch('/api/upload-blob', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, base64Data, mimeType }),
+            body: JSON.stringify({
+              name,
+              base64Data,
+              mimeType,
+              ...(useStore.getState().currentSessionPath ? { sessionPath: useStore.getState().currentSessionPath } : {}),
+            }),
           });
           const data = await res.json();
           const upload = data?.uploads?.[0];
           if (upload?.dest) {
-            addAttachedFile({ path: upload.dest, name: upload.name || name, isDirectory: false });
+            addAttachedFile({ fileId: upload.fileId, path: upload.dest, name: upload.name || name, isDirectory: false });
           } else {
             notifyPasteUploadFailure(t, upload?.error);
             console.warn('[paste] upload-blob failed', upload?.error || data);
@@ -578,10 +583,10 @@ function InputAreaInner({ cardRef }: InputAreaInnerProps) {
             const cached = imageBase64Map.get(f.path);
             const imageFile = !f.isDirectory && isImageFile(f.name);
             return {
+              fileId: f.fileId,
               path: f.path,
               name: f.name,
-              isDir: false,
-              base64Data: f.base64Data || cached?.base64Data || undefined,
+              isDir: !!f.isDirectory,
               mimeType: f.mimeType || cached?.mimeType || undefined,
               visionAuxiliary: imageFile && !supportsVision,
             };

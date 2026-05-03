@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { Hono } from "hono";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { countFiles, createUploadRoute } from "../server/routes/upload.js";
 
 function mktemp() {
@@ -106,6 +106,109 @@ describe("upload route", () => {
     expect(up.isDirectory).toBe(false);
     expect(fs.existsSync(up.dest)).toBe(true);
     expect(fs.readFileSync(up.dest).equals(png)).toBe(true);
+  });
+
+  it("registers copied uploads as session files when sessionPath is provided", async () => {
+    tmpDir = mktemp();
+    const source = path.join(tmpDir, "note.txt");
+    fs.writeFileSync(source, "hello", "utf-8");
+    const hanakoHome = path.join(tmpDir, "hana-home");
+    const sessionPath = "/sessions/upload.jsonl";
+    const registerSessionFile = vi.fn(({ sessionPath, filePath, label, origin, storageKind }) => ({
+      id: "sf_upload",
+      sessionPath,
+      filePath,
+      realPath: filePath,
+      displayName: label,
+      filename: path.basename(filePath),
+      label,
+      ext: "txt",
+      mime: "text/plain",
+      size: 5,
+      kind: "document",
+      origin,
+      storageKind,
+      createdAt: 1,
+    }));
+    const app = new Hono();
+    app.route("/api", createUploadRoute({ hanakoHome, registerSessionFile }));
+
+    const res = await app.request("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paths: [source], sessionPath }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(registerSessionFile).toHaveBeenCalledWith({
+      sessionPath,
+      filePath: data.uploads[0].dest,
+      label: "note.txt",
+      origin: "user_upload",
+      storageKind: "managed_cache",
+    });
+    expect(data.uploads[0].dest.startsWith(path.join(hanakoHome, "session-files"))).toBe(true);
+    expect(data.uploads[0]).toMatchObject({
+      src: source,
+      name: "note.txt",
+      fileId: "sf_upload",
+      sessionPath,
+      mime: "text/plain",
+      kind: "document",
+      origin: "user_upload",
+      storageKind: "managed_cache",
+    });
+  });
+
+  it("upload-blob stores session-owned pasted images under session file cache", async () => {
+    tmpDir = mktemp();
+    const hanakoHome = path.join(tmpDir, "hana-home");
+    const sessionPath = "/sessions/blob.jsonl";
+    const registerSessionFile = vi.fn(({ sessionPath, filePath, label, origin, storageKind }) => ({
+      id: "sf_blob",
+      sessionPath,
+      filePath,
+      realPath: filePath,
+      displayName: label,
+      filename: path.basename(filePath),
+      label,
+      ext: "png",
+      mime: "image/png",
+      size: 68,
+      kind: "image",
+      origin,
+      storageKind,
+      createdAt: 1,
+    }));
+    const app = new Hono();
+    app.route("/api", createUploadRoute({ hanakoHome, registerSessionFile }));
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+      "base64",
+    );
+
+    const res = await app.request("/api/upload-blob", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionPath, name: "shot.png", base64Data: png.toString("base64"), mimeType: "image/png" }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.uploads[0].dest.startsWith(path.join(hanakoHome, "session-files"))).toBe(true);
+    expect(registerSessionFile).toHaveBeenCalledWith({
+      sessionPath,
+      filePath: data.uploads[0].dest,
+      label: "shot.png",
+      origin: "user_upload",
+      storageKind: "managed_cache",
+    });
+    expect(data.uploads[0]).toMatchObject({
+      fileId: "sf_blob",
+      sessionPath,
+      storageKind: "managed_cache",
+    });
   });
 
   it("upload-blob rejects non-image mimeType", async () => {

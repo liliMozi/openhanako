@@ -237,7 +237,7 @@ export function PluginsTab() {
 
         {/* 已安装列表 */}
         {!loading && plugins.length === 0 ? (
-          <p className={`${styles['settings-desc']} ${styles['skills-empty']}`}>
+          <p className={`${styles['settings-muted-note']} ${styles['skills-empty']}`}>
             {t('settings.plugins.empty')}
           </p>
         ) : (

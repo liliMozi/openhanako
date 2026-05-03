@@ -13,10 +13,12 @@ export type FileSource =
   | 'desk'
   | 'session-attachment'
   | 'session-block-file'
+  | 'session-block-artifact'
   | 'session-block-screenshot';
 
 export interface FileRef {
   id: string;
+  fileId?: string;
   kind: FileKind;
   source: FileSource;
   name: string;
@@ -24,6 +26,8 @@ export interface FileRef {
   path: string;
   ext?: string;
   mime?: string;
+  status?: 'available' | 'expired' | string;
+  missingAt?: number | null;
   timestamp?: number;
   sessionMessageId?: string;
   inlineData?: { base64: string; mimeType: string };

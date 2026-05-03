@@ -27,7 +27,7 @@ const STREAM_POLL_INTERVAL_MS = 200;
  * @returns {Promise<{handled: boolean}>}
  */
 export async function handleRcPendingInput(ctx) {
-  const { engine, agentId, sessionKey, text, reply, isGroup = false } = ctx;
+  const { engine, agentId, sessionKey, text, reply, isGroup = false, chatId = null, messageThreadId = null } = ctx;
   const rcState = engine.rcState;
   if (!rcState) return { handled: false };
 
@@ -100,7 +100,12 @@ export async function handleRcPendingInput(ctx) {
 
   // 建立接管态
   try {
-    rcState.attach(sessionKey, sessionPath);
+    rcState.attach(sessionKey, sessionPath, {
+      platform: _platformFromSessionKey(sessionKey),
+      chatId,
+      agentId,
+      messageThreadId,
+    });
   } catch (err) {
     await _safeReply(reply, _normalizeAttachFailure(err));
     return { handled: true };

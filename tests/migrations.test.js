@@ -10,7 +10,7 @@ import { runMigrations } from "../core/migrations.js";
 
 // ── 测试工具 ────────────────────────────────────────────────────────────────
 
-const LATEST_DATA_VERSION = 11;
+const LATEST_DATA_VERSION = 12;
 
 function makeTmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "hana-migrations-"));
@@ -183,7 +183,101 @@ describe("migration #11: repairCronJobModelRefs", () => {
     expect(jobs[1].model).toEqual({ id: "MiniMax-M2.7", provider: "minimax" });
     expect(jobs[2].model).toEqual({ id: "gpt-4o", provider: "openai" });
     expect(jobs[3].model).toBe("unknown-model");
-    expect(prefs.getPreferences()._dataVersion).toBe(11);
+    expect(prefs.getPreferences()._dataVersion).toBe(LATEST_DATA_VERSION);
+  });
+});
+
+describe("migration #12: backfill legacy session files into sidecars", () => {
+  let tmpDir, agentsDir, userDir;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    agentsDir = path.join(tmpDir, "agents");
+    userDir = path.join(tmpDir, "user");
+    fs.mkdirSync(agentsDir, { recursive: true });
+  });
+
+  afterEach(() => { fs.rmSync(tmpDir, { recursive: true, force: true }); });
+
+  function runMigration12() {
+    const prefs = makePrefs(userDir);
+    prefs.savePreferences({ _dataVersion: 11 });
+    runMigrations({
+      hanakoHome: tmpDir,
+      agentsDir,
+      prefs,
+      providerRegistry: makeRegistryWithModels({}),
+      log: () => {},
+    });
+    return prefs;
+  }
+
+  it("registers legacy stage_files and artifacts without rewriting the session jsonl", () => {
+    writeAgentConfig(agentsDir, "hana", { agent: { name: "Hana" } });
+    const sessionPath = path.join(agentsDir, "hana", "sessions", "legacy.jsonl");
+    const stagePath = path.join(tmpDir, "legacy-image.png");
+    const artifactPath = path.join(tmpDir, "legacy-artifact.md");
+    fs.writeFileSync(stagePath, "png-bytes");
+    fs.writeFileSync(artifactPath, "# Artifact\n");
+    writeSessionJsonl(sessionPath, [
+      {
+        role: "toolResult",
+        toolName: "stage_files",
+        details: { files: [{ filePath: stagePath, label: "Legacy Image" }] },
+      },
+      {
+        role: "toolResult",
+        toolName: "create_artifact",
+        details: {
+          artifactId: "art-old",
+          type: "markdown",
+          title: "Legacy Artifact",
+          content: "# Artifact",
+          artifactFile: { filePath: artifactPath, label: "Legacy Artifact.md" },
+        },
+      },
+    ]);
+
+    const before = fs.readFileSync(sessionPath, "utf-8");
+    const prefs = runMigration12();
+
+    const sidecar = JSON.parse(fs.readFileSync(`${sessionPath}.files.json`, "utf-8"));
+    const files = Object.values(sidecar.files);
+    expect(files).toEqual(expect.arrayContaining([
+      expect.objectContaining({ filePath: stagePath, origin: "stage_files", status: "available" }),
+      expect.objectContaining({ filePath: artifactPath, origin: "agent_artifact", status: "available" }),
+    ]));
+    expect(fs.readFileSync(sessionPath, "utf-8")).toBe(before);
+    expect(prefs.getPreferences()._dataVersion).toBe(LATEST_DATA_VERSION);
+  });
+
+  it("materializes legacy inline browser screenshots as managed session images", () => {
+    writeAgentConfig(agentsDir, "hana", { agent: { name: "Hana" } });
+    const sessionPath = path.join(agentsDir, "hana", "sessions", "browser.jsonl");
+    const base64 = Buffer.from("SCREENSHOT_BYTES").toString("base64");
+    writeSessionJsonl(sessionPath, [
+      {
+        role: "toolResult",
+        toolName: "browser",
+        content: [{ type: "image", data: base64, mimeType: "image/png" }],
+        details: { action: "screenshot", mimeType: "image/png", thumbnail: base64 },
+      },
+    ]);
+
+    runMigration12();
+
+    const sidecar = JSON.parse(fs.readFileSync(`${sessionPath}.files.json`, "utf-8"));
+    const files = Object.values(sidecar.files);
+    expect(files).toEqual([
+      expect.objectContaining({
+        origin: "browser_screenshot",
+        storageKind: "managed_cache",
+        kind: "image",
+        status: "available",
+      }),
+    ]);
+    expect(files[0].filePath).toContain(path.join(tmpDir, "session-files"));
+    expect(fs.existsSync(files[0].filePath)).toBe(true);
   });
 });
 

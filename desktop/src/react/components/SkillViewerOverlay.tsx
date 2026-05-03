@@ -73,7 +73,10 @@ export function SkillViewerOverlay() {
       const res = await hanaFetch(`/api/skills/install?agentId=${encodeURIComponent(agentId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: data.baseDir }),
+        body: JSON.stringify({
+          path: data.baseDir,
+          ...(useStore.getState().currentSessionPath ? { sessionPath: useStore.getState().currentSessionPath } : {}),
+        }),
       });
       const result = await res.json();
       if (result.error) throw new Error(result.error);

@@ -163,9 +163,9 @@ export function SecurityTab() {
               }}
             >
               {loading ? (
-                <span className={styles['tool-caps-desc']}>...</span>
+                <span className={styles['capability-row-desc']}>...</span>
               ) : checkpoints.length === 0 ? (
-                <span className={styles['tool-caps-desc']}>{t('settings.security.noBackups')}</span>
+                <span className={styles['capability-row-desc']}>{t('settings.security.noBackups')}</span>
               ) : (
                 checkpoints.map(cp => (
                   <div key={cp.id} className={styles['settings-backup-item']}>

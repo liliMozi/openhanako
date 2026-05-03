@@ -12,6 +12,7 @@ interface AttachmentChipProps {
   name: string;
   onRemove?: () => void;
   className?: string;
+  variant?: 'normal' | 'expired';
 }
 
 export const AttachmentChip = memo(function AttachmentChip({
@@ -19,9 +20,10 @@ export const AttachmentChip = memo(function AttachmentChip({
   name,
   onRemove,
   className,
+  variant = 'normal',
 }: AttachmentChipProps) {
   return (
-    <span className={`${styles.chip}${className ? ` ${className}` : ''}`}>
+    <span className={`${styles.chip}${variant === 'expired' ? ` ${styles.expired}` : ''}${className ? ` ${className}` : ''}`}>
       <span className={styles.name}>
         <span className={styles.icon}>{icon}</span>
         {name}

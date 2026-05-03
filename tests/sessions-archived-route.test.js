@@ -77,6 +77,23 @@ describe("archive route: mtime semantics", () => {
     expect(ageMs).toBeLessThan(5000);
   });
 
+  it("moves the stage file sidecar together with the archived session", async () => {
+    const src = path.join(tmpDir, "agents", "a", "sessions", "s1.jsonl");
+    const sidecar = `${src}.files.json`;
+    fs.writeFileSync(sidecar, JSON.stringify({ version: 1, sessionPath: src, files: {}, refs: [] }));
+
+    const res = await app.request("/api/sessions/archive", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: src }),
+    });
+
+    const dest = path.join(tmpDir, "agents", "a", "sessions", "archived", "s1.jsonl");
+    expect(res.status).toBe(200);
+    expect(fs.existsSync(sidecar)).toBe(false);
+    expect(fs.existsSync(`${dest}.files.json`)).toBe(true);
+  });
+
   it("invalidates rc attachment and pending that point at the archived session", async () => {
     const src = path.join(tmpDir, "agents", "a", "sessions", "s1.jsonl");
     engine.rcState.attach("tg_dm_owner@a", src);
@@ -168,6 +185,20 @@ describe("POST /api/sessions/restore", () => {
     expect(fs.existsSync(activeDest)).toBe(true);
   });
 
+  it("moves the stage file sidecar back with the restored session", async () => {
+    fs.writeFileSync(`${archSrc}.files.json`, JSON.stringify({ version: 1, sessionPath: archSrc, files: {}, refs: [] }));
+
+    const res = await app.request("/api/sessions/restore", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: archSrc }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(fs.existsSync(`${archSrc}.files.json`)).toBe(false);
+    expect(fs.existsSync(`${activeDest}.files.json`)).toBe(true);
+  });
+
   it("returns 409 when active destination exists", async () => {
     fs.writeFileSync(activeDest, "conflict\n");
     const res = await app.request("/api/sessions/restore", {
@@ -211,6 +242,8 @@ describe("POST /api/sessions/archived/delete", () => {
   });
 
   it("unlinks the archived file and clears title orphan", async () => {
+    fs.writeFileSync(`${archPath}.files.json`, JSON.stringify({ version: 1, sessionPath: archPath, files: {}, refs: [] }));
+
     const res = await app.request("/api/sessions/archived/delete", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -218,6 +251,7 @@ describe("POST /api/sessions/archived/delete", () => {
     });
     expect(res.status).toBe(200);
     expect(fs.existsSync(archPath)).toBe(false);
+    expect(fs.existsSync(`${archPath}.files.json`)).toBe(false);
     expect(engine.clearSessionTitle).toHaveBeenCalledWith(activeKey);
   });
 
@@ -282,6 +316,9 @@ describe("POST /api/sessions/cleanup (titles orphan cleanup)", () => {
   });
 
   it("clears titles entries for deleted archived sessions", async () => {
+    const oldFile = path.join(tmpDir, "agents", "a", "sessions", "archived", "old.jsonl");
+    fs.writeFileSync(`${oldFile}.files.json`, JSON.stringify({ version: 1, sessionPath: oldFile, files: {}, refs: [] }));
+
     const res = await app.request("/api/sessions/cleanup", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -290,6 +327,7 @@ describe("POST /api/sessions/cleanup (titles orphan cleanup)", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.deleted).toBe(1);
+    expect(fs.existsSync(`${oldFile}.files.json`)).toBe(false);
     const activeKey = path.join(tmpDir, "agents", "a", "sessions", "old.jsonl");
     expect(engine.clearSessionTitle).toHaveBeenCalledWith(activeKey);
   });

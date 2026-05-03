@@ -164,7 +164,9 @@ const UserAttachmentsView = memo(function UserAttachmentsView({ attachments, des
   return (
     <div className={styles.userAttachments}>
       {attachments.map((att, i) => {
-        const imageSrc = isImage(att) ? getUserAttachmentImageSrc(att) : null;
+        const expired = att.status === 'expired';
+        const expiredLabel = t('chat.fileExpired');
+        const imageSrc = !expired && isImage(att) ? getUserAttachmentImageSrc(att) : null;
         if (imageSrc) {
           return (
             <div key={att.name || `att-${i}`} className={styles.attachImageWrap}>
@@ -196,7 +198,8 @@ const UserAttachmentsView = memo(function UserAttachmentsView({ attachments, des
           <AttachmentChip
             key={att.name || `att-${i}`}
             icon={att.isDir ? <FolderIcon /> : <FileIcon />}
-            name={att.name}
+            name={expired ? `${att.name} · ${expiredLabel}` : att.name}
+            variant={expired ? 'expired' : 'normal'}
           />
         );
       })}

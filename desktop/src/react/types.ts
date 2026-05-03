@@ -96,8 +96,14 @@ export interface Artifact {
   title: string;
   content: string;
   language?: string | null;
+  fileId?: string;
   filePath?: string;
   ext?: string;
+  mime?: string;
+  kind?: string;
+  storageKind?: string;
+  status?: 'available' | 'expired' | string;
+  missingAt?: number | null;
   fileVersion?: FileVersion | null;
 }
 

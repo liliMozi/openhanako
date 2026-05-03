@@ -47,10 +47,10 @@ export function SkillCapabilities({ learnCfg }: SkillCapabilitiesProps) {
   return (
     <>
       <SettingsSection title={t('settings.toolCaps.title')}>
-        <div className={styles['tool-caps-item']}>
-          <div className={styles['tool-caps-label']}>
-            <span className={styles['tool-caps-name']}>{t('settings.skills.learnCreate')}</span>
-            <span className={styles['tool-caps-desc']}>{t('settings.skills.learnCreateDesc')}</span>
+        <div className={styles['capability-row']}>
+          <div className={styles['capability-row-label']}>
+            <span className={styles['capability-row-name']}>{t('settings.skills.learnCreate')}</span>
+            <span className={styles['capability-row-desc']}>{t('settings.skills.learnCreateDesc')}</span>
           </div>
           <Toggle
             on={learnEnabled}
@@ -71,10 +71,10 @@ export function SkillCapabilities({ learnCfg }: SkillCapabilitiesProps) {
           />
         </div>
         {learnEnabled && (
-          <div className={`${styles['tool-caps-item']} ${styles['tool-caps-sub']}`}>
-            <div className={styles['tool-caps-label']}>
-              <span className={styles['tool-caps-name']}>{t('settings.skills.fetchRemote')}</span>
-              <span className={`${styles['tool-caps-desc']} ${styles['warn']}`}>{t('settings.skills.fetchRemoteDesc')}</span>
+          <div className={`${styles['capability-row']} ${styles['capability-row-nested']}`}>
+            <div className={styles['capability-row-label']}>
+              <span className={styles['capability-row-name']}>{t('settings.skills.fetchRemote')}</span>
+              <span className={`${styles['capability-row-desc']} ${styles['warn']}`}>{t('settings.skills.fetchRemoteDesc')}</span>
             </div>
             <Toggle
               on={githubEnabled}
@@ -83,10 +83,10 @@ export function SkillCapabilities({ learnCfg }: SkillCapabilitiesProps) {
           </div>
         )}
         {learnEnabled && (
-          <div className={`${styles['tool-caps-item']} ${styles['tool-caps-sub']}`}>
-            <div className={styles['tool-caps-label']}>
-              <span className={styles['tool-caps-name']}>{t('settings.skills.safetyReview')}</span>
-              <span className={styles['tool-caps-desc']}>{t('settings.skills.safetyReviewDesc')}</span>
+          <div className={`${styles['capability-row']} ${styles['capability-row-nested']}`}>
+            <div className={styles['capability-row-label']}>
+              <span className={styles['capability-row-name']}>{t('settings.skills.safetyReview')}</span>
+              <span className={styles['capability-row-desc']}>{t('settings.skills.safetyReviewDesc')}</span>
             </div>
             <Toggle
               on={safetyReviewEnabled}
@@ -104,7 +104,7 @@ export function SkillCapabilities({ learnCfg }: SkillCapabilitiesProps) {
             />
           </div>
         )}
-        <p className={styles['settings-hint']} style={{ padding: 'var(--space-sm) var(--space-md)', margin: 0 }}>{t('settings.skills.learnHint')}</p>
+        <p className={styles['settings-inline-note']} style={{ padding: 'var(--space-sm) var(--space-md)', margin: 0 }}>{t('settings.skills.learnHint')}</p>
       </SettingsSection>
 
       {showGithubWarning && (

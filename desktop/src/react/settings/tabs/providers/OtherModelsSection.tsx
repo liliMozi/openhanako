@@ -147,9 +147,9 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
 
   return (
     <div style={{ padding: 'var(--space-md)' }}>
-      <div className={styles['settings-row']}>
-        <div className={`${styles['settings-field']} ${styles['settings-field-half']}`}>
-          <label className={styles['settings-field-label']}>{t('settings.api.utilityModel')}</label>
+      <div className={styles['settings-form-grid']}>
+        <div className={`${styles['settings-form-field']} ${styles['settings-form-field-half']}`}>
+          <label className={styles['settings-form-label']}>{t('settings.api.utilityModel')}</label>
           <div className={styles['pv-tool-model-row']}>
             <ModelWidget
               providers={providers}
@@ -162,10 +162,10 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             />
             <ToolModelTestBtn modelRef={globalModelsConfig?.models?.utility || ''} />
           </div>
-          <span className={styles['settings-field-hint']}>{t('settings.api.utilityModelHint')}</span>
+          <span className={styles['settings-form-hint']}>{t('settings.api.utilityModelHint')}</span>
         </div>
-        <div className={`${styles['settings-field']} ${styles['settings-field-half']}`}>
-          <label className={styles['settings-field-label']}>{t('settings.api.utilityLargeModel')}</label>
+        <div className={`${styles['settings-form-field']} ${styles['settings-form-field-half']}`}>
+          <label className={styles['settings-form-label']}>{t('settings.api.utilityLargeModel')}</label>
           <div className={styles['pv-tool-model-row']}>
             <ModelWidget
               providers={providers}
@@ -178,12 +178,12 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             />
             <ToolModelTestBtn modelRef={globalModelsConfig?.models?.utility_large || ''} />
           </div>
-          <span className={styles['settings-field-hint']}>{t('settings.api.utilityLargeModelHint')}</span>
+          <span className={styles['settings-form-hint']}>{t('settings.api.utilityLargeModelHint')}</span>
         </div>
       </div>
-      <div className={styles['settings-row']}>
-        <div className={`${styles['settings-field']} ${styles['settings-field-half']}`}>
-          <label className={styles['settings-field-label']}>{t('settings.api.visionModel')}</label>
+      <div className={styles['settings-form-grid']}>
+        <div className={`${styles['settings-form-field']} ${styles['settings-form-field-half']}`}>
+          <label className={styles['settings-form-label']}>{t('settings.api.visionModel')}</label>
           <div className={styles['settings-toggle-row']}>
             <Toggle
               on={visionAuxiliaryEnabled}
@@ -206,12 +206,12 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             />
             <ToolModelTestBtn modelRef={globalModelsConfig?.models?.vision || ''} />
           </div>
-          <span className={styles['settings-field-hint']}>{t('settings.api.visionModelHint')}</span>
+          <span className={styles['settings-form-hint']}>{t('settings.api.visionModelHint')}</span>
         </div>
       </div>
-      <div className={styles['settings-row']}>
-        <div className={`${styles['settings-field']} ${styles['settings-field-half']}`}>
-          <label className={styles['settings-field-label']}>{t('settings.api.searchProviderField')}</label>
+      <div className={styles['settings-form-grid']}>
+        <div className={`${styles['settings-form-field']} ${styles['settings-form-field-half']}`}>
+          <label className={styles['settings-form-label']}>{t('settings.api.searchProviderField')}</label>
           <SelectWidget
             options={[
               { value: '', label: 'Default (Bing Browser)' },
@@ -231,10 +231,10 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
             placeholder={t('settings.api.searchProviderField')}
           />
         </div>
-        <div className={`${styles['settings-field']} ${styles['settings-field-half']}`}>
-          <label className={styles['settings-field-label']}>{t('settings.api.searchApiKey')}</label>
+        <div className={`${styles['settings-form-field']} ${styles['settings-form-field-half']}`}>
+          <label className={styles['settings-form-label']}>{t('settings.api.searchApiKey')}</label>
           {searchIsBrowserProvider ? (
-            <span className={styles['settings-field-hint']}>{t('settings.api.searchApiKeyNotRequired')}</span>
+            <span className={styles['settings-form-hint']}>{t('settings.api.searchApiKeyNotRequired')}</span>
           ) : (
             <>
               <KeyInput
@@ -245,7 +245,7 @@ export function OtherModelsSection({ providers }: { providers: Record<string, { 
               <button className={styles['search-verify-btn']} onClick={verifySearch}>
                 {t('settings.search.verify')}
               </button>
-              <span className={styles['settings-field-hint']}>{t('settings.api.searchApiKeyHint')}</span>
+              <span className={styles['settings-form-hint']}>{t('settings.api.searchApiKeyHint')}</span>
             </>
           )}
         </div>

@@ -59,6 +59,7 @@ export function extOfName(name: string): string | undefined {
  * - desk：desk:<path>
  * - session-attachment：sess:<sessionPath>:<messageId>:att:<path>
  * - session-block-file：sess:<sessionPath>:<messageId>:block:<blockIdx>:<path>
+ * - session-block-artifact：sess:<sessionPath>:<messageId>:artifact:<blockIdx>:<path>
  * - session-block-screenshot：sess:<sessionPath>:<messageId>:block:<blockIdx>:screenshot
  */
 export function buildFileRefId(parts: {
@@ -75,6 +76,8 @@ export function buildFileRefId(parts: {
       return `sess:${parts.sessionPath}:${parts.messageId}:att:${parts.path}`;
     case 'session-block-file':
       return `sess:${parts.sessionPath}:${parts.messageId}:block:${parts.blockIdx}:${parts.path}`;
+    case 'session-block-artifact':
+      return `sess:${parts.sessionPath}:${parts.messageId}:artifact:${parts.blockIdx}:${parts.path}`;
     case 'session-block-screenshot':
       return `sess:${parts.sessionPath}:${parts.messageId}:block:${parts.blockIdx}:screenshot`;
   }
