@@ -314,9 +314,18 @@ export class HanaEngine {
       voice,
       credentials,
       onChunk: (base64Audio) => {
-        this._emitEvent({ type: "tts_audio_delta", audio: base64Audio }, sessionPath);
+        const buf = this._ttsBuf || (this._ttsBuf = []);
+        buf.push(base64Audio);
+        if (buf.length >= 4) {
+          this._emitEvent({ type: "tts_audio_delta", audio: buf.join("") }, sessionPath);
+          this._ttsBuf = [];
+        }
       },
       onDone: () => {
+        if (this._ttsBuf && this._ttsBuf.length > 0) {
+          this._emitEvent({ type: "tts_audio_delta", audio: this._ttsBuf.join("") }, sessionPath);
+        }
+        this._ttsBuf = null;
         this._emitEvent({ type: "tts_audio_done" }, sessionPath);
       },
       onError: (err) => {
