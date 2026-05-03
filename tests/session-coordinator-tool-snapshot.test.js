@@ -51,10 +51,11 @@ const SDK_BUILTIN_OBJS = [
 ].map(makeTool);
 
 // OpenHanako custom tools — in production these come from agent.tools getter
-// and flow through buildTools.customTools.
+// and flow through buildTools.customTools. create_artifact is intentionally
+// absent from fresh sessions; it is a restore-only compatibility tool.
 const HANAKO_CUSTOM_OBJS = [
   "search_memory", "pin_memory", "unpin_memory", "web_search",
-  "web_fetch", "todo_write", "create_artifact", "notify",
+  "web_fetch", "todo_write", "notify",
   "stage_files", "subagent", "channel", "record_experience",
   "recall_experience", "check_pending_tasks", "wait", "stop_task",
   "browser", "cron", "dm", "install_skill", "update_settings",

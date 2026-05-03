@@ -103,6 +103,8 @@ export class Agent {
     this._cronStore = null;
     this._cronTool = null;
     this._stageFilesTool = null;
+    // Legacy compatibility only. Fresh sessions should write files and stage
+    // them via stage_files; restored old sessions may still need this schema.
     this._artifactTool = null;
     this._channelTool = null;
     this._browserTool = null;
@@ -598,6 +600,9 @@ export class Agent {
     const browserTool = isExplicitTextOnlyModel(options.model)
       ? this._browserToolNoScreenshot
       : this._browserTool;
+    const legacyArtifactTools = options.includeLegacyArtifactTool === true
+      ? [this._artifactTool]
+      : [];
     return [
       ...memTools,
       ...experienceTools,
@@ -606,7 +611,7 @@ export class Agent {
       this._todoTool,
       this._cronTool,
       this._stageFilesTool,
-      this._artifactTool,
+      ...legacyArtifactTools,
       this._channelTool,
       this._dmTool,
       browserTool,

@@ -179,7 +179,7 @@ When a plugin produces local files directly, call `ctx.registerSessionFile({ ses
 Boundaries:
 
 - Plugin-generated files: `origin: "plugin_output"`, `storageKind: "plugin_data"`
-- User uploads, Bridge inbound attachments, browser screenshots, and Agent artifacts are registered by the framework as `managed_cache`
+- User uploads, Bridge inbound attachments, browser screenshots, and legacy `create_artifact` compatibility outputs are registered by the framework as `managed_cache`
 - Install sources such as `.skill`, plugin folders, or zip files are registered by install routes as `install_source`
 - Cards own interactive presentation; files remain resources. If a card needs a file, reference the `SessionFile` instead of embedding file bytes in the card payload
 

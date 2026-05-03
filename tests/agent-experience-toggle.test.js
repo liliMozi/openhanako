@@ -89,6 +89,15 @@ describe("agent experience toggle", () => {
     expect(agent.buildSystemPrompt()).toContain("Experience Library");
   });
 
+  it("keeps create_artifact as an explicit legacy compatibility tool only", () => {
+    const { agent, root } = makeAgent({ experienceEnabled: false });
+    roots.push(root);
+
+    expect(agent.getToolsSnapshot().map((tool) => tool.name)).not.toContain("create_artifact");
+    expect(agent.getToolsSnapshot({ includeLegacyArtifactTool: true }).map((tool) => tool.name))
+      .toContain("create_artifact");
+  });
+
   it("lets session creation force the frozen experience tool state", () => {
     const { agent, root } = makeAgent({ experienceEnabled: true });
     roots.push(root);

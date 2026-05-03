@@ -179,7 +179,7 @@ return {
 几条边界：
 
 - 插件生成的文件：`origin: "plugin_output"`，走 `storageKind: "plugin_data"`
-- 用户上传、Bridge 入站、浏览器截图、Agent artifact 等临时产物由框架登记为 `managed_cache`
+- 用户上传、Bridge 入站、浏览器截图、旧 `create_artifact` 兼容工具输出等临时产物由框架登记为 `managed_cache`
 - 安装来源（`.skill`、plugin 目录或 zip）：由安装 route 登记为 `install_source`
 - Card 负责呈现交互界面，文件仍然是资源；卡片需要引用文件时，应引用 `SessionFile`，不要把文件内容塞进 card payload
 

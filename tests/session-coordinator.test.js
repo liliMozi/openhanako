@@ -213,6 +213,104 @@ describe("SessionCoordinator", () => {
     });
   });
 
+  it("keeps legacy create_artifact out of fresh sessions but restores it for old sessions", async () => {
+    const freshSessionFile = path.join(tempDir, "agents", "hana", "sessions", "fresh.jsonl");
+    const restoredSessionFile = path.join(tempDir, "agents", "hana", "sessions", "restored.jsonl");
+    const restoredNewSessionFile = path.join(tempDir, "agents", "hana", "sessions", "restored-new.jsonl");
+    const agent = {
+      id: "hana",
+      agentDir: path.join(tempDir, "agents", "hana"),
+      sessionDir: path.join(tempDir, "agents", "hana", "sessions"),
+      memoryEnabled: true,
+      experienceEnabled: false,
+      setMemoryEnabled: vi.fn(),
+      buildSystemPrompt: () => "BASE",
+      getToolsSnapshot: vi.fn((options = {}) => [
+        { name: "stage_files" },
+        ...(options.includeLegacyArtifactTool ? [{ name: "create_artifact" }] : []),
+      ]),
+    };
+    fs.mkdirSync(agent.sessionDir, { recursive: true });
+    const buildTools = vi.fn((_cwd, customTools) => ({ tools: [], customTools }));
+    createAgentSessionMock
+      .mockResolvedValueOnce({
+        session: {
+          sessionManager: { getSessionFile: () => freshSessionFile },
+          subscribe: vi.fn(() => vi.fn()),
+          setActiveToolsByName: vi.fn(),
+        },
+      })
+      .mockResolvedValueOnce({
+        session: {
+          sessionManager: { getSessionFile: () => restoredSessionFile },
+          subscribe: vi.fn(() => vi.fn()),
+          setActiveToolsByName: vi.fn(),
+        },
+      })
+      .mockResolvedValueOnce({
+        session: {
+          sessionManager: { getSessionFile: () => restoredNewSessionFile },
+          subscribe: vi.fn(() => vi.fn()),
+          setActiveToolsByName: vi.fn(),
+        },
+      });
+
+    const coordinator = new SessionCoordinator({
+      agentsDir: path.join(tempDir, "agents"),
+      getAgent: () => agent,
+      getActiveAgentId: () => "hana",
+      getModels: () => ({
+        currentModel: { name: "test-model" },
+        authStorage: {},
+        modelRegistry: {},
+        resolveThinkingLevel: () => "medium",
+      }),
+      getResourceLoader: () => ({
+        getSystemPrompt: () => "BASE",
+        getAppendSystemPrompt: () => [],
+        getExtensions: () => ({ extensions: [], errors: [] }),
+      }),
+      getSkills: () => null,
+      buildTools,
+      emitEvent: () => {},
+      getHomeCwd: () => tempDir,
+      agentIdFromSessionPath: () => "hana",
+      switchAgentOnly: async () => {},
+      getConfig: () => ({}),
+      getPrefs: () => ({ getThinkingLevel: () => "medium" }),
+      getAgents: () => new Map(),
+      getActivityStore: () => null,
+      getAgentById: () => agent,
+      listAgents: () => [],
+    });
+
+    await coordinator.createSession(null, tempDir, true);
+    await coordinator.createSession(null, tempDir, true, null, { restore: true });
+    fs.writeFileSync(
+      path.join(agent.sessionDir, "session-meta.json"),
+      JSON.stringify({ [path.basename(restoredNewSessionFile)]: { toolNames: ["stage_files"] } }, null, 2),
+    );
+    await coordinator.createSession(
+      { getCwd: () => tempDir, getSessionFile: () => restoredNewSessionFile },
+      tempDir,
+      true,
+      null,
+      { restore: true },
+    );
+
+    expect(buildTools.mock.calls[0][1].map((tool) => tool.name)).toEqual(["stage_files"]);
+    expect(buildTools.mock.calls[1][1].map((tool) => tool.name)).toEqual([
+      "stage_files",
+      "create_artifact",
+    ]);
+    expect(buildTools.mock.calls[2][1].map((tool) => tool.name)).toEqual(["stage_files"]);
+    expect(agent.getToolsSnapshot.mock.calls[0][0]).not.toHaveProperty("includeLegacyArtifactTool", true);
+    expect(agent.getToolsSnapshot.mock.calls[1][0]).toMatchObject({
+      includeLegacyArtifactTool: true,
+    });
+    expect(agent.getToolsSnapshot.mock.calls[2][0]).not.toHaveProperty("includeLegacyArtifactTool", true);
+  });
+
   it("threads extra workspace folders into tools, prompt context, and session meta", async () => {
     const sessionFile = path.join(tempDir, "agents", "hana", "sessions", "scope.jsonl");
     const agent = {
