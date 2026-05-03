@@ -33,6 +33,8 @@
  *   { type: "browser_status", running: bool, url: "...", thumbnail?: "..." }  (浏览器状态变更，用于前端浮动卡片)
  *   { type: "bridge_status", platform: "telegram"|"feishu", status: "connected"|"disconnected"|"error", error?: "..." }  (外部平台连接状态变更)
  *   { type: "stream_resume", sessionPath: "...", streamId: "...", sinceSeq: number, nextSeq: number, reset: bool, truncated: bool, isStreaming: bool, events: [{ seq, event, ts }] }  (新协议)
+ *   { type: "tts_audio_delta", audio: "<base64>", sessionPath: "..." }  (TTS 音频块，独立 MP3 帧，Desktop 端 decode 后直接播放)
+ *   { type: "tts_audio_done", sessionPath: "..." }                      (TTS 流结束)
  */
 
 /** 安全地发送 JSON 消息到 WebSocket */

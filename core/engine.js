@@ -81,6 +81,7 @@ import { CheckpointStore } from "../lib/checkpoint-store.js";
 import { assertAllToolsCategorized } from "../shared/tool-categories.js";
 import { wrapWithCheckpoint } from "../lib/checkpoint-wrapper.js";
 import { wrapWithSessionPermission } from "../lib/tools/session-permission-wrapper.js";
+import { TTSStream } from "./tts-stream.js";
 import { TaskRegistry } from "../lib/task-registry.js";
 import { ComputerHost } from "./computer-use/computer-host.js";
 import { ComputerProviderRegistry } from "./computer-use/provider-registry.js";
@@ -272,6 +273,60 @@ export class HanaEngine {
   // ════════════════════════════
   //  Agent 代理（→ AgentManager）
   // ════════════════════════════
+
+  // ════════════════════════════
+  //  TTS
+  // ════════════════════════════
+
+  _getTTSCredentials() {
+    try {
+      const authPath = this._models.authJsonPath;
+      const auth = JSON.parse(fs.readFileSync(authPath, "utf-8"));
+      const ttsAuth = auth["volcengine-tts"];
+      if (ttsAuth?.appId && ttsAuth?.accessToken) {
+        return {
+          appId: ttsAuth.appId,
+          accessToken: ttsAuth.accessToken,
+          resourceId: ttsAuth.resourceId || "seed-tts-2.0",
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  _setTTSCredentials({ appId, accessToken, resourceId }) {
+    const authPath = this._models.authJsonPath;
+    let auth = {};
+    try { auth = JSON.parse(fs.readFileSync(authPath, "utf-8")); } catch {}
+    auth["volcengine-tts"] = { appId, accessToken, resourceId: resourceId || "seed-tts-2.0" };
+    fs.writeFileSync(authPath, JSON.stringify(auth, null, 2), "utf-8");
+  }
+
+  async startTTSStream({ text, voice, sessionPath }) {
+    const credentials = this._getTTSCredentials();
+    if (!credentials) {
+      throw new Error("TTS 凭证未配置：请在 auth.json 中添加 volcengine-tts 条目");
+    }
+    const stream = new TTSStream({
+      text,
+      voice,
+      credentials,
+      onChunk: (base64Audio) => {
+        this._emitEvent({ type: "tts_audio_delta", audio: base64Audio }, sessionPath);
+      },
+      onDone: () => {
+        this._emitEvent({ type: "tts_audio_done" }, sessionPath);
+      },
+      onError: (err) => {
+        console.error("[TTS] stream error:", err.message);
+        this._emitEvent({ type: "tts_audio_done" }, sessionPath);
+      },
+    });
+    await stream.start();
+    return stream;
+  }
 
   /** @ui-focus-only 返回 UI 焦点 agent 实例，后端逻辑应通过 getAgent(agentId) 查询 */
   get agent() { return this._agentMgr.agent; }
@@ -1025,6 +1080,20 @@ export class HanaEngine {
     });
     this._pluginManager.scan();
     await this._pluginManager.loadAll();
+
+    // TTS 流启动（fire-and-forget：插件通过 emit 触发，engine 管理全生命周期）
+    bus.subscribe((event, sessionPath) => {
+      this.startTTSStream({ text: event.text, voice: event.voice, sessionPath }).catch((err) => {
+        console.error("[TTS] start-stream failed:", err.message);
+      });
+    }, { types: ["tts:start-stream"] });
+
+    bus.handle("tts:get-credentials", () => this._getTTSCredentials() ?? { appId: "", accessToken: "", resourceId: "" });
+
+    bus.handle("tts:set-credentials", (payload) => {
+      this._setTTSCredentials(payload);
+      return { ok: true };
+    });
 
     if (this._skills) {
       await this.syncWorkspaceSkillPaths(this.currentSessionPath ? this.cwd : null, {

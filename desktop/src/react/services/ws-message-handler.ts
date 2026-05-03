@@ -26,6 +26,7 @@ import { TODO_TOOL_NAMES, type TodoToolName } from '../utils/todo-constants';
 import { migrateLegacyTodos } from '../utils/todo-compat';
 import { renderMarkdown } from '../utils/markdown';
 import { bumpMessageLiveVersion } from '../stores/message-live-version';
+import { getTTSPlayer } from '../../services/tts-player';
 
 declare function t(key: string, vars?: Record<string, string>): any;
 
@@ -545,6 +546,16 @@ export function handleServerMessage(msg: any): void {
     case 'status': {
       // streamingSessions 维护 + 焦点 UI 占位一并由 applyStreamingStatus 处理
       applyStreamingStatus(msg.isStreaming, msg.sessionPath || null);
+      break;
+    }
+
+    case 'tts_audio_delta': {
+      const player = getTTSPlayer();
+      if (msg.audio) player.enqueue(msg.audio);
+      break;
+    }
+
+    case 'tts_audio_done': {
       break;
     }
   }

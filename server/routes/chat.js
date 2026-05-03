@@ -204,6 +204,12 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       return;
     }
 
+    // TTS 音频流事件直接广播到所有 WS 客户端（不经过 session state 处理）
+    if (event.type === "tts_audio_delta" || event.type === "tts_audio_done") {
+      broadcast({ ...event, sessionPath });
+      return;
+    }
+
     const ss = sessionPath ? getState(sessionPath) : null;
 
     // Helper: feed CardParser, emit card events or pass text through as text_delta

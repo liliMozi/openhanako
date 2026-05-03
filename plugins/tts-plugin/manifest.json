@@ -1,0 +1,19 @@
+{
+  "id": "tts",
+  "name": "Text-to-Speech",
+  "version": "0.1.0",
+  "description": "流式语音合成：火山引擎 TTS，Agent 说话时实时合成语音并播放",
+  "trust": "full-access",
+  "hidden": true,
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "defaultVoice": {
+          "type": "string",
+          "title": "默认音色",
+          "default": "zh_female_vv_uranus_bigtts"
+        }
+      }
+    }
+  }
+}
