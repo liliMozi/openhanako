@@ -227,4 +227,29 @@ describe("auto-updater", () => {
     expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledWith(true, true);
     await expect(installPromise).resolves.toBe(true);
   });
+
+  it("uses a visible installer window for Windows updates", async () => {
+    const originalPlatform = process.platform;
+    try {
+      Object.defineProperty(process, "platform", { value: "win32" });
+      vi.resetModules();
+      mockExePath = "/tmp/Hanako/Hanako.exe";
+      mod = await import("../desktop/auto-updater.cjs");
+
+      initWithMockWindow();
+
+      if (handlers["update-downloaded"]) {
+        handlers["update-downloaded"]({ version: "2.0.0" });
+      }
+
+      const installPromise = mod.installDownloadedUpdate("manual");
+      await Promise.resolve();
+      await new Promise(resolve => setImmediate(resolve));
+
+      expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledWith(false, true);
+      await expect(installPromise).resolves.toBe(true);
+    } finally {
+      Object.defineProperty(process, "platform", { value: originalPlatform });
+    }
+  });
 });

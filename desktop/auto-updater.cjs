@@ -94,12 +94,20 @@ function resetState() {
   };
 }
 
+function getQuitAndInstallOptions() {
+  return {
+    isSilent: process.platform !== "win32",
+    isForceRunAfter: true,
+  };
+}
+
 function invokeQuitAndInstallSoon() {
   return new Promise((resolve) => {
     setImmediate(() => {
       try {
-        logUpdate("quitAndInstall invoked: silent=true, forceRunAfter=true");
-        autoUpdater.quitAndInstall(true, true);
+        const { isSilent, isForceRunAfter } = getQuitAndInstallOptions();
+        logUpdate(`quitAndInstall invoked: silent=${isSilent}, forceRunAfter=${isForceRunAfter}`);
+        autoUpdater.quitAndInstall(isSilent, isForceRunAfter);
         resolve(true);
       } catch (err) {
         const msg = err?.message || String(err);

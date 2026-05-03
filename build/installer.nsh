@@ -148,6 +148,50 @@ CRCCheck off
   ${EndIf}
 !macroend
 
+!macro customInstallMode
+  ${If} ${isUpdated}
+    ${If} $installMode == "all"
+      StrCpy $isForceMachineInstall "1"
+    ${Else}
+      StrCpy $isForceCurrentInstall "1"
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+Function hanakoSkipFinishPageForUpdate
+  ${If} ${isUpdated}
+    Abort
+  ${EndIf}
+FunctionEnd
+
+!macro customInstall
+  ${If} ${isUpdated}
+  ${AndIf} ${isForceRun}
+    HideWindow
+    StrCpy $1 "--updated"
+    ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "$1"
+  ${EndIf}
+!macroend
+
+!macro customFinishPage
+  !ifndef HIDE_RUN_AFTER_FINISH
+    Function StartApp
+      ${if} ${isUpdated}
+        StrCpy $1 "--updated"
+      ${else}
+        StrCpy $1 ""
+      ${endif}
+      ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "$1"
+    FunctionEnd
+
+    !define MUI_FINISHPAGE_RUN
+    !define MUI_FINISHPAGE_RUN_FUNCTION "StartApp"
+  !endif
+
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE hanakoSkipFinishPageForUpdate
+  !insertmacro MUI_PAGE_FINISH
+!macroend
+
 !macro customCheckAppRunning
   !insertmacro hanakoBypassOldUninstallerForUpdate
   !insertmacro hanakoStopInstallDirProcesses
