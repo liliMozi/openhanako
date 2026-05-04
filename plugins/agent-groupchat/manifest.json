@@ -1,0 +1,13 @@
+{
+  "id": "agent-groupchat",
+  "name": "Agent 群聊",
+  "version": "0.1.0",
+  "description": "多 Agent 顺序群聊，轮流发言，上下文共享",
+  "trust": "full-access",
+  "contributes": {
+    "page": {
+      "title": "群聊",
+      "route": "/groupchat"
+    }
+  }
+}
