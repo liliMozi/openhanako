@@ -18,6 +18,7 @@ describe("stage_files tool", () => {
     const tool = createStageFilesTool({});
 
     expect(tool.description).toContain("hand one or more local files to the user");
+    expect(tool.description).toContain("browser screenshot");
     expect(tool.description).toContain("Bridge/remote platforms");
     expect(tool.description).toContain("consumers choose the platform-specific delivery");
     expect(tool.parameters.properties.filepaths.description).toContain("StageFile");

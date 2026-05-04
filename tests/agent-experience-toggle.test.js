@@ -105,6 +105,7 @@ describe("agent experience toggle", () => {
     const prompt = agent.buildSystemPrompt();
     expect(prompt).toContain("use stage_files to register it");
     expect(prompt).toContain("Bridge can send according to platform capabilities");
+    expect(prompt).toContain("Files contributed by plugins, browser screenshots, installers, and sub-agents follow the same rule");
     expect(prompt).toContain("same SessionFile");
     expect(prompt).not.toContain("create_artifact");
   });

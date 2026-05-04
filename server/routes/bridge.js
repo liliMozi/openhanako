@@ -490,7 +490,7 @@ function buildBridgeManualSendSessionPath(agentId, platform, chatId) {
 
 function isUnsupportedMediaDeliveryError(err) {
   const message = String(err?.message || err || "");
-  return /暂不支持|不支持|unsupported|公网可访问 URL|cannot deliver/i.test(message);
+  return /暂不支持|不支持|unsupported|不能直接消费|public_url fallback|cannot deliver|does not support media input mode/i.test(message);
 }
 
 function encodeRfc5987ValueChars(value) {

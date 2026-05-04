@@ -961,11 +961,13 @@ export class Agent {
       ? "\n## 文件交付\n\n" +
         "当用户要求你把文件发给他、呈现给他、交付给他，或者你创建、找到、收到一个需要交给用户的本地文件时，使用 stage_files 登记文件。stage 表示把文件归属到当前 session；桌面端可以显示卡片，Bridge 可以按平台能力发送，未来移动端也消费同一份 SessionFile。\n\n" +
         "- 只传真实存在的本机绝对路径\n" +
+        "- 插件贡献的文件、浏览器截图、安装包、子 Agent 产物也遵守同一规则\n" +
         "- 不要只在文本里写文件路径\n" +
         "- 不要在 Agent 层判断具体平台怎么展示或发送，消费端会处理"
       : "\n## File Delivery\n\n" +
         "When the user asks you to send, present, or hand over a file, or when you create, find, or receive a local file that should reach the user, use stage_files to register it. Staging means assigning the file to the current session; desktop can render a card, Bridge can send according to platform capabilities, and future mobile clients can consume the same SessionFile.\n\n" +
         "- Pass only real local absolute paths\n" +
+        "- Files contributed by plugins, browser screenshots, installers, and sub-agents follow the same rule\n" +
         "- Do not merely write file paths in text\n" +
         "- Do not decide platform-specific display or sending behavior in the Agent layer; consumers handle it"
     );

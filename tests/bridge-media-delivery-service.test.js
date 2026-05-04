@@ -3,11 +3,22 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const debugLogMock = vi.hoisted(() => ({
+  log: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
+
+vi.mock("../lib/debug-log.js", () => ({
+  debugLog: () => debugLogMock,
+}));
+
 import { MediaDeliveryService } from "../lib/bridge/media-delivery-service.js";
 import { setMediaLocalRoots } from "../lib/bridge/media-utils.js";
 import { TELEGRAM_MEDIA_CAPABILITIES } from "../lib/bridge/telegram-adapter.js";
 import { FEISHU_MEDIA_CAPABILITIES } from "../lib/bridge/feishu-adapter.js";
 import { QQ_MEDIA_CAPABILITIES } from "../lib/bridge/qq-adapter.js";
+import { WECHAT_ILINK_MEDIA_CAPABILITIES } from "../lib/bridge/wechat-adapter.js";
 
 describe("MediaDeliveryService", () => {
   let tmpDir = null;
@@ -18,6 +29,9 @@ describe("MediaDeliveryService", () => {
     for (const dir of extraTmpDirs) fs.rmSync(dir, { recursive: true, force: true });
     tmpDir = null;
     extraTmpDirs = [];
+    debugLogMock.log.mockClear();
+    debugLogMock.warn.mockClear();
+    debugLogMock.error.mockClear();
     setMediaLocalRoots([]);
   });
 
@@ -106,6 +120,35 @@ describe("MediaDeliveryService", () => {
       "chat-1",
       expect.any(Buffer),
       { mime: "text/plain", filename: "note.txt" },
+    );
+  });
+
+  it("delivers WeChat staged files through the same buffer contract", async () => {
+    const filePath = makeTempFile("report.pdf", "%PDF");
+    const service = makeService({
+      id: "sf_doc",
+      filePath,
+      realPath: filePath,
+      filename: "report.pdf",
+      mime: "application/pdf",
+      kind: "document",
+    });
+    const adapter = {
+      mediaCapabilities: WECHAT_ILINK_MEDIA_CAPABILITIES,
+      sendMediaBuffer: vi.fn(async () => {}),
+    };
+
+    await service.send({
+      adapter,
+      chatId: "wechat-user",
+      platform: "wechat",
+      mediaItem: { type: "session_file", fileId: "sf_doc" },
+    });
+
+    expect(adapter.sendMediaBuffer).toHaveBeenCalledWith(
+      "wechat-user",
+      expect.any(Buffer),
+      { mime: "application/pdf", filename: "report.pdf" },
     );
   });
 
@@ -262,6 +305,10 @@ describe("MediaDeliveryService", () => {
       isGroup: false,
       targetScope: "dm",
     });
+    expect(debugLogMock.log).toHaveBeenCalledWith(
+      "bridge",
+      expect.stringContaining("mode=local_file"),
+    );
   });
 
   it("keeps local-file delivery behind the allowed local roots", async () => {
@@ -336,6 +383,34 @@ describe("MediaDeliveryService", () => {
       },
     );
     expect(adapter.sendMediaBuffer).not.toHaveBeenCalled();
+  });
+
+  it("explains URL-only fallback without implying every platform needs public URLs", async () => {
+    const filePath = makeTempFile("image.png", Buffer.from([0x89, 0x50, 0x4E, 0x47]));
+    const service = makeService({
+      id: "sf_image",
+      filePath,
+      realPath: filePath,
+      filename: "image.png",
+      mime: "image/png",
+      kind: "image",
+    });
+    const adapter = {
+      mediaCapabilities: {
+        platform: "url-only",
+        inputModes: ["remote_url", "public_url"],
+        supportedKinds: ["image", "document"],
+        deliveryByKind: { image: "native_image", document: "native_file" },
+      },
+      sendMedia: vi.fn(async () => {}),
+    };
+
+    await expect(service.send({
+      adapter,
+      chatId: "chat-1",
+      platform: "url-only",
+      mediaItem: { type: "session_file", fileId: "sf_image" },
+    })).rejects.toThrow(/只能走 public_url fallback/);
   });
 
   it("refreshes the publisher base URL from preferences before publishing local files for URL-only adapters", async () => {

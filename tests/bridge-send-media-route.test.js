@@ -93,7 +93,7 @@ describe("bridge send-media route", () => {
   });
 
   it("returns explicit JSON errors from unsupported platform delivery", async () => {
-    const deliveryError = new Error("QQ 发送本地文件需要公网可访问 URL");
+    const deliveryError = new Error("QQ 当前 adapter 不能直接消费这个本地 staged file，只能走 public_url fallback");
     const { app, hanakoHome } = makeApp({
       bridgeManagerOverrides: {
         sendMediaItem: vi.fn(async () => {
@@ -117,7 +117,7 @@ describe("bridge send-media route", () => {
     expect(res.status).toBe(422);
     await expect(res.json()).resolves.toEqual({
       ok: false,
-      error: "QQ 发送本地文件需要公网可访问 URL",
+      error: "QQ 当前 adapter 不能直接消费这个本地 staged file，只能走 public_url fallback",
     });
   });
 
