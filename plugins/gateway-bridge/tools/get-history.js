@@ -20,22 +20,25 @@ export const parameters = {
   },
 };
 
-export async function execute(input) {
-  const sessionKey = input.sessionKey || 'agent:main:d_laoshi';
+export async function execute(input, ctx) {
+  const sessionKey = input.sessionKey || ctx.config.get('sessionKey');
   const limit = input.limit || 20;
-  const messages = await getHistory(sessionKey, limit);
+  const messages = await getHistory({
+    password: ctx.config.get('gatewayPassword'),
+    sessionKey,
+    gatewayUrl: ctx.config.get('gatewayUrl'),
+    limit,
+  });
 
-  // 格式化为可读文本
   const lines = messages.map((m, i) => {
-    const role = m.role === 'user' ? '刘欢' : m.role === 'assistant' ? '滨面' : m.role === 'toolResult' ? '[工具]' : m.role || '?';
+    const role = m.role === 'user' ? '刘欢'
+      : m.role === 'assistant' ? '滨面'
+      : m.role === 'toolResult' ? '[工具]'
+      : m.role || '?';
     let content = m.content || '';
     if (Array.isArray(content)) {
-      content = content
-        .filter(b => b.type === 'text')
-        .map(b => b.text)
-        .join('\n');
+      content = content.filter(b => b.type === 'text').map(b => b.text).join('\n');
     }
-    // 截断过长消息
     if (content.length > 500) content = content.slice(0, 500) + '...';
     return `[${i}][${role}]: ${content}`;
   });

@@ -17,7 +17,11 @@ export const parameters = {
   },
 };
 
-export async function execute(input) {
-  const result = await sendToBainian(input.message);
+export async function execute(input, ctx) {
+  const result = await sendToBainian(input.message, {
+    password: ctx.config.get('gatewayPassword'),
+    sessionKey: ctx.config.get('sessionKey'),
+    gatewayUrl: ctx.config.get('gatewayUrl'),
+  });
   return { content: [{ type: 'text', text: result }] };
 }
