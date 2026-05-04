@@ -1,0 +1,6 @@
+{
+  "id": "gateway-bridge",
+  "name": "Gateway Bridge",
+  "version": "1.0.0",
+  "description": "与滨面仕上 Gateway 直接通信的原生工具"
+}
