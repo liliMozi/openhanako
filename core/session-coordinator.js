@@ -40,6 +40,94 @@ function getSteerPrefix() {
   return isZh ? "（插话，无需 MOOD）\n" : "(Interjection, no MOOD needed)\n";
 }
 const MAX_CACHED_SESSIONS = 20;
+const SESSION_PROMPT_SNAPSHOT_VERSION = 1;
+
+function jsonClone(value, fallback) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeStringArray(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function freezeSkillsResult(value) {
+  const next = {
+    skills: Array.isArray(value?.skills) ? value.skills : [],
+    diagnostics: Array.isArray(value?.diagnostics) ? value.diagnostics : [],
+  };
+  return jsonClone(next, { skills: [], diagnostics: [] });
+}
+
+function freezeAgentsFilesResult(value) {
+  const next = {
+    agentsFiles: Array.isArray(value?.agentsFiles) ? value.agentsFiles : [],
+  };
+  return jsonClone(next, { agentsFiles: [] });
+}
+
+function normalizePromptSnapshot(value) {
+  if (!value || typeof value !== "object") return null;
+  if (value.version !== SESSION_PROMPT_SNAPSHOT_VERSION) return null;
+  if (typeof value.systemPrompt !== "string") return null;
+  return {
+    version: SESSION_PROMPT_SNAPSHOT_VERSION,
+    systemPrompt: value.systemPrompt,
+    appendSystemPrompt: normalizeStringArray(value.appendSystemPrompt),
+    skillsResult: freezeSkillsResult(value.skillsResult),
+    agentsFilesResult: freezeAgentsFilesResult(value.agentsFilesResult),
+    ...(typeof value.finalSystemPrompt === "string"
+      ? { finalSystemPrompt: value.finalSystemPrompt }
+      : {}),
+  };
+}
+
+function makeBackgroundTaskPrompt(locale) {
+  const isZh = String(locale || "").startsWith("zh");
+  return isZh
+    ? `## 后台任务
+
+派出 subagent 或其他后台任务后：
+
+1. 先继续做手头还没做完的工作，不要立刻停下来等
+2. 手头工作做完后，调 check_pending_tasks 查看后台任务状态
+3. 如果还有任务未完成，根据任务复杂度自行估算等待时间，调 wait 等待后再查。最多查 2 次，之后不再轮询，告知用户任务仍在后台运行，完成后会自动通知
+4. 后台任务完成时系统也会以 <hana-background-result> 消息自动送达结果，届时处理并告知用户`
+    : `## Background Tasks
+
+After dispatching subagent or other background tasks:
+
+1. Continue with any remaining work first — do not stop immediately to wait
+2. Once your other work is done, call check_pending_tasks to check status
+3. If tasks are still pending, estimate a reasonable wait time based on task complexity, then call wait and check again. Check at most 2 times — after that, stop polling and inform the user the task is still running and they will be notified when it completes
+4. The system will also automatically deliver results via <hana-background-result> messages when tasks finish — process and relay them to the user`;
+}
+
+function buildAppendSystemPromptSnapshot({
+  baseAppend,
+  providerPromptPatches,
+  hasDeferredResultStore,
+  locale,
+  workspaceScope,
+}) {
+  const parts = [
+    ...(Array.isArray(baseAppend) ? baseAppend : []),
+    ...(Array.isArray(providerPromptPatches) ? providerPromptPatches : []),
+  ];
+  if (hasDeferredResultStore) {
+    parts.push(makeBackgroundTaskPrompt(locale));
+  }
+  const workspacePrompt = formatWorkspaceScopePrompt({
+    primaryCwd: workspaceScope.primaryCwd,
+    workspaceFolders: workspaceScope.workspaceFolders,
+    locale,
+  });
+  if (workspacePrompt) parts.push(workspacePrompt);
+  return normalizeStringArray(parts);
+}
 
 export class SessionCoordinator {
   /**
@@ -134,18 +222,24 @@ export class SessionCoordinator {
     if (!restore && !effectiveModel) {
       throw new Error(t("error.noAvailableModel"));
     }
-    const resolvedThinkingLevel = models.resolveThinkingLevel(this._d.getPrefs().getThinkingLevel());
-    const providerPromptPatches = !restore
-      ? getProviderPromptPatches(effectiveModel, {
-        reasoningLevel: resolvedThinkingLevel,
-        locale: agent.config?.locale || getLocale(),
-      })
-      : [];
-
     if (!sessionMgr) {
       sessionMgr = SessionManager.create(effectiveCwd, agent.sessionDir);
     }
     const sessionPathForMeta = sessionMgr.getSessionFile?.() || null;
+    const resolvedThinkingLevel = models.resolveThinkingLevel(this._d.getPrefs().getThinkingLevel());
+    const restoredPromptSnapshot = restore && sessionPathForMeta
+      ? await this._readSessionPromptSnapshot(agent, sessionPathForMeta)
+      : null;
+    const restoredPromptModel = restore && !restoredPromptSnapshot
+      ? this._resolvePromptModelFromSessionManager(sessionMgr, models)
+      : null;
+    const promptPatchModel = restoredPromptSnapshot ? null : (effectiveModel || restoredPromptModel);
+    const providerPromptPatches = promptPatchModel
+      ? getProviderPromptPatches(promptPatchModel, {
+        reasoningLevel: resolvedThinkingLevel,
+        locale: agent.config?.locale || getLocale(),
+      })
+      : [];
     let workspaceScope = normalizeWorkspaceScope({
       primaryCwd: effectiveCwd,
       workspaceFolders,
@@ -226,13 +320,40 @@ export class SessionCoordinator {
 
     // 快照当前 system prompt，per-session 隔离。
     // 后续记忆编译、技能变更只影响新对话，已有对话的 prompt 不变（保护 prefix cache）。
-    const promptSnapshot = agent.buildSystemPrompt({
-      forceMemoryEnabled: frozenMemoryEnabled,
-      forceExperienceEnabled: frozenExperienceEnabled,
-    });
+    const systemPromptSnapshot = restoredPromptSnapshot?.systemPrompt
+      ?? agent.buildSystemPrompt({
+        forceMemoryEnabled: frozenMemoryEnabled,
+        forceExperienceEnabled: frozenExperienceEnabled,
+      });
     if (preserveAgentMemoryState) {
       creatingAgent.setMemoryEnabled(prevSessionMemoryEnabled);
     }
+
+    const localeSnapshot = agent.config?.locale || getLocale();
+    const skills = this._d.getSkills?.();
+    const appendSystemPromptSnapshot = restoredPromptSnapshot?.appendSystemPrompt
+      ?? buildAppendSystemPromptSnapshot({
+        baseAppend: baseResourceLoader.getAppendSystemPrompt?.() || [],
+        providerPromptPatches,
+        hasDeferredResultStore: !!this._d.getDeferredResultStore?.(),
+        locale: localeSnapshot,
+        workspaceScope,
+      });
+    const skillsResultSnapshot = restoredPromptSnapshot?.skillsResult
+      ?? (
+        skills?.getSkillsForAgent
+          ? freezeSkillsResult(skills.getSkillsForAgent(agent))
+          : freezeSkillsResult(baseResourceLoader.getSkills?.())
+      );
+    const agentsFilesResultSnapshot = restoredPromptSnapshot?.agentsFilesResult
+      ?? freezeAgentsFilesResult(baseResourceLoader.getAgentsFiles?.());
+    const promptSnapshotForPersist = restoredPromptSnapshot || {
+      version: SESSION_PROMPT_SNAPSHOT_VERSION,
+      systemPrompt: systemPromptSnapshot,
+      appendSystemPrompt: appendSystemPromptSnapshot,
+      skillsResult: skillsResultSnapshot,
+      agentsFilesResult: agentsFilesResultSnapshot,
+    };
 
     // UI context 注入扩展：在每次 LLM 调用前把用户视野拼成 <user-context>…</user-context>
     // 前置到 last user message，只影响这一次请求（Pi SDK deep copy messages），
@@ -288,7 +409,7 @@ export class SessionCoordinator {
     // Wrap resourceLoader: per-session prompt snapshot + plan mode injection + ui context extension
     const resourceLoaderProps = {
       getSystemPrompt: {
-        value: () => promptSnapshot,
+        value: () => systemPromptSnapshot,
       },
       getExtensions: {
         value: () => {
@@ -300,50 +421,15 @@ export class SessionCoordinator {
         },
       },
       getAppendSystemPrompt: {
-        value: () => {
-          const base = baseResourceLoader.getAppendSystemPrompt();
-          const parts = [...base, ...providerPromptPatches];
-
-          // 后台任务行为引导
-          if (this._d.getDeferredResultStore?.()) {
-            const isZh = String(agent.config?.locale || "").startsWith("zh");
-            parts.push(isZh
-              ? `## 后台任务
-
-派出 subagent 或其他后台任务后：
-
-1. 先继续做手头还没做完的工作，不要立刻停下来等
-2. 手头工作做完后，调 check_pending_tasks 查看后台任务状态
-3. 如果还有任务未完成，根据任务复杂度自行估算等待时间，调 wait 等待后再查。最多查 2 次，之后不再轮询，告知用户任务仍在后台运行，完成后会自动通知
-4. 后台任务完成时系统也会以 <hana-background-result> 消息自动送达结果，届时处理并告知用户`
-              : `## Background Tasks
-
-After dispatching subagent or other background tasks:
-
-1. Continue with any remaining work first — do not stop immediately to wait
-2. Once your other work is done, call check_pending_tasks to check status
-3. If tasks are still pending, estimate a reasonable wait time based on task complexity, then call wait and check again. Check at most 2 times — after that, stop polling and inform the user the task is still running and they will be notified when it completes
-4. The system will also automatically deliver results via <hana-background-result> messages when tasks finish — process and relay them to the user`
-            );
-          }
-
-          const workspacePrompt = formatWorkspaceScopePrompt({
-            primaryCwd: workspaceScope.primaryCwd,
-            workspaceFolders: workspaceScope.workspaceFolders,
-            locale: agent.config?.locale || getLocale(),
-          });
-          if (workspacePrompt) parts.push(workspacePrompt);
-
-          return parts;
-        },
+        value: () => [...appendSystemPromptSnapshot],
+      },
+      getSkills: {
+        value: () => freezeSkillsResult(skillsResultSnapshot),
+      },
+      getAgentsFiles: {
+        value: () => freezeAgentsFilesResult(agentsFilesResultSnapshot),
       },
     };
-    const skills = this._d.getSkills?.();
-    if (skills?.getSkillsForAgent) {
-      resourceLoaderProps.getSkills = {
-        value: () => skills.getSkillsForAgent(agent),
-      };
-    }
     const resourceLoader = Object.create(baseResourceLoader, resourceLoaderProps);
 
     const toolSnapshotOptions = { forceMemoryEnabled: frozenMemoryEnabled, model: effectiveModel };
@@ -495,6 +581,14 @@ After dispatching subagent or other background tasks:
       session.setActiveToolsByName(snapshotToolNames);
     }
 
+    if (restoredPromptSnapshot?.finalSystemPrompt) {
+      this._applyFinalPromptSnapshot(session, restoredPromptSnapshot.finalSystemPrompt);
+    }
+    const finalSystemPrompt = this._getFinalSystemPrompt(session);
+    const promptSnapshotToWrite = finalSystemPrompt
+      ? { ...promptSnapshotForPersist, finalSystemPrompt }
+      : promptSnapshotForPersist;
+
     // Persist snapshot for Case C only. Case A already had it in meta; Case B
     // intentionally leaves meta untouched (adding a toolNames field to a legacy
     // session's meta would lock it into the current tool list, breaking
@@ -508,9 +602,16 @@ After dispatching subagent or other background tasks:
         permissionMode: initialPermissionMode,
         accessMode: initialAccessMode,
         planMode: initialPlanMode,
+        promptSnapshot: promptSnapshotToWrite,
       };
       if (snapshotToolNames !== null) metaPatch.toolNames = snapshotToolNames;
       await this.writeSessionMeta(sessionPath, metaPatch);
+    } else if (restore && sessionPath && !restoredPromptSnapshot) {
+      // Legacy sessions have no creation-time snapshot. The first cold restore
+      // establishes a stable baseline so subsequent restores do not drift again.
+      await this.writeSessionMeta(sessionPath, {
+        promptSnapshot: promptSnapshotToWrite,
+      });
     }
 
     // LRU 淘汰：按 lastTouchedAt 排序，跳过 streaming 和焦点 session
@@ -1500,6 +1601,47 @@ After dispatching subagent or other background tasks:
       return data;
     } catch {
       return {};
+    }
+  }
+
+  async _readSessionPromptSnapshot(agent, sessionPath) {
+    try {
+      const metaPath = path.join(agent.sessionDir, "session-meta.json");
+      const meta = await this._readMetaCached(metaPath);
+      return normalizePromptSnapshot(meta[path.basename(sessionPath)]?.promptSnapshot);
+    } catch {
+      return null;
+    }
+  }
+
+  _resolvePromptModelFromSessionManager(sessionMgr, models) {
+    try {
+      const ref = sessionMgr?.buildSessionContext?.()?.model;
+      if (!ref?.provider || !ref?.modelId) return null;
+      return findModel(models.availableModels, ref.modelId, ref.provider);
+    } catch (err) {
+      log.warn(`restore prompt patch model resolve failed: ${err.message}`);
+      return null;
+    }
+  }
+
+  _getFinalSystemPrompt(session) {
+    if (typeof session?._baseSystemPrompt === "string") {
+      return session._baseSystemPrompt;
+    }
+    if (typeof session?.agent?.state?.systemPrompt === "string") {
+      return session.agent.state.systemPrompt;
+    }
+    return null;
+  }
+
+  _applyFinalPromptSnapshot(session, finalSystemPrompt) {
+    if (typeof finalSystemPrompt !== "string") return;
+    try {
+      session._baseSystemPrompt = finalSystemPrompt;
+    } catch {}
+    if (session?.agent?.state && typeof session.agent.state === "object") {
+      session.agent.state.systemPrompt = finalSystemPrompt;
     }
   }
 
