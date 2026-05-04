@@ -150,10 +150,35 @@ async function send(){
     if(members.indexOf(mid)>=0)order=[mid];  // 只发点名的那一个
   }
 
-  for(var i=0;i<order.length;i++){var a=order[i],sp=mk(a);ws.send(JSON.stringify({type:"prompt",text:fullText,sessionPath:sp}));var r=await wT(sp);if(r.trim())await http("POST","/groupchat/append",{groupId:gid,role:a,content:r})}
+  for(var i=0;i<order.length;i++){
+    var a=order[i];
+    var ctx="";
+    if(i>0){ctx=order.slice(0,i).map(function(x){return "["+nn(x)+"]: (已回应)";}).join("\n")}
+
+    // 通过 executeIsolated 调用完整 Agent
+    await http("POST","/groupchat/send-agent",{agentId:a,text:fullText,contextHistory:ctx});
+
+    // 等待回复（executeIsolated 的 sessionPath 含 group_sessions）
+    var r=await wTGlobal();
+    if(r.trim())await http("POST","/groupchat/append",{groupId:gid,role:a,content:r})
+  }
   blockEvt=false;sending=false;document.getElementById("btnSend").disabled=false;
 }
-function wT(sp){return new Promise(function(ok){var a="";function f(e){try{var m=JSON.parse(e.data);if(m.sessionPath!==sp)return;if(m.type==="text_delta")a+=m.delta||"";if(m.type==="turn_end"){ws.removeEventListener("message",f);ok(a)}}catch(ex){}}ws.addEventListener("message",f);setTimeout(function(){ws.removeEventListener("message",f);ok(a)},180000)})}
+
+// 全局等待：收集任意 sessionPath 含 "group_sessions" 的 text_delta
+// 因为 executeIsolated 的 sessionPath 是引擎生成的，不可预知
+var _waitAcc="",_waitDone=false;
+function wTGlobal(){return new Promise(function(ok){
+  _waitAcc="";_waitDone=false;
+  function f(e){try{
+    var m=JSON.parse(e.data),sp=m.sessionPath||"";
+    if(!sp||(sp.indexOf("group_")===-1&&sp.indexOf("group_sessions")===-1))return;
+    if(m.type==="text_delta")_waitAcc+=m.delta||"";
+    if(m.type==="turn_end"){ws.removeEventListener("message",f);ok(_waitAcc)}
+  }catch(ex){}}
+  ws.addEventListener("message",f);
+  setTimeout(function(){ws.removeEventListener("message",f);ok(_waitAcc)},180000)
+})}
 
 document.getElementById("ta").onkeydown=function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};
 document.getElementById("ta").oninput=function(){this.style.height="auto";this.style.height=Math.min(this.scrollHeight,120)+"px"};

@@ -53,4 +53,16 @@ export default function (app, ctx) {
       return c.json({ ok: false, error: err.message }, 404);
     }
   });
+
+  // 新增：通过 executeIsolated 调用完整 Agent（全工具 + 人格 + 记忆）
+  app.post("/groupchat/send-agent", async (c) => {
+    const { agentId, text, contextHistory } = await c.req.json();
+    if (!agentId || !text) return c.json({ ok: false, error: "agentId and text required" }, 400);
+    try {
+      const result = await bus.request("groupchat:execute-agent", { agentId, text, contextHistory });
+      return c.json(result);
+    } catch (err) {
+      return c.json({ ok: false, error: err.message }, 500);
+    }
+  });
 }

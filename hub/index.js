@@ -275,6 +275,7 @@ export class Hub {
       const sp = sessionPath;
       if (!sp) throw new Error("sessionPath is required for session:send");
       if (engine.isSessionStreaming(sp)) throw new Error("session_busy");
+      await engine.ensureSessionLoaded(sp);
       engine.promptSession(sp, text, opts).catch(err => {
         console.error("[Hub] session:send promptSession error:", err.message);
         bus.emit({ type: "error", error: err.message, source: "session:send" }, sp);
@@ -370,6 +371,43 @@ export class Hub {
       const agent = engine.agentManager.getAgent(agentId);
       if (!agent) return { error: "not_found" };
       return { config: agent.config };
+    }));
+
+    // ── groupchat:execute-agent ──
+    // 插件通过 EventBus 触发：完整 Agent 能力（全工具 + 人格 + 记忆）
+    this._sessionHandlerCleanups.push(bus.handle("groupchat:execute-agent", async ({ agentId, text, contextHistory }) => {
+      if (!agentId || !text) throw new Error("agentId and text required");
+      const agent = engine.getAgent(agentId);
+      if (!agent) throw new Error("agent not found: " + agentId);
+
+      const prompt = contextHistory
+        ? `【群聊上下文】\n${contextHistory}\n---\n[主人]: ${text}`
+        : text;
+
+      const cwd = engine.getHomeCwd(agentId) || process.cwd();
+      const persistDir = path.join(engine.agentsDir, agentId, "sessions", "group_sessions");
+      fs.mkdirSync(persistDir, { recursive: true });
+
+      console.log("[Hub] groupchat:execute-agent", agentId, "text:", text.substring(0, 40));
+
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 180_000);
+
+      try {
+        await engine.executeIsolated(prompt, {
+          agentId,
+          cwd,
+          emitEvents: true,
+          persist: persistDir,
+          signal: controller.signal,
+        });
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("[Hub] groupchat:execute-agent error:", err.message);
+        }
+      }
+
+      return { agentId, done: true };
     }));
   }
 
