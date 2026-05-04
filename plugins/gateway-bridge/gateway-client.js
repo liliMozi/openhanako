@@ -73,171 +73,75 @@ function connect(password, gatewayUrl) {
       }
     });
 
-    ws.on('error', (err) => reject(err));
-    ws.on('close', () => reject(new Error('connection closed before auth')));
+    let connected = false;
+    ws.on('error', (err) => { if (!connected) reject(err); });
+    ws.on('close', () => { if (!connected) reject(new Error('connection closed before auth')); });
+
+    // 标记已连接，close/error 不再 reject
+    const origResolve = resolve;
+    resolve = (val) => { connected = true; origResolve(val); };
   });
 }
 
 /**
- * 发送消息给滨面，等待流式回复完成
+ * 发送消息给滨面（仅发送，不等回复）。
+ * 用 getHistory 捞结果。
  * @param {string} message - 消息文本
  * @param {object} [opts]
  * @param {string} [opts.password] - Gateway 密码
  * @param {string} [opts.sessionKey] - 目标会话
  * @param {string} [opts.gatewayUrl] - WebSocket URL
- * @param {number} [opts.timeoutMs=60000] - 超时毫秒
+ * @param {number} [opts.timeoutMs=15000] - 超时毫秒
  * @param {number} [opts.maxRetries=3] - 重试次数
- * @returns {Promise<string>}
+ * @returns {Promise<string>} 确认消息
  */
 async function sendToBainian(message, opts = {}) {
   const {
     password = 'Ruijie@123',
     sessionKey = 'agent:main:d_laoshi',
     gatewayUrl = 'wss://claw.13ehappy.com:18789',
-    timeoutMs = 60000,
+    timeoutMs = 15000,
     maxRetries = 3,
   } = opts;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await _doSend(message, password, sessionKey, gatewayUrl, timeoutMs);
+      const { ws, cleanup } = await connect(password, gatewayUrl);
+
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { cleanup(); reject(new Error('timeout')); }, timeoutMs);
+
+        ws.send(JSON.stringify({
+          type: 'req', id: crypto.randomUUID(), method: 'sessions.send',
+          params: { key: sessionKey, message, idempotencyKey: crypto.randomUUID() },
+        }));
+
+        ws.on('message', (raw) => {
+          let msg;
+          try { msg = JSON.parse(raw.toString()); } catch { return; }
+
+          // send 确认 → 收工
+          if (msg.type === 'res' && msg.ok && msg.payload?.status === 'started') {
+            clearTimeout(timer); cleanup();
+            resolve(`sent to ${sessionKey}`);
+            return;
+          }
+
+          // 错误
+          if (msg.type === 'res' && !msg.ok) {
+            clearTimeout(timer); cleanup();
+            reject(new Error(msg.error?.message || 'send failed'));
+          }
+        });
+
+        ws.on('error', (err) => { clearTimeout(timer); reject(err); });
+        ws.on('close', () => { clearTimeout(timer); reject(new Error('closed before ack')); });
+      });
     } catch (err) {
       if (attempt === maxRetries) throw err;
       await new Promise(r => setTimeout(r, 2000));
     }
   }
-}
-
-function _doSend(message, password, sessionKey, gatewayUrl, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    let ws, cleanupConn, fullText = '', done = false;
-
-    const timer = setTimeout(() => {
-      done = true; cleanupConn?.(); reject(new Error('timeout'));
-    }, timeoutMs);
-
-    const cleanup = () => {
-      done = true; clearTimeout(timer);
-      if (idleTimer) clearTimeout(idleTimer);
-      cleanupConn?.();
-    };
-
-    // Idle timeout: 8s after last useful event
-    let idleTimer = null;
-    const resetIdle = () => {
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => { done = true; cleanupConn?.(); }, 8000);
-    };
-
-    connect(password, gatewayUrl)
-      .then(({ ws: w, cleanup: c }) => {
-        ws = w; cleanupConn = c;
-        resetIdle();
-
-        const sendReq = {
-          type: 'req', id: crypto.randomUUID(), method: 'sessions.send',
-          params: { key: sessionKey, message, idempotencyKey: crypto.randomUUID() },
-        };
-        ws.send(JSON.stringify(sendReq));
-
-        let sent = false;
-
-        ws.on('message', (raw) => {
-          if (done) return;
-          let msg;
-          try { msg = JSON.parse(raw.toString()); } catch { return; }
-
-          if (!sent && msg.type === 'res' && msg.ok && msg.payload?.status === 'started') {
-            sent = true; return;
-          }
-
-          if (msg.type === 'event' && msg.event === 'agent') {
-            const payload = msg.payload || {};
-            const dataObj = payload.data || {};
-            if (payload.stream === 'assistant' && dataObj.delta) {
-              fullText += dataObj.delta;
-              resetIdle();
-            }
-            return;
-          }
-
-          if (msg.type === 'event' && msg.event === 'session.message') {
-            const m = msg.payload?.message;
-            if (m && m.role === 'assistant') {
-              const c = m.content || '';
-              fullText = Array.isArray(c)
-                ? c.filter(b => b.type === 'text').map(b => b.text).join('\n')
-                : c;
-              cleanup(); resolve(fullText);
-            }
-            return;
-          }
-
-          if (msg.type === 'event' && msg.event === 'sessions.changed') {
-            if (msg.payload?.phase === 'done') {
-              if (fullText) {
-                setTimeout(() => { cleanup(); resolve(fullText); }, 500);
-              } else {
-                setTimeout(async () => {
-                  const hist = await pollHistory(ws, sessionKey);
-                  cleanup(); resolve(hist || '');
-                }, 3000);
-              }
-            }
-            return;
-          }
-
-          if (msg.type === 'res' && !msg.ok) {
-            cleanup();
-            reject(new Error(msg.error?.message || 'request failed'));
-          }
-        });
-
-        ws.on('error', (err) => { clearTimeout(timer); reject(err); });
-        ws.on('close', () => { clearTimeout(timer); resolve(fullText || ''); });
-      })
-      .catch(reject);
-  });
-}
-
-/**
- * 从 chat.history 拉取最新一条 assistant 回复
- */
-function pollHistory(ws, sessionKey) {
-  return new Promise((resolve) => {
-    const histId = crypto.randomUUID();
-    const handler = (raw) => {
-      let msg;
-      try { msg = JSON.parse(raw.toString()); } catch { return false; }
-      if (msg.type === 'res' && msg.id === histId) {
-        ws.off('message', handler);
-        clearTimeout(timeout);
-        if (msg.ok) {
-          const msgs = msg.payload?.messages || [];
-          for (let i = msgs.length - 1; i >= 0; i--) {
-            const m = msgs[i];
-            if (m.role === 'assistant') {
-              const c = m.content || '';
-              resolve(Array.isArray(c)
-                ? c.filter(b => b.type === 'text').map(b => b.text).join('\n')
-                : c);
-              return true;
-            }
-          }
-        }
-        resolve('');
-        return true;
-      }
-      return false;
-    };
-
-    ws.on('message', handler);
-    const timeout = setTimeout(() => { ws.off('message', handler); resolve(''); }, 10000);
-    ws.send(JSON.stringify({
-      type: 'req', id: histId, method: 'chat.history',
-      params: { sessionKey, limit: 5 },
-    }));
-  });
 }
 
 /**
@@ -262,6 +166,12 @@ async function getHistory(opts = {}) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => { cleanup(); reject(new Error('timeout')); }, 15000);
 
+    // 连接成功，立即发历史查询请求
+    ws.send(JSON.stringify({
+      type: 'req', id: crypto.randomUUID(), method: 'chat.history',
+      params: { sessionKey, limit },
+    }));
+
     ws.on('message', (raw) => {
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
@@ -270,15 +180,6 @@ async function getHistory(opts = {}) {
         clearTimeout(timer);
         cleanup();
         resolve(msg.payload.messages);
-        return;
-      }
-
-      // Send query on first non-auth message
-      if (msg.type === 'res' && msg.ok) {
-        ws.send(JSON.stringify({
-          type: 'req', id: crypto.randomUUID(), method: 'chat.history',
-          params: { sessionKey, limit },
-        }));
         return;
       }
 

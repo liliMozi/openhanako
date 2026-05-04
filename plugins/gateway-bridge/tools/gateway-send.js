@@ -4,7 +4,7 @@ import { sendToBainian } from '../gateway-client.js';
 
 export const name = 'gateway_send';
 
-export const description = '发送消息给滨面仕上（执行助理），等待回复。';
+export const description = '发送消息给滨面仕上（执行助理）。仅发送不等回复，用 get_history 捞结果。';
 
 export const parameters = {
   type: 'object',
