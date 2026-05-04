@@ -1092,7 +1092,7 @@ export class HanaEngine {
     const pluginTools = this._pluginManager?.getAllTools() || [];
     const wrappedPluginTools = pluginTools.map(t => ({
       ...t,
-      execute: (toolCallId, params, runtimeCtx) => t.execute(toolCallId, params, { ...runtimeCtx, agentId }),
+      execute: (toolCallId, params, signal, onUpdate, ctx) => t.execute(toolCallId, params, signal, onUpdate, { ...ctx, agentId }),
     }));
     const allTools = [...ct, ...wrappedPluginTools];
 

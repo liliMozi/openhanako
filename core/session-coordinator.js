@@ -1607,6 +1607,9 @@ After dispatching subagent or other background tasks:
     const opId = `iso_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     this._headlessOps.add(opId);
     if (this._headlessOps.size === 1) bm.setHeadless(true);
+    // isolated session 不需要权限审批——operate 模式
+    const prevPermissionDefault = this._runtimePermissionModeDefault;
+    this._runtimePermissionModeDefault = "operate";
     let tempSessionMgr;
     const cleanupTempSession = () => {
       const sp = tempSessionMgr?.getSessionFile?.();
@@ -1785,6 +1788,7 @@ After dispatching subagent or other background tasks:
       }
       return { sessionPath: null, replyText: "", error: err.message };
     } finally {
+      this._runtimePermissionModeDefault = prevPermissionDefault;
       this._headlessOps.delete(opId);
       if (this._headlessOps.size === 0) bm.setHeadless(false);
       const browserNowRunning = bm.hasAnyRunning;

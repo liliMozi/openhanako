@@ -374,8 +374,8 @@ export class Hub {
     }));
 
     // ── groupchat:execute-agent ──
-    // 插件通过 EventBus 触发：完整 Agent 能力（全工具 + 人格 + 记忆）
-    this._sessionHandlerCleanups.push(bus.handle("groupchat:execute-agent", async ({ agentId, text, contextHistory }) => {
+    // 异步 fire-and-forget：立即返回，后台通过 DeferredResultStore 注入结果
+    this._sessionHandlerCleanups.push(bus.handle("groupchat:execute-agent", async ({ agentId, text, contextHistory, parentSessionPath, taskId }) => {
       if (!agentId || !text) throw new Error("agentId and text required");
       const agent = engine.getAgent(agentId);
       if (!agent) throw new Error("agent not found: " + agentId);
@@ -388,26 +388,87 @@ export class Hub {
       const persistDir = path.join(engine.agentsDir, agentId, "sessions", "group_sessions");
       fs.mkdirSync(persistDir, { recursive: true });
 
-      console.log("[Hub] groupchat:execute-agent", agentId, "text:", text.substring(0, 40));
+      const store = engine.deferredResults;
+      const taskTitle = String(text || "").split(/\r?\n/).map(l => l.trim()).find(Boolean) || "";
 
-      const controller = new AbortController();
-      setTimeout(() => controller.abort(), 180_000);
-
-      try {
-        await engine.executeIsolated(prompt, {
-          agentId,
-          cwd,
-          emitEvents: true,
-          persist: persistDir,
-          signal: controller.signal,
+      if (store && taskId && parentSessionPath) {
+        store.defer(taskId, parentSessionPath, {
+          type: "full_agent",
+          summary: taskTitle.length > 80 ? taskTitle.slice(0, 80) + "…" : taskTitle,
+          executorAgentId: agentId,
+          executorAgentNameSnapshot: agent.name || agentId,
         });
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          console.error("[Hub] groupchat:execute-agent error:", err.message);
-        }
       }
 
-      return { agentId, done: true };
+      (async () => {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15 * 60 * 1000);
+          let replyText = "";
+          let execError = null;
+          let savedSessionPath = null;
+
+          try {
+            const result = await engine.executeIsolated(prompt, {
+              agentId, cwd, emitEvents: true,
+              persist: persistDir, signal: controller.signal,
+              onSessionReady: (sp) => {
+                savedSessionPath = sp;
+                if (taskId && parentSessionPath) {
+                  bus.emit({
+                    type: "block_update", taskId,
+                    patch: { streamKey: sp, agentId, agentName: agent.name || agentId,
+                      executorAgentId: agentId, executorAgentNameSnapshot: agent.name || agentId },
+                  }, parentSessionPath);
+                }
+              },
+            });
+            replyText = result?.replyText || "";
+            savedSessionPath = result?.sessionPath || savedSessionPath;
+            execError = result?.error;
+          } catch (err) {
+            if (err.name !== "AbortError") execError = err.message;
+          } finally { clearTimeout(timeout); }
+
+          if (!replyText && savedSessionPath && fs.existsSync(savedSessionPath)) {
+            try {
+              const lines = fs.readFileSync(savedSessionPath, "utf-8").trim().split("\n");
+              for (let i = lines.length - 1; i >= 0 && i >= Math.max(0, lines.length - 10); i--) {
+                try {
+                  const entry = JSON.parse(lines[i]);
+                  const content = entry?.message?.content;
+                  if (Array.isArray(content)) {
+                    const t = content.map(c => c.text || "").join(" ").trim();
+                    if (t) { replyText = t; break; }
+                  } else if (typeof content === "string" && content.trim()) {
+                    replyText = content.trim(); break;
+                  }
+                } catch {}
+              }
+            } catch {}
+          }
+
+          if (store && taskId && parentSessionPath) {
+            if (execError && !replyText) {
+              store.fail(taskId, execError);
+            } else {
+              store.resolve(taskId, replyText || "（无文本输出）");
+            }
+          }
+
+          bus.emit({
+            type: "block_update", taskId,
+            patch: {
+              streamStatus: execError && !replyText ? "failed" : "done",
+              summary: (replyText || execError || "").slice(0, 200),
+            },
+          }, parentSessionPath);
+        } catch (fatal) {
+          console.error("[Hub] groupchat:execute-agent fatal:", fatal.message);
+        }
+      })();
+
+      return { agentId, taskId, started: true };
     }));
   }
 
