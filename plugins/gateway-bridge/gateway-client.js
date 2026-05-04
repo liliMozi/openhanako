@@ -174,21 +174,25 @@ function _doSend(ident, message, timeoutMs) {
         return;
       }
 
-      // 5. session 完成 → 等一小会拉历史
+      // 5. session 完成 → 等一小会收工
       if (msg.type === 'event' && msg.event === 'sessions.changed') {
-        resetIdle();
-        if (msg.payload?.phase === 'done' && !fullText) {
-          // 延迟后拉历史（等消息落盘）
-          setTimeout(async () => {
-            try {
-              const hist = await pollHistory(ws);
-              cleanup();
-              resolve(hist || fullText);
-            } catch {
-              cleanup();
-              resolve(fullText);
-            }
-          }, 3000);
+        if (msg.payload?.phase === 'done') {
+          if (fullText) {
+            // 有流式文本，延迟等可能最后一批 delta
+            setTimeout(() => { cleanup(); resolve(fullText); }, 500);
+          } else {
+            // 无流式文本，拉历史捞回复
+            setTimeout(async () => {
+              try {
+                const hist = await pollHistory(ws);
+                cleanup();
+                resolve(hist || '');
+              } catch {
+                cleanup();
+                resolve('');
+              }
+            }, 3000);
+          }
         }
         return;
       }
