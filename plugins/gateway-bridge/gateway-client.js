@@ -269,4 +269,69 @@ function pollHistory(ws) {
   });
 }
 
-export { sendToBainian };
+/**
+ * 查询滨面指定 session 的消息历史
+ * @param {string} [sessionKey='agent:main:d_laoshi'] - session key
+ * @param {number} [limit=20] - 消息条数
+ * @returns {Promise<Array>} 消息列表
+ */
+async function getHistory(sessionKey = SESSION_KEY, limit = 20) {
+  const ident = loadIdentity();
+
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(GATEWAY_URL, { rejectUnauthorized: false });
+    let done = false;
+
+    const timer = setTimeout(() => {
+      done = true; ws.close(); reject(new Error('timeout'));
+    }, 15000);
+
+    const cleanup = () => {
+      done = true; clearTimeout(timer);
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
+    };
+
+    ws.on('message', (raw) => {
+      if (done) return;
+      let msg;
+      try { msg = JSON.parse(raw.toString()); } catch { return; }
+
+      // Challenge → sign and connect
+      if (msg.type === 'event' && msg.event === 'connect.challenge') {
+        const { nonce, ts } = msg.payload;
+        ws.send(JSON.stringify({
+          type: 'req', id: crypto.randomUUID(), method: 'connect',
+          params: buildConnectParams(ident, nonce, ts),
+        }));
+        return;
+      }
+
+      // hello-ok → send history query
+      if (msg.type === 'res' && msg.ok && msg.payload?.type === 'hello-ok') {
+        ws.send(JSON.stringify({
+          type: 'req', id: crypto.randomUUID(), method: 'chat.history',
+          params: { sessionKey, limit },
+        }));
+        return;
+      }
+
+      // history response
+      if (msg.type === 'res' && msg.ok && msg.payload?.messages) {
+        cleanup();
+        resolve(msg.payload.messages);
+        return;
+      }
+
+      // error
+      if (msg.type === 'res' && !msg.ok) {
+        cleanup();
+        reject(new Error(msg.error?.message || 'unknown error'));
+      }
+    });
+
+    ws.on('error', (err) => { clearTimeout(timer); reject(err); });
+    ws.on('close', () => { clearTimeout(timer); resolve([]); });
+  });
+}
+
+export { sendToBainian, getHistory };
