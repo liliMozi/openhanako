@@ -1241,7 +1241,7 @@
     },
     "sessionFiles": {
       "title": "Session 檔案",
-      "empty": "這個 Session 還沒有登記檔案",
+      "empty": "本對話還沒有產生或上傳檔案",
       "status": {
         "available": "可用",
         "expired": "已過期"

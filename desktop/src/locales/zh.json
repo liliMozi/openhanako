@@ -1291,7 +1291,7 @@
     },
     "sessionFiles": {
       "title": "Session 文件",
-      "empty": "这个 Session 还没有登记文件",
+      "empty": "本对话还没有产生或上传文件",
       "status": {
         "available": "可用",
         "expired": "已过期"

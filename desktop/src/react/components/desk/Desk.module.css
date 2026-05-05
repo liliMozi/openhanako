@@ -142,6 +142,73 @@
     font-family: inherit;
 }
 
+/* Obsidian-like workspace tree */
+.tree {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 4px 2px 72px;
+}
+
+.tree:empty {
+    align-items: center;
+    justify-content: center;
+}
+
+.tree:empty::after {
+    content: attr(data-empty-text);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-family: inherit;
+}
+
+.treeGroup {
+    display: flex;
+    flex-direction: column;
+}
+
+.treeItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    height: 28px;
+    padding: 0 var(--space-sm);
+    padding-left: calc(8px + (var(--tree-depth, 0) * 16px));
+    margin: 0 2px;
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.74rem;
+    line-height: 1.4;
+    cursor: default;
+    user-select: none;
+    transition: background 0.12s var(--ease-out), color 0.12s var(--ease-out);
+}
+
+.treeItem:hover {
+    background: var(--overlay-subtle);
+}
+
+.treeItemSelected {
+    background: rgba(var(--accent-rgb), 0.10);
+}
+
+.treeDisclosure {
+    flex: 0 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1;
+}
+
+.treeIndent {
+    display: none;
+}
+
 /* 文件条目 */
 .item {
     display: flex;

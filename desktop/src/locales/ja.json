@@ -1241,7 +1241,7 @@
     },
     "sessionFiles": {
       "title": "セッションファイル",
-      "empty": "この Session にはまだファイルが登録されていません",
+      "empty": "この会話ではまだファイルが作成またはアップロードされていません",
       "status": {
         "available": "利用可能",
         "expired": "期限切れ"

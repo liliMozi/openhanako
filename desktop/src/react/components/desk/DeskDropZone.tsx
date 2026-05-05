@@ -12,7 +12,15 @@ import {
 import type { CtxMenuState } from './desk-types';
 import s from './Desk.module.css';
 
-export function DeskDropZone({ children, onShowMenu }: { children: React.ReactNode; onShowMenu: (state: CtxMenuState) => void }) {
+export function DeskDropZone({
+  children,
+  onShowMenu,
+  framed = true,
+}: {
+  children: React.ReactNode;
+  onShowMenu: (state: CtxMenuState) => void;
+  framed?: boolean;
+}) {
   const [dragging, setDragging] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -72,7 +80,7 @@ export function DeskDropZone({ children, onShowMenu }: { children: React.ReactNo
 
   return (
     <div
-      className={`jian-card ${s.section}${dragging ? ` ${s.dragOver}` : ''}`}
+      className={`${framed ? 'jian-card ' : ''}${s.section}${dragging ? ` ${s.dragOver}` : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

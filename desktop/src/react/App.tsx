@@ -16,9 +16,8 @@ import { BridgePanel } from './components/BridgePanel';
 
 const SkillViewerOverlay = lazy(() => import('./components/SkillViewerOverlay').then(m => ({ default: m.SkillViewerOverlay })));
 import { PreviewPanel } from './components/PreviewPanel';
-import { DeskSection } from './components/DeskSection';
+import { RightWorkspacePanel } from './components/right-workspace/RightWorkspacePanel';
 import { PluginPageView } from './components/plugin/PluginPageView';
-import { PluginWidgetView } from './components/plugin/PluginWidgetView';
 import { InputArea } from './components/InputArea';
 import { SessionList } from './components/SessionList';
 import { ArchivedChatsButton } from './components/ArchivedChatsButton';
@@ -183,7 +182,6 @@ function App() {
   const currentSessionPath = useStore(s => s.currentSessionPath);
   const currentAgentId = useStore(s => s.currentAgentId);
   const currentChannel = useStore(s => s.currentChannel);
-  const jianView = useStore(s => s.jianView);
   const isPluginTab = typeof currentTab === 'string' && currentTab.startsWith('plugin:');
   const hasPanels = !welcomeVisible && !!currentSessionPath;
   const { floatCard, show: showFloat, scheduleHide: scheduleFloatHide, cancelHide: cancelFloatHide, hide: hideFloat } = useFloatCard();
@@ -378,17 +376,9 @@ function App() {
           <div className="resize-handle resize-handle-left" id="jianResizeHandle"></div>
           <div className="jian-sidebar-inner">
             <div className={`jian-chat-content${currentTab === 'chat' || isPluginTab ? '' : ' hidden'}`}>
-              {jianView === 'desk' ? (
-                <RegionalErrorBoundary region="desk">
-                  <DeskSection />
-                </RegionalErrorBoundary>
-              ) : jianView.startsWith('widget:') ? (
-                <PluginWidgetView pluginId={jianView.slice(7)} />
-              ) : (
-                <RegionalErrorBoundary region="desk">
-                  <DeskSection />
-                </RegionalErrorBoundary>
-              )}
+              <RegionalErrorBoundary region="right-workspace">
+                <RightWorkspacePanel />
+              </RegionalErrorBoundary>
             </div>
 
             <div className={`jian-channel-content${currentTab === 'channels' ? '' : ' hidden'}`}>

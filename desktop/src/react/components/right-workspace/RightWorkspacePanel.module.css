@@ -1,0 +1,285 @@
+.shell {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    gap: var(--space-sm);
+    overflow: hidden;
+}
+
+.workspaceCard {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.workspaceHeader {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    padding: var(--space-sm) calc(var(--space-sm) + 7.5rem) var(--space-xs) var(--space-md);
+}
+
+.workspaceTitle {
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: "Songti SC", "Noto Serif CJK SC", serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.tabs {
+    --right-workspace-active-tab-index: 0;
+    --right-workspace-tab-slider-offset: 0px;
+    position: relative;
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px;
+    margin: 2px var(--space-sm) var(--space-xs);
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    background: var(--overlay-subtle);
+    border: 1px solid var(--overlay-light);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.tabSlider {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    z-index: 0;
+    width: calc((100% - 6px) / 2);
+    border-radius: max(2px, calc(var(--radius-sm) - 2px));
+    background: var(--tab-slider-bg, var(--bg-card));
+    box-shadow: var(--tab-slider-shadow, 0 1px 3px var(--shadow));
+    transform: translateX(var(--right-workspace-tab-slider-offset));
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    height: 26px;
+    border: none;
+    border-radius: max(2px, calc(var(--radius-sm) - 2px));
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s var(--ease-out);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab:hover {
+    color: var(--text);
+}
+
+.tabActive {
+    color: var(--text);
+}
+
+.content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-top: 0;
+}
+
+.sessionFilesPanel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: transparent;
+}
+
+.emptyState {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    text-align: center;
+}
+
+.fileList {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-xs) 0;
+}
+
+.fileRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    min-width: 0;
+    padding: 7px var(--space-md);
+    border-bottom: 1px solid var(--overlay-subtle);
+}
+
+.fileRow:last-child {
+    border-bottom: none;
+}
+
+.fileIcon {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--overlay-light);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.fileMain {
+    flex: 1;
+    min-width: 0;
+}
+
+.fileName {
+    color: var(--text);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fileMeta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    line-height: 1.35;
+}
+
+.fileMeta span + span::before {
+    content: "·";
+    margin-right: 0.35rem;
+}
+
+.jianDrawer {
+    --right-workspace-jian-open-dur: 400ms;
+    --right-workspace-jian-close-dur: 350ms;
+    --right-workspace-jian-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    flex: 0 0 auto;
+    max-height: 320px;
+    overflow: hidden;
+    margin: 0 var(--space-sm) var(--space-sm);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--jian-note-border, rgba(200, 160, 110, 0.2));
+    background: var(--jian-note-bg, #FAF0E2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: max-height var(--right-workspace-jian-open-dur) var(--right-workspace-jian-ease);
+}
+
+.jianDrawer[data-open="false"] {
+    max-height: 48px;
+    transition-duration: var(--right-workspace-jian-close-dur);
+}
+
+.jianHeader {
+    height: 46px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-md);
+    border-bottom: 1px solid var(--jian-note-border, rgba(200, 160, 110, 0.2));
+}
+
+.jianRule {
+    height: 1px;
+    background: var(--jian-note-border, rgba(200, 160, 110, 0.25));
+}
+
+.jianTitle {
+    color: var(--text-light);
+    font-family: "Songti SC", "Noto Serif CJK SC", serif;
+    font-size: 0.94rem;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+.jianToggle {
+    position: absolute;
+    right: calc(var(--space-sm) + 6px);
+    bottom: calc(var(--space-sm) + 6px);
+    z-index: 2;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.16s var(--ease-out), background 0.16s var(--ease-out);
+}
+
+.jianToggle:hover {
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.08);
+}
+
+.jianBody {
+    height: 272px;
+    transform: translateY(0);
+    transition: transform var(--right-workspace-jian-open-dur) var(--right-workspace-jian-ease);
+}
+
+.jianDrawer[data-open="false"] .jianBody {
+    transform: translateY(24px);
+    pointer-events: none;
+    transition-duration: var(--right-workspace-jian-close-dur);
+}
+
+.jianBody :global([data-desk-editor]) {
+    height: 100%;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .jianDrawer,
+    .jianBody {
+        transition: none !important;
+    }
+}

@@ -1286,7 +1286,7 @@
     },
     "sessionFiles": {
       "title": "Session Registry Files",
-      "empty": "No files have been registered in this session yet.",
+      "empty": "This conversation has not created or uploaded any files yet.",
       "status": {
         "available": "Available",
         "expired": "Expired"

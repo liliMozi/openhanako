@@ -1,4 +1,4 @@
-import type { ActivePanel, TabType } from '../types';
+import type { ActivePanel, RightWorkspaceTab, TabType } from '../types';
 import type { FileRef } from '../types/file-ref';
 
 export interface MediaViewerState {
@@ -21,6 +21,8 @@ export interface UiSlice {
   welcomeVisible: boolean;
   currentTab: TabType;
   activePanel: ActivePanel;
+  rightWorkspaceTab: RightWorkspaceTab;
+  jianDrawerOpen: boolean;
   locale: string;
   /** Skill 预览 overlay 数据（null = 关闭） */
   skillViewerData: { name: string; baseDir: string; filePath?: string; installed?: boolean } | null;
@@ -38,6 +40,8 @@ export interface UiSlice {
   setWelcomeVisible: (visible: boolean) => void;
   setCurrentTab: (tab: TabType) => void;
   setActivePanel: (panel: ActivePanel) => void;
+  setRightWorkspaceTab: (tab: RightWorkspaceTab) => void;
+  setJianDrawerOpen: (open: boolean) => void;
   setChannelCreateOverlayVisible: (visible: boolean) => void;
   setMediaViewer: (state: MediaViewerState | null) => void;
   setSettingsModal: (state: SettingsModalState) => void;
@@ -58,6 +62,8 @@ export const createUiSlice = (
   welcomeVisible: true,
   currentTab: 'chat',
   activePanel: null,
+  rightWorkspaceTab: 'workspace',
+  jianDrawerOpen: true,
   // Keep locale empty until i18n.load() finishes so the first successful
   // locale sync always triggers a rerender, even for the default zh locale.
   locale: '',
@@ -73,6 +79,8 @@ export const createUiSlice = (
   setWelcomeVisible: (visible) => set({ welcomeVisible: visible }),
   setCurrentTab: (tab) => set({ currentTab: tab }),
   setActivePanel: (panel) => set({ activePanel: panel }),
+  setRightWorkspaceTab: (tab) => set({ rightWorkspaceTab: tab }),
+  setJianDrawerOpen: (open) => set({ jianDrawerOpen: open }),
   setChannelCreateOverlayVisible: (visible) => set({ channelCreateOverlayVisible: visible }),
   setMediaViewer: (state) => set({ mediaViewer: state }),
   setSettingsModal: (state) => set({ settingsModal: state }),

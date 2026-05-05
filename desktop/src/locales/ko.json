@@ -1241,7 +1241,7 @@
     },
     "sessionFiles": {
       "title": "세션 파일",
-      "empty": "이 Session에는 아직 등록된 파일이 없어요",
+      "empty": "이 대화에서는 아직 파일이 생성되거나 업로드되지 않았어요",
       "status": {
         "available": "사용 가능",
         "expired": "만료됨"

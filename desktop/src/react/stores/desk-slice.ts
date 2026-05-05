@@ -11,6 +11,9 @@ export interface CwdSkillInfo {
 export interface WorkspaceDeskState {
   deskCurrentPath: string;
   deskFiles: DeskFile[];
+  deskTreeFilesByPath: Record<string, DeskFile[]>;
+  deskExpandedPaths: string[];
+  deskSelectedPath: string;
   deskJianContent: string | null;
   cwdSkills: CwdSkillInfo[];
   cwdSkillsOpen: boolean;
@@ -23,6 +26,9 @@ export interface DeskSlice {
   deskFiles: DeskFile[];
   deskBasePath: string;
   deskCurrentPath: string;
+  deskTreeFilesByPath: Record<string, DeskFile[]>;
+  deskExpandedPaths: string[];
+  deskSelectedPath: string;
   deskJianContent: string | null;
   cwdSkills: CwdSkillInfo[];
   cwdSkillsOpen: boolean;
@@ -37,6 +43,10 @@ export interface DeskSlice {
   setDeskFiles: (files: DeskFile[]) => void;
   setDeskBasePath: (path: string) => void;
   setDeskCurrentPath: (path: string) => void;
+  setDeskTreeFiles: (subdir: string, files: DeskFile[]) => void;
+  setDeskExpandedPaths: (paths: string[]) => void;
+  setDeskSelectedPath: (path: string) => void;
+  clearDeskTree: () => void;
   setDeskJianContent: (content: string | null) => void;
   setHomeFolder: (folder: string | null) => void;
   setSelectedFolder: (folder: string | null) => void;
@@ -51,6 +61,9 @@ export const createDeskSlice = (
   deskFiles: [],
   deskBasePath: '',
   deskCurrentPath: '',
+  deskTreeFilesByPath: {},
+  deskExpandedPaths: [],
+  deskSelectedPath: '',
   deskJianContent: null,
   cwdSkills: [],
   cwdSkillsOpen: false,
@@ -65,6 +78,19 @@ export const createDeskSlice = (
   setDeskFiles: (files) => set({ deskFiles: files }),
   setDeskBasePath: (path) => set({ deskBasePath: path }),
   setDeskCurrentPath: (path) => set({ deskCurrentPath: path }),
+  setDeskTreeFiles: (subdir, files) => set((s) => ({
+    deskTreeFilesByPath: {
+      ...s.deskTreeFilesByPath,
+      [subdir]: files,
+    },
+  })),
+  setDeskExpandedPaths: (paths) => set({ deskExpandedPaths: paths }),
+  setDeskSelectedPath: (path) => set({ deskSelectedPath: path }),
+  clearDeskTree: () => set({
+    deskTreeFilesByPath: {},
+    deskExpandedPaths: [],
+    deskSelectedPath: '',
+  }),
   setDeskJianContent: (content) => set({ deskJianContent: content }),
   setHomeFolder: (folder) => set({ homeFolder: folder }),
   setSelectedFolder: (folder) => set({ selectedFolder: folder }),

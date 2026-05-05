@@ -27,27 +27,29 @@ export const DESK_SORT_KEY = 'hana-desk-sort';
 
 export type SortMode = 'mtime-desc' | 'name-asc' | 'name-desc' | 'size-desc' | 'type-asc';
 
-const t = window.t;
+function tr(key: string): string {
+  return (window.t ?? ((p: string) => p))(key);
+}
 
 export function getSortOptions(): Array<{ key: SortMode; label: string }> {
   return [
-    { key: 'mtime-desc', label: t('desk.sort.mtime') },
-    { key: 'name-asc', label: t('desk.sort.nameAsc') },
-    { key: 'name-desc', label: t('desk.sort.nameDesc') },
-    { key: 'size-desc', label: t('desk.sort.size') },
-    { key: 'type-asc', label: t('desk.sort.type') },
+    { key: 'mtime-desc', label: tr('desk.sort.mtime') },
+    { key: 'name-asc', label: tr('desk.sort.nameAsc') },
+    { key: 'name-desc', label: tr('desk.sort.nameDesc') },
+    { key: 'size-desc', label: tr('desk.sort.size') },
+    { key: 'type-asc', label: tr('desk.sort.type') },
   ];
 }
 
 export function getSortShort(mode: string): string {
   const map: Record<string, string> = {
-    'mtime-desc': t('desk.sort.mtimeShort'),
-    'name-asc': t('desk.sort.nameAscShort'),
-    'name-desc': t('desk.sort.nameDescShort'),
-    'size-desc': t('desk.sort.sizeShort'),
-    'type-asc': t('desk.sort.typeShort'),
+    'mtime-desc': tr('desk.sort.mtimeShort'),
+    'name-asc': tr('desk.sort.nameAscShort'),
+    'name-desc': tr('desk.sort.nameDescShort'),
+    'size-desc': tr('desk.sort.sizeShort'),
+    'type-asc': tr('desk.sort.typeShort'),
   };
-  return map[mode] || t('desk.sort.label');
+  return map[mode] || tr('desk.sort.label');
 }
 
 export function getFileIcon(name: string): string {

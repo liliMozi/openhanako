@@ -32,6 +32,9 @@ describe('desk-actions workspace roots', () => {
       deskBasePath: '',
       deskCurrentPath: '',
       deskFiles: [],
+      deskTreeFilesByPath: {},
+      deskExpandedPaths: [],
+      deskSelectedPath: '',
       deskJianContent: null,
       cwdSkills: [],
       cwdSkillsOpen: false,
@@ -152,6 +155,9 @@ describe('desk-actions workspace roots', () => {
       deskBasePath: '/workspace-a',
       deskCurrentPath: 'notes/daily',
       deskFiles: [{ name: 'a.md' }],
+      deskTreeFilesByPath: { '': [{ name: 'notes', isDir: true }], notes: [{ name: 'a.md', isDir: false }] },
+      deskExpandedPaths: ['notes'],
+      deskSelectedPath: 'notes/a.md',
       deskJianContent: 'a-note',
       cwdSkills: [{ name: 'skill-a', description: '', source: 'workspace', filePath: '/workspace-a/.agents/skills/a/SKILL.md', baseDir: '/workspace-a/.agents/skills/a' }],
       cwdSkillsOpen: true,
@@ -171,6 +177,9 @@ describe('desk-actions workspace roots', () => {
     useStore.setState({
       deskCurrentPath: 'src',
       deskFiles: [{ name: 'b.md' }],
+      deskTreeFilesByPath: { '': [{ name: 'src', isDir: true }], src: [{ name: 'b.md', isDir: false }] },
+      deskExpandedPaths: ['src'],
+      deskSelectedPath: 'src/b.md',
       deskJianContent: 'b-note',
       previewOpen: false,
       openTabs: ['previewItem-b'],
@@ -182,10 +191,41 @@ describe('desk-actions workspace roots', () => {
     expect(useStore.getState().deskBasePath).toBe('/workspace-a');
     expect(useStore.getState().deskCurrentPath).toBe('notes/daily');
     expect(useStore.getState().deskFiles).toEqual([]);
+    expect(useStore.getState().deskTreeFilesByPath).toEqual({
+      '': [{ name: 'notes', isDir: true }],
+      notes: [{ name: 'a.md', isDir: false }],
+    });
+    expect(useStore.getState().deskExpandedPaths).toEqual(['notes']);
+    expect(useStore.getState().deskSelectedPath).toBe('notes/a.md');
     expect(useStore.getState().deskJianContent).toBeNull();
     expect(useStore.getState().cwdSkillsOpen).toBe(true);
     expect(useStore.getState().previewOpen).toBe(true);
     expect(useStore.getState().openTabs).toEqual(['previewItem-a']);
     expect(useStore.getState().activeTabId).toBe('previewItem-a');
+  });
+
+  it('loads tree children by explicit subdir without changing the visible current directory', async () => {
+    useStore.setState({
+      deskBasePath: '/workspace',
+      deskCurrentPath: 'drafts',
+      deskFiles: [{ name: 'draft.md', isDir: false }],
+      deskTreeFilesByPath: {},
+      deskExpandedPaths: [],
+      deskSelectedPath: '',
+    } as never);
+    mockHanaFetch.mockResolvedValueOnce(jsonResponse({
+      files: [{ name: 'chapter.md', isDir: false }],
+      basePath: '/workspace',
+    }));
+
+    const { loadDeskTreeFiles } = await import('../../stores/desk-actions');
+    await loadDeskTreeFiles('notes');
+
+    expect(mockHanaFetch).toHaveBeenCalledWith('/api/desk/files?dir=%2Fworkspace&subdir=notes');
+    expect(useStore.getState().deskCurrentPath).toBe('drafts');
+    expect(useStore.getState().deskFiles).toEqual([{ name: 'draft.md', isDir: false }]);
+    expect(useStore.getState().deskTreeFilesByPath).toEqual({
+      notes: [{ name: 'chapter.md', isDir: false }],
+    });
   });
 });

@@ -34,6 +34,25 @@ export function DeskOpenButton() {
   );
 }
 
+export function DeskOpenIconButton() {
+  const hasDesk = useStore(s => !!s.deskBasePath);
+  const label = (window.t ?? ((p: string) => p))('desk.openInFinder');
+  const handleClick = useCallback(() => {
+    const s = useStore.getState();
+    if (!s.deskBasePath) return;
+    const target = s.deskCurrentPath
+      ? s.deskBasePath + '/' + s.deskCurrentPath
+      : s.deskBasePath;
+    window.platform?.openFolder?.(target);
+  }, []);
+
+  return (
+    <button className={`${s.sortBtn} ${s.iconBtn}`} onClick={handleClick} title={label} aria-label={label} disabled={!hasDesk}>
+      <span dangerouslySetInnerHTML={{ __html: ICONS.finderOpen }} />
+    </button>
+  );
+}
+
 // ── 面包屑导航 ──
 
 export function DeskBreadcrumb() {

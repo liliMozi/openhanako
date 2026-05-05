@@ -35,7 +35,7 @@ function combineJian(instructions: string, logs: { raw: string }[]) {
   return instructions + '\n\n' + EXEC_LOG_START + '\n' + logs.map(l => l.raw).join('\n') + '\n' + EXEC_LOG_END;
 }
 
-export function JianEditor() {
+export function JianEditor({ showHeader = true }: { showHeader?: boolean }) {
   const deskJianContent = useStore(s => s.deskJianContent);
   const [localValue, setLocalValue] = useState('');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,9 +83,11 @@ export function JianEditor() {
 
   return (
     <div className={s.editor} data-desk-editor="">
-      <div className={s.editorHeader}>
-        <span className={s.editorLabel}>{(window.t ?? ((p: string) => p))('desk.jianLabel')}</span>
-      </div>
+      {showHeader && (
+        <div className={s.editorHeader}>
+          <span className={s.editorLabel}>{(window.t ?? ((p: string) => p))('desk.jianLabel')}</span>
+        </div>
+      )}
       <span className={s.editorStatus} ref={statusRef}></span>
       <textarea
         className={s.editorInput}

@@ -16,6 +16,7 @@ import { mergeWorkspaceHistory, normalizeWorkspacePath } from '../../../../share
 const t = (key: string, vars?: Record<string, string | number>) => window.t?.(key, vars) ?? key;
 
 let _deskLoadVersion = 0;
+const _deskTreeLoadVersion = new Map<string, number>();
 
 // ── 路径工具 ──
 
@@ -34,6 +35,9 @@ function buildWorkspaceDeskState(s: ReturnType<typeof useStore.getState>): Works
   return {
     deskCurrentPath: s.deskCurrentPath || '',
     deskFiles: [...(s.deskFiles || [])],
+    deskTreeFilesByPath: { ...(s.deskTreeFilesByPath || {}) },
+    deskExpandedPaths: [...(s.deskExpandedPaths || [])],
+    deskSelectedPath: s.deskSelectedPath || '',
     deskJianContent: s.deskJianContent ?? null,
     cwdSkills: [...(s.cwdSkills || [])],
     cwdSkillsOpen: !!s.cwdSkillsOpen,
@@ -71,6 +75,9 @@ export async function activateWorkspaceDesk(root: string | null | undefined, opt
       deskBasePath: '',
       deskCurrentPath: '',
       deskFiles: [],
+      deskTreeFilesByPath: {},
+      deskExpandedPaths: [],
+      deskSelectedPath: '',
       deskJianContent: null,
       cwdSkills: [],
       cwdSkillsOpen: false,
@@ -93,6 +100,9 @@ export async function activateWorkspaceDesk(root: string | null | undefined, opt
     deskBasePath: normalized,
     deskCurrentPath: nextSubdir,
     deskFiles: [],
+    deskTreeFilesByPath: saved?.deskTreeFilesByPath || {},
+    deskExpandedPaths: saved?.deskExpandedPaths || [],
+    deskSelectedPath: saved?.deskSelectedPath || '',
     deskJianContent: null,
     cwdSkills: saved?.cwdSkills || [],
     cwdSkillsOpen: saved?.cwdSkillsOpen || false,
@@ -146,6 +156,8 @@ export async function loadDeskFiles(subdir?: string, overrideDir?: string | null
     if (data.error) throw new Error(String(data.error));
     const st = useStore.getState();
     st.setDeskFiles(data.files || []);
+    st.setDeskTreeFiles(curPath || '', data.files || []);
+    st.setDeskSelectedPath(curPath || '');
     if (data.basePath) st.setDeskBasePath(data.basePath);
     loadJianContent();
     updateDeskContextBtn();
@@ -154,8 +166,46 @@ export async function loadDeskFiles(subdir?: string, overrideDir?: string | null
     if (myVersion !== _deskLoadVersion) return;
     const st = useStore.getState();
     st.setDeskFiles([]);
+    st.setDeskTreeFiles(subdir !== undefined ? subdir : (st.deskCurrentPath || ''), []);
     st.setDeskJianContent(null);
     updateDeskContextBtn();
+  }
+}
+
+function deskTreeLoadKey(root: string | undefined, subdir: string): string {
+  return `${root || ''}\n${subdir}`;
+}
+
+export async function loadDeskTreeFiles(subdir = '', options: { force?: boolean; overrideDir?: string | null } = {}): Promise<void> {
+  const s = useStore.getState();
+  if (!s.serverPort) return;
+  const dir = options.overrideDir !== undefined
+    ? (options.overrideDir || undefined)
+    : defaultDeskRoot(s);
+  const normalizedSubdir = subdir.replace(/^\/+|\/+$/g, '');
+  const cached = s.deskTreeFilesByPath?.[normalizedSubdir];
+  if (cached && !options.force) return;
+
+  const key = deskTreeLoadKey(dir, normalizedSubdir);
+  const myVersion = (_deskTreeLoadVersion.get(key) || 0) + 1;
+  _deskTreeLoadVersion.set(key, myVersion);
+
+  try {
+    const params = new URLSearchParams();
+    if (dir) params.set('dir', dir);
+    if (normalizedSubdir) params.set('subdir', normalizedSubdir);
+    const qs = params.toString() ? `?${params}` : '';
+    const res = await hanaFetch(`/api/desk/files${qs}`);
+    const data = await res.json();
+    if (_deskTreeLoadVersion.get(key) !== myVersion) return;
+    if (data.error) throw new Error(String(data.error));
+    const st = useStore.getState();
+    if (data.basePath) st.setDeskBasePath(data.basePath);
+    st.setDeskTreeFiles(normalizedSubdir, data.files || []);
+  } catch (err) {
+    console.error('[desk-tree] load failed:', err);
+    if (_deskTreeLoadVersion.get(key) !== myVersion) return;
+    useStore.getState().setDeskTreeFiles(normalizedSubdir, []);
   }
 }
 
@@ -194,7 +244,9 @@ export async function saveJianContent(content?: string): Promise<void> {
     const qs = params.toString() ? `?${params}` : '';
     const res2 = await hanaFetch(`/api/desk/files${qs}`);
     const data2 = await res2.json();
-    useStore.getState().setDeskFiles(data2.files || []);
+    const st = useStore.getState();
+    st.setDeskFiles(data2.files || []);
+    st.setDeskTreeFiles(st.deskCurrentPath || '', data2.files || []);
   } catch (err) {
     console.error('[jian] save jian.md failed:', err);
   }
@@ -209,7 +261,11 @@ export async function deskUploadFiles(paths: string[]): Promise<void> {
       body: JSON.stringify({ action: 'upload', dir: s.deskBasePath || undefined, subdir: s.deskCurrentPath || '', paths }),
     });
     const data = await res.json();
-    if (data.files) useStore.getState().setDeskFiles(data.files);
+    if (data.files) {
+      const st = useStore.getState();
+      st.setDeskFiles(data.files);
+      st.setDeskTreeFiles(st.deskCurrentPath || '', data.files);
+    }
   } catch (err) {
     console.error('[jian-desk] upload failed:', err);
   }
@@ -229,7 +285,11 @@ export async function deskCreateFile(text: string): Promise<void> {
       body: JSON.stringify({ action: 'create', dir: s.deskBasePath || undefined, subdir: s.deskCurrentPath || '', name, content: text }),
     });
     const data = await res.json();
-    if (data.files) useStore.getState().setDeskFiles(data.files);
+    if (data.files) {
+      const st = useStore.getState();
+      st.setDeskFiles(data.files);
+      st.setDeskTreeFiles(st.deskCurrentPath || '', data.files);
+    }
   } catch (err) {
     console.error('[jian-desk] create failed:', err);
   }
@@ -244,7 +304,11 @@ export async function deskMoveFiles(names: string[], destFolder: string): Promis
       body: JSON.stringify({ action: 'move', dir: s.deskBasePath || undefined, subdir: s.deskCurrentPath || '', names, destFolder }),
     });
     const data = await res.json();
-    if (data.files) useStore.getState().setDeskFiles(data.files);
+    if (data.files) {
+      const st = useStore.getState();
+      st.setDeskFiles(data.files);
+      st.setDeskTreeFiles(st.deskCurrentPath || '', data.files);
+    }
   } catch (err) {
     console.error('[jian-desk] move failed:', err);
   }
@@ -259,7 +323,11 @@ export async function deskRemoveFile(name: string): Promise<void> {
       body: JSON.stringify({ action: 'remove', dir: s.deskBasePath || undefined, subdir: s.deskCurrentPath || '', name }),
     });
     const data = await res.json();
-    if (data.files) useStore.getState().setDeskFiles(data.files);
+    if (data.files) {
+      const st = useStore.getState();
+      st.setDeskFiles(data.files);
+      st.setDeskTreeFiles(st.deskCurrentPath || '', data.files);
+    }
   } catch (err) {
     console.error('[jian-desk] remove failed:', err);
   }
@@ -285,7 +353,9 @@ export async function deskMkdir(): Promise<string | null> {
     });
     const data = await res.json();
     if (data.files) {
-      useStore.getState().setDeskFiles(data.files);
+      const st = useStore.getState();
+      st.setDeskFiles(data.files);
+      st.setDeskTreeFiles(st.deskCurrentPath || '', data.files);
       return name;
     }
   } catch (err) {
@@ -303,7 +373,11 @@ export async function deskRenameFile(oldName: string, newName: string): Promise<
     });
     const data = await res.json();
     if (data.error) { console.error('[desk] rename error:', data.error); return false; }
-    if (data.files) useStore.getState().setDeskFiles(data.files);
+    if (data.files) {
+      const st = useStore.getState();
+      st.setDeskFiles(data.files);
+      st.setDeskTreeFiles(st.deskCurrentPath || '', data.files);
+    }
     return true;
   } catch (err) { console.error('[desk] rename failed:', err); return false; }
 }
