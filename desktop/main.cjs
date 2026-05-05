@@ -1957,12 +1957,12 @@ async function checkForUpdates() {
 // ── 截图渲染管线 ──
 
 const SCREENSHOT_THEMES = {
-  "solarized-light":         { width: 460 },
-  "solarized-dark":          { width: 460 },
-  "solarized-light-desktop": { width: 880 },
-  "solarized-dark-desktop":  { width: 880 },
-  "sakura-light":            { width: 460 },
-  "sakura-light-desktop":    { width: 880 },
+  "solarized-light":         { width: 460, backgroundColor: "#F8F5ED" },
+  "solarized-dark":          { width: 460, backgroundColor: "#002b36" },
+  "solarized-light-desktop": { width: 880, backgroundColor: "#F8F5ED" },
+  "solarized-dark-desktop":  { width: 880, backgroundColor: "#002b36" },
+  "sakura-light":            { width: 460, backgroundColor: "#8ABDCE" },
+  "sakura-light-desktop":    { width: 880, backgroundColor: "#8ABDCE" },
 };
 
 const SCREENSHOT_MAX_SEGMENT = 4000;
@@ -1974,7 +1974,7 @@ function getScreenshotWindow() {
   _screenshotWin = new BrowserWindow({
     width: 460, height: 100,
     show: false, skipTaskbar: true,
-    webPreferences: { offscreen: true, deviceScaleFactor: 2 },
+    webPreferences: { offscreen: { deviceScaleFactor: 2 } },
   });
   return _screenshotWin;
 }
@@ -2037,22 +2037,22 @@ function buildScreenshotHTML(payload) {
 
   const katexCSS = _getKatexCSS();
 
-  let extraCSS = "";
+  let extraCSS = `:root { --screenshot-page-bg: ${themeConf.backgroundColor}; }`;
   if (themeName.startsWith("sakura-")) {
     const isDesktop = themeName.endsWith("-desktop");
     const branchFile = isDesktop ? "sakura-branch-desktop.png" : "sakura-branch-mobile.png";
     const flowerFile = isDesktop ? "sakura-flower-desktop.png" : "sakura-flower-mobile.png";
     const branchUrl = pathToFileURL(getScreenshotResourcePath("sakura", branchFile)).href;
     const flowerUrl = pathToFileURL(getScreenshotResourcePath("sakura", flowerFile)).href;
-    extraCSS = `:root { --sakura-branch-url: url('${branchUrl}'); --sakura-flower-url: url('${flowerUrl}'); }`;
+    extraCSS += `\n:root { --sakura-branch-url: url('${branchUrl}'); --sakura-flower-url: url('${flowerUrl}'); }`;
   }
 
   // Logo 内联为 base64 data URL（asar 内文件无法被离屏窗口的 file:// 加载）
   let logoUrl = "";
   try {
     const logoPath = app.isPackaged
-      ? path.join(__dirname, "src", "assets", "Hanako.png")
-      : path.join(__dirname, "src", "assets", "Hanako.png");
+      ? path.join(__dirname, "src", "icon.png")
+      : path.join(__dirname, "src", "icon.png");
     const logoBuf = fs.readFileSync(logoPath);
     logoUrl = `data:image/png;base64,${logoBuf.toString("base64")}`;
   } catch { /* logo 加载失败时水印无图 */ }
@@ -2107,7 +2107,7 @@ function buildScreenshotHTML(payload) {
     }
     .watermark-logo { width: ${themeName.endsWith("-desktop") ? "28px" : "20px"}; height: ${themeName.endsWith("-desktop") ? "28px" : "20px"}; border-radius: 50%; object-fit: cover; }
     .watermark-text { font-size: ${themeName.endsWith("-desktop") ? "0.85em" : "0.75em"}; color: #999; letter-spacing: 0.05em; }
-    html, body { scrollbar-width: none; -ms-overflow-style: none; }
+    html, body { background: var(--screenshot-page-bg); scrollbar-width: none; -ms-overflow-style: none; }
     html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
   `;
 
@@ -2162,8 +2162,8 @@ async function screenshotCapture(htmlContent, width) {
     if (totalHeight <= SCREENSHOT_MAX_SEGMENT) {
       offscreen.setSize(width, totalHeight);
       await new Promise(r => setTimeout(r, 200));
-      const image = await offscreen.webContents.capturePage();
-      pngBuffer = image.toPNG();
+      const image = await offscreen.webContents.capturePage({ x: 0, y: 0, width, height: totalHeight }, { stayHidden: true });
+      pngBuffer = image.toPNG({ scaleFactor: scale });
     } else {
       const segments = [];
       let captured = 0;
@@ -2172,7 +2172,7 @@ async function screenshotCapture(htmlContent, width) {
         offscreen.setSize(width, segH);
         await offscreen.webContents.executeJavaScript(`window.scrollTo(0, ${captured})`);
         await new Promise(r => setTimeout(r, 300));
-        const segImage = await offscreen.webContents.capturePage();
+        const segImage = await offscreen.webContents.capturePage({ x: 0, y: 0, width, height: segH }, { stayHidden: true });
         segments.push(segImage);
         captured += segH;
       }
@@ -2183,19 +2183,22 @@ async function screenshotCapture(htmlContent, width) {
       let yOffset = 0;
 
       for (const seg of segments) {
-        const bitmap = seg.toBitmap();
-        const size = seg.getSize();
-        const partHeight = size.height;
-        const partRowBytes = size.width * 4;
-        for (let row = 0; row < partHeight; row++) {
+        const bitmap = seg.toBitmap({ scaleFactor: scale });
+        const partRowBytes = actualWidth * 4;
+        if (bitmap.length % partRowBytes !== 0) {
+          throw new Error(`Unexpected screenshot segment bitmap size: ${bitmap.length} bytes for row ${partRowBytes}`);
+        }
+        const partHeight = bitmap.length / partRowBytes;
+        const rowsToCopy = Math.min(partHeight, actualTotalHeight - yOffset);
+        for (let row = 0; row < rowsToCopy; row++) {
           bitmap.copy(
             fullBitmap,
-            (yOffset + row) * actualWidth * 4,
+            (yOffset + row) * partRowBytes,
             row * partRowBytes,
-            row * partRowBytes + Math.min(partRowBytes, actualWidth * 4)
+            row * partRowBytes + partRowBytes
           );
         }
-        yOffset += partHeight;
+        yOffset += rowsToCopy;
       }
 
       const fullImage = nativeImage.createFromBitmap(fullBitmap, {
