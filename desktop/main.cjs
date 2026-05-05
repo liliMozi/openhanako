@@ -581,6 +581,9 @@ async function _spawnServerOnce(serverInfoPath) {
       : [];
     serverEnv.HANA_ROOT = bundledServerRoot;
     serverEnv.HANA_SERVER_ENTRY = entry;
+    // Desktop renderer starts in pending-new-session mode; chat session warmup
+    // must not block the HTTP server readiness handshake.
+    serverEnv.HANA_CREATE_STARTUP_SESSION = "0";
   } else {
     // 开发模式：沿用 launch.js 传下来的独立 Node runtime 跑 source server，
     // 让源码模式和 BUILD 文档保持同一 ABI 合同，避免本地 npm install 的
@@ -590,6 +593,8 @@ async function _spawnServerOnce(serverInfoPath) {
     serverArgs = [path.join(devRoot, "server", "bootstrap.js")];
     serverEnv.HANA_ROOT = devRoot;
     serverEnv.HANA_SERVER_ENTRY = path.join(devRoot, "server", "index.js");
+    // Keep dev and packaged startup contracts identical.
+    serverEnv.HANA_CREATE_STARTUP_SESSION = "0";
     delete serverEnv.ELECTRON_RUN_AS_NODE;
   }
 

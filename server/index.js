@@ -246,6 +246,8 @@ engine.registerExtensionFactory(createDeferredResultExtension(deferredResultStor
 engine.registerExtensionFactory(createCompactionGuardExtension());
 
 // ── 启动默认 session ──
+// Desktop 会显式跳过：renderer 首屏就是 pending-new-session，首次发送消息时
+// 才需要创建 chat session；独立 server/CLI 保持旧行为。
 // 时序要求：所有 framework extension + plugin extension 都注册完之后再 create，
 // 否则 pi SDK ExtensionRunner 构造时拿不到这些 factory，extension 不会挂到
 // startup session 上（Codex 评审发现的 issue#437 部分失效场景）。

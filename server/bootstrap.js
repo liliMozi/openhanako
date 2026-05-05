@@ -13,7 +13,7 @@ function logError(line) {
   } catch {}
 }
 
-const hanaRoot = process.env.HANA_ROOT || path.resolve(import.meta.dirname, "..");
+const hanaRoot = process.env.HANA_ROOT || import.meta.dirname;
 const serverEntry = process.env.HANA_SERVER_ENTRY || path.join(hanaRoot, "bundle", "index.js");
 
 log(`[server-bootstrap] process started pid=${process.pid} platform=${process.platform} arch=${process.arch}`);

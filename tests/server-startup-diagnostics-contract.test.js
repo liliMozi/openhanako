@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
+import os from "os";
+import { spawnSync } from "child_process";
 
 const root = process.cwd();
 
@@ -59,6 +61,46 @@ describe("server startup diagnostics contract", () => {
     expect(buildSource).toContain('path.join(outDir, "bootstrap.js")');
     expect(buildSource).toContain('"$DIR/bootstrap.js"');
     expect(buildSource).toContain("bundle\\\\index.js");
+  });
+
+  it("resolves packaged bootstrap default root to the bootstrap directory", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "hana-bootstrap-"));
+    const serverRoot = path.join(tmp, "resources", "server");
+    try {
+      fs.mkdirSync(path.join(serverRoot, "bundle"), { recursive: true });
+      fs.copyFileSync(path.join(root, "server", "bootstrap.js"), path.join(serverRoot, "bootstrap.js"));
+      fs.writeFileSync(path.join(serverRoot, "package.json"), JSON.stringify({ type: "module" }));
+      fs.writeFileSync(
+        path.join(serverRoot, "bundle", "index.js"),
+        "process.stdout.write('[fixture] bundle imported\\n');\n",
+      );
+
+      const env = { ...process.env };
+      delete env.HANA_ROOT;
+      delete env.HANA_SERVER_ENTRY;
+      const result = spawnSync(process.execPath, [path.join(serverRoot, "bootstrap.js")], {
+        env,
+        encoding: "utf-8",
+      });
+
+      expect(result.status).toBe(0);
+      const realServerRoot = fs.realpathSync(serverRoot);
+      expect(result.stdout).toContain(`[server-bootstrap] root=${realServerRoot}`);
+      expect(result.stdout).toContain(path.join(realServerRoot, "bundle", "index.js"));
+      expect(result.stdout).toContain("[fixture] bundle imported");
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("lets desktop skip startup session creation so server readiness is not blocked by chat session warmup", () => {
+    const mainSource = fs.readFileSync(path.join(root, "desktop", "main.cjs"), "utf-8");
+    const serverSource = fs.readFileSync(path.join(root, "server", "index.js"), "utf-8");
+
+    expect(mainSource).toContain("HANA_CREATE_STARTUP_SESSION");
+    expect(mainSource).toContain('"0"');
+    expect(serverSource).toContain('process.env.HANA_CREATE_STARTUP_SESSION !== "0"');
+    expect(serverSource).toContain("[server] ③ 跳过启动期 session 创建");
   });
 
   it("keeps native SQLite out of the server static import graph", () => {
