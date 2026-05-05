@@ -1796,6 +1796,8 @@ export class SessionCoordinator {
     const opId = `iso_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     this._headlessOps.add(opId);
     if (this._headlessOps.size === 1) bm.setHeadless(true);
+    const prevPermissionDefault = this._runtimePermissionModeDefault;
+    this._runtimePermissionModeDefault = "operate";
     let tempSessionMgr;
     const cleanupTempSession = () => {
       const sp = tempSessionMgr?.getSessionFile?.();
@@ -1980,6 +1982,7 @@ export class SessionCoordinator {
       }
       return { sessionPath: null, replyText: "", error: err.message };
     } finally {
+      this._runtimePermissionModeDefault = prevPermissionDefault;
       this._headlessOps.delete(opId);
       if (this._headlessOps.size === 0) bm.setHeadless(false);
       const browserNowRunning = bm.hasAnyRunning;

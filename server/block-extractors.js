@@ -141,6 +141,7 @@ export const BLOCK_EXTRACTORS = {
 };
 
 BLOCK_EXTRACTORS.present_files = BLOCK_EXTRACTORS.stage_files; // legacy alias, see note above
+BLOCK_EXTRACTORS["full-agent_full_agent"] = BLOCK_EXTRACTORS.subagent;
 
 function buildComputerAppApprovalBlock(confirmation) {
   const approval = confirmation?.approval;

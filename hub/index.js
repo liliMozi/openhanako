@@ -379,6 +379,68 @@ export class Hub {
       if (!agent) return { error: "not_found" };
       return { config: agent.config };
     }));
+
+    // ── groupchat:execute-agent ──
+    this._sessionHandlerCleanups.push(bus.handle("groupchat:execute-agent", async ({ agentId, text, parentSessionPath, taskId }) => {
+      if (!agentId || !text) return { error: "agentId and text are required" };
+
+      const agent = engine.getAgent(agentId);
+      if (!agent) return { error: `Agent "${agentId}" not found` };
+
+      const store = engine.deferredResults;
+      if (!store) return { error: "DeferredResultStore not available" };
+
+      const cwd = engine.getHomeCwd(agentId) || process.cwd();
+      const persistDir = path.join(agent.agentDir, "full-agent-sessions");
+
+      store.defer(taskId, parentSessionPath, {
+        type: "subagent",
+        summary: String(text).substring(0, 80),
+        agentId,
+        agentName: agent.agentName || agentId,
+      });
+
+      // 异步 IIFE：不阻塞父 Agent 对话
+      (async () => {
+        try {
+          const result = await engine.executeIsolated(text, {
+            agentId,
+            cwd,
+            emitEvents: true,
+            persist: persistDir,
+            onSessionReady: (sp) => {
+              bus.emit({
+                type: "block_update", taskId,
+                patch: { streamKey: sp, streamStatus: "running" },
+              }, parentSessionPath);
+            },
+          });
+
+          const replyText = result?.replyText || "";
+          if (result?.error) {
+            store.fail(taskId, result.error);
+            bus.emit({
+              type: "block_update", taskId,
+              patch: { streamStatus: "failed", summary: String(result.error).slice(0, 200) },
+            }, parentSessionPath);
+          } else {
+            store.resolve(taskId, replyText);
+            bus.emit({
+              type: "block_update", taskId,
+              patch: { streamStatus: "done", summary: replyText.slice(0, 200) },
+            }, parentSessionPath);
+          }
+        } catch (err) {
+          store.fail(taskId, err.message);
+          bus.emit({
+            type: "block_update", taskId,
+            patch: { streamStatus: "failed", summary: err.message?.slice(0, 200) },
+          }, parentSessionPath);
+        }
+      })();
+
+      return { agentId, taskId, started: true };
+    }));
   }
 
   _setupDmHandler() {
