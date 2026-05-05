@@ -1,17 +1,12 @@
-/**
- * block-extractors.js — Content Block 统一提取注册表
- *
- * 从 toolResult.details 中提取 content blocks。
- * 关键约束：extractor 只依赖 details（和 toolResult.content），
- * 不依赖 toolCall.args，因为 sessions.js 中 Pi SDK 存储的
- * toolResult 消息没有 .toolCall 属性。
- */
+﻿/**
+ * block-extractors.js 鈥?Content Block 缁熶竴鎻愬彇娉ㄥ唽琛? *
+ * 浠?toolResult.details 涓彁鍙?content blocks銆? * 鍏抽敭绾︽潫锛歟xtractor 鍙緷璧?details锛堝拰 toolResult.content锛夛紝
+ * 涓嶄緷璧?toolCall.args锛屽洜涓?sessions.js 涓?Pi SDK 瀛樺偍鐨? * toolResult 娑堟伅娌℃湁 .toolCall 灞炴€с€? */
 
 import { materializeExecutorIdentity } from "../lib/subagent-executor-metadata.js";
 
 export const BLOCK_EXTRACTORS = {
-  // COMPAT(v0.98): present_files 是 stage_files 的旧名，共用 extractor。v0.98 后可删
-  stage_files: (details) => {
+  // COMPAT(v0.98): present_files 鏄?stage_files 鐨勬棫鍚嶏紝鍏辩敤 extractor銆倂0.98 鍚庡彲鍒?  stage_files: (details) => {
     const files = details.files || [];
     if (!files.length && details.filePath) {
       files.push({ filePath: details.filePath, label: details.label, ext: details.ext || "" });
@@ -62,8 +57,7 @@ export const BLOCK_EXTRACTORS = {
   cron: (details) => {
     let jobData = details.jobData;
     if (!jobData && details.job) {
-      // COMPAT(v0.98): 老 session 没有 jobData 字段，从 job 对象重建。v0.98 后可删
-      const j = details.job;
+      // COMPAT(v0.98): 鑰?session 娌℃湁 jobData 瀛楁锛屼粠 job 瀵硅薄閲嶅缓銆倂0.98 鍚庡彲鍒?      const j = details.job;
       jobData = { type: j.type, schedule: j.schedule, prompt: j.prompt, label: j.label, model: j.model };
     }
     if (!jobData) return null;
@@ -119,6 +113,7 @@ export const BLOCK_EXTRACTORS = {
 };
 
 BLOCK_EXTRACTORS.present_files = BLOCK_EXTRACTORS.stage_files; // COMPAT(v0.98)
+BLOCK_EXTRACTORS["agent-groupchat_full_agent"] = BLOCK_EXTRACTORS.subagent;
 
 function buildComputerAppApprovalBlock(confirmation) {
   const approval = confirmation?.approval;
@@ -130,16 +125,16 @@ function buildComputerAppApprovalBlock(confirmation) {
     kind: "computer_app_approval",
     surface: "input",
     status: confirmation.status || "pending",
-    title: "允许 Hana 使用电脑",
-    body: "Hana 想控制这个应用来继续当前任务。",
+    title: "鍏佽 Hana 浣跨敤鐢佃剳",
+    body: "Hana 鎯虫帶鍒惰繖涓簲鐢ㄦ潵缁х画褰撳墠浠诲姟銆?,
     subject: {
       label: appName,
-      detail: `${approval.providerId} · ${approval.appId}`,
+      detail: `${approval.providerId} 路 ${approval.appId}`,
     },
     severity: "elevated",
     actions: {
-      confirmLabel: "同意",
-      rejectLabel: "拒绝",
+      confirmLabel: "鍚屾剰",
+      rejectLabel: "鎷掔粷",
     },
     payload: { approval },
   };
