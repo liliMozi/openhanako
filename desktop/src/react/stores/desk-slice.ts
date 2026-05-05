@@ -18,6 +18,7 @@ export interface WorkspaceDeskState {
   cwdSkills: CwdSkillInfo[];
   cwdSkillsOpen: boolean;
   previewOpen: boolean;
+  jianDrawerOpen: boolean;
   openTabs: string[];
   activeTabId: string | null;
 }

@@ -29,7 +29,7 @@ describe('ImageStage', () => {
     expect((window as any).platform.getFileUrl).toHaveBeenCalledWith('/a.png');
   });
 
-  it('wheel 事件触发 transform 变化', async () => {
+  it('只有按住 Option 滚轮才触发图片缩放', async () => {
     const { container } = render(<ImageStage file={file} viewport={{ width: 800, height: 600 }} />);
     await waitFor(() => {
       const img = container.querySelector('img');
@@ -43,11 +43,15 @@ describe('ImageStage', () => {
     const stage = container.querySelector('[data-testid="image-stage"]')!;
     const before = (stage as HTMLElement).style.transform || '';
     fireEvent.wheel(stage, { deltaY: -100, clientX: 400, clientY: 300 });
-    const after = (stage as HTMLElement).style.transform || '';
-    expect(after).not.toBe(before);
+    fireEvent.wheel(stage, { deltaY: -100, clientX: 400, clientY: 300, ctrlKey: true });
+    fireEvent.wheel(stage, { deltaY: -100, clientX: 400, clientY: 300, shiftKey: true });
+    expect((stage as HTMLElement).style.transform || '').toBe(before);
+
+    fireEvent.wheel(stage, { deltaY: -100, clientX: 400, clientY: 300, altKey: true });
+    expect((stage as HTMLElement).style.transform || '').not.toBe(before);
   });
 
-  it('natural size 就绪后 img 样式含 scale', async () => {
+  it('natural size 就绪后图片在视口中央按 fit scale 显示', async () => {
     const { container } = render(<ImageStage file={file} viewport={{ width: 1000, height: 800 }} />);
     await waitFor(() => {
       const img = container.querySelector('img');
@@ -60,7 +64,7 @@ describe('ImageStage', () => {
     // scale(1.8) = 0.9 * min(1000/500, 800/400) = 0.9 * 2
     await waitFor(() => {
       const t = (container.querySelector('[data-testid="image-stage"]') as HTMLElement).style.transform;
-      expect(t).toMatch(/scale\(1\.8\)/);
+      expect(t).toBe('translate(50px, 40px) scale(1.8)');
     });
   });
 

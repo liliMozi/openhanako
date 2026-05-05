@@ -1236,17 +1236,26 @@
   "rightWorkspace": {
     "tabs": {
       "label": "右側工作區",
-      "sessionFiles": "Session 檔案",
+      "sessionFiles": "對話檔案",
       "workspace": "工作空間"
     },
     "sessionFiles": {
-      "title": "Session 檔案",
+      "title": "對話檔案",
       "empty": "本對話還沒有產生或上傳檔案",
       "actions": {
         "preview": "預覽",
         "open": "打開",
         "reveal": "定位",
-        "copyPath": "複製路徑"
+        "copyPath": "複製路徑",
+        "copySelectedPaths": "複製 {n} 個路徑"
+      },
+      "list": "對話檔案列表",
+      "sort": {
+        "label": "對話檔案排序",
+        "timeDesc": "時間↓",
+        "nameAsc": "名稱↑",
+        "nameDesc": "名稱↓",
+        "typeAsc": "類型↑"
       },
       "status": {
         "available": "可用",

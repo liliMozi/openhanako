@@ -170,13 +170,21 @@
 }
 
 .treeItem {
-    display: flex;
+    --tree-leading-inset: 0px;
+    --tree-indent-step: 16px;
+    box-sizing: border-box;
+    width: calc(100% - 4px);
+    display: grid;
+    grid-template-columns:
+        calc(var(--tree-leading-inset) + (var(--tree-depth, 0) * var(--tree-indent-step)))
+        14px
+        22px
+        minmax(0, 1fr);
     align-items: center;
-    gap: 6px;
+    column-gap: 0;
     min-width: 0;
     height: 28px;
-    padding: 0 var(--space-sm);
-    padding-left: calc(8px + (var(--tree-depth, 0) * 16px));
+    padding: 0 8px 0 2px;
     margin: 0 2px;
     border-radius: 4px;
     color: var(--text);
@@ -196,17 +204,27 @@
 }
 
 .treeDisclosure {
-    flex: 0 0 12px;
+    width: 14px;
+    min-width: 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
-    font-size: 0.84rem;
     line-height: 1;
 }
 
+.treeDisclosure svg {
+    display: block;
+    width: 12px;
+    height: 12px;
+}
+
 .treeIndent {
-    display: none;
+    display: block;
+    width: calc(var(--tree-leading-inset) + (var(--tree-depth, 0) * var(--tree-indent-step)));
+    min-width: 0;
+    height: 100%;
+    pointer-events: none;
 }
 
 /* 文件条目 */
@@ -246,7 +264,7 @@
     height: 14px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     color: var(--text-muted);
 }
 
@@ -272,9 +290,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 0 var(--space-sm) var(--space-xs);
+    margin: 3px var(--space-sm) 2px;
     flex-shrink: 0;
-    min-height: 24px;
+    min-height: 20px;
 }
 
 .toolbarActions {
@@ -288,6 +306,7 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
+    min-height: 20px;
     padding: 2px 7px;
     background: none;
     border: none;
@@ -295,6 +314,7 @@
     color: var(--text-muted);
     font-size: 0.65rem;
     font-family: inherit;
+    line-height: 1;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
     white-space: nowrap;
@@ -316,7 +336,21 @@
 }
 
 .sortBtn svg {
+    display: block;
+    flex: 0 0 auto;
     opacity: 0.6;
+}
+
+.sortBtn > span {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.sortBtn > span:first-child {
+    width: 14px;
+    height: 14px;
+    justify-content: center;
 }
 
 .iconBtn {

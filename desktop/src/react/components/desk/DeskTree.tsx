@@ -40,6 +40,14 @@ function toggleExpanded(paths: string[], subdir: string): string[] {
   return [...paths, subdir];
 }
 
+function TreeDisclosureIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {expanded ? <polyline points="6 9 12 15 18 9" /> : <polyline points="9 6 15 12 9 18" />}
+    </svg>
+  );
+}
+
 function TreeNode({
   file,
   parent,
@@ -125,7 +133,7 @@ function TreeNode({
       >
         <span className={s.treeIndent} aria-hidden="true" />
         <span className={s.treeDisclosure} aria-hidden="true">
-          {file.isDir ? (expanded ? '⌄' : '›') : ''}
+          {file.isDir ? <TreeDisclosureIcon expanded={expanded} /> : null}
         </span>
         <span
           className={s.itemIcon}

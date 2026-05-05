@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { zoomAtPoint, computeFitScale, clamp } from '../../../../components/shared/MediaViewer/use-media-transform';
+import {
+  zoomAtPoint,
+  computeFitScale,
+  clamp,
+  computeCenteredTransform,
+} from '../../../../components/shared/MediaViewer/use-media-transform';
 
 describe('clamp', () => {
   it('在范围内不变', () => expect(clamp(5, 1, 10)).toBe(5));
@@ -56,5 +61,25 @@ describe('zoomAtPoint', () => {
       { min: 0.5, max: 8 },
     );
     expect(next.scale).toBe(0.5);
+  });
+});
+
+describe('computeCenteredTransform', () => {
+  it('把 fit 后的图片居中，再叠加用户拖动偏移', () => {
+    const css = computeCenteredTransform(
+      { scale: 1.8, offsetX: 10, offsetY: -5 },
+      { w: 500, h: 400 },
+      { w: 1000, h: 800 },
+    );
+    expect(css).toBe('translate(60px, 35px) scale(1.8)');
+  });
+
+  it('natural 缺失时只保留交互偏移和 scale', () => {
+    const css = computeCenteredTransform(
+      { scale: 1, offsetX: 12, offsetY: 24 },
+      null,
+      { w: 1000, h: 800 },
+    );
+    expect(css).toBe('translate(12px, 24px) scale(1)');
   });
 });

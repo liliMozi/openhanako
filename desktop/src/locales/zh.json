@@ -1286,17 +1286,26 @@
   "rightWorkspace": {
     "tabs": {
       "label": "右侧工作区",
-      "sessionFiles": "Session 文件",
+      "sessionFiles": "对话文件",
       "workspace": "工作空间"
     },
     "sessionFiles": {
-      "title": "Session 文件",
+      "title": "对话文件",
       "empty": "本对话还没有产生或上传文件",
       "actions": {
         "preview": "预览",
         "open": "打开",
         "reveal": "定位",
-        "copyPath": "复制路径"
+        "copyPath": "复制路径",
+        "copySelectedPaths": "复制 {n} 个路径"
+      },
+      "list": "对话文件列表",
+      "sort": {
+        "label": "对话文件排序",
+        "timeDesc": "时间↓",
+        "nameAsc": "名称↑",
+        "nameDesc": "名称↓",
+        "typeAsc": "类型↑"
       },
       "status": {
         "available": "可用",

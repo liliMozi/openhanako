@@ -42,6 +42,7 @@ function buildWorkspaceDeskState(s: ReturnType<typeof useStore.getState>): Works
     cwdSkills: [...(s.cwdSkills || [])],
     cwdSkillsOpen: !!s.cwdSkillsOpen,
     previewOpen: !!s.previewOpen,
+    jianDrawerOpen: !!s.jianDrawerOpen,
     openTabs: [...(s.openTabs || [])],
     activeTabId: s.activeTabId ?? null,
   };
@@ -82,6 +83,7 @@ export async function activateWorkspaceDesk(root: string | null | undefined, opt
       cwdSkills: [],
       cwdSkillsOpen: false,
       previewOpen: false,
+      jianDrawerOpen: false,
       openTabs: [],
       activeTabId: null,
     });
@@ -107,6 +109,7 @@ export async function activateWorkspaceDesk(root: string | null | undefined, opt
     cwdSkills: saved?.cwdSkills || [],
     cwdSkillsOpen: saved?.cwdSkillsOpen || false,
     previewOpen: saved?.previewOpen || false,
+    jianDrawerOpen: saved?.jianDrawerOpen ?? false,
     openTabs: saved?.openTabs || [],
     activeTabId: saved?.activeTabId ?? null,
   });

@@ -52,6 +52,49 @@ export function zoomAtPoint(
   };
 }
 
+function computeCenterOffset(natural: Size | null, viewport: Size, scale: number): { x: number; y: number } {
+  if (!natural || natural.w === 0 || natural.h === 0) return { x: 0, y: 0 };
+  return {
+    x: (viewport.w - natural.w * scale) / 2,
+    y: (viewport.h - natural.h * scale) / 2,
+  };
+}
+
+export function computeCenteredTransform(
+  transform: Transform,
+  natural: Size | null,
+  viewport: Size,
+): string {
+  const center = computeCenterOffset(natural, viewport, transform.scale);
+  return `translate(${center.x + transform.offsetX}px, ${center.y + transform.offsetY}px) scale(${transform.scale})`;
+}
+
+function zoomAtPointCentered(
+  current: Transform,
+  point: { x: number; y: number },
+  factor: number,
+  range: ScaleRange,
+  natural: Size | null,
+  viewport: Size,
+): Transform {
+  if (!natural || natural.w === 0 || natural.h === 0) {
+    return zoomAtPoint(current, point, factor, range);
+  }
+  const desired = current.scale * factor;
+  const newScale = clamp(desired, range.min, range.max);
+  if (newScale === current.scale) return current;
+
+  const currentCenter = computeCenterOffset(natural, viewport, current.scale);
+  const nextCenter = computeCenterOffset(natural, viewport, newScale);
+  const imageX = (point.x - currentCenter.x - current.offsetX) / current.scale;
+  const imageY = (point.y - currentCenter.y - current.offsetY) / current.scale;
+  return {
+    scale: newScale,
+    offsetX: point.x - nextCenter.x - imageX * newScale,
+    offsetY: point.y - nextCenter.y - imageY * newScale,
+  };
+}
+
 /**
  * MediaViewer 图像交互 hook。
  * 负责：transform 状态管理、滚轮/拖动/双击事件包装、reset 工具。
@@ -77,12 +120,13 @@ export function useMediaTransform(opts: {
   const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null);
 
   const onWheel = useCallback((e: React.WheelEvent<HTMLElement>) => {
+    if (!e.altKey || e.ctrlKey || e.shiftKey) return;
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
     const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    setTransform((t) => zoomAtPoint(t, point, factor, range));
-  }, [range]);
+    setTransform((t) => zoomAtPointCentered(t, point, factor, range, opts.natural, opts.viewport));
+  }, [opts.natural, opts.viewport, range]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
     if (transform.scale <= fitScale) return; // 只有放大后才允许拖动
@@ -121,19 +165,19 @@ export function useMediaTransform(opts: {
   const reset = useCallback(() => setTransform({ scale: fitScale, offsetX: 0, offsetY: 0 }), [fitScale]);
 
   const zoomIn = useCallback(
-    () => setTransform((t) => zoomAtPoint(t, { x: opts.viewport.w / 2, y: opts.viewport.h / 2 }, 1.2, range)),
-    [opts.viewport.w, opts.viewport.h, range],
+    () => setTransform((t) => zoomAtPointCentered(t, { x: opts.viewport.w / 2, y: opts.viewport.h / 2 }, 1.2, range, opts.natural, opts.viewport)),
+    [opts.natural, opts.viewport, range],
   );
   const zoomOut = useCallback(
-    () => setTransform((t) => zoomAtPoint(t, { x: opts.viewport.w / 2, y: opts.viewport.h / 2 }, 1 / 1.2, range)),
-    [opts.viewport.w, opts.viewport.h, range],
+    () => setTransform((t) => zoomAtPointCentered(t, { x: opts.viewport.w / 2, y: opts.viewport.h / 2 }, 1 / 1.2, range, opts.natural, opts.viewport)),
+    [opts.natural, opts.viewport, range],
   );
 
   return {
     transform,
     fitScale,
     range,
-    cssTransform: `translate(${transform.offsetX}px, ${transform.offsetY}px) scale(${transform.scale})`,
+    cssTransform: computeCenteredTransform(transform, opts.natural, opts.viewport),
     onWheel,
     onPointerDown,
     onPointerMove,

@@ -161,6 +161,7 @@ describe('desk-actions workspace roots', () => {
       deskJianContent: 'a-note',
       cwdSkills: [{ name: 'skill-a', description: '', source: 'workspace', filePath: '/workspace-a/.agents/skills/a/SKILL.md', baseDir: '/workspace-a/.agents/skills/a' }],
       cwdSkillsOpen: true,
+      jianDrawerOpen: true,
       previewOpen: true,
       openTabs: ['previewItem-a'],
       activeTabId: 'previewItem-a',
@@ -173,6 +174,7 @@ describe('desk-actions workspace roots', () => {
     expect(useStore.getState().deskBasePath).toBe('/workspace-b');
     expect(useStore.getState().deskCurrentPath).toBe('');
     expect(useStore.getState().previewOpen).toBe(false);
+    expect(useStore.getState().jianDrawerOpen).toBe(false);
 
     useStore.setState({
       deskCurrentPath: 'src',
@@ -182,6 +184,7 @@ describe('desk-actions workspace roots', () => {
       deskSelectedPath: 'src/b.md',
       deskJianContent: 'b-note',
       previewOpen: false,
+      jianDrawerOpen: true,
       openTabs: ['previewItem-b'],
       activeTabId: 'previewItem-b',
     } as never);
@@ -199,9 +202,31 @@ describe('desk-actions workspace roots', () => {
     expect(useStore.getState().deskSelectedPath).toBe('notes/a.md');
     expect(useStore.getState().deskJianContent).toBeNull();
     expect(useStore.getState().cwdSkillsOpen).toBe(true);
+    expect(useStore.getState().jianDrawerOpen).toBe(true);
     expect(useStore.getState().previewOpen).toBe(true);
     expect(useStore.getState().openTabs).toEqual(['previewItem-a']);
     expect(useStore.getState().activeTabId).toBe('previewItem-a');
+  });
+
+  it('keeps right Jian drawer state keyed by workspace root and collapses unseen roots', async () => {
+    useStore.setState({
+      deskBasePath: '/workspace-a',
+      jianDrawerOpen: true,
+      workspaceDeskStateByRoot: {},
+    } as never);
+
+    const { activateWorkspaceDesk } = await import('../../stores/desk-actions');
+
+    await activateWorkspaceDesk('/workspace-b', { reload: false });
+
+    expect(useStore.getState().jianDrawerOpen).toBe(false);
+    expect(useStore.getState().workspaceDeskStateByRoot['/workspace-a'].jianDrawerOpen).toBe(true);
+
+    useStore.setState({ jianDrawerOpen: true } as never);
+    await activateWorkspaceDesk('/workspace-a', { reload: false });
+
+    expect(useStore.getState().jianDrawerOpen).toBe(true);
+    expect(useStore.getState().workspaceDeskStateByRoot['/workspace-b'].jianDrawerOpen).toBe(true);
   });
 
   it('loads tree children by explicit subdir without changing the visible current directory', async () => {

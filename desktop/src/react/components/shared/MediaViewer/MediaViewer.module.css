@@ -1,7 +1,8 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.92);
+  background: rgba(248, 244, 236, 0.86);
+  backdrop-filter: blur(2px) saturate(0.92);
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -23,8 +24,8 @@
 .spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: rgba(255, 255, 255, 0.8);
+  border: 2px solid rgba(80, 72, 62, 0.18);
+  border-top-color: rgba(var(--accent-rgb), 0.78);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   position: absolute;
@@ -54,8 +55,9 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  background: rgba(0, 0, 0, 0.3);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(248, 244, 236, 0.7);
+  color: var(--text);
+  backdrop-filter: blur(8px);
   font-size: 13px;
   transition: opacity 180ms ease-out;
   z-index: 2;
@@ -67,23 +69,24 @@
   font-size: 22px; cursor: pointer; padding: 4px 10px;
   border-radius: 2px;
 }
-.closeBtn:hover { background: rgba(255,255,255,0.1); }
+.closeBtn:hover { background: rgba(var(--accent-rgb), 0.08); }
 
 .navBtn {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   width: 48px; height: 48px;
-  background: rgba(0, 0, 0, 0.35);
-  color: rgba(255, 255, 255, 0.85);
+  background: rgba(248, 244, 236, 0.78);
+  color: var(--text);
   border: 0;
   font-size: 28px;
   cursor: pointer;
   border-radius: 2px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   transition: opacity 180ms ease-out, background 120ms ease-out;
   z-index: 2;
 }
-.navBtn:hover { background: rgba(0, 0, 0, 0.6); }
+.navBtn:hover { background: rgba(248, 244, 236, 0.94); }
 .navPrev { left: 24px; }
 .navNext { right: 24px; }
 .navBtn:disabled { opacity: 0.3; cursor: default; }

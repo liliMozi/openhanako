@@ -1281,17 +1281,26 @@
   "rightWorkspace": {
     "tabs": {
       "label": "Right workspace",
-      "sessionFiles": "Session Registry Files",
+      "sessionFiles": "Conversation Files",
       "workspace": "Workspace"
     },
     "sessionFiles": {
-      "title": "Session Registry Files",
+      "title": "Conversation Files",
       "empty": "This conversation has not created or uploaded any files yet.",
       "actions": {
         "preview": "Preview",
         "open": "Open",
         "reveal": "Reveal",
-        "copyPath": "Copy path"
+        "copyPath": "Copy path",
+        "copySelectedPaths": "Copy {n} paths"
+      },
+      "list": "Conversation file list",
+      "sort": {
+        "label": "Sort conversation files",
+        "timeDesc": "Time ↓",
+        "nameAsc": "Name ↑",
+        "nameDesc": "Name ↓",
+        "typeAsc": "Type ↑"
       },
       "status": {
         "available": "Available",

@@ -1236,17 +1236,26 @@
   "rightWorkspace": {
     "tabs": {
       "label": "右側ワークスペース",
-      "sessionFiles": "セッションファイル",
+      "sessionFiles": "会話ファイル",
       "workspace": "ワークスペース"
     },
     "sessionFiles": {
-      "title": "セッションファイル",
+      "title": "会話ファイル",
       "empty": "この会話ではまだファイルが作成またはアップロードされていません",
       "actions": {
         "preview": "プレビュー",
         "open": "開く",
         "reveal": "場所を表示",
-        "copyPath": "パスをコピー"
+        "copyPath": "パスをコピー",
+        "copySelectedPaths": "{n} 件のパスをコピー"
+      },
+      "list": "会話ファイル一覧",
+      "sort": {
+        "label": "会話ファイルを並べ替え",
+        "timeDesc": "時間↓",
+        "nameAsc": "名前↑",
+        "nameDesc": "名前↓",
+        "typeAsc": "種類↑"
       },
       "status": {
         "available": "利用可能",

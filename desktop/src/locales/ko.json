@@ -1236,17 +1236,26 @@
   "rightWorkspace": {
     "tabs": {
       "label": "오른쪽 작업공간",
-      "sessionFiles": "세션 파일",
+      "sessionFiles": "대화 파일",
       "workspace": "작업공간"
     },
     "sessionFiles": {
-      "title": "세션 파일",
+      "title": "대화 파일",
       "empty": "이 대화에서는 아직 파일이 생성되거나 업로드되지 않았어요",
       "actions": {
         "preview": "미리보기",
         "open": "열기",
         "reveal": "위치 보기",
-        "copyPath": "경로 복사"
+        "copyPath": "경로 복사",
+        "copySelectedPaths": "경로 {n}개 복사"
+      },
+      "list": "대화 파일 목록",
+      "sort": {
+        "label": "대화 파일 정렬",
+        "timeDesc": "시간↓",
+        "nameAsc": "이름↑",
+        "nameDesc": "이름↓",
+        "typeAsc": "유형↑"
       },
       "status": {
         "available": "사용 가능",

@@ -21,8 +21,8 @@
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    min-height: 48px;
-    padding: var(--space-sm) calc(var(--space-sm) + 7.5rem) var(--space-xs) var(--space-md);
+    min-height: 40px;
+    padding: 6px calc(var(--space-sm) + 7.5rem) 2px var(--space-md);
 }
 
 .workspaceTitle {
@@ -46,7 +46,7 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2px;
-    margin: 2px var(--space-sm) var(--space-xs);
+    margin: 0 var(--space-sm);
     padding: 2px;
     border-radius: var(--radius-sm);
     background: var(--overlay-subtle);
@@ -74,14 +74,14 @@
     position: relative;
     z-index: 1;
     min-width: 0;
-    height: 26px;
+    height: 20px;
     border: none;
     border-radius: max(2px, calc(var(--radius-sm) - 2px));
     background: transparent;
     color: var(--text-muted);
     font-family: inherit;
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 400;
     cursor: pointer;
     transition: color 0.2s var(--ease-out);
     overflow: hidden;
@@ -90,11 +90,11 @@
 }
 
 .tab:hover {
-    color: var(--text);
+    color: var(--text-muted);
 }
 
 .tabActive {
-    color: var(--text);
+    color: var(--text-muted);
 }
 
 .content {
@@ -115,6 +115,50 @@
     background: transparent;
 }
 
+.sessionFilesToolbar {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-height: 20px;
+    margin: 3px var(--space-sm) 2px;
+}
+
+.sessionFilesSortButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    min-height: 20px;
+    padding: 2px 7px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.65rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+.sessionFilesSortButton:hover {
+    background: var(--overlay-subtle);
+    color: var(--text);
+}
+
+.sessionFilesSortButton svg {
+    display: block;
+    flex: 0 0 auto;
+    opacity: 0.6;
+}
+
+.sessionFilesSortButton span {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
 .emptyState {
     flex: 1;
     display: flex;
@@ -127,40 +171,59 @@
 }
 
 .fileList {
+    position: relative;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    padding: var(--space-xs) 0;
+    padding: 4px 2px 72px;
+    outline: none;
 }
 
 .fileRow {
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
+    gap: 6px;
     min-width: 0;
-    padding: 7px var(--space-md);
-    border-bottom: 1px solid var(--overlay-subtle);
+    height: 28px;
+    padding: 0 8px;
+    margin: 0 2px;
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.74rem;
+    line-height: 1.4;
+    cursor: default;
+    user-select: none;
+    transition: background 0.14s var(--ease-out), color 0.14s var(--ease-out);
 }
 
-.fileRow:last-child {
-    border-bottom: none;
+.fileRow:hover {
+    background: var(--overlay-subtle);
+}
+
+.fileRowSelected {
+    background: rgba(var(--accent-rgb), 0.1);
+}
+
+.fileRowSelected:hover {
+    background: rgba(var(--accent-rgb), 0.14);
 }
 
 .fileIcon {
-    flex: 0 0 30px;
-    width: 30px;
-    height: 30px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--overlay-light);
-    color: var(--accent);
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.58rem;
-    font-weight: 700;
-    letter-spacing: 0;
+}
+
+.fileIcon svg {
+    width: 14px;
+    height: 14px;
+    display: block;
 }
 
 .fileMain {
@@ -170,20 +233,20 @@
 
 .fileName {
     color: var(--text);
-    font-size: 0.78rem;
-    line-height: 1.45;
+    font-size: 0.74rem;
+    line-height: 1.4;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .fileMeta {
-    display: flex;
+    display: none;
     align-items: center;
     flex-wrap: wrap;
     gap: 0.35rem;
     color: var(--text-muted);
-    font-size: 0.62rem;
+    font-size: 0.58rem;
     line-height: 1.35;
 }
 
@@ -197,11 +260,18 @@
     display: inline-flex;
     align-items: center;
     gap: 2px;
+    opacity: 0;
+    transition: opacity 0.12s var(--ease-out);
+}
+
+.fileRow:hover .fileActions,
+.fileRowSelected .fileActions {
+    opacity: 1;
 }
 
 .fileAction {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -221,6 +291,15 @@
 .fileAction:disabled {
     opacity: 0.35;
     cursor: default;
+}
+
+.fileRubberBand {
+    position: fixed;
+    z-index: 5;
+    border: 1px solid rgba(var(--accent-rgb), 0.45);
+    background: rgba(var(--accent-rgb), 0.08);
+    border-radius: var(--radius-sm);
+    pointer-events: none;
 }
 
 .jianDrawer {
@@ -258,7 +337,7 @@
 
 .jianTitle {
     color: var(--text-light);
-    font-family: "Songti SC", "Noto Serif CJK SC", serif;
+    font-family: var(--font-ui);
     font-size: 0.94rem;
     font-weight: 600;
     letter-spacing: 0;
@@ -274,17 +353,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: none;
+    border: 1px solid var(--overlay-light);
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
-    transition: color 0.16s var(--ease-out), background 0.16s var(--ease-out);
+    transition: border-color 0.16s var(--ease-out), color 0.16s var(--ease-out);
 }
 
 .jianToggle:hover {
-    color: var(--accent);
-    background: rgba(var(--accent-rgb), 0.08);
+    color: var(--text-muted);
+    border-color: var(--overlay-light);
 }
 
 .jianBody {

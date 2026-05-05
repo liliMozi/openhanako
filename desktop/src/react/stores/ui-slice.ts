@@ -63,7 +63,7 @@ export const createUiSlice = (
   currentTab: 'chat',
   activePanel: null,
   rightWorkspaceTab: 'workspace',
-  jianDrawerOpen: true,
+  jianDrawerOpen: false,
   // Keep locale empty until i18n.load() finishes so the first successful
   // locale sync always triggers a rerender, even for the default zh locale.
   locale: '',
