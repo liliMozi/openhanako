@@ -1055,6 +1055,7 @@
       "feishuAppId": "App ID",
       "feishuAppSecret": "App Secret",
       "feishuHint": "從飛書開放平台取得",
+      "whatsapp": "WhatsApp",
       "qq": "QQ",
       "qqAppId": "App ID",
       "qqAppSecret": "App Secret",
@@ -1247,8 +1248,15 @@
         "open": "打開",
         "reveal": "定位",
         "copyPath": "複製路徑",
-        "copySelectedPaths": "複製 {n} 個路徑"
+        "copySelectedPaths": "複製 {n} 個路徑",
+        "sendToBridge": "傳送到...",
+        "sendToBridgeLoading": "正在載入 Bridge 對話...",
+        "sendToBridgeEmpty": "沒有可傳送的 Bridge 對話",
+        "sendToBridgeLoadFailed": "Bridge 對話載入失敗"
       },
+      "bridgeLoadFailed": "載入 Bridge 對話失敗：{error}",
+      "sendSuccess": "已傳送到 {target}",
+      "sendFailed": "傳送到 {target} 失敗：{error}",
       "list": "對話檔案列表",
       "sort": {
         "label": "對話檔案排序",

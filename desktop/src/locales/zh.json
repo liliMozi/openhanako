@@ -1091,6 +1091,7 @@
       "feishuAppId": "App ID",
       "feishuAppSecret": "App Secret",
       "feishuHint": "从飞书开放平台获取",
+      "whatsapp": "WhatsApp",
       "qq": "QQ",
       "qqAppId": "App ID",
       "qqAppSecret": "App Secret",
@@ -1297,8 +1298,15 @@
         "open": "打开",
         "reveal": "定位",
         "copyPath": "复制路径",
-        "copySelectedPaths": "复制 {n} 个路径"
+        "copySelectedPaths": "复制 {n} 个路径",
+        "sendToBridge": "发送到...",
+        "sendToBridgeLoading": "正在加载 Bridge 会话...",
+        "sendToBridgeEmpty": "没有可发送的 Bridge 会话",
+        "sendToBridgeLoadFailed": "Bridge 会话加载失败"
       },
+      "bridgeLoadFailed": "加载 Bridge 会话失败：{error}",
+      "sendSuccess": "已发送到 {target}",
+      "sendFailed": "发送到 {target} 失败：{error}",
       "list": "对话文件列表",
       "sort": {
         "label": "对话文件排序",

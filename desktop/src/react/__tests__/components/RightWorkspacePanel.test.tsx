@@ -9,6 +9,7 @@ import type { ChatListItem } from '../../stores/chat-types';
 import { RightWorkspacePanel } from '../../components/right-workspace/RightWorkspacePanel';
 import { openFilePreview } from '../../utils/file-preview';
 import { openMediaViewerForRef } from '../../utils/open-media-viewer';
+import { hanaFetch } from '../../hooks/use-hana-fetch';
 
 vi.mock('../../utils/file-preview', () => ({
   openFilePreview: vi.fn(async () => undefined),
@@ -16,6 +17,10 @@ vi.mock('../../utils/file-preview', () => ({
 
 vi.mock('../../utils/open-media-viewer', () => ({
   openMediaViewerForRef: vi.fn(),
+}));
+
+vi.mock('../../hooks/use-hana-fetch', () => ({
+  hanaFetch: vi.fn(),
 }));
 
 const tMap: Record<string, string> = {
@@ -30,6 +35,13 @@ const tMap: Record<string, string> = {
   'rightWorkspace.sessionFiles.actions.reveal': '定位',
   'rightWorkspace.sessionFiles.actions.copyPath': '复制路径',
   'rightWorkspace.sessionFiles.actions.copySelectedPaths': '复制 2 个路径',
+  'rightWorkspace.sessionFiles.actions.sendToBridge': '发送到...',
+  'rightWorkspace.sessionFiles.actions.sendToBridgeLoading': '正在加载 Bridge 会话...',
+  'rightWorkspace.sessionFiles.actions.sendToBridgeEmpty': '没有可发送的 Bridge 会话',
+  'rightWorkspace.sessionFiles.actions.sendToBridgeLoadFailed': 'Bridge 会话加载失败',
+  'rightWorkspace.sessionFiles.bridgeLoadFailed': '加载 Bridge 会话失败：boom',
+  'rightWorkspace.sessionFiles.sendSuccess': '已发送到 Hana：飞书 · 小群',
+  'rightWorkspace.sessionFiles.sendFailed': '发送到 Hana：飞书 · 小群 失败：boom',
   'rightWorkspace.sessionFiles.list': '对话文件列表',
   'rightWorkspace.sessionFiles.sort.label': '对话文件排序',
   'rightWorkspace.sessionFiles.sort.timeDesc': '时间↓',
@@ -45,6 +57,7 @@ const tMap: Record<string, string> = {
   'desk.sort.nameAscShort': '名称↑',
   'desk.sort.label': '排序',
   'common.noFiles': '没有文件',
+  'settings.bridge.feishu': '飞书',
 };
 
 function resetStore(items: ChatListItem[] = []) {
@@ -63,10 +76,19 @@ function resetStore(items: ChatListItem[] = []) {
     deskCurrentPath: '',
     deskFiles: [],
     deskJianContent: '',
+    agents: [{ id: 'hana', name: 'Hana', yuan: 'hanako', hasAvatar: false }],
+    currentAgentId: 'hana',
     selectedFolder: null,
     homeFolder: null,
     jianView: 'desk',
   } as never);
+}
+
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 describe('RightWorkspacePanel', () => {
@@ -92,6 +114,8 @@ describe('RightWorkspacePanel', () => {
     window.t = ((key: string) => tMap[key] || key) as typeof window.t;
     vi.mocked(openFilePreview).mockClear();
     vi.mocked(openMediaViewerForRef).mockClear();
+    vi.mocked(hanaFetch).mockReset();
+    vi.mocked(hanaFetch).mockResolvedValue(jsonResponse({ sessions: [] }));
     window.platform = {
       openFolder: () => undefined,
       openFile: vi.fn(),
@@ -427,6 +451,61 @@ describe('RightWorkspacePanel', () => {
 
     fireEvent.click(screen.getByText('复制路径'));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('/tmp/session-files/report.pdf');
+  });
+
+  it('sends session files to an existing Bridge target from the context submenu', async () => {
+    const sendBodies: unknown[] = [];
+    vi.mocked(hanaFetch).mockImplementation(async (path, init) => {
+      if (path.startsWith('/api/bridge/sessions?platform=feishu')) {
+        return jsonResponse({
+          sessions: [{ sessionKey: 'fs_1', chatId: 'oc_chat', displayName: '小群' }],
+        });
+      }
+      if (path.startsWith('/api/bridge/sessions?')) {
+        return jsonResponse({ sessions: [] });
+      }
+      if (path.startsWith('/api/bridge/send-media')) {
+        sendBodies.push(JSON.parse(String(init?.body)));
+        return jsonResponse({ ok: true, fileId: 'sf_sent' });
+      }
+      return jsonResponse({});
+    });
+    resetStore([
+      {
+        type: 'message',
+        data: {
+          id: 'a1',
+          role: 'assistant',
+          timestamp: 1700000000000,
+          blocks: [
+            { type: 'file', fileId: 'sf_report', filePath: '/tmp/session-files/report.pdf', label: 'report.pdf', ext: 'pdf', status: 'available' },
+          ],
+        },
+      },
+    ]);
+
+    render(<RightWorkspacePanel />);
+    fireEvent.click(screen.getByRole('tab', { name: '对话文件' }));
+    fireEvent.contextMenu(screen.getByTestId('session-file-row'), { clientX: 24, clientY: 48 });
+
+    fireEvent.mouseEnter(screen.getByText('发送到...'));
+    fireEvent.click(await screen.findByText('Hana：飞书 · 小群'));
+
+    await waitFor(() => {
+      expect(sendBodies).toEqual([
+        {
+          platform: 'feishu',
+          chatId: 'oc_chat',
+          filePath: '/tmp/session-files/report.pdf',
+          label: 'report.pdf',
+          sessionPath: '/sessions/main.jsonl',
+        },
+      ]);
+    });
+    expect(hanaFetch).toHaveBeenCalledWith('/api/bridge/send-media?agentId=hana', expect.objectContaining({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }));
   });
 
   it('opens pathless screenshot files through MediaViewer and disables path actions', () => {

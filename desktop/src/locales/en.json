@@ -1086,6 +1086,7 @@
       "feishuAppId": "App ID",
       "feishuAppSecret": "App Secret",
       "feishuHint": "Get from Feishu Open Platform",
+      "whatsapp": "WhatsApp",
       "qq": "QQ",
       "qqAppId": "App ID",
       "qqAppSecret": "App Secret",
@@ -1292,8 +1293,15 @@
         "open": "Open",
         "reveal": "Reveal",
         "copyPath": "Copy path",
-        "copySelectedPaths": "Copy {n} paths"
+        "copySelectedPaths": "Copy {n} paths",
+        "sendToBridge": "Send to...",
+        "sendToBridgeLoading": "Loading Bridge conversations...",
+        "sendToBridgeEmpty": "No Bridge conversation available",
+        "sendToBridgeLoadFailed": "Failed to load Bridge conversations"
       },
+      "bridgeLoadFailed": "Failed to load Bridge conversations: {error}",
+      "sendSuccess": "Sent to {target}",
+      "sendFailed": "Failed to send to {target}: {error}",
       "list": "Conversation file list",
       "sort": {
         "label": "Sort conversation files",

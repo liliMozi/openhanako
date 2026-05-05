@@ -2141,6 +2141,7 @@ body.resizing .jian-sidebar-inner {
 }
 
 .context-menu-item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -2150,6 +2151,45 @@ body.resizing .jian-sidebar-inner {
     cursor: pointer;
     transition: background 0.1s;
     white-space: nowrap;
+}
+
+.context-menu-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.context-menu-item.has-submenu {
+    padding-right: 26px;
+}
+
+.context-menu-item.has-submenu::after {
+    content: "›";
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.context-menu-submenu {
+    position: absolute;
+    top: -5px;
+    min-width: 190px;
+    background: var(--bg-card, var(--bg));
+    border: 1px solid var(--overlay-light);
+    border-radius: var(--radius-md);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.07);
+    padding: 4px 0;
+}
+
+.context-menu-submenu.right {
+    left: calc(100% + 4px);
+}
+
+.context-menu-submenu.left {
+    right: calc(100% + 4px);
 }
 
 .context-menu-item:hover {

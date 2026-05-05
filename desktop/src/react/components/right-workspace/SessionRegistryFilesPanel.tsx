@@ -8,6 +8,7 @@ import { ContextMenu } from '../ContextMenu';
 import { openFilePreview } from '../../utils/file-preview';
 import { extOfName, isMediaKind } from '../../utils/file-kind';
 import { openMediaViewerForRef } from '../../utils/open-media-viewer';
+import { hanaFetch } from '../../hooks/use-hana-fetch';
 import styles from './RightWorkspacePanel.module.css';
 
 const EMPTY_FILES: readonly FileRef[] = Object.freeze([]);
@@ -16,10 +17,45 @@ const RUBBER_BAND_MIN = 4;
 
 type SessionFileSortMode = 'time-desc' | 'name-asc' | 'name-desc' | 'type-asc';
 
-interface MenuState {
-  items: ContextMenuItem[];
-  position: { x: number; y: number };
+type BridgePlatform = 'feishu' | 'telegram' | 'whatsapp' | 'qq' | 'wechat';
+
+interface BridgeSessionSummary {
+  sessionKey: string;
+  chatId: string;
+  displayName?: string;
 }
+
+interface BridgeSendTarget {
+  agentId: string;
+  agentName: string;
+  platform: BridgePlatform;
+  platformLabel: string;
+  sessionKey: string;
+  chatId: string;
+  displayName?: string;
+}
+
+type MenuState =
+  | { type: 'sort'; items: ContextMenuItem[]; position: { x: number; y: number } }
+  | { type: 'file'; file: FileRef; position: { x: number; y: number } };
+
+const BRIDGE_PLATFORMS: BridgePlatform[] = ['feishu', 'telegram', 'whatsapp', 'qq', 'wechat'];
+
+const BRIDGE_PLATFORM_LABEL_KEYS: Record<BridgePlatform, string> = {
+  feishu: 'settings.bridge.feishu',
+  telegram: 'settings.bridge.telegram',
+  whatsapp: 'settings.bridge.whatsapp',
+  qq: 'settings.bridge.qq',
+  wechat: 'settings.bridge.wechat',
+};
+
+const BRIDGE_PLATFORM_FALLBACK_LABELS: Record<BridgePlatform, string> = {
+  feishu: 'Feishu',
+  telegram: 'Telegram',
+  whatsapp: 'WhatsApp',
+  qq: 'QQ',
+  wechat: 'WeChat',
+};
 
 function tr(key: string, vars?: Record<string, string | number>): string {
   return (window.t ?? ((path: string) => path))(key, vars);
@@ -52,6 +88,21 @@ function canUseFilePath(file: FileRef): boolean {
 
 function canCopyFilePath(file: FileRef): boolean {
   return !!file.path;
+}
+
+function bridgePlatformLabel(platform: BridgePlatform): string {
+  const key = BRIDGE_PLATFORM_LABEL_KEYS[platform];
+  const label = tr(key);
+  return label === key ? BRIDGE_PLATFORM_FALLBACK_LABELS[platform] : label;
+}
+
+function bridgeTargetLabel(target: BridgeSendTarget): string {
+  const base = `${target.agentName || target.agentId}：${target.platformLabel}`;
+  return target.displayName ? `${base} · ${target.displayName}` : base;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error || 'unknown error');
 }
 
 function actionLabel(key: string, file: FileRef): string {
@@ -327,6 +378,9 @@ function SessionFileRow({
 
 export function SessionRegistryFilesPanel() {
   const currentSessionPath = useStore(s => s.currentSessionPath);
+  const agents = useStore(s => s.agents);
+  const currentAgentId = useStore(s => s.currentAgentId);
+  const agentName = useStore(s => s.agentName);
   const files = useStore(s => (
     s.currentSessionPath ? selectSessionFiles(s, s.currentSessionPath) : EMPTY_FILES
   ));
@@ -338,14 +392,33 @@ export function SessionRegistryFilesPanel() {
   const lastSelectedRef = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
+  const [bridgeTargets, setBridgeTargets] = useState<BridgeSendTarget[]>([]);
+  const [bridgeTargetsLoaded, setBridgeTargetsLoaded] = useState(false);
+  const [bridgeTargetsLoading, setBridgeTargetsLoading] = useState(false);
+  const [bridgeTargetsError, setBridgeTargetsError] = useState<string | null>(null);
   const [rubberBandRect, setRubberBandRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const rubberBandRef = useRef<{ startX: number; startY: number } | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const bridgeLoadSeqRef = useRef(0);
+
+  const bridgeAgents = useMemo(() => {
+    if (agents.length > 0) return agents.map(agent => ({ id: agent.id, name: agent.name || agent.id }));
+    if (!currentAgentId) return [];
+    return [{ id: currentAgentId, name: agentName || currentAgentId }];
+  }, [agentName, agents, currentAgentId]);
 
   useEffect(() => {
     setSelectedIds(new Set());
     lastSelectedRef.current = null;
   }, [currentSessionPath]);
+
+  useEffect(() => {
+    bridgeLoadSeqRef.current += 1;
+    setBridgeTargets([]);
+    setBridgeTargetsLoaded(false);
+    setBridgeTargetsLoading(false);
+    setBridgeTargetsError(null);
+  }, [bridgeAgents]);
 
   useEffect(() => {
     const liveIds = new Set(sortedFiles.map(file => file.id));
@@ -364,6 +437,87 @@ export function SessionRegistryFilesPanel() {
     () => sortedFiles.filter(file => selectedIds.has(file.id)),
     [sortedFiles, selectedIds],
   );
+
+  const loadBridgeTargets = useCallback(async (force = false) => {
+    if (bridgeTargetsLoading || (bridgeTargetsLoaded && !force)) return;
+    const seq = ++bridgeLoadSeqRef.current;
+    setBridgeTargetsLoading(true);
+    setBridgeTargetsError(null);
+    if (force) {
+      setBridgeTargets([]);
+      setBridgeTargetsLoaded(false);
+    }
+    try {
+      const targets: BridgeSendTarget[] = [];
+      await Promise.all(bridgeAgents.map(async agent => {
+        await Promise.all(BRIDGE_PLATFORMS.map(async platform => {
+          const res = await hanaFetch(`/api/bridge/sessions?platform=${encodeURIComponent(platform)}&agentId=${encodeURIComponent(agent.id)}`);
+          const data = await res.json().catch(() => ({ sessions: [] }));
+          const sessions = Array.isArray(data.sessions) ? data.sessions as BridgeSessionSummary[] : [];
+          for (const session of sessions) {
+            if (!session?.chatId) continue;
+            targets.push({
+              agentId: agent.id,
+              agentName: agent.name,
+              platform,
+              platformLabel: bridgePlatformLabel(platform),
+              sessionKey: session.sessionKey,
+              chatId: session.chatId,
+              displayName: session.displayName,
+            });
+          }
+        }));
+      }));
+      if (bridgeLoadSeqRef.current !== seq) return;
+      setBridgeTargets(targets);
+      setBridgeTargetsLoaded(true);
+    } catch (err) {
+      if (bridgeLoadSeqRef.current !== seq) return;
+      const message = errorMessage(err);
+      setBridgeTargets([]);
+      setBridgeTargetsLoaded(true);
+      setBridgeTargetsError(message);
+      useStore.getState().addToast(tr('rightWorkspace.sessionFiles.bridgeLoadFailed', { error: message }), 'error');
+    } finally {
+      if (bridgeLoadSeqRef.current === seq) {
+        setBridgeTargetsLoading(false);
+      }
+    }
+  }, [bridgeAgents, bridgeTargetsLoaded, bridgeTargetsLoading]);
+
+  const sendFilesToBridge = useCallback(async (filesToSend: FileRef[], target: BridgeSendTarget) => {
+    const sendableFiles = pathBackedFiles(filesToSend, { requireAvailable: true });
+    if (sendableFiles.length === 0) return;
+    const targetLabel = bridgeTargetLabel(target);
+    try {
+      for (const file of sendableFiles) {
+        const res = await hanaFetch(`/api/bridge/send-media?agentId=${encodeURIComponent(target.agentId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform: target.platform,
+            chatId: target.chatId,
+            filePath: file.path,
+            label: file.name,
+            sessionPath: currentSessionPath ?? undefined,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (data && data.ok === false) {
+          throw new Error(data.error || 'bridge media send failed');
+        }
+      }
+      useStore.getState().addToast(
+        tr('rightWorkspace.sessionFiles.sendSuccess', { target: targetLabel, n: sendableFiles.length }),
+        'success',
+      );
+    } catch (err) {
+      useStore.getState().addToast(
+        tr('rightWorkspace.sessionFiles.sendFailed', { target: targetLabel, error: errorMessage(err) }),
+        'error',
+      );
+    }
+  }, [currentSessionPath]);
 
   const selectFile = useCallback((file: FileRef, meta: { multi: boolean; shift: boolean }) => {
     listRef.current?.focus();
@@ -404,6 +558,7 @@ export function SessionRegistryFilesPanel() {
     const rect = event.currentTarget.getBoundingClientRect();
     const modes: SessionFileSortMode[] = ['time-desc', 'name-asc', 'name-desc', 'type-asc'];
     setMenu({
+      type: 'sort',
       position: { x: rect.left, y: rect.bottom + 4 },
       items: modes.map(mode => ({
         label: sortLabel(mode),
@@ -427,24 +582,56 @@ export function SessionRegistryFilesPanel() {
       setSelectedIds(new Set([file.id]));
       lastSelectedRef.current = file.id;
     }
+    setMenu({
+      type: 'file',
+      position: { x: event.clientX, y: event.clientY },
+      file,
+    });
+    void loadBridgeTargets(true);
+  }, [loadBridgeTargets]);
+
+  const buildFileMenuItems = useCallback((file: FileRef): ContextMenuItem[] => {
     const actionFiles = filesForAction(file);
     const pathFiles = pathBackedFiles(actionFiles);
-    setMenu({
-      position: { x: event.clientX, y: event.clientY },
-      items: [
-        { label: tr('rightWorkspace.sessionFiles.actions.preview'), disabled: !canPreviewFile(file), action: () => previewFile(file, currentSessionPath) },
-        { label: tr('rightWorkspace.sessionFiles.actions.open'), disabled: !canUseFilePath(file), action: () => openFile(file) },
-        { label: tr('rightWorkspace.sessionFiles.actions.reveal'), disabled: !canUseFilePath(file), action: () => revealFile(file) },
-        {
-          label: pathFiles.length > 1
-            ? tr('rightWorkspace.sessionFiles.actions.copySelectedPaths', { n: pathFiles.length })
-            : tr('rightWorkspace.sessionFiles.actions.copyPath'),
-          disabled: pathFiles.length === 0,
-          action: () => copyPaths(pathFiles),
-        },
-      ],
-    });
-  }, [currentSessionPath, filesForAction]);
+    const sendableFiles = pathBackedFiles(actionFiles, { requireAvailable: true });
+    const sendTargetItems: ContextMenuItem[] = bridgeTargetsLoading && !bridgeTargetsLoaded
+      ? [{ label: tr('rightWorkspace.sessionFiles.actions.sendToBridgeLoading'), disabled: true }]
+      : bridgeTargetsError
+        ? [{ label: tr('rightWorkspace.sessionFiles.actions.sendToBridgeLoadFailed'), disabled: true }]
+        : bridgeTargets.length > 0
+          ? bridgeTargets.map(target => ({
+            label: bridgeTargetLabel(target),
+            action: () => sendFilesToBridge(sendableFiles, target),
+          }))
+          : [{ label: tr('rightWorkspace.sessionFiles.actions.sendToBridgeEmpty'), disabled: true }];
+
+    return [
+      { label: tr('rightWorkspace.sessionFiles.actions.preview'), disabled: !canPreviewFile(file), action: () => previewFile(file, currentSessionPath) },
+      { label: tr('rightWorkspace.sessionFiles.actions.open'), disabled: !canUseFilePath(file), action: () => openFile(file) },
+      { label: tr('rightWorkspace.sessionFiles.actions.reveal'), disabled: !canUseFilePath(file), action: () => revealFile(file) },
+      {
+        label: pathFiles.length > 1
+          ? tr('rightWorkspace.sessionFiles.actions.copySelectedPaths', { n: pathFiles.length })
+          : tr('rightWorkspace.sessionFiles.actions.copyPath'),
+        disabled: pathFiles.length === 0,
+        action: () => copyPaths(pathFiles),
+      },
+      { divider: true },
+      {
+        label: tr('rightWorkspace.sessionFiles.actions.sendToBridge'),
+        disabled: sendableFiles.length === 0,
+        children: sendTargetItems,
+      },
+    ];
+  }, [
+    bridgeTargets,
+    bridgeTargetsError,
+    bridgeTargetsLoaded,
+    bridgeTargetsLoading,
+    currentSessionPath,
+    filesForAction,
+    sendFilesToBridge,
+  ]);
 
   const handleDragStart = useCallback((event: React.DragEvent, file: FileRef) => {
     const dragFiles = selectedIdsRef.current.has(file.id) ? filesForAction(file) : [file];
@@ -582,7 +769,7 @@ export function SessionRegistryFilesPanel() {
       )}
       {menu && (
         <ContextMenu
-          items={menu.items}
+          items={menu.type === 'file' ? buildFileMenuItems(menu.file) : menu.items}
           position={menu.position}
           onClose={() => setMenu(null)}
         />

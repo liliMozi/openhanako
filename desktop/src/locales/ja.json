@@ -1055,6 +1055,7 @@
       "feishuAppId": "App ID",
       "feishuAppSecret": "App Secret",
       "feishuHint": "Feishu オープンプラットフォームから取得",
+      "whatsapp": "WhatsApp",
       "qq": "QQ",
       "qqAppId": "App ID",
       "qqAppSecret": "App Secret",
@@ -1247,8 +1248,15 @@
         "open": "開く",
         "reveal": "場所を表示",
         "copyPath": "パスをコピー",
-        "copySelectedPaths": "{n} 件のパスをコピー"
+        "copySelectedPaths": "{n} 件のパスをコピー",
+        "sendToBridge": "送信先...",
+        "sendToBridgeLoading": "Bridge の会話を読み込み中...",
+        "sendToBridgeEmpty": "送信できる Bridge 会話がありません",
+        "sendToBridgeLoadFailed": "Bridge 会話の読み込みに失敗しました"
       },
+      "bridgeLoadFailed": "Bridge 会話の読み込みに失敗しました：{error}",
+      "sendSuccess": "{target} に送信しました",
+      "sendFailed": "{target} への送信に失敗しました：{error}",
       "list": "会話ファイル一覧",
       "sort": {
         "label": "会話ファイルを並べ替え",

@@ -1055,6 +1055,7 @@
       "feishuAppId": "App ID",
       "feishuAppSecret": "App Secret",
       "feishuHint": "Feishu 오픈 플랫폼에서 받으세요",
+      "whatsapp": "WhatsApp",
       "qq": "QQ",
       "qqAppId": "App ID",
       "qqAppSecret": "App Secret",
@@ -1247,8 +1248,15 @@
         "open": "열기",
         "reveal": "위치 보기",
         "copyPath": "경로 복사",
-        "copySelectedPaths": "경로 {n}개 복사"
+        "copySelectedPaths": "경로 {n}개 복사",
+        "sendToBridge": "보내기...",
+        "sendToBridgeLoading": "Bridge 대화를 불러오는 중...",
+        "sendToBridgeEmpty": "보낼 수 있는 Bridge 대화가 없어요",
+        "sendToBridgeLoadFailed": "Bridge 대화를 불러오지 못했어요"
       },
+      "bridgeLoadFailed": "Bridge 대화를 불러오지 못했어요: {error}",
+      "sendSuccess": "{target}(으)로 보냈어요",
+      "sendFailed": "{target}(으)로 보내지 못했어요: {error}",
       "list": "대화 파일 목록",
       "sort": {
         "label": "대화 파일 정렬",
