@@ -296,6 +296,31 @@ describe("session-coordinator tool snapshot (createSession)", () => {
     });
   });
 
+  it("can switch an explicit loaded session permission mode without relying on focus", async () => {
+    currentAgentConfig = { tools: { disabled: [] } };
+    const { sessionPath: firstPath } = await coord.createSession(null, tmpDir, true);
+    coord.setPermissionMode("read_only");
+
+    const secondSessionPath = path.join(sessionDir, "focused-session.jsonl");
+    createAgentSessionMock.mockResolvedValueOnce({
+      session: {
+        sessionManager: { getSessionFile: () => secondSessionPath },
+        subscribe: vi.fn(() => vi.fn()),
+        model: { id: "test-model", name: "test-model" },
+        setActiveToolsByName: activeToolsSpy,
+      },
+    });
+    const { sessionPath: secondPath } = await coord.createSession(null, tmpDir, true);
+    expect(coord.currentSessionPath).toBe(secondPath);
+
+    const result = coord.setSessionPermissionMode(firstPath, "operate");
+
+    expect(result).toMatchObject({ ok: true, mode: "operate", enabled: false });
+    expect(coord.getPermissionMode(firstPath)).toBe("operate");
+    expect(coord.getPermissionMode(secondPath)).toBe("read_only");
+    expect(coord.getPermissionModeDefault()).toBe("read_only");
+  });
+
   it("new session with pending read-only access mode keeps tool schema stable", async () => {
     currentAgentConfig = { tools: { disabled: [] } };
     coord.setPendingAccessMode("read_only");

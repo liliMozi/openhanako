@@ -1149,6 +1149,26 @@ export class SessionCoordinator {
     return this._applyPermissionModeToEntry(sp, entry, nextMode);
   }
 
+  setSessionPermissionMode(sessionPath, mode) {
+    const nextMode = normalizeSessionPermissionMode(mode);
+    if (!sessionPath) {
+      return {
+        ok: false,
+        error: "session permission mode requires sessionPath",
+        mode: this._getDefaultPermissionMode(),
+      };
+    }
+    const entry = this._sessions.get(sessionPath);
+    if (!entry) {
+      return {
+        ok: false,
+        error: "session not found",
+        mode: this.getPermissionMode(sessionPath),
+      };
+    }
+    return this._applyPermissionModeToEntry(sessionPath, entry, nextMode);
+  }
+
   setPermissionMode(mode) {
     const nextMode = normalizeSessionPermissionMode(mode);
     const sp = this.currentSessionPath;

@@ -434,25 +434,30 @@ app.post("/api/session-thinking-level", async (c) => {
 });
 
 app.post("/api/session-permission-mode", async (c) => {
-  const { mode, pendingNewSession, currentSessionOnly } = await safeJson(c);
+  const { mode, pendingNewSession, currentSessionOnly, sessionPath } = await safeJson(c);
+  const targetSessionPath = typeof sessionPath === "string" && sessionPath ? sessionPath : null;
   const result = currentSessionOnly === true
     ? engine.setCurrentSessionPermissionMode(mode)
     : pendingNewSession === true
     ? engine.setPendingSessionPermissionMode(mode)
+    : targetSessionPath
+    ? engine.setSessionPermissionModeForSession(targetSessionPath, mode)
     : engine.setSessionPermissionMode(mode);
-  if (currentSessionOnly === true && result?.ok === false) {
+  const explicitSession = currentSessionOnly === true || !!targetSessionPath;
+  if (explicitSession && result?.ok === false) {
     return c.json({
       ok: false,
-      error: result.error || "current session permission mode requires an active session",
+      error: result.error || "session permission mode requires an active session",
       mode: result.mode,
       accessMode: result.mode === "read_only" ? "read_only" : "operate",
       defaultMode: engine.getSessionPermissionModeDefault(),
     }, 409);
   }
+  const scopedMode = pendingNewSession === true || explicitSession;
   return c.json({
     ok: result?.ok !== false,
-    mode: (pendingNewSession === true || currentSessionOnly === true) ? result?.mode : engine.permissionMode,
-    accessMode: (pendingNewSession === true || currentSessionOnly === true)
+    mode: scopedMode ? result?.mode : engine.permissionMode,
+    accessMode: scopedMode
       ? (result?.mode === "read_only" ? "read_only" : "operate")
       : engine.accessMode,
     defaultMode: engine.getSessionPermissionModeDefault(),

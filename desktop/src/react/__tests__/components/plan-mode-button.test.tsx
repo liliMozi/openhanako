@@ -45,6 +45,31 @@ describe('PlanModeButton', () => {
     expect(onChange).toHaveBeenCalledWith('read_only');
   });
 
+  it('targets the active session when changing an existing conversation permission mode', async () => {
+    vi.mocked(hanaFetch).mockResolvedValueOnce(jsonResponse({ mode: 'operate' }));
+    useStore.setState({
+      currentSessionPath: '/tmp/hana-session.jsonl',
+      pendingNewSession: false,
+    } as never);
+    const onChange = vi.fn();
+
+    render(<PlanModeButton mode="read_only" onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'input.readOnlyMode' }));
+    fireEvent.click(screen.getByRole('button', { name: 'input.operateMode' }));
+
+    await waitFor(() => {
+      expect(hanaFetch).toHaveBeenCalledWith('/api/session-permission-mode', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          mode: 'operate',
+          pendingNewSession: false,
+          sessionPath: '/tmp/hana-session.jsonl',
+        }),
+      }));
+    });
+    expect(onChange).toHaveBeenCalledWith('operate');
+  });
+
   it('uses a distinct trigger icon for each permission mode', () => {
     const { container, rerender } = render(<PlanModeButton mode="ask" onChange={vi.fn()} />);
     expect(container.querySelector('svg[data-permission-mode="ask"]')).not.toBeNull();
