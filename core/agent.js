@@ -339,17 +339,6 @@ export class Agent {
       registerSessionFile: (entry) => this._cb?.registerSessionFile?.(entry),
       screenshotEnabled: false,
     });
-    this._computerUseTool = createComputerUseTool({
-      getComputerHost: () => this._cb?.getEngine?.()?.getComputerHost?.() || null,
-      getSessionModel: (sessionPath) => {
-        const engine = this._cb?.getEngine?.();
-        return engine?.getSessionByPath?.(sessionPath)?.model || null;
-      },
-      getAgentId: () => this.id,
-      getConfirmStore: () => this._cb?.getConfirmStore?.(),
-      approveComputerUseApp: (approval) => this._cb?.getEngine?.()?.approveComputerUseApp?.(approval),
-      emitEvent: (event, sp) => { if (sp) this._cb?.emitEvent?.(event, sp); },
-    });
     this._notifyTool = createNotifyTool({
       onNotify: (title, body) => this._notifyHandler?.(title, body),
     });
@@ -604,7 +593,7 @@ export class Agent {
     ] : [];
     const experienceTools = experienceEnabled ? this._experienceTools : [];
     const computerUseTools = this._isComputerUseAvailableForThisAgent()
-      ? [this._computerUseTool]
+      ? [this._getComputerUseTool()]
       : [];
     const browserTool = isExplicitTextOnlyModel(options.model)
       ? this._browserToolNoScreenshot
@@ -637,6 +626,23 @@ export class Agent {
   }
   get tools() {
     return this.getToolsSnapshot();
+  }
+
+  _getComputerUseTool() {
+    if (!this._computerUseTool) {
+      this._computerUseTool = createComputerUseTool({
+        getComputerHost: () => this._cb?.getEngine?.()?.getComputerHost?.() || null,
+        getSessionModel: (sessionPath) => {
+          const engine = this._cb?.getEngine?.();
+          return engine?.getSessionByPath?.(sessionPath)?.model || null;
+        },
+        getAgentId: () => this.id,
+        getConfirmStore: () => this._cb?.getConfirmStore?.(),
+        approveComputerUseApp: (approval) => this._cb?.getEngine?.()?.approveComputerUseApp?.(approval),
+        emitEvent: (event, sp) => { if (sp) this._cb?.emitEvent?.(event, sp); },
+      });
+    }
+    return this._computerUseTool;
   }
 
   _isComputerUseAvailableForThisAgent() {

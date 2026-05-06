@@ -20,6 +20,20 @@ import {
 } from "../../core/config-coordinator.js";
 import { modelSupportsImage } from "../../core/message-sanitizer.js";
 
+function selectedComputerProviderIdFromSettings(settings) {
+  return settings?.provider_by_platform?.[process.platform] || null;
+}
+
+function disabledComputerUseStatus(settings) {
+  return {
+    enabled: false,
+    platform: process.platform,
+    selectedProviderId: selectedComputerProviderIdFromSettings(settings),
+    providers: [],
+    activeLease: null,
+  };
+}
+
 export function createPreferencesRoute(engine) {
   const route = new Hono();
 
@@ -111,11 +125,19 @@ export function createPreferencesRoute(engine) {
   route.get("/preferences/computer-use", async (c) => {
     try {
       const settings = engine.getComputerUseSettings();
+      if (settings?.enabled !== true) {
+        const status = disabledComputerUseStatus(settings);
+        return c.json({
+          settings,
+          status,
+          selectedProviderId: status.selectedProviderId,
+        });
+      }
       const status = await engine.getComputerHost?.()?.getStatus?.({}) || null;
       return c.json({
         settings,
         status,
-        selectedProviderId: status?.selectedProviderId || null,
+        selectedProviderId: status?.selectedProviderId || selectedComputerProviderIdFromSettings(settings),
       });
     } catch (err) {
       return c.json({ error: err.message }, 500);

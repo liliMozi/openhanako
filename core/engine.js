@@ -235,17 +235,12 @@ export class HanaEngine {
       path.join(this.hanakoHome, "checkpoints")
     );
 
-    this._computerProviders = new ComputerProviderRegistry();
-    this._computerProviders.register(createMockComputerProvider({ providerId: "mock" }));
-    this._computerProviders.register(createMacosCuaProvider());
-    this._computerProviders.register(createWindowsUiaProvider());
-    this._computerHost = new ComputerHost({
-      providers: this._computerProviders,
-      defaultProviderId: "mock",
-      getSettings: () => this.getComputerUseSettings(),
-      getAccessMode: (sessionPath) => this._sessionCoord.getAccessMode(sessionPath),
-      getPrimaryAgentId: () => this._prefs.getPrimaryAgent(),
-    });
+    // Computer Use runtime is deliberately lazy. Constructing the provider
+    // registry resolves native helper paths and wires platform-specific
+    // runners; keep startup cold until the global switch is enabled or a
+    // Computer Use endpoint/tool explicitly needs the host.
+    this._computerProviders = null;
+    this._computerHost = null;
 
     // ── Plugin Manager ──
     this._pluginManager = null;  // initialized async in initPlugins()
@@ -517,10 +512,30 @@ export class HanaEngine {
   setSharedModels(p) { return this._configCoord.setSharedModels(p); }
   isVisionAuxiliaryEnabled() { return this.getSharedModels()?.vision_enabled === true; }
   getVisionBridge() { return this._visionBridge; }
-  getComputerHost() { return this._computerHost; }
-  getComputerProviders() { return this._computerProviders; }
+  _ensureComputerRuntime() {
+    if (!this._computerProviders || !this._computerHost) {
+      this._computerProviders = new ComputerProviderRegistry();
+      this._computerProviders.register(createMockComputerProvider({ providerId: "mock" }));
+      this._computerProviders.register(createMacosCuaProvider());
+      this._computerProviders.register(createWindowsUiaProvider());
+      this._computerHost = new ComputerHost({
+        providers: this._computerProviders,
+        defaultProviderId: "mock",
+        getSettings: () => this.getComputerUseSettings(),
+        getAccessMode: (sessionPath) => this._sessionCoord.getAccessMode(sessionPath),
+        getPrimaryAgentId: () => this._prefs.getPrimaryAgent(),
+      });
+    }
+    return { providers: this._computerProviders, host: this._computerHost };
+  }
+  getComputerHost() { return this._ensureComputerRuntime().host; }
+  getComputerProviders() { return this._ensureComputerRuntime().providers; }
   getComputerUseSettings() { return this._prefs.getComputerUseSettings(); }
-  setComputerUseSettings(partial) { return this._prefs.setComputerUseSettings(partial); }
+  setComputerUseSettings(partial) {
+    const settings = this._prefs.setComputerUseSettings(partial);
+    if (settings.enabled === true) this._ensureComputerRuntime();
+    return settings;
+  }
   approveComputerUseApp(approval) { return this._prefs.approveComputerUseApp(approval); }
   revokeComputerUseApp(approval) { return this._prefs.revokeComputerUseApp(approval); }
   resolveVisionConfig() {

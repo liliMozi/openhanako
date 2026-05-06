@@ -8,7 +8,13 @@ function makeApp(engine) {
   return app;
 }
 
-function makeEngine() {
+function makeEngine(options = {}) {
+  const computerUseSettings = options.computerUseSettings || {
+    enabled: true,
+    provider_by_platform: { darwin: "macos:cua", win32: "windows:uia", linux: "mock" },
+    allow_windows_input_injection: false,
+    app_approvals: [],
+  };
   const computerHost = {
     getStatus: vi.fn(async () => ({ selectedProviderId: "mock", providers: [] })),
     requestPermissions: vi.fn(async () => ({ providerId: "mock", available: true, permissions: [] })),
@@ -22,11 +28,7 @@ function makeEngine() {
     setUtilityApi: vi.fn(),
     currentAgentId: "hana",
     emitEvent: vi.fn(),
-    getComputerUseSettings: vi.fn(() => ({
-      provider_by_platform: { darwin: "macos:cua", win32: "windows:uia", linux: "mock" },
-      allow_windows_input_injection: false,
-      app_approvals: [],
-    })),
+    getComputerUseSettings: vi.fn(() => computerUseSettings),
     setComputerUseSettings: vi.fn((settings) => settings),
     approveComputerUseApp: vi.fn((approval) => ({ app_approvals: [approval] })),
     revokeComputerUseApp: vi.fn(() => ({ app_approvals: [] })),
@@ -46,6 +48,31 @@ describe("Computer Use preference routes", () => {
     expect(res.status).toBe(200);
     expect(body.selectedProviderId).toBe("mock");
     expect(body.settings.provider_by_platform.darwin).toBe("macos:cua");
+  });
+
+  it("does not initialize or probe ComputerHost while Computer Use is disabled", async () => {
+    const engine = makeEngine({
+      computerUseSettings: {
+        enabled: false,
+        provider_by_platform: { darwin: "macos:cua", win32: "windows:uia", linux: "mock" },
+        allow_windows_input_injection: false,
+        app_approvals: [],
+      },
+    });
+    const app = makeApp(engine);
+
+    const res = await app.request("/api/preferences/computer-use");
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(engine.getComputerHost).not.toHaveBeenCalled();
+    expect(engine.computerHost.getStatus).not.toHaveBeenCalled();
+    expect(body.status).toMatchObject({
+      enabled: false,
+      providers: [],
+      activeLease: null,
+    });
+    expect(body.selectedProviderId).toBe(body.settings.provider_by_platform[process.platform] || null);
   });
 
   it("updates settings", async () => {
