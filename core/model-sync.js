@@ -53,6 +53,20 @@ function shouldReusePiBuiltinModel(provider, modelId, api) {
   return api === "anthropic-messages" && !!getPiBuiltinModel(provider, modelId);
 }
 
+function hasImageCapabilityHint(...values) {
+  const haystack = values
+    .filter(value => typeof value === "string" && value.trim())
+    .join(" ")
+    .toLowerCase();
+  if (!haystack) return false;
+
+  return [
+    /(?:^|[\s._-])(vision|vl|omni|multimodal|multi-modal|image|img)(?:$|[\s._-])/,
+    /(?:^|[\s._-])[a-z0-9]+v(?:$|[\s._-])/,
+    /(?:^|[\s._-])glm[\s._-]?\d+v(?:$|[\s._-])/,
+  ].some(pattern => pattern.test(haystack));
+}
+
 function buildModelOverride(modelEntry) {
   if (typeof modelEntry !== "object" || modelEntry === null) return null;
 
@@ -84,7 +98,8 @@ function buildModelEntry(modelEntry, provider, baseUrl = "", api = "openai-compl
   // 兼容读：migration #7 之前的旧数据用 vision 字段；两个版本后移除 vision fallback
   const userImage = isObj ? (modelEntry.image ?? modelEntry.vision) : undefined;
   const knownImage = known?.image ?? known?.vision;
-  const image = userImage !== undefined ? userImage : (knownImage === true);
+  const inferredImage = hasImageCapabilityHint(id, isObj ? modelEntry.name : null);
+  const image = userImage !== undefined ? userImage : (knownImage === true || (knownImage !== false && inferredImage));
   const entry = {
     id,
     name: (isObj && modelEntry.name) || known?.name || humanizeName(id),

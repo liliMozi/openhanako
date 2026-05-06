@@ -506,6 +506,31 @@ describe("syncModels", () => {
     expect(model.input).toEqual(["text"]);
   });
 
+  it("infers image modality for discovered multimodal model ids", async () => {
+    const syncModels = await loadSync();
+
+    const providers = {
+      zhipu: {
+        base_url: "https://open.bigmodel.cn/api/paas/v4",
+        api: "openai-completions",
+        api_key: "sk-test",
+        models: ["GLM-5V-Turbo"],
+      },
+      minimax: {
+        base_url: "https://api.minimax.chat/v1",
+        api: "openai-completions",
+        api_key: "sk-test",
+        models: [{ id: "mimo-v2-omni", name: "MIMO v2 Omni" }],
+      },
+    };
+
+    syncModels(providers, { modelsJsonPath });
+
+    const result = JSON.parse(fs.readFileSync(modelsJsonPath, "utf-8"));
+    expect(result.providers.zhipu.models[0].input).toEqual(["text", "image"]);
+    expect(result.providers.minimax.models[0].input).toEqual(["text", "image"]);
+  });
+
   it("rejects the official DeepSeek provider id before writing models.json", async () => {
     const syncModels = await loadSync();
 

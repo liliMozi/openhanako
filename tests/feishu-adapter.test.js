@@ -143,6 +143,40 @@ describe("createFeishuAdapter", () => {
     }));
   });
 
+  it("deduplicates repeated Feishu message events by message_id", async () => {
+    const onMessage = vi.fn();
+
+    createFeishuAdapter({
+      appId: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage,
+    });
+
+    const event = {
+      message: {
+        message_id: "om_duplicate_msg_001",
+        message_type: "text",
+        content: JSON.stringify({ text: "hello" }),
+        chat_id: "oc_fake_chat_001",
+        chat_type: "p2p",
+      },
+      sender: {
+        sender_type: "user",
+        sender_id: {
+          open_id: "ou_123",
+          user_id: "ou_123",
+        },
+      },
+    };
+
+    await registeredHandlers["im.message.receive_v1"](event);
+    await registeredHandlers["im.message.receive_v1"](event);
+
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    expect(mockContactUserGet).toHaveBeenCalledTimes(1);
+  });
+
   it("downloads inbound images via message resource API", async () => {
     const imageBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
     mockMessageResourceGet.mockResolvedValue(Readable.from([imageBuffer]));
@@ -195,6 +229,48 @@ describe("createFeishuAdapter", () => {
         content: JSON.stringify({ image_key: "img_key_001" }),
       },
     });
+  });
+
+  it("accepts Feishu image_key when SDKs return it outside data", async () => {
+    mockImageCreate.mockResolvedValue({ image_key: "img_key_top_level" });
+    const adapter = createFeishuAdapter({
+      appId: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage: vi.fn(),
+    });
+    const buffer = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+    await adapter.sendMediaBuffer("oc_chat", buffer, {
+      mime: "image/png",
+      filename: "image.png",
+    });
+
+    expect(mockMessageCreate).toHaveBeenCalledWith({
+      params: { receive_id_type: "chat_id" },
+      data: {
+        receive_id: "oc_chat",
+        msg_type: "image",
+        content: JSON.stringify({ image_key: "img_key_top_level" }),
+      },
+    });
+  });
+
+  it("reports a clear error when Feishu image upload returns no image_key", async () => {
+    mockImageCreate.mockResolvedValue({ data: {} });
+    const adapter = createFeishuAdapter({
+      appId: "app-id",
+      appSecret: "app-secret",
+      agentId: "hana",
+      onMessage: vi.fn(),
+    });
+    const buffer = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+    await expect(adapter.sendMediaBuffer("oc_chat", buffer, {
+      mime: "image/png",
+      filename: "image.png",
+    })).rejects.toThrow("Feishu image upload returned no image_key");
+    expect(mockMessageCreate).not.toHaveBeenCalled();
   });
 
   it("uploads document buffers and sends file_key messages", async () => {

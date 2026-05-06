@@ -354,6 +354,7 @@ export class Agent {
       getTimezone: () => this._cb?.getTimezone?.() || "",
       getAgent: () => this,
       getSessionModel: (sessionPath) => this._cb?.getEngine?.()?.getSessionByPath?.(sessionPath)?.model || null,
+      getSessionUsage: (sessionPath) => this._cb?.getEngine?.()?.getSessionByPath?.(sessionPath)?.getContextUsage?.() || null,
       getCurrentModel: () => this._cb?.getEngine?.()?.currentModel || null,
       getUiContext: (sessionPath) => this._cb?.getEngine?.()?.getUiContext?.(sessionPath) || null,
     });

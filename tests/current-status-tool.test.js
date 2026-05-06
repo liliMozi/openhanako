@@ -113,6 +113,39 @@ describe("current_status tool", () => {
     });
   });
 
+  it("returns session context usage and model cost rates for get model", async () => {
+    const tool = createCurrentStatusTool({
+      getSessionModel: () => ({
+        id: "priced-model",
+        provider: "test",
+        name: "Priced Model",
+        contextWindow: 128_000,
+        cost: { input: 1.25, output: 5 },
+      }),
+      getSessionUsage: () => ({
+        tokens: 32_000,
+        contextWindow: 128_000,
+        percent: 25,
+      }),
+    });
+
+    const payload = textPayload(await tool.execute("call_1", { action: "get", key: "model" }, null, null, makeCtx()));
+
+    expect(payload).toEqual({
+      model: {
+        id: "priced-model",
+        provider: "test",
+        name: "Priced Model",
+        usage: {
+          contextTokens: 32_000,
+          contextWindow: 128_000,
+          contextPercent: 25,
+        },
+        costRates: { input: 1.25, output: 5 },
+      },
+    });
+  });
+
   it("returns passive UI context metadata for get ui_context", async () => {
     const tool = createCurrentStatusTool({
       getUiContext: (sessionPath) => sessionPath.endsWith("s1.jsonl")
