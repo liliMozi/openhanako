@@ -1147,6 +1147,8 @@
       "noAddedModels": "まだモデルが追加されていません",
       "addModel": "モデルを追加",
       "addModelSearchPlaceholder": "追加するモデルを検索...",
+      "manualModelPlaceholder": "モデル ID を手動入力",
+      "addManualModel": "追加",
       "mainModel": "メインモデル",
       "setMainModel": "メインにする",
       "editModel": "モデルを編集",

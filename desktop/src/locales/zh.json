@@ -1197,6 +1197,8 @@
       "noAddedModels": "还没有添加模型",
       "addModel": "添加模型",
       "addModelSearchPlaceholder": "搜索可添加的模型...",
+      "manualModelPlaceholder": "手动输入模型 ID",
+      "addManualModel": "添加",
       "mainModel": "主模型",
       "setMainModel": "设为主模型",
       "editModel": "编辑模型",

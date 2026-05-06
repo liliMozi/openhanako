@@ -89,4 +89,36 @@ describe('ModelStep', () => {
     expect(screen.getByLabelText('onboarding.model.imageInput')).not.toBeChecked();
     expect(screen.getByLabelText('onboarding.model.reasoning')).toBeChecked();
   });
+
+  it('allows adding a model manually when discovery returns no models', async () => {
+    mocks.loadModels.mockResolvedValueOnce({
+      models: [],
+      error: 'No models found for provider "custom-provider"',
+    });
+
+    render(
+      <ModelStep
+        preview={false}
+        hanaFetch={vi.fn()}
+        providerName="custom-provider"
+        providerUrl="https://api.example.com/v1"
+        providerApi="openai-completions"
+        apiKey="sk-test"
+        goToStep={vi.fn()}
+        showError={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => expect(mocks.loadModels).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: 'onboarding.model.addModel' }));
+    fireEvent.change(
+      await screen.findByPlaceholderText('onboarding.model.manualModelPlaceholder'),
+      { target: { value: 'custom-chat-model' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'onboarding.model.addManualModel' }));
+
+    expect(screen.getByText('custom-chat-model')).toBeInTheDocument();
+    expect(screen.getByText('onboarding.model.mainModel')).toBeInTheDocument();
+  });
 });

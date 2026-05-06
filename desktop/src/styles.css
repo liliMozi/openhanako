@@ -3283,6 +3283,35 @@ html[data-platform="linux"] .onboarding {
 .ob-add-model-option:disabled:hover {
     background: transparent;
 }
+.ob-add-model-manual {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+    border-top: 1px solid var(--overlay-light);
+}
+.ob-add-model-manual-input {
+    min-width: 0;
+    border-radius: var(--radius-sm, 4px);
+}
+.ob-add-model-manual-btn {
+    padding: 0 var(--space-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 4px);
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+.ob-add-model-manual-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.ob-add-model-manual-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
 .ob-model-edit-panel {
     width: 100%;
     box-sizing: border-box;

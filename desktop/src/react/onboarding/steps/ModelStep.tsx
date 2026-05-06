@@ -65,6 +65,7 @@ export function ModelStep({
   const [addedModels, setAddedModels] = useState<AddedModelDraft[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
   const [modelSearch, setModelSearch] = useState('');
+  const [manualModelId, setManualModelId] = useState('');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [modelLoading, setModelLoading] = useState('');
   const [selectedUtility, setSelectedUtility] = useState('');
@@ -153,7 +154,8 @@ export function ModelStep({
     label: labelForModel(model.id),
   }));
 
-  const addModel = useCallback((modelId: string) => {
+  const addModel = useCallback((rawModelId: string) => {
+    const modelId = rawModelId.trim();
     if (!modelId || addedModelIds.has(modelId)) return;
     const next = [...addedModels, { id: modelId }];
     setAddedModels(next);
@@ -161,6 +163,13 @@ export function ModelStep({
     setAddMenuOpen(false);
     setModelSearch('');
   }, [addedModelIds, addedModels, selectedModel]);
+
+  const addManualModel = useCallback(() => {
+    const modelId = manualModelId.trim();
+    if (!modelId) return;
+    addModel(modelId);
+    if (!addedModelIds.has(modelId)) setManualModelId('');
+  }, [addModel, addedModelIds, manualModelId]);
 
   const removeModel = useCallback((modelId: string) => {
     const next = addedModels.filter(model => model.id !== modelId);
@@ -349,6 +358,27 @@ export function ModelStep({
                   {candidate.label}
                 </button>
               ))}
+            </div>
+            <div className="ob-add-model-manual">
+              <input
+                className="ob-input ob-add-model-manual-input"
+                type="text"
+                placeholder={t('onboarding.model.manualModelPlaceholder')}
+                value={manualModelId}
+                onChange={e => setManualModelId(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') addManualModel();
+                }}
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                className="ob-add-model-manual-btn"
+                onClick={addManualModel}
+                disabled={!manualModelId.trim() || addedModelIds.has(manualModelId.trim())}
+              >
+                {t('onboarding.model.addManualModel')}
+              </button>
             </div>
           </div>
         )}
