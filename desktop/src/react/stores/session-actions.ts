@@ -175,19 +175,31 @@ export async function loadMoreMessages(forPath?: string): Promise<void> {
 // ══════════════════════════════════════════════════════
 
 export async function loadSessions(): Promise<void> {
-  try {
-    const res = await hanaFetch('/api/sessions');
-    const data = await res.json();
-    const sessions = data || [];
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
 
-    const s = useStore.getState();
-    useStore.setState({ sessions });
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await hanaFetch('/api/sessions');
+      const data = await res.json();
+      const sessions = data || [];
 
-    if (sessions.length > 0 && !s.currentSessionPath && !s.pendingNewSession) {
-      // 首次加载：走完整的 switchSession 确保后端同步 + 消息加载
-      await switchSession(sessions[0].path);
+      const s = useStore.getState();
+      useStore.setState({ sessions });
+
+      if (sessions.length > 0 && !s.currentSessionPath && !s.pendingNewSession) {
+        // 首次加载：走完整的 switchSession 确保后端同步 + 消息加载
+        await switchSession(sessions[0].path);
+      }
+      return;
+    } catch (err) {
+      if (attempt >= MAX_RETRIES) {
+        console.error('[loadSessions] Failed after', MAX_RETRIES, 'attempts:', err);
+        return;
+      }
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
     }
-  } catch { /* ignore */ }
+  }
 }
 
 // ══════════════════════════════════════════════════════
