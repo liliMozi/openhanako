@@ -469,23 +469,36 @@ export class ProviderRegistry {
    * @returns {{ apiKey: string, baseUrl: string, api: string } | null}
    */
   getCredentials(providerId) {
+    // 先正規化 provider ID：某些 OAuth provider 的 id 與 authJsonKey 不同
+    // 如 "openai-codex" → entry.id = "openai-codex-oauth", entry.authJsonKey = "openai-codex"
+    const entry = this.get(providerId);
+    const canonicalId = entry?.id || providerId;
+
     const userConfig = this._loadAddedModels();
-    const uc = userConfig[providerId];
+    const uc = userConfig[canonicalId] || userConfig[providerId];
     if (!uc) return null;
 
-    const plugin = this._plugins.get(providerId);
+    const plugin = this._plugins.get(canonicalId) || this._plugins.get(providerId);
     let apiKey = uc.api_key || "";
     let oauthBaseUrl = "";
 
-    // OAuth provider: YAML 没有 api_key，从 auth.json 取 access token + resourceUrl
+    // OAuth provider: YAML 沒有 api_key，從 auth.json 取 access token + resourceUrl
     if (!apiKey) {
       const authType = uc.auth_type || plugin?.authType;
       if (authType === "oauth") {
-        const authJsonKey = plugin?.authJsonKey || providerId;
+        const authJsonKey = entry?.authJsonKey || plugin?.authJsonKey || providerId;
         const oauth = this._readOAuthEntry(authJsonKey);
         apiKey = oauth.token;
         oauthBaseUrl = oauth.resourceUrl;
       }
+    }
+
+    return {
+      apiKey,
+      baseUrl: uc.base_url || oauthBaseUrl || plugin?.defaultBaseUrl || "",
+      api: uc.api || plugin?.defaultApi || "",
+    };
+  }
     }
 
     return {
