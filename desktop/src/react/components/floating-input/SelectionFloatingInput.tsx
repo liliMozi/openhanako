@@ -5,7 +5,7 @@ import { sendFloatingSelectionPrompt } from '../../stores/floating-selection-act
 import { useI18n } from '../../hooks/use-i18n';
 import { FloatingInput } from './FloatingInput';
 
-const SELECTION_OPEN_DELAY_MS = 1000;
+export const SELECTION_OPEN_DELAY_MS = 500;
 
 export function SelectionFloatingInput() {
   const { t } = useI18n();
