@@ -989,6 +989,15 @@ export class Agent {
         "- Do not decide platform-specific display or sending behavior in the Agent layer; consumers handle it"
     );
 
+    parts.push(isZh
+      ? "\n## 技能源文件\n\n" +
+        "修改技能时，session-files 里的 SKILL.md 只是当前会话快照，不是源文件。" +
+        "如果用户给的是 session-files 路径，先定位工作区 .agents/skills、.claude/skills、.codex/skills、.openclaw/skills，用户 skills 目录，或 .pi/agent/skills 下对应的源 SKILL.md；找不到源文件时说明快照修改不会持久化，再询问用户。"
+      : "\n## Skill Source Files\n\n" +
+        "When editing skills, a SKILL.md under session-files is only a session snapshot, not the source file. " +
+        "If the user provides a session-files path, first locate the source SKILL.md under workspace .agents/skills, .claude/skills, .codex/skills, .openclaw/skills, the user skills directory, or .pi/agent/skills; if no source file can be found, explain that editing the snapshot will not persist and ask the user."
+    );
+
     if (this._isComputerUseAvailableForThisAgent()) {
       parts.push(isZh
         ? "\n## 本机应用控制\n\n" +

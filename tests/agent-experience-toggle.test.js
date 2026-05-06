@@ -110,6 +110,18 @@ describe("agent experience toggle", () => {
     expect(prompt).not.toContain("create_artifact");
   });
 
+  it("warns that session-files skill snapshots are not editable sources", () => {
+    const { agent, root } = makeAgent({ experienceEnabled: false });
+    roots.push(root);
+
+    const prompt = agent.buildSystemPrompt();
+    expect(prompt).toContain("session-files is only a session snapshot");
+    expect(prompt).toContain("source SKILL.md");
+    expect(prompt).toContain(".codex/skills");
+    expect(prompt).toContain(".pi/agent/skills");
+    expect(prompt).toContain("editing the snapshot will not persist");
+  });
+
   it("lets session creation force the frozen experience tool state", () => {
     const { agent, root } = makeAgent({ experienceEnabled: true });
     roots.push(root);
