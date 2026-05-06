@@ -185,6 +185,8 @@ export function createWindowsUiaProvider({
     const result = await runner.run(command, [
       "-NoProfile",
       "-NonInteractive",
+      "-WindowStyle",
+      "Hidden",
       "-ExecutionPolicy",
       "Bypass",
       "-EncodedCommand",
@@ -192,6 +194,7 @@ export function createWindowsUiaProvider({
     ], {
       stdin: JSON.stringify(payload),
       timeoutMs,
+      windowsHide: true,
     });
 
     if (result.exitCode !== 0) {

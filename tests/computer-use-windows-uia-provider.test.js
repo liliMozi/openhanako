@@ -44,7 +44,9 @@ describe("Windows UIA provider", () => {
     await provider.listApps();
 
     expect(calls[0].command).toBe("powershell.exe");
+    expect(calls[0].args).toEqual(expect.arrayContaining(["-WindowStyle", "Hidden"]));
     expect(calls[0].args).toContain("-EncodedCommand");
+    expect(calls[0].options.windowsHide).toBe(true);
     expect(JSON.parse(calls[0].options.stdin)).toEqual({ command: "list_apps" });
   });
 
