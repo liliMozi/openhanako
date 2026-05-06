@@ -188,7 +188,7 @@ const SessionItem = memo(function SessionItem({ session: s, isActive, isStreamin
             onClick={e => e.stopPropagation()}
           />
         ) : (
-          <div className={styles.sessionItemTitle}>
+          <div className={styles.sessionItemTitle} title={s.title || s.firstMessage || t('session.untitled')}>
             {s.title || s.firstMessage || t('session.untitled')}
           </div>
         )}

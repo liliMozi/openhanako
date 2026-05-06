@@ -118,7 +118,7 @@ function SessionListCard({ onAction }: { onAction: () => void }) {
             onClick={() => { onAction(); switchSession(sess.path); }}
           >
             <SessionAvatar sess={sess} agents={agents} agentYuan={agentYuan} />
-            <span className="float-card-item-text">{sess.title || t('session.untitled')}</span>
+            <span className="float-card-item-text" title={sess.title || t('session.untitled')}>{sess.title || t('session.untitled')}</span>
           </div>
         ))}
       </div>
@@ -185,7 +185,7 @@ function DeskListCard() {
       ) : (
         <div className="float-card-list">
           {deskFiles.slice(0, 12).map((f: any) => (
-            <div key={f.name} className={`float-card-item${f.isDir ? ' is-dir' : ''}`}>
+            <div key={f.name} className={`float-card-item${f.isDir ? ' is-dir' : ''}`} title={f.isDir ? `${f.name}/` : f.name}>
               {f.isDir ? `${f.name}/` : f.name}
             </div>
           ))}
