@@ -103,6 +103,24 @@ describe("server startup diagnostics contract", () => {
     expect(serverSource).toContain("[server] ③ 跳过启动期 session 创建");
   });
 
+  it("keeps bridge platform dependencies out of the server readiness path", () => {
+    const serverSource = fs.readFileSync(path.join(root, "server", "index.js"), "utf-8");
+    const bridgeRouteSource = fs.readFileSync(path.join(root, "server", "routes", "bridge.js"), "utf-8");
+
+    expect(serverSource).not.toMatch(/^import\s+\{\s*BridgeManager\s*\}\s+from\s+["']\.\.\/lib\/bridge\/bridge-manager\.js["'];/m);
+    expect(serverSource).toContain('await import("../lib/bridge/bridge-manager.js")');
+
+    const readyWriteIndex = serverSource.indexOf("fs.writeFileSync(serverInfoPath");
+    const bridgeStartIndex = serverSource.indexOf("startBridgeManager({ autoStart: true })");
+    expect(readyWriteIndex).toBeGreaterThan(-1);
+    expect(bridgeStartIndex).toBeGreaterThan(-1);
+    expect(readyWriteIndex).toBeLessThan(bridgeStartIndex);
+
+    expect(bridgeRouteSource).not.toContain('import { getWechatQrcode, pollWechatQrcodeStatus } from "../../lib/bridge/wechat-login.js";');
+    expect(bridgeRouteSource).toContain('await import("../../lib/bridge/wechat-login.js")');
+    expect(bridgeRouteSource).toContain("resolveBridgeManager");
+  });
+
   it("keeps native SQLite out of the server static import graph", () => {
     const factStoreSource = fs.readFileSync(path.join(root, "lib", "memory", "fact-store.js"), "utf-8");
     const agentSource = fs.readFileSync(path.join(root, "core", "agent.js"), "utf-8");

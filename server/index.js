@@ -54,7 +54,6 @@ import { ConfirmStore } from "../lib/confirm-store.js";
 import { DeferredResultStore } from "../lib/deferred-result-store.js";
 import { createDeferredResultExtension } from "../lib/extensions/deferred-result-ext.js";
 import { createCompactionGuardExtension } from "../lib/extensions/compaction-guard-ext.js";
-import { BridgeManager } from "../lib/bridge/bridge-manager.js";
 import { Hub } from "../hub/index.js";
 import { startCLI } from "./cli.js";
 import { fromRoot } from "../shared/hana-root.js";
@@ -278,8 +277,59 @@ if (shouldCreateStartupSession && engine.currentModel) {
 }
 
 // ── 外部平台接入管理器 ──
-const bridgeManager = new BridgeManager({ engine, hub });
-hub.bridgeManager = bridgeManager;
+let bridgeManager = null;
+let bridgeManagerInitPromise = null;
+let bridgeManagerInitError = null;
+let bridgeAutoStartRequested = false;
+let bridgeAutoStartDone = false;
+
+function runBridgeAutoStart(manager) {
+  if (!manager || bridgeAutoStartDone) return;
+  bridgeAutoStartDone = true;
+  manager.autoStart(engine.agents);
+  dlog.log("server", "bridge autoStart done");
+}
+
+async function startBridgeManager({ autoStart = false } = {}) {
+  if (autoStart) bridgeAutoStartRequested = true;
+  if (bridgeManager) {
+    if (autoStart) runBridgeAutoStart(bridgeManager);
+    return bridgeManager;
+  }
+  if (bridgeManagerInitPromise) return bridgeManagerInitPromise;
+
+  bridgeManagerInitError = null;
+  bridgeManagerInitPromise = (async () => {
+    console.log("[server] Bridge manager 初始化...");
+    const { BridgeManager } = await import("../lib/bridge/bridge-manager.js");
+    const manager = new BridgeManager({ engine, hub });
+    bridgeManager = manager;
+    hub.bridgeManager = manager;
+    if (bridgeAutoStartRequested) runBridgeAutoStart(manager);
+    console.log("[server] Bridge manager 初始化完成");
+    return manager;
+  })().catch((err) => {
+    bridgeManagerInitError = err;
+    hub.bridgeManager = null;
+    console.error("[server] Bridge manager 初始化失败:", err.message);
+    dlog.error("server", `bridge init failed: ${err.stack || err.message}`);
+    return null;
+  }).finally(() => {
+    bridgeManagerInitPromise = null;
+  });
+
+  return bridgeManagerInitPromise;
+}
+
+const bridgeManagerRef = {
+  get: () => bridgeManager,
+  ensureReady: () => startBridgeManager(),
+  getState: () => ({
+    ready: !!bridgeManager,
+    initializing: !!bridgeManagerInitPromise,
+    error: bridgeManagerInitError?.message || null,
+  }),
+};
 
 const { restRoute: chatRestRoute, wsRoute: chatWsRoute } = createChatRoute(engine, hub, { upgradeWebSocket });
 app.route("/api", chatRestRoute);
@@ -297,7 +347,7 @@ app.route("/api", createChannelsRoute(engine, hub));
 app.route("/api", createDmRoute(engine));
 app.route("/api", createFsRoute(engine));
 app.route("/api", createPreferencesRoute(engine));
-app.route("/api", createBridgeRoute(engine, bridgeManager));
+app.route("/api", createBridgeRoute(engine, bridgeManagerRef));
 app.route("/api", createAuthRoute(engine));
 app.route("/api", createDiaryRoute(engine));
 app.route("/api", createConfirmRoute(confirmStore, engine));
@@ -530,12 +580,13 @@ try {
     console.error("[server] 写入 server-info.json 失败:", e.message);
   }
 
-  // 自动启动已配置的外部平台
-  bridgeManager.autoStart(engine.agents);
-  dlog.log("server", "bridge autoStart done");
-
   // 通知就绪（server-info.json 已在上方写入，无需额外动作）
   console.log(`[server] ready: port=${actualPort}`);
+
+  // Bridge 平台依赖不属于 HTTP readiness 的前置条件。先让桌面端拿到
+  // server-info，再在后台加载外部平台 adapter，避免 Windows 上依赖加载
+  // 或杀毒扫描拖垮主启动握手。
+  startBridgeManager({ autoStart: true });
 
   // 独立运行模式：启动 CLI（TTY 环境下自动进入交互模式）
   if (process.stdin.isTTY) {
@@ -586,7 +637,7 @@ async function gracefulShutdown() {
     }
 
     // 3. 停止外部平台
-    bridgeManager.stopAll();
+    bridgeManager?.stopAll();
     dlog.log("server", "bridge stopped");
 
     // 4. flush deferred result store（debounce 可能有未写盘的脏数据）
