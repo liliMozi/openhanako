@@ -218,9 +218,21 @@ export class ModelManager {
     if (typeof modelRef === "string" && !modelRef.trim()) return this.currentModel;
 
     const parsed = parseModelRef(modelRef);
-    const model = parsed?.id && parsed.provider
+    let model = parsed?.id && parsed.provider
       ? findModel(this._availableModels, parsed.id, parsed.provider)
       : null;
+    if (model) return model;
+
+    if (typeof modelRef === "string") {
+      const rawId = modelRef.trim();
+      if (rawId.includes("/")) {
+        const exactIdMatches = this._availableModels.filter(m => m.id === rawId);
+        if (exactIdMatches.length === 1) {
+          model = exactIdMatches[0];
+        }
+      }
+    }
+
     if (model) return model;
 
     const id = parsed?.id

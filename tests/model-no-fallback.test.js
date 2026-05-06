@@ -276,6 +276,51 @@ describe("模型选择无 fallback", () => {
       expect(result.model.input).toEqual(["text", "image"]);
     });
 
+    it("resolves a custom model whose id itself starts with models slash", () => {
+      const mm = new ModelManager({ hanakoHome: tempDir });
+      const fullModel = {
+        id: "models/gemini-3.1-flash-lite-preview",
+        provider: "gemini",
+        input: ["text"],
+      };
+      mm._availableModels = [fullModel];
+      mm.providerRegistry = {
+        getCredentials: vi.fn((provider) => (
+          provider === "gemini"
+            ? {
+                api: "openai-completions",
+                apiKey: "sk-test",
+                baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
+              }
+            : null
+        )),
+      };
+
+      const result = mm.resolveModelWithCredentials("models/gemini-3.1-flash-lite-preview");
+
+      expect(result.model).toBe(fullModel);
+      expect(result.provider).toBe("gemini");
+    });
+
+    it("does not guess a provider when a slash-containing model id is ambiguous", () => {
+      const mm = new ModelManager({ hanakoHome: tempDir });
+      mm._availableModels = [
+        { id: "models/shared-preview", provider: "gemini" },
+        { id: "models/shared-preview", provider: "another-provider" },
+      ];
+
+      expect(() => mm.resolveExecutionModel("models/shared-preview"))
+        .toThrow(/models\/shared-preview/);
+    });
+
+    it("still rejects bare model ids even when only one provider has that id", () => {
+      const mm = new ModelManager({ hanakoHome: tempDir });
+      mm._availableModels = [{ id: "gpt-4", provider: "openai" }];
+
+      expect(() => mm.resolveExecutionModel("gpt-4"))
+        .toThrow(/gpt-4/);
+    });
+
     it("provider 声明无须 key 时，远程 baseUrl 也能解析执行凭证", () => {
       const mm = new ModelManager({ hanakoHome: tempDir });
       const fullModel = {
