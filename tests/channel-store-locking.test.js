@@ -6,6 +6,7 @@ import {
   addBookmarkEntry,
   addChannelMember,
   appendMessage,
+  createChannel,
   parseChannel,
   readBookmarks,
   updateBookmark,
@@ -30,6 +31,20 @@ describe("channel-store write locking", () => {
       try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
       tmpDir = null;
     }
+  });
+
+  it("writes a default channel description when callers omit one", async () => {
+    tmpDir = mktemp();
+    const { id } = await createChannel(tmpDir, {
+      id: "ch_without_description",
+      name: "No Description",
+      members: ["hana", "yui"],
+    });
+
+    const content = fs.readFileSync(path.join(tmpDir, `${id}.md`), "utf-8");
+    const { meta } = parseChannel(content);
+
+    expect(meta.description).toBe("No description");
   });
 
   it("preserves appended messages when frontmatter rewrite overlaps", async () => {
