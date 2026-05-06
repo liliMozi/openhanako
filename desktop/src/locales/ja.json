@@ -1433,6 +1433,7 @@
     "agentDeleteActive": "現在使用中のアシスタントは削除できません",
     "agentNotExists": "アシスタント \"{id}\" は存在しません",
     "modelNoResponse": "モデルが何も返しませんでした。API 設定とネットワーク接続を確認してください。",
+    "modelNoResponseRepeated": "モデルが連続 {count} 回何も返していません。セッションコンテキストが破損している可能性があります。新しいセッションを開始することを検討してください。",
     "noActiveSession": "アクティブなセッションがありません",
     "compacting": "圧縮中です",
     "waitForReply": "応答が完了してから圧縮してください",

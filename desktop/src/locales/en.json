@@ -1478,6 +1478,7 @@
     "agentDeleteActive": "Cannot delete the currently active agent",
     "agentNotExists": "Agent \"{id}\" does not exist",
     "modelNoResponse": "Model returned no content. Please check API configuration and network connection.",
+    "modelNoResponseRepeated": "Model has returned no content {count} times in a row. The session context may be corrupted. Consider starting a new session.",
     "noActiveSession": "No active session",
     "compacting": "Compaction in progress",
     "waitForReply": "Please wait for the response to finish before compacting",

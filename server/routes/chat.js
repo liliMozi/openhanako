@@ -132,6 +132,7 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
         hasThinking: false,
         hasError: false,
         isAborted: false,
+        consecutiveNoResponse: 0,
         titleRequested: false,
         titlePreview: "",
         lastAccessed: Date.now(),
@@ -269,6 +270,7 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
 
       if (sub === "text_delta") {
         ss.hasOutput = true;
+        ss.consecutiveNoResponse = 0;
         if (ss.isThinking) {
           ss.isThinking = false;
           emitStreamEvent(sessionPath, ss, { type: "thinking_end" });
@@ -327,6 +329,7 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
     } else if (event.type === "tool_execution_start") {
       if (!ss) return;
       ss.hasToolCall = true;
+      ss.consecutiveNoResponse = 0;
       if (ss.isThinking) {
         ss.isThinking = false;
         emitStreamEvent(sessionPath, ss, { type: "thinking_end" });
@@ -540,7 +543,11 @@ export function createChatRoute(engine, hub, { upgradeWebSocket }) {
       // 空回复检测：本轮没有文本输出也没有工具调用，提示用户检查配置
       // 被 abort 的 turn 不弹此提示（用户主动停止 / WS 断开 / 连接超时）
       if (!ss.hasOutput && !ss.hasToolCall && !ss.hasThinking && !ss.hasError && !ss.isAborted) {
-        broadcast({ type: "error", message: t("error.modelNoResponse"), sessionPath });
+        ss.consecutiveNoResponse++;
+        const message = ss.consecutiveNoResponse >= 3
+          ? t("error.modelNoResponseRepeated", { count: ss.consecutiveNoResponse })
+          : t("error.modelNoResponse");
+        broadcast({ type: "error", message, sessionPath });
       }
 
       // ── token usage 事件（供插件监听做用量统计）──

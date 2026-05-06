@@ -1433,6 +1433,7 @@
     "agentDeleteActive": "不能刪除目前正在使用的助手",
     "agentNotExists": "助手 \"{id}\" 不存在",
     "modelNoResponse": "模型未回傳任何內容，請檢查 API 設定和網路連線。",
+    "modelNoResponseRepeated": "模型已連續 {count} 次未回傳內容，對話上下文可能已損壞，建議開啟新對話。",
     "noActiveSession": "沒有活躍的 session",
     "compacting": "正在壓縮中",
     "waitForReply": "請等待回覆結束後再壓縮",
