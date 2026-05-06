@@ -2,13 +2,70 @@
  * fix-modules.cjs — electron-builder afterPack 钩子
  *
  * electron-builder 的依赖分析有时会漏掉新的子依赖。
- * 这个脚本在打包后检查 dist node_modules，把缺失的
- * 生产依赖从本地 node_modules 拷贝过去。
+ * 这个脚本在打包后重建独立 server 的 node_modules，并检查启动期
+ * 必需的外部依赖已经落进最终资源目录。
  */
 
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const {
+  CRITICAL_BUNDLED_EXTERNALS,
+} = require("../desktop/src/shared/server-readiness.cjs");
+
+const SERVER_NODE_MODULE_REQUIRED_FILES = [
+  ...CRITICAL_BUNDLED_EXTERNALS.map((pkg) => `${pkg}/package.json`),
+  "better-sqlite3/build/Release/better_sqlite3.node",
+];
+
+function resolveNodeModuleFile(nodeModulesDir, relativePath) {
+  return path.join(nodeModulesDir, ...relativePath.split("/"));
+}
+
+function missingBundledServerNodeModuleFiles(nodeModulesDir) {
+  const missing = [];
+  for (const relativePath of SERVER_NODE_MODULE_REQUIRED_FILES) {
+    try {
+      fs.accessSync(resolveNodeModuleFile(nodeModulesDir, relativePath), fs.constants.R_OK);
+    } catch {
+      missing.push(`node_modules/${relativePath}`);
+    }
+  }
+  return missing;
+}
+
+function assertBundledServerNodeModulesReady(nodeModulesDir) {
+  const missing = missingBundledServerNodeModuleFiles(nodeModulesDir);
+  if (missing.length > 0) {
+    throw new Error(
+      `[fix-modules] Packaged server node_modules is incomplete: ${missing.join(", ")}`,
+    );
+  }
+}
+
+function copyBundledServerNodeModules(serverDir, serverBuildModules, opts = {}) {
+  if (!fs.existsSync(serverDir)) {
+    throw new Error(
+      `[fix-modules] Packaged server directory is missing: ${serverDir}. ` +
+      "Run npm run build:server before electron-builder.",
+    );
+  }
+
+  if (!fs.existsSync(serverBuildModules)) {
+    throw new Error(
+      `[fix-modules] Built server node_modules is missing: ${serverBuildModules}. ` +
+      "Run npm run build:server before electron-builder.",
+    );
+  }
+
+  const serverNodeModules = path.join(serverDir, "node_modules");
+  fs.rmSync(serverNodeModules, { recursive: true, force: true });
+  fs.cpSync(serverBuildModules, serverNodeModules, { recursive: true });
+  assertBundledServerNodeModulesReady(serverNodeModules);
+
+  const log = typeof opts.log === "function" ? opts.log : console.log;
+  log(`[fix-modules] 重建 server node_modules → ${serverNodeModules}`);
+}
 
 exports.default = async function (context) {
   const platformName = context.packager.platform.name;
@@ -20,7 +77,7 @@ exports.default = async function (context) {
   const distModules = path.join(appDir, "node_modules");
   const localModules = path.resolve(__dirname, "..", "node_modules");
 
-  // ── server native deps 补全 ──
+  // ── server runtime deps 重建 ──
   // electron-builder 的 extraResources 会过滤 node_modules，
   // 这里手动把 build-server 产出的 node_modules 复制到 server 目录
   const resourcesDir = platformName === "mac"
@@ -44,13 +101,7 @@ exports.default = async function (context) {
   const osDirName = platformName === "mac" ? "mac" : platformName === "windows" ? "win" : "linux";
   const serverBuildModules = path.join(__dirname, "..", "dist-server", `${osDirName}-${arch}`, "node_modules");
 
-  if (fs.existsSync(serverDir) && fs.existsSync(serverBuildModules)) {
-    const serverNodeModules = path.join(serverDir, "node_modules");
-    if (!fs.existsSync(serverNodeModules)) {
-      fs.cpSync(serverBuildModules, serverNodeModules, { recursive: true });
-      console.log(`[fix-modules] 补全 server native deps → ${serverNodeModules}`);
-    }
-  }
+  copyBundledServerNodeModules(serverDir, serverBuildModules);
 
   if (!fs.existsSync(distModules)) return;
 
@@ -138,3 +189,7 @@ exports.default = async function (context) {
     console.log(`[fix-modules] 清理了 ${removedLinks} 个指向 bundle 外部的 .bin 符号链接`);
   }
 };
+
+exports.SERVER_NODE_MODULE_REQUIRED_FILES = SERVER_NODE_MODULE_REQUIRED_FILES;
+exports.assertBundledServerNodeModulesReady = assertBundledServerNodeModulesReady;
+exports.copyBundledServerNodeModules = copyBundledServerNodeModules;
