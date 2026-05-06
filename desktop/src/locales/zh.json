@@ -1489,7 +1489,7 @@
     "compactFailed": "压缩失败: {msg}",
     "maxImages": "最多支持 {max} 张图片",
     "unsupportedImageFormat": "不支持的图片格式: {mime}",
-    "imageTooLarge": "单张图片不得超过 20MB",
+    "imageTooLarge": "单张图片不得超过 10MB",
     "viewImage": "（看图）",
     "modelNoVision": "当前模型不支持图片，请切换到支持图片的模型后再试",
     "searchProviderNotConfigured": "未配置搜索 provider",

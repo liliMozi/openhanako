@@ -1484,7 +1484,7 @@
     "compactFailed": "Compaction failed: {msg}",
     "maxImages": "Maximum {max} images allowed",
     "unsupportedImageFormat": "Unsupported image format: {mime}",
-    "imageTooLarge": "Single image must not exceed 20MB",
+    "imageTooLarge": "Single image must not exceed 10MB",
     "viewImage": "(view image)",
     "modelNoVision": "Current model does not support images. Please switch to a vision-capable model",
     "searchProviderNotConfigured": "Search provider not configured",
