@@ -125,6 +125,34 @@ describe("loadAll", () => {
     expect(pm.getPlugin("good-plugin").status).toBe("loaded");
   });
 
+  it("timed out onload marks plugin as failed, does not block startup", async () => {
+    const stuck = path.join(pluginsDir, "stuck-plugin");
+    fs.mkdirSync(stuck, { recursive: true });
+    fs.writeFileSync(path.join(stuck, "index.js"), `
+      export default class Stuck { async onload() { await new Promise(() => {}); } }
+    `);
+    const good = path.join(pluginsDir, "after-stuck");
+    fs.mkdirSync(path.join(good, "tools"), { recursive: true });
+    fs.writeFileSync(path.join(good, "tools", "t.js"), "export const name='t';");
+    const pm = new PluginManager({
+      pluginsDir,
+      dataDir,
+      bus: await makeBus(),
+      lifecycleTimeoutMs: 20,
+    });
+    pm.scan();
+
+    const result = await Promise.race([
+      pm.loadAll().then(() => "loaded"),
+      new Promise((resolve) => setTimeout(() => resolve("hung"), 100)),
+    ]);
+
+    expect(result).toBe("loaded");
+    expect(pm.getPlugin("stuck-plugin").status).toBe("failed");
+    expect(pm.getPlugin("stuck-plugin").error).toMatch(/timed out/i);
+    expect(pm.getPlugin("after-stuck").status).toBe("loaded");
+  });
+
   it("plugin without index.js loads as static (no lifecycle)", async () => {
     const dir = path.join(pluginsDir, "static-only");
     fs.mkdirSync(path.join(dir, "tools"), { recursive: true });
