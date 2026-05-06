@@ -34,6 +34,7 @@
     "build:computer-use-helper": "node scripts/build-computer-use-helper.mjs",
     "build:client": "npm run build:main && npm run build:preload && npm run build:renderer && npm run build:theme",
     "generate:windows-icon": "node scripts/generate-windows-icon.cjs",
+    "generate:macos-icon": "node scripts/generate-macos-icon.cjs",
     "pack": "npm run build:computer-use-helper && npm run build:server && npm run build:client && electron-builder --dir",
     "install:local": "npm run pack && rm -rf /Applications/Hanako.app && cp -R dist/mac-arm64/Hanako.app /Applications/ && printf 'provider: github\\nowner: liliMozi\\nrepo: openhanako\\n' > /Applications/Hanako.app/Contents/Resources/app-update.yml && node scripts/sign-local.cjs",
     "dist": "npm run build:computer-use-helper && npm run build:server && npm run build:client && electron-builder --mac dmg",
