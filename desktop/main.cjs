@@ -962,6 +962,25 @@ function createMainWindow() {
     mainWindow.webContents.openDevTools();
   }
 
+  // Zoom shortcuts: Ctrl/Cmd + Plus/Minus/Equal/0
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    const ctrl = input.control || input.meta;
+    if (!ctrl) return;
+    if (input.type !== "keyDown") return;
+    if (input.key === "+" || input.key === "=") {
+      const level = mainWindow.webContents.getZoomLevel();
+      mainWindow.webContents.setZoomLevel(level + 0.5);
+      event.preventDefault();
+    } else if (input.key === "-" || input.key === "_") {
+      const level = mainWindow.webContents.getZoomLevel();
+      mainWindow.webContents.setZoomLevel(level - 0.5);
+      event.preventDefault();
+    } else if (input.key === "0") {
+      mainWindow.webContents.setZoomLevel(0);
+      event.preventDefault();
+    }
+  });
+
   // renderer 崩溃恢复：自动 reload
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
     console.error(`[desktop] renderer 崩溃: ${details.reason} (code: ${details.exitCode})`);
