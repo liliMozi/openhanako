@@ -5,7 +5,7 @@ export const ALLOWED_CHAT_IMAGE_MIME_TYPES = Object.freeze([
   "image/webp",
 ]);
 
-export const MAX_CHAT_IMAGE_BASE64_CHARS = 20 * 1024 * 1024;
+export const MAX_CHAT_IMAGE_BASE64_CHARS = 10 * 1024 * 1024;
 
 const MIME_TO_EXT = Object.freeze({
   "image/png": ".png",
