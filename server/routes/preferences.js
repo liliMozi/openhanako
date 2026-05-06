@@ -14,6 +14,8 @@ import { Hono } from "hono";
 import { emitAppEvent } from "../app-events.js";
 import { safeJson } from "../hono-helpers.js";
 import { debugLog } from "../../lib/debug-log.js";
+import { normalizeWorkspacePath } from "../../shared/workspace-history.js";
+import { normalizeWorkspaceUiEntry } from "../../shared/workspace-ui-state.js";
 import {
   normalizeSharedModelsPatch,
   sharedModelsPatchRequiresModelSync,
@@ -119,6 +121,37 @@ export function createPreferencesRoute(engine) {
     } catch (err) {
       debugLog()?.error("api", `PUT /api/preferences/models failed: ${err.message}`);
       return c.json({ error: err.message }, 500);
+    }
+  });
+
+  route.get("/preferences/workspace-ui-state", async (c) => {
+    try {
+      const workspace = normalizeWorkspacePath(c.req.query("workspace"));
+      if (!workspace) return c.json({ error: "workspace must be a non-empty path" }, 400);
+      if (typeof engine.getWorkspaceUiState !== "function") {
+        return c.json({ error: "workspace UI state unavailable" }, 500);
+      }
+      return c.json({ state: engine.getWorkspaceUiState(workspace) });
+    } catch (err) {
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  route.put("/preferences/workspace-ui-state", async (c) => {
+    try {
+      const body = await safeJson(c);
+      if (!body || typeof body !== "object") {
+        return c.json({ error: "invalid JSON body" }, 400);
+      }
+      const workspace = normalizeWorkspacePath(body.workspace);
+      if (!workspace) return c.json({ error: "workspace must be a non-empty path" }, 400);
+      if (typeof engine.setWorkspaceUiState !== "function") {
+        return c.json({ error: "workspace UI state unavailable" }, 500);
+      }
+      const state = engine.setWorkspaceUiState(workspace, normalizeWorkspaceUiEntry(body.state || {}));
+      return c.json({ ok: true, state });
+    } catch (err) {
+      return c.json({ error: err.message }, 400);
     }
   });
 

@@ -15,6 +15,7 @@ import {
   deskUploadFilesToSubdir,
   loadDeskTreeFiles,
 } from '../../stores/desk-actions';
+import { schedulePersistCurrentWorkspaceUiState } from '../../stores/workspace-ui-state-actions';
 import { openFilePreview } from '../../utils/file-preview';
 import {
   clearAppFileDragPayload,
@@ -258,6 +259,7 @@ function TreeNode({
   const toggleFolder = useCallback(() => {
     if (!file.isDir) return;
     setDeskExpandedPaths(toggleExpanded(expandedPaths, subdir));
+    schedulePersistCurrentWorkspaceUiState();
     if (!expanded) void loadDeskTreeFiles(subdir);
   }, [expanded, expandedPaths, file.isDir, setDeskExpandedPaths, subdir]);
 
@@ -295,6 +297,7 @@ function TreeNode({
           action: () => {
             if (file.isDir) {
               setDeskExpandedPaths(expandedPaths.includes(subdir) ? expandedPaths : [...expandedPaths, subdir]);
+              schedulePersistCurrentWorkspaceUiState();
               void loadDeskTreeFiles(subdir);
             } else {
               window.platform?.openFile?.(path);

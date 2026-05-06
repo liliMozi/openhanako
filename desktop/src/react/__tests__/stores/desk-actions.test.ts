@@ -24,8 +24,20 @@ function deferred<T>() {
 describe('desk-actions workspace roots', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHanaFetch.mockReset();
+    mockHanaFetch.mockImplementation(async (url: string) => {
+      if (url.startsWith('/api/preferences/workspace-ui-state')) return jsonResponse({ state: null });
+      if (url.startsWith('/api/desk/jian')) return jsonResponse({ content: null });
+      return jsonResponse({});
+    });
     (globalThis as any).window = {
       t: (key: string) => key,
+      platform: {
+        readFileSnapshot: vi.fn(async (filePath: string) => ({
+          content: `content:${filePath}`,
+          version: { mtimeMs: 1, size: 10, sha256: 'hash' },
+        })),
+      },
     };
     useStore.setState({
       serverPort: 62950,
@@ -119,6 +131,7 @@ describe('desk-actions workspace roots', () => {
   it('persists the selected workspace before refreshing the visible desk root', async () => {
     const persist = deferred<Response>();
     mockHanaFetch
+      .mockResolvedValueOnce(jsonResponse({ state: null }))
       .mockReturnValueOnce(persist.promise)
       .mockResolvedValueOnce(jsonResponse({ files: [{ name: 'note.md' }], basePath: '/workspace/Desktop' }))
       .mockResolvedValueOnce(jsonResponse({ content: null }));
@@ -129,9 +142,13 @@ describe('desk-actions workspace roots', () => {
     expect(useStore.getState().selectedFolder).toBe('/workspace/Desktop');
     expect(useStore.getState().deskBasePath).toBe('/workspace/Desktop');
     expect(useStore.getState().deskFiles).toEqual([]);
-    expect(mockHanaFetch).toHaveBeenCalledTimes(1);
+    expect(mockHanaFetch).toHaveBeenCalledTimes(2);
     expect(mockHanaFetch).toHaveBeenNthCalledWith(
       1,
+      '/api/preferences/workspace-ui-state?workspace=%2Fworkspace%2FDesktop',
+    );
+    expect(mockHanaFetch).toHaveBeenNthCalledWith(
+      2,
       '/api/config/workspaces/recent',
       expect.objectContaining({
         method: 'POST',
@@ -143,7 +160,7 @@ describe('desk-actions workspace roots', () => {
     await run;
 
     expect(mockHanaFetch).toHaveBeenNthCalledWith(
-      2,
+      3,
       '/api/desk/files?dir=%2Fworkspace%2FDesktop',
     );
     expect(useStore.getState().deskBasePath).toBe('/workspace/Desktop');
@@ -206,6 +223,47 @@ describe('desk-actions workspace roots', () => {
     expect(useStore.getState().previewOpen).toBe(true);
     expect(useStore.getState().openTabs).toEqual(['previewItem-a']);
     expect(useStore.getState().activeTabId).toBe('previewItem-a');
+  });
+
+  it('restores persisted workspace UI state from the backend when memory has no entry', async () => {
+    mockHanaFetch.mockResolvedValueOnce(jsonResponse({
+      state: {
+        deskExpandedPaths: ['src', 'src/react'],
+        deskSelectedPath: 'src/react/App.tsx',
+        previewOpen: true,
+        openTabs: ['file-src/react/App.tsx'],
+        activeTabId: 'file-src/react/App.tsx',
+        previewTabs: [
+          {
+            id: 'file-src/react/App.tsx',
+            relativePath: 'src/react/App.tsx',
+            title: 'App.tsx',
+            type: 'code',
+            ext: 'tsx',
+            language: 'tsx',
+          },
+        ],
+      },
+    }));
+
+    const { activateWorkspaceDesk } = await import('../../stores/desk-actions');
+    await activateWorkspaceDesk('/workspace', { reload: false });
+
+    expect(mockHanaFetch).toHaveBeenCalledWith('/api/preferences/workspace-ui-state?workspace=%2Fworkspace');
+    expect(useStore.getState().deskExpandedPaths).toEqual(['src', 'src/react']);
+    expect(useStore.getState().deskSelectedPath).toBe('src/react/App.tsx');
+    expect(useStore.getState().previewOpen).toBe(true);
+    expect(useStore.getState().openTabs).toEqual(['file-src/react/App.tsx']);
+    expect(useStore.getState().activeTabId).toBe('file-src/react/App.tsx');
+    expect(useStore.getState().previewItems).toEqual([
+      expect.objectContaining({
+        id: 'file-src/react/App.tsx',
+        filePath: '/workspace/src/react/App.tsx',
+        title: 'App.tsx',
+        content: 'content:/workspace/src/react/App.tsx',
+        fileVersion: { mtimeMs: 1, size: 10, sha256: 'hash' },
+      }),
+    ]);
   });
 
   it('renames a tree item by explicit parent subdir and updates that tree cache', async () => {

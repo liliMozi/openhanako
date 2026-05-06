@@ -16,6 +16,11 @@ import {
   mergeEditorTypography,
   normalizeEditorTypography,
 } from "../shared/editor-typography.js";
+import {
+  normalizeWorkspaceUiState,
+  upsertWorkspaceUiState,
+} from "../shared/workspace-ui-state.js";
+import { normalizeWorkspacePath } from "../shared/workspace-history.js";
 
 export class PreferencesManager {
   /**
@@ -237,6 +242,28 @@ export class PreferencesManager {
     prefs.editor = mergeEditorTypography(prefs.editor, partial);
     this.savePreferences(prefs);
     return prefs.editor;
+  }
+
+  /** 读取指定工作区的 UI 状态（文件夹展开、预览 tabs 等）。 */
+  getWorkspaceUiState(workspaceRoot) {
+    const workspace = normalizeWorkspacePath(workspaceRoot);
+    if (!workspace) return null;
+    const state = normalizeWorkspaceUiState(this._cache.workspace_ui_state || {});
+    return structuredClone(state.workspaces[workspace] || null);
+  }
+
+  /** 写入指定工作区的 UI 状态，状态按 workspace root keyed。 */
+  setWorkspaceUiState(workspaceRoot, entry) {
+    const workspace = normalizeWorkspacePath(workspaceRoot);
+    if (!workspace) return null;
+    const prefs = this._mutableCopy();
+    prefs.workspace_ui_state = upsertWorkspaceUiState(
+      prefs.workspace_ui_state || {},
+      workspace,
+      entry,
+    );
+    this.savePreferences(prefs);
+    return structuredClone(prefs.workspace_ui_state.workspaces[workspace] || null);
   }
 
   /** 读取时区偏好（全局） */

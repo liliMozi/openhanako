@@ -10,6 +10,7 @@ import type { StoreState } from './index';
 import { updateLayout } from '../components/SidebarLayout';
 import type { PreviewItem } from '../types';
 import type { PreviewSlice } from './preview-slice';
+import { schedulePersistCurrentWorkspaceUiState } from './workspace-ui-state-actions';
 
 // ── Viewer spawn（派生只读窗口） ──
 
@@ -57,8 +58,6 @@ export function initViewerEvents(): void {
   });
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- IPC callback data */
-
 let _legacyArtifactCounter = 0;
 
 // ── Internal write primitive ──
@@ -97,6 +96,7 @@ export function openTab(id: string): void {
     const tabs = prev.openTabs.includes(id) ? prev.openTabs : [...prev.openTabs, id];
     return { openTabs: tabs, activeTabId: id };
   });
+  schedulePersistCurrentWorkspaceUiState();
 }
 
 /** 关闭 tab；若关闭的是 active，激活前一个 */
@@ -115,11 +115,13 @@ export function closeTab(id: string): void {
       markdownPreviewIds: prev.markdownPreviewIds.filter(previewId => previewId !== id),
     };
   });
+  schedulePersistCurrentWorkspaceUiState();
 }
 
 /** 切换激活 tab */
 export function setActiveTab(id: string): void {
   updatePreview(() => ({ activeTabId: id }));
+  schedulePersistCurrentWorkspaceUiState();
 }
 
 /** 清空整个预览池 */
@@ -149,6 +151,7 @@ export function openPreview(previewItem: PreviewItem): void {
   openTab(previewItem.id);
   useStore.getState().setPreviewOpen(true);
   updateLayout();
+  schedulePersistCurrentWorkspaceUiState();
 }
 
 /** 收起面板，保留 tabs 和 previewItems（下次打开恢复） */
@@ -157,6 +160,7 @@ export function closePreview(): void {
   s.setPreviewOpen(false);
   if (s.quotedSelection) s.clearQuotedSelection();
   updateLayout();
+  schedulePersistCurrentWorkspaceUiState();
 }
 
 /**

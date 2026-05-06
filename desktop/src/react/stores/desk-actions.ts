@@ -9,6 +9,11 @@ import { hanaFetch } from '../hooks/use-hana-fetch';
 import { clearChat } from './agent-actions';
 import type { DeskFile, DeskSearchResult } from '../types';
 import type { WorkspaceDeskState } from './desk-slice';
+import {
+  hydratePersistedPreviewItems,
+  loadPersistedWorkspaceUiState,
+  schedulePersistCurrentWorkspaceUiState,
+} from './workspace-ui-state-actions';
 // @ts-expect-error — shared JS module
 import { mergeWorkspaceHistory, normalizeWorkspacePath } from '../../../../shared/workspace-history.js';
 
@@ -54,6 +59,7 @@ export function captureCurrentWorkspaceDeskState(root?: string | null): void {
   const key = normalizeFolder(root ?? s.deskBasePath);
   if (!key) return;
   s.setWorkspaceDeskState(key, buildWorkspaceDeskState(s));
+  schedulePersistCurrentWorkspaceUiState(key);
 }
 
 export async function activateWorkspaceDesk(root: string | null | undefined, options: {
@@ -116,8 +122,42 @@ export async function activateWorkspaceDesk(root: string | null | undefined, opt
   });
   updateDeskContextBtn();
 
+  let effectiveSubdir = nextSubdir;
+  if (!saved) {
+    const persisted = await loadPersistedWorkspaceUiState(normalized);
+    const restoredPreviewItems = await hydratePersistedPreviewItems(normalized, persisted);
+    const restoredPreviewItemsById = new Map(restoredPreviewItems.map(item => [item.id, item]));
+    const restoredOpenTabs = persisted?.openTabs?.filter(id => restoredPreviewItemsById.has(id)) || [];
+    const restoredActiveTabId = persisted?.activeTabId && restoredOpenTabs.includes(persisted.activeTabId)
+      ? persisted.activeTabId
+      : (restoredOpenTabs[0] || null);
+    if (persisted && normalizeFolder(useStore.getState().deskBasePath) === normalized) {
+      effectiveSubdir = sameRoot ? effectiveSubdir : (persisted.deskCurrentPath || '');
+      useStore.setState((state: any) => ({
+        deskCurrentPath: effectiveSubdir,
+        deskExpandedPaths: persisted.deskExpandedPaths || [],
+        deskSelectedPath: persisted.deskSelectedPath || '',
+        previewOpen: !!persisted.previewOpen,
+        openTabs: restoredOpenTabs,
+        activeTabId: restoredActiveTabId,
+        ...(restoredPreviewItems.length > 0
+          ? {
+              previewItems: [
+                ...state.previewItems.filter((item: any) => !restoredPreviewItemsById.has(item.id)),
+                ...restoredPreviewItems,
+              ],
+            }
+          : {}),
+      }));
+    }
+  }
+
   if (options.reload === false) return;
-  await loadDeskFiles(nextSubdir, normalized);
+  await loadDeskFiles(effectiveSubdir, normalized);
+  const expandedPaths = useStore.getState().deskExpandedPaths || [];
+  for (const subdir of expandedPaths) {
+    await loadDeskTreeFiles(subdir, { force: true, overrideDir: normalized });
+  }
 }
 
 export function deskFullPath(name: string): string | null {
@@ -286,6 +326,7 @@ export async function jumpToDeskSearchResult(result: DeskSearchResult): Promise<
     deskExpandedPaths: Array.from(new Set([...(s.deskExpandedPaths || []), ...foldersToExpand])),
     deskSelectedPath: target,
   }));
+  schedulePersistCurrentWorkspaceUiState();
   for (const subdir of foldersToExpand) {
     await loadDeskTreeFiles(subdir);
   }
@@ -437,6 +478,7 @@ function applyRenamedDirectoryCache(oldSubdir: string, newSubdir: string): void 
       deskCurrentPath: replaceSubdirPrefix(s.deskCurrentPath || '', oldSubdir, newSubdir),
     };
   });
+  schedulePersistCurrentWorkspaceUiState();
 }
 
 function pruneRemovedDirectoryCache(removedSubdirs: string[]): void {
@@ -453,6 +495,7 @@ function pruneRemovedDirectoryCache(removedSubdirs: string[]): void {
       deskSelectedPath: removedSubdirs.some(prefix => removeSubdirPrefix(s.deskSelectedPath || '', prefix)) ? '' : s.deskSelectedPath,
     };
   });
+  schedulePersistCurrentWorkspaceUiState();
 }
 
 export async function deskMoveTreeFiles(items: DeskTreeMoveItem[], destSubdir: string): Promise<void> {
